@@ -2,10 +2,9 @@
 
 #define CINTERFACE
 
+#include <ddraw.h>
 #include <fstream>
-
-struct _GUID;
-struct tagRECT;
+#include <type_traits>
 
 #define LOG_ONCE(msg) \
 	static bool isAlreadyLogged##__LINE__ = false; \
@@ -15,12 +14,32 @@ struct tagRECT;
 		isAlreadyLogged##__LINE__ = true; \
 	}
 
-inline std::ostream& operator<<(std::ostream& os, const _GUID& guid)
+std::ostream& operator<<(std::ostream& os, const RECT& rect);
+std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps);
+std::ostream& operator<<(std::ostream& os, const DDSCAPS2& caps);
+std::ostream& operator<<(std::ostream& os, const DDPIXELFORMAT& pf);
+std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC& sd);
+std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd);
+
+template <typename T>
+typename std::enable_if<std::is_class<T>::value && !std::is_same<T, std::string>::value, std::ostream&>::type
+operator<<(std::ostream& os, const T& t)
 {
-	return os << &guid;
+	return os << static_cast<const void*>(&t);
 }
 
-std::ostream& operator<<(std::ostream& os, tagRECT* rect);
+template <typename T>
+typename std::enable_if<std::is_class<T>::value, std::ostream&>::type
+operator<<(std::ostream& os, const T* t)
+{
+	return t ? (os << *t) : (os << "null");
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, T** t)
+{
+	return t ? (os << reinterpret_cast<void*>(t) << '=' << *t) : (os << "null");
+}
 
 namespace Compat
 {
@@ -88,7 +107,7 @@ namespace Compat
 		template <typename Result>
 		void operator<<(const Result& result)
 		{
-			static_cast<Log&>(*this) << " = " << result;
+			static_cast<Log&>(*this) << " = " << std::hex << result << std::dec;
 		}
 	};
 #else
