@@ -44,7 +44,8 @@ namespace
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
 
 		IDirectDrawSurface* surface = nullptr;
-		if (SUCCEEDED(dd.lpVtbl->CreateSurface(&dd, &desc, &surface, nullptr)))
+		HRESULT result = CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
+		if (SUCCEEDED(result))
 		{
 			IUnknown& surfaceUnk = reinterpret_cast<IUnknown&>(*surface);
 			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface>>(IID_IDirectDrawSurface, surfaceUnk);
@@ -54,16 +55,26 @@ namespace
 			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface7>>(IID_IDirectDrawSurface7, surfaceUnk);
 			surface->lpVtbl->Release(surface);
 		}
+		else
+		{
+			Compat::Log() << "Failed to create a DirectDraw surface for hooking: " << result;
+		}
 	}
 
 	void hookDirectDrawPalette(IDirectDraw& dd)
 	{
 		PALETTEENTRY paletteEntries[2] = {};
 		IDirectDrawPalette* palette = nullptr;
-		if (SUCCEEDED(dd.lpVtbl->CreatePalette(&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr)))
+		HRESULT result = CompatDirectDraw<IDirectDraw>::s_origVtable.CreatePalette(
+			&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr);
+		if (SUCCEEDED(result))
 		{
 			CompatDirectDrawPalette::hookVtable(*palette);
 			palette->lpVtbl->Release(palette);
+		}
+		else
+		{
+			Compat::Log() << "Failed to create a DirectDraw palette for hooking: " << result;
 		}
 	}
 
@@ -74,7 +85,8 @@ namespace
 		{
 			Compat::Log() << "Installing DirectDraw hooks";
 			IDirectDraw* dd = nullptr;
-			if (SUCCEEDED(CALL_ORIG_DDRAW(DirectDrawCreate, nullptr, &dd, nullptr)))
+			HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreate, nullptr, &dd, nullptr);
+			if (SUCCEEDED(result))
 			{
 				dd->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 
@@ -86,6 +98,10 @@ namespace
 				CompatGdiSurface::hookGdi();
 
 				dd->lpVtbl->Release(dd);
+			}
+			else
+			{
+				Compat::Log() << "Failed to create a DirectDraw object for hooking" << result;
 			}
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;

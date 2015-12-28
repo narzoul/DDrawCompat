@@ -47,10 +47,8 @@ public:
 			s_vtablePtr = intf.lpVtbl;
 			s_origVtable = *intf.lpVtbl;
 
-			DetourTransactionBegin();
 			InitVisitor visitor;
 			forEach<Vtable<Interface>>(visitor);
-			DetourTransactionCommit();
 		}
 	}
 
@@ -67,8 +65,13 @@ private:
 
 			if (!(s_compatVtable.*ptr))
 			{
-				s_compatVtable.*ptr = s_origVtable.*ptr;
+#ifdef _DEBUG
+				s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
+				hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+#else
 				s_threadSafeVtable.*ptr = s_origVtable.*ptr;
+#endif
+				s_compatVtable.*ptr = s_origVtable.*ptr;
 			}
 			else
 			{
@@ -105,10 +108,12 @@ private:
 			}
 			else
 			{
-				DetourAttach(&origMethodPtr, newMethodPtr);
 				s_vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
 				Compat::detouredMethods.emplace(origMethodPtr,
 					Compat::DetouredMethodInfo(origMethodPtr, s_vtablePtrToCompatVtable));
+				DetourTransactionBegin();
+				DetourAttach(&origMethodPtr, newMethodPtr);
+				DetourTransactionCommit();
 			}
 		}
 
@@ -130,8 +135,8 @@ private:
 				result = (s_origVtable.*ptr)(This, params...);
 			}
 
-			Compat::origProcs.ReleaseDDThreadLock();
 			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), This, params...) << result;
+			Compat::origProcs.ReleaseDDThreadLock();
 			return result;
 		}
 	};
