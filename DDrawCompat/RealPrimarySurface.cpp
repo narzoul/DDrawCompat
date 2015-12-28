@@ -108,15 +108,11 @@ namespace
 	{
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
-		g_paletteConverterSurface->lpVtbl->Release(g_paletteConverterSurface);
-		g_paletteConverterSurface = nullptr;
-
-		SetEvent(g_updateEvent);
-		if (WAIT_TIMEOUT == WaitForSingleObject(g_updateThread, 500))
+		if (g_paletteConverterSurface)
 		{
-			TerminateThread(g_updateThread, 0);
+			g_paletteConverterSurface->lpVtbl->Release(g_paletteConverterSurface);
+			g_paletteConverterSurface = nullptr;
 		}
-		g_updateThread = nullptr;
 
 		CloseHandle(g_updateEvent);
 		g_updateEvent = nullptr;
@@ -153,6 +149,11 @@ namespace
 
 			Compat::origProcs.AcquireDDThreadLock();
 			ResetEvent(g_updateEvent);
+			if (!g_frontBuffer)
+			{
+				Compat::origProcs.ReleaseDDThreadLock();
+				continue;
+			}
 
 			if (!g_isFlipEvent)
 			{
@@ -233,9 +234,16 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 
 	QueryPerformanceFrequency(&g_qpcFrequency);
 
-	g_updateEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-	g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
-	SetThreadPriority(g_updateThread, THREAD_PRIORITY_ABOVE_NORMAL);
+	if (!g_updateEvent)
+	{
+		g_updateEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+	}
+
+	if (!g_updateThread)
+	{
+		g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
+		SetThreadPriority(g_updateThread, THREAD_PRIORITY_ABOVE_NORMAL);
+	}
 
 	g_frontBuffer->lpVtbl->SetPrivateData(g_frontBuffer,
 		IID_IReleaseNotifier, &g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
