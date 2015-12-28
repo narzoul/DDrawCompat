@@ -46,7 +46,12 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	else
 	{
 		if (CompatPrimarySurface::displayMode.pixelFormat.dwSize != 0 &&
-			!(lpDDSurfaceDesc->dwFlags & DDSD_PIXELFORMAT))
+			!(lpDDSurfaceDesc->dwFlags & DDSD_PIXELFORMAT) &&
+			(lpDDSurfaceDesc->dwFlags & DDSD_WIDTH) &&
+			(lpDDSurfaceDesc->dwFlags & DDSD_HEIGHT) &&
+			(lpDDSurfaceDesc->dwFlags & DDSD_CAPS) &&
+			(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_3DDEVICE | DDSCAPS_BACKBUFFER | DDSCAPS_FLIP |
+				DDSCAPS_FRONTBUFFER | DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE)))
 		{
 			lpDDSurfaceDesc->dwFlags |= DDSD_PIXELFORMAT;
 			lpDDSurfaceDesc->ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
