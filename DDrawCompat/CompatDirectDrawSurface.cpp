@@ -361,6 +361,12 @@ void CompatDirectDrawSurface<TSurface>::initPrimarySurfacePtr(const GUID& guid, 
 }
 
 template <typename TSurface>
+void CompatDirectDrawSurface<TSurface>::resetPrimarySurfacePtr()
+{
+	s_compatPrimarySurface = nullptr;
+}
+
+template <typename TSurface>
 HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 	TSurface* This,
 	LPRECT lpDestRect,

@@ -1,4 +1,5 @@
 #include "CompatDirectDraw.h"
+#include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
@@ -14,6 +15,12 @@ namespace
 		ZeroMemory(&CompatPrimarySurface::pixelFormat, sizeof(CompatPrimarySurface::pixelFormat));
 		CompatPrimarySurface::pitch = 0;
 		CompatPrimarySurface::surfacePtr = nullptr;
+
+		CompatDirectDrawSurface<IDirectDrawSurface>::resetPrimarySurfacePtr();
+		CompatDirectDrawSurface<IDirectDrawSurface2>::resetPrimarySurfacePtr();
+		CompatDirectDrawSurface<IDirectDrawSurface3>::resetPrimarySurfacePtr();
+		CompatDirectDrawSurface<IDirectDrawSurface4>::resetPrimarySurfacePtr();
+		CompatDirectDrawSurface<IDirectDrawSurface7>::resetPrimarySurfacePtr();
 
 		RealPrimarySurface::release();
 	}
