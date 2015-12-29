@@ -521,7 +521,21 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Lock(
 	{
 		return DDERR_SURFACELOST;
 	}
-	return s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
+
+	HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
+	if (DDERR_SURFACELOST == result)
+	{
+		TSurfaceDesc desc = {};
+		desc.dwSize = sizeof(desc);
+		if (SUCCEEDED(s_origVtable.GetSurfaceDesc(This, &desc)) && !(desc.dwFlags & DDSD_HEIGHT))
+		{
+			// Fixes missing handling for lost vertex buffers in Messiah
+			s_origVtable.Restore(This);
+			// Still, pass back DDERR_SURFACELOST to the application in case it handles it
+		}
+	}
+
+	return result;
 }
 
 template <typename TSurface>
