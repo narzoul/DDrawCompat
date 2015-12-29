@@ -117,9 +117,6 @@ namespace
 			g_paletteConverterSurface = nullptr;
 		}
 
-		CloseHandle(g_updateEvent);
-		g_updateEvent = nullptr;
-
 		ZeroMemory(&RealPrimarySurface::s_surfaceDesc, sizeof(RealPrimarySurface::s_surfaceDesc));
 
 		Compat::LogLeave("RealPrimarySurface::onRelease");
@@ -147,10 +144,6 @@ namespace
 		while (true)
 		{
 			WaitForSingleObject(g_updateEvent, INFINITE);
-			if (!g_frontBuffer)
-			{
-				return 0;
-			}
 
 			Compat::origProcs.AcquireDDThreadLock();
 			ResetEvent(g_updateEvent);
