@@ -8,6 +8,8 @@ namespace
 {
 	void onRelease()
 	{
+		Compat::LogEnter("CompatPrimarySurface::onRelease");
+
 		CompatPrimarySurface::surface = nullptr;
 		CompatPrimarySurface::palette = nullptr;
 		CompatPrimarySurface::width = 0;
@@ -23,6 +25,8 @@ namespace
 		CompatDirectDrawSurface<IDirectDrawSurface7>::resetPrimarySurfacePtr();
 
 		RealPrimarySurface::release();
+
+		Compat::LogLeave("CompatPrimarySurface::onRelease");
 	}
 }
 

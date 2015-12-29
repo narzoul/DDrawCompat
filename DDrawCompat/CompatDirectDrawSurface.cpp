@@ -47,7 +47,8 @@ namespace
 
 		DDBLTFX fx = {};
 		fx.dwSize = sizeof(fx);
-		surface.lpVtbl->Blt(&surface, nullptr, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT, &fx);
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Blt(
+			&surface, nullptr, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT, &fx);
 	}
 
 	HRESULT WINAPI enumSurfacesCallback(
@@ -55,16 +56,17 @@ namespace
 		LPDDSURFACEDESC2 lpDDSurfaceDesc,
 		LPVOID lpContext)
 	{
-		auto visitedSurfaces = *static_cast<std::set<IDirectDrawSurface7*>*>(lpContext);
+		auto& visitedSurfaces = *static_cast<std::set<IDirectDrawSurface7*>*>(lpContext);
 
 		if (visitedSurfaces.find(lpDDSurface) == visitedSurfaces.end())
 		{
 			visitedSurfaces.insert(lpDDSurface);
 			fixSurfacePtr(*lpDDSurface, *lpDDSurfaceDesc);
-			lpDDSurface->lpVtbl->EnumAttachedSurfaces(lpDDSurface, &visitedSurfaces, &enumSurfacesCallback);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
+				lpDDSurface, lpContext, &enumSurfacesCallback);
 		}
 
-		lpDDSurface->lpVtbl->Release(lpDDSurface);
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(lpDDSurface);
 		return DDENUMRET_OK;
 	}
 
@@ -72,11 +74,12 @@ namespace
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		surface.lpVtbl->GetSurfaceDesc(&surface, &desc);
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.GetSurfaceDesc(&surface, &desc);
 		
 		fixSurfacePtr(surface, desc);
 		std::set<IDirectDrawSurface7*> visitedSurfaces{ &surface };
-		surface.lpVtbl->EnumAttachedSurfaces(&surface, &visitedSurfaces, &enumSurfacesCallback);
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
+			&surface, &visitedSurfaces, &enumSurfacesCallback);
 	}
 
 	IDirectDrawSurface7* getMirroredSurface(IDirectDrawSurface7& surface, RECT* srcRect, DWORD mirrorFx)

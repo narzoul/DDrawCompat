@@ -85,13 +85,14 @@ namespace
 		desc.ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
-		typename Types<DirectDraw>::TCreatedSurface* surface = nullptr;
-		HRESULT result = dd.lpVtbl->CreateSurface(&dd, &desc, &surface, nullptr);
+		typedef typename Types<DirectDraw>::TCreatedSurface TCreatedSurface;
+		TCreatedSurface* surface = nullptr;
+		HRESULT result = CompatDirectDraw<DirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
 		if (SUCCEEDED(result))
 		{
-			surface->lpVtbl->QueryInterface(
+			CompatDirectDrawSurface<TCreatedSurface>::s_origVtable.QueryInterface(
 				surface, IID_IDirectDrawSurface7, reinterpret_cast<LPVOID*>(&g_paletteConverterSurface));
-			surface->lpVtbl->Release(surface);
+			CompatDirectDrawSurface<TCreatedSurface>::s_origVtable.Release(surface);
 		}
 
 		return result;
@@ -106,6 +107,8 @@ namespace
 
 	void onRelease()
 	{
+		Compat::LogEnter("RealPrimarySurface::onRelease");
+
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
 		if (g_paletteConverterSurface)
@@ -118,6 +121,8 @@ namespace
 		g_updateEvent = nullptr;
 
 		ZeroMemory(&RealPrimarySurface::s_surfaceDesc, sizeof(RealPrimarySurface::s_surfaceDesc));
+
+		Compat::LogLeave("RealPrimarySurface::onRelease");
 	}
 
 	void updateNow()
@@ -336,9 +341,11 @@ void RealPrimarySurface::setClipper(LPDIRECTDRAWCLIPPER clipper)
 
 void RealPrimarySurface::setPalette(LPDIRECTDRAWPALETTE palette)
 {
+	auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
+
 	if (g_paletteConverterSurface && CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 	{
-		HRESULT result = g_paletteConverterSurface->lpVtbl->SetPalette(g_paletteConverterSurface, palette);
+		HRESULT result = origVtable.SetPalette(g_paletteConverterSurface, palette);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to set the palette on the converter surface: " << result);
@@ -347,14 +354,17 @@ void RealPrimarySurface::setPalette(LPDIRECTDRAWPALETTE palette)
 
 	if (s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 	{
-		HRESULT result = g_frontBuffer->lpVtbl->SetPalette(g_frontBuffer, palette);
+		HRESULT result = origVtable.SetPalette(g_frontBuffer, palette);
 		if (FAILED(result) && DDERR_NOPALETTEATTACHED != result)
 		{
 			LOG_ONCE("Failed to set the palette on the real primary surface: " << result);
 		}
 	}
 
-	updatePalette();
+	if (palette)
+	{
+		updatePalette();
+	}
 }
 
 void RealPrimarySurface::update()

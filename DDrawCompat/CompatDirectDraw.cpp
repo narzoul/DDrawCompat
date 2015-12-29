@@ -53,10 +53,15 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 			(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_3DDEVICE | DDSCAPS_BACKBUFFER | DDSCAPS_FLIP |
 				DDSCAPS_FRONTBUFFER | DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE)))
 		{
-			lpDDSurfaceDesc->dwFlags |= DDSD_PIXELFORMAT;
-			lpDDSurfaceDesc->ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
+			TSurfaceDesc desc = *lpDDSurfaceDesc;
+			desc.dwFlags |= DDSD_PIXELFORMAT;
+			desc.ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
+			result = s_origVtable.CreateSurface(This, &desc, lplpDDSurface, pUnkOuter);
 		}
-		result = s_origVtable.CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
+		else
+		{
+			result = s_origVtable.CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
+		}
 	}
 
 	if (SUCCEEDED(result))
