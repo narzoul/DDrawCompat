@@ -59,24 +59,31 @@ private:
 	{
 	public:
 		template <typename MemberDataPtr, MemberDataPtr ptr>
-		void visit(const std::string& vtableTypeName, const std::string& funcName)
+		void visit()
 		{
-			s_funcNames[getKey<MemberDataPtr, ptr>()] = vtableTypeName + "::" + funcName;
-
 			if (!(s_compatVtable.*ptr))
 			{
-#ifdef _DEBUG
-				s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
-				hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
-#else
 				s_threadSafeVtable.*ptr = s_origVtable.*ptr;
-#endif
 				s_compatVtable.*ptr = s_origVtable.*ptr;
 			}
 			else
 			{
 				s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
 				hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+			}
+		}
+
+		template <typename MemberDataPtr, MemberDataPtr ptr>
+		void visitDebug(const std::string& vtableTypeName, const std::string& funcName)
+		{
+			s_funcNames[getKey<MemberDataPtr, ptr>()] = vtableTypeName + "::" + funcName;
+
+			s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
+			hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+
+			if (!(s_compatVtable.*ptr))
+			{
+				s_compatVtable.*ptr = s_origVtable.*ptr;
 			}
 		}
 
@@ -121,7 +128,9 @@ private:
 		static Result STDMETHODCALLTYPE threadSafeFunc(IntfPtr This, Params... params)
 		{
 			Compat::origProcs.AcquireDDThreadLock();
+#ifdef _DEBUG
 			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), This, params...);
+#endif
 
 			Result result;
 			auto it = s_vtablePtrToCompatVtable.find(This->lpVtbl);
@@ -135,7 +144,9 @@ private:
 				result = (s_origVtable.*ptr)(This, params...);
 			}
 
+#ifdef _DEBUG
 			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), This, params...) << result;
+#endif
 			Compat::origProcs.ReleaseDDThreadLock();
 			return result;
 		}

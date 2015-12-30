@@ -25,8 +25,13 @@ std::string getTypeName()
 	return typeName;
 }
 
+#ifdef _DEBUG
 #define DD_VISIT(member) \
-		visitor.visit<decltype(&Vtable::member), &Vtable::member>(getTypeName<Vtable>(), #member)
+		visitor.visitDebug<decltype(&Vtable::member), &Vtable::member>(getTypeName<Vtable>(), #member)
+#else
+#define DD_VISIT(member) \
+		visitor.visit<decltype(&Vtable::member), &Vtable::member>()
+#endif
 
 template <>
 struct DDrawVtableForEach<IUnknownVtbl>
