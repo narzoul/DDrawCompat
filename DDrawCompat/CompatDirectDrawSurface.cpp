@@ -25,6 +25,7 @@ namespace
 	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx);
 
 	IDirectDraw7* g_mirrorDirectDraw = nullptr;
+	bool g_lockingPrimary = false;
 
 	IDirectDraw7* createMirrorDirectDraw()
 	{
@@ -491,7 +492,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::GetSurfaceDesc(
 	TSurfaceDesc* lpDDSurfaceDesc)
 {
 	HRESULT result = s_origVtable.GetSurfaceDesc(This, lpDDSurfaceDesc);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (This == s_compatPrimarySurface && SUCCEEDED(result) && !g_lockingPrimary)
 	{
 		restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps);
 	}
@@ -517,13 +518,21 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Lock(
 	DWORD dwFlags,
 	HANDLE hEvent)
 {
-	if (This == s_compatPrimarySurface && RealPrimarySurface::isLost())
+	if (This == s_compatPrimarySurface)
 	{
-		return DDERR_SURFACELOST;
+		if (RealPrimarySurface::isLost())
+		{
+			return DDERR_SURFACELOST;
+		}
+		g_lockingPrimary = true;
 	}
 
 	HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
-	if (DDERR_SURFACELOST == result)
+	if (SUCCEEDED(result) && g_lockingPrimary && lpDDSurfaceDesc)
+	{
+		restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps);
+	}
+	else if (DDERR_SURFACELOST == result)
 	{
 		TSurfaceDesc desc = {};
 		desc.dwSize = sizeof(desc);
@@ -535,6 +544,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Lock(
 		}
 	}
 
+	g_lockingPrimary = false;
 	return result;
 }
 
@@ -667,12 +677,14 @@ void CompatDirectDrawSurface<TSurface>::updateSurfaceParams()
 {
 	TSurfaceDesc desc = {};
 	desc.dwSize = sizeof(desc);
+	g_lockingPrimary = true;
 	if (SUCCEEDED(s_origVtable.Lock(s_compatPrimarySurface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
 	{
 		s_origVtable.Unlock(s_compatPrimarySurface, nullptr);
 		CompatPrimarySurface::pitch = desc.lPitch;
 		CompatPrimarySurface::surfacePtr = desc.lpSurface;
 	}
+	g_lockingPrimary = false;
 }
 
 template <typename TSurface>
