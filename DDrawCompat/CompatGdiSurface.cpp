@@ -1,6 +1,7 @@
 #define CINTERFACE
 #define WIN32_LEAN_AND_MEAN
 
+#include <atomic>
 #include <unordered_map>
 
 #include <oleacc.h>
@@ -13,6 +14,7 @@
 #include "CompatPrimarySurface.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
+#include "DDrawScopedThreadLock.h"
 #include "RealPrimarySurface.h"
 
 namespace
@@ -40,7 +42,7 @@ namespace
 		HWND rootWnd;
 	};
 
-	bool g_suppressGdiHooks = false;
+	std::atomic<bool> g_suppressGdiHooks = false;
 
 	class HookRecursionGuard
 	{
@@ -72,6 +74,22 @@ namespace
 
 	CaretData g_caret = {};
 
+	CRITICAL_SECTION g_gdiCriticalSection;
+
+	class GdiScopedThreadLock
+	{
+	public:
+		GdiScopedThreadLock()
+		{
+			EnterCriticalSection(&g_gdiCriticalSection);
+		}
+
+		~GdiScopedThreadLock()
+		{
+			LeaveCriticalSection(&g_gdiCriticalSection);
+		}
+	};
+
 	POINT getClientOrigin(HWND hwnd);
 	HDC getCompatDc(HWND hwnd, HDC origDc, const POINT& origin);
 	HDC releaseCompatDc(HDC hdc);
@@ -88,6 +106,7 @@ namespace
 			else if (WM_ERASEBKGND == ret->message && ret->lResult)
 			{
 				HDC origDc = reinterpret_cast<HDC>(ret->wParam);
+				GdiScopedThreadLock gdiLock;
 				if (g_dcToSurface.find(origDc) == g_dcToSurface.end())
 				{
 					HWND hwnd = WindowFromDC(origDc);
@@ -129,6 +148,8 @@ namespace
 
 	IDirectDrawSurface7* createGdiSurface()
 	{
+		Compat::DDrawScopedThreadLock ddLock;
+
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
@@ -184,11 +205,12 @@ namespace
 
 	HDC getCompatDc(HWND hwnd, HDC origDc, const POINT& origin)
 	{
-		if (!CompatPrimarySurface::surfacePtr || !origDc || !RealPrimarySurface::isFullScreen() || g_suppressGdiHooks) 
+		if (!CompatPrimarySurface::surfacePtr || !origDc || !RealPrimarySurface::isFullScreen() || g_suppressGdiHooks)
 		{
 			return origDc;
 		}
 
+		GdiScopedThreadLock gdiLock;
 		HookRecursionGuard recursionGuard;
 
 		IDirectDrawSurface7* surface = createGdiSurface();
@@ -296,6 +318,7 @@ namespace
 			return hdc;
 		}
 
+		GdiScopedThreadLock gdiLock;
 		HookRecursionGuard recursionGuard;
 
 		auto it = g_dcToSurface.find(hdc);
@@ -360,6 +383,7 @@ namespace
 		{
 			if (STATE_SYSTEM_INVISIBLE == getCaretState(accessible))
 			{
+				GdiScopedThreadLock gdiLock;
 				drawCaret();
 				g_caret.isDrawn = false;
 			}
@@ -369,69 +393,48 @@ namespace
 
 	HDC WINAPI getDc(HWND hWnd)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("GetDC", hWnd);
-
 		HDC compatDc = getCompatDc(hWnd, g_origGetDc(hWnd), getClientOrigin(hWnd));
-
 		Compat::LogLeave("GetDC", hWnd) << compatDc;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return compatDc;
 	}
 
 	HDC WINAPI getDcEx(HWND hWnd, HRGN hrgnClip, DWORD flags)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("GetDCEx", hWnd);
-
 		HDC compatDc = getCompatDc(hWnd, g_origGetDcEx(hWnd, hrgnClip, flags),
 			flags & (DCX_WINDOW | DCX_PARENTCLIP) ? getWindowOrigin(hWnd) : getClientOrigin(hWnd));
-
 		Compat::LogLeave("GetDCEx", hWnd) << compatDc;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return compatDc;
 	}
 
 	HDC WINAPI getWindowDc(HWND hWnd)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("GetWindowDC", hWnd);
-
 		HDC compatDc = getCompatDc(hWnd, g_origGetWindowDc(hWnd), getWindowOrigin(hWnd));
-
 		Compat::LogLeave("GetWindowDC", hWnd) << compatDc;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return compatDc;
 	}
 
 	int WINAPI releaseDc(HWND hWnd, HDC hDC)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("ReleaseDC", hWnd, hDC);
-
 		int result = g_origReleaseDc(hWnd, releaseCompatDc(hDC));
-
 		Compat::LogLeave("ReleaseDC", hWnd, hDC) << result;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return result;
 	}
 
 	HDC WINAPI beginPaint(HWND hWnd, LPPAINTSTRUCT lpPaint)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("BeginPaint", hWnd, lpPaint);
-
 		HDC compatDc = getCompatDc(hWnd, g_origBeginPaint(hWnd, lpPaint), getClientOrigin(hWnd));
 		lpPaint->hdc = compatDc;
-		
 		Compat::LogLeave("BeginPaint", hWnd, lpPaint) << compatDc;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return compatDc;
 	}
 
 	BOOL WINAPI endPaint(HWND hWnd, const PAINTSTRUCT* lpPaint)
 	{
-		Compat::origProcs.AcquireDDThreadLock();
 		Compat::LogEnter("EndPaint", hWnd, lpPaint);
 
 		BOOL result = FALSE;
@@ -447,7 +450,6 @@ namespace
 		}
 
 		Compat::LogLeave("EndPaint", hWnd, lpPaint) << result;
-		Compat::origProcs.ReleaseDDThreadLock();
 		return result;
 	}
 
@@ -456,6 +458,7 @@ namespace
 		BOOL result = g_origCreateCaret(hWnd, hBitmap, nWidth, nHeight);
 		if (result)
 		{
+			GdiScopedThreadLock gdiLock;
 			if (g_caret.isDrawn)
 			{
 				drawCaret();
@@ -470,6 +473,7 @@ namespace
 	BOOL WINAPI showCaret(HWND hWnd)
 	{
 		BOOL result = g_origShowCaret(hWnd);
+		GdiScopedThreadLock gdiLock;
 		if (result && !g_caret.isDrawn)
 		{
 			IAccessible* accessible = nullptr;
@@ -496,6 +500,7 @@ namespace
 	BOOL WINAPI hideCaret(HWND hWnd)
 	{
 		BOOL result = g_origHideCaret(hWnd);
+		GdiScopedThreadLock gdiLock;
 		if (result && g_caret.isDrawn)
 		{
 			drawCaret();
@@ -513,6 +518,7 @@ void CompatGdiSurface::hookGdi()
 		return;
 	}
 
+	InitializeCriticalSection(&g_gdiCriticalSection);
 	g_directDraw = createDirectDraw();
 	if (g_directDraw)
 	{

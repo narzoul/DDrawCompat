@@ -150,6 +150,7 @@
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
     <ClInclude Include="CompatPrimarySurface.h" />
+    <ClInclude Include="DDrawScopedThreadLock.h" />
     <ClInclude Include="DDrawTypes.h" />
     <ClInclude Include="CompatDirectDrawSurface.h" />
     <ClInclude Include="DDrawVtableVisitor.h" />

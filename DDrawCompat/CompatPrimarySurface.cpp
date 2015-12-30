@@ -57,6 +57,6 @@ namespace CompatPrimarySurface
 	LONG height = 0;
 	DDPIXELFORMAT pixelFormat = {};
 	LONG pitch = 0;
-	void* surfacePtr = nullptr;
+	std::atomic<void*> surfacePtr = nullptr;
 	IReleaseNotifier releaseNotifier(onRelease);
 }

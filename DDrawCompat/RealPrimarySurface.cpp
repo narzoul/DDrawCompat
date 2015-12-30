@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdiSurface.h"
@@ -23,6 +25,8 @@ namespace
 	bool g_isFlipEvent = false;
 	LARGE_INTEGER g_lastUpdateTime = {};
 	LARGE_INTEGER g_qpcFrequency = {};
+
+	std::atomic<bool> g_isFullScreen(false);
 
 	bool compatBlt(IDirectDrawSurface7* dest)
 	{
@@ -111,6 +115,7 @@ namespace
 
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
+		g_isFullScreen = false;
 		if (g_paletteConverterSurface)
 		{
 			g_paletteConverterSurface->lpVtbl->Release(g_paletteConverterSurface);
@@ -246,6 +251,8 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 	g_frontBuffer->lpVtbl->SetPrivateData(g_frontBuffer,
 		IID_IReleaseNotifier, &g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
 
+	g_isFullScreen = isFlippable;
+
 	return DD_OK;
 }
 
@@ -290,7 +297,7 @@ IDirectDrawSurface7* RealPrimarySurface::getSurface()
 
 bool RealPrimarySurface::isFullScreen()
 {
-	return nullptr != g_backBuffer;
+	return g_isFullScreen;
 }
 
 bool RealPrimarySurface::isLost()
