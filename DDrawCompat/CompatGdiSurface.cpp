@@ -1,7 +1,6 @@
 #define CINTERFACE
 #define WIN32_LEAN_AND_MEAN
 
-#include <atomic>
 #include <unordered_map>
 
 #include <oleacc.h>
@@ -42,7 +41,7 @@ namespace
 		HWND rootWnd;
 	};
 
-	std::atomic<bool> g_suppressGdiHooks = false;
+	bool g_suppressGdiHooks = false;
 
 	class HookRecursionGuard
 	{
@@ -205,12 +204,12 @@ namespace
 
 	HDC getCompatDc(HWND hwnd, HDC origDc, const POINT& origin)
 	{
+		GdiScopedThreadLock gdiLock;
 		if (!CompatPrimarySurface::surfacePtr || !origDc || !RealPrimarySurface::isFullScreen() || g_suppressGdiHooks)
 		{
 			return origDc;
 		}
 
-		GdiScopedThreadLock gdiLock;
 		HookRecursionGuard recursionGuard;
 
 		IDirectDrawSurface7* surface = createGdiSurface();
@@ -313,12 +312,12 @@ namespace
 
 	HDC releaseCompatDc(HDC hdc)
 	{
+		GdiScopedThreadLock gdiLock;
 		if (g_suppressGdiHooks)
 		{
 			return hdc;
 		}
 
-		GdiScopedThreadLock gdiLock;
 		HookRecursionGuard recursionGuard;
 
 		auto it = g_dcToSurface.find(hdc);
