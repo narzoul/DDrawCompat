@@ -39,17 +39,26 @@ namespace
 		return dd;
 	}
 
-	void fixSurfacePtr(IDirectDrawSurface7& surface, DDSURFACEDESC2& desc)
+	void fixSurfacePtr(IDirectDrawSurface7& surface, const DDSURFACEDESC2& desc)
 	{
 		if ((desc.dwFlags & DDSD_CAPS) && (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
 		{
 			return;
 		}
 
-		DDBLTFX fx = {};
-		fx.dwSize = sizeof(fx);
+		DDSURFACEDESC2 tempSurfaceDesc = desc;
+		tempSurfaceDesc.dwWidth = 1;
+		tempSurfaceDesc.dwHeight = 1;
+		SimilarSurface tempSurface = getSimilarSurface(desc);
+		if (!tempSurface.front)
+		{
+			LOG_ONCE("Failed to fix a surface memory pointer");
+			return;
+		}
+
+		RECT r = { 0, 0, 1, 1 };
 		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Blt(
-			&surface, nullptr, nullptr, nullptr, DDBLT_COLORFILL | DDBLT_WAIT, &fx);
+			&surface, &r, tempSurface.front, &r, DDBLT_WAIT, nullptr);
 	}
 
 	HRESULT WINAPI enumSurfacesCallback(
@@ -208,7 +217,7 @@ namespace
 			g_mirrorDirectDraw, &similarDesc, &similarSurface.front, nullptr);
 		if (FAILED(result))
 		{
-			LOG_ONCE("Failed to create a front surface for mirroring");
+			LOG_ONCE("Failed to create a similar front surface");
 			similarSurface.front = nullptr;
 			return similarSurface;
 		}
@@ -217,7 +226,7 @@ namespace
 			g_mirrorDirectDraw, &similarDesc, &similarSurface.back, nullptr);
 		if (FAILED(result))
 		{
-			LOG_ONCE("Failed to create a back surface for mirroring");
+			LOG_ONCE("Failed to create a similar back surface");
 			origVtable.Release(similarSurface.front);
 			similarSurface.front = nullptr;
 			return similarSurface;
