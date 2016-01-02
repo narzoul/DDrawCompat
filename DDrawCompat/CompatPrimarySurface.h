@@ -2,7 +2,6 @@
 
 #define CINTERFACE
 
-#include <atomic>
 #include <ddraw.h>
 
 class IReleaseNotifier;
@@ -25,7 +24,5 @@ namespace CompatPrimarySurface
 	extern LONG width;
 	extern LONG height;
 	extern DDPIXELFORMAT pixelFormat;
-	extern LONG pitch;
-	extern std::atomic<void*> surfacePtr;
 	extern IReleaseNotifier releaseNotifier;
 }

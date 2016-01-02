@@ -302,8 +302,13 @@ bool RealPrimarySurface::isFullScreen()
 
 bool RealPrimarySurface::isLost()
 {
-	return g_frontBuffer &&
+	const bool isLost = g_frontBuffer &&
 		DDERR_SURFACELOST == CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.IsLost(g_frontBuffer);
+	if (isLost)
+	{
+		CompatGdiSurface::release();
+	}
+	return isLost;
 }
 
 void RealPrimarySurface::release()

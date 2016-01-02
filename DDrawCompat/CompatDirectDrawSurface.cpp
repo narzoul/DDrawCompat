@@ -603,6 +603,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 			result = RealPrimarySurface::restore();
 			if (wasLost)
 			{
+				CompatGdiSurface::release();
 				updateSurfaceParams();
 			}
 		}
@@ -690,8 +691,7 @@ void CompatDirectDrawSurface<TSurface>::updateSurfaceParams()
 	if (SUCCEEDED(s_origVtable.Lock(s_compatPrimarySurface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
 	{
 		s_origVtable.Unlock(s_compatPrimarySurface, nullptr);
-		CompatPrimarySurface::pitch = desc.lPitch;
-		CompatPrimarySurface::surfacePtr = desc.lpSurface;
+		CompatGdiSurface::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 	}
 	g_lockingPrimary = false;
 }

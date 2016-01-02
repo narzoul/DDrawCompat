@@ -15,8 +15,6 @@ namespace
 		CompatPrimarySurface::width = 0;
 		CompatPrimarySurface::height = 0;
 		ZeroMemory(&CompatPrimarySurface::pixelFormat, sizeof(CompatPrimarySurface::pixelFormat));
-		CompatPrimarySurface::pitch = 0;
-		CompatPrimarySurface::surfacePtr = nullptr;
 
 		CompatDirectDrawSurface<IDirectDrawSurface>::resetPrimarySurfacePtr();
 		CompatDirectDrawSurface<IDirectDrawSurface2>::resetPrimarySurfacePtr();
@@ -56,7 +54,5 @@ namespace CompatPrimarySurface
 	LONG width = 0;
 	LONG height = 0;
 	DDPIXELFORMAT pixelFormat = {};
-	LONG pitch = 0;
-	std::atomic<void*> surfacePtr = nullptr;
 	IReleaseNotifier releaseNotifier(onRelease);
 }

@@ -9,6 +9,7 @@
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
+#include "CompatGdiDcCache.h"
 #include "CompatGdiSurface.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawLog.h"
@@ -18,6 +19,8 @@
 
 namespace
 {
+	using CompatGdiDcCache::CompatDc;
+
 	struct CaretData
 	{
 		HWND hwnd;
@@ -26,12 +29,6 @@ namespace
 		long width;
 		long height;
 		bool isDrawn;
-	};
-
-	struct GdiSurface
-	{
-		IDirectDrawSurface7* surface;
-		HDC origDc;
 	};
 
 	struct ExcludeClipRectsData
@@ -68,8 +65,7 @@ namespace
 	auto g_origShowCaret = &ShowCaret;
 	auto g_origHideCaret = &HideCaret;
 
-	IDirectDraw7* g_directDraw = nullptr;
-	std::unordered_map<HDC, GdiSurface> g_dcToSurface;
+	std::unordered_map<HDC, CompatDc> g_dcToCompatDc;
 
 	CaretData g_caret = {};
 
@@ -106,7 +102,7 @@ namespace
 			{
 				HDC origDc = reinterpret_cast<HDC>(ret->wParam);
 				GdiScopedThreadLock gdiLock;
-				if (g_dcToSurface.find(origDc) == g_dcToSurface.end())
+				if (g_dcToCompatDc.find(origDc) == g_dcToCompatDc.end())
 				{
 					HWND hwnd = WindowFromDC(origDc);
 					POINT origin = {};
@@ -123,58 +119,6 @@ namespace
 		}
 
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
-	}
-
-	IDirectDraw7* createDirectDraw()
-	{
-		IDirectDraw7* dd = nullptr;
-		CALL_ORIG_DDRAW(DirectDrawCreateEx, nullptr, reinterpret_cast<LPVOID*>(&dd), IID_IDirectDraw7, nullptr);
-		if (!dd)
-		{
-			Compat::Log() << "Failed to create a DirectDraw interface for GDI";
-			return nullptr;
-		}
-
-		if (FAILED(CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-		{
-			Compat::Log() << "Failed to set the cooperative level on the DirectDraw interface for GDI";
-			dd->lpVtbl->Release(dd);
-			return nullptr;
-		}
-
-		return dd;
-	}
-
-	IDirectDrawSurface7* createGdiSurface()
-	{
-		Compat::DDrawScopedThreadLock ddLock;
-
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
-		desc.dwWidth = CompatPrimarySurface::width;
-		desc.dwHeight = CompatPrimarySurface::height;
-		desc.ddpfPixelFormat = CompatPrimarySurface::pixelFormat;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-		desc.lPitch = CompatPrimarySurface::pitch;
-		desc.lpSurface = CompatPrimarySurface::surfacePtr;
-
-		IDirectDrawSurface7* surface = nullptr;
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			g_directDraw, &desc, &surface, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to create a GDI surface: " << result);
-			return nullptr;
-		}
-
-		if (CompatPrimarySurface::palette)
-		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
-				surface, CompatPrimarySurface::palette);
-		}
-
-		return surface;
 	}
 
 	BOOL CALLBACK excludeClipRectsForOverlappingWindows(HWND hwnd, LPARAM lParam)
@@ -205,51 +149,37 @@ namespace
 	HDC getCompatDc(HWND hwnd, HDC origDc, const POINT& origin)
 	{
 		GdiScopedThreadLock gdiLock;
-		if (!CompatPrimarySurface::surfacePtr || !origDc || !RealPrimarySurface::isFullScreen() || g_suppressGdiHooks)
+		if (!origDc || !RealPrimarySurface::isFullScreen() || g_suppressGdiHooks)
 		{
 			return origDc;
 		}
 
 		HookRecursionGuard recursionGuard;
-
-		IDirectDrawSurface7* surface = createGdiSurface();
-		if (!surface)
+		CompatDc compatDc = CompatGdiDcCache::getDc();
+		if (!compatDc.dc)
 		{
-			return origDc;
-		}
-
-		HDC compatDc = nullptr;
-		HRESULT result = surface->lpVtbl->GetDC(surface, &compatDc);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to create a GDI DC: " << result);
-			surface->lpVtbl->Release(surface);
 			return origDc;
 		}
 
 		if (hwnd)
 		{
-			SetWindowOrgEx(compatDc, -origin.x, -origin.y, nullptr);
+			SetWindowOrgEx(compatDc.dc, -origin.x, -origin.y, nullptr);
 
 			HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
 			GetRandomRgn(origDc, clipRgn, SYSRGN);
-			SelectClipRgn(compatDc, clipRgn);
+			SelectClipRgn(compatDc.dc, clipRgn);
 			RECT r = {};
 			GetRgnBox(clipRgn, &r);
 			DeleteObject(clipRgn);
 
-			ExcludeClipRectsData excludeClipRectsData = { compatDc, origin, GetAncestor(hwnd, GA_ROOT) };
+			ExcludeClipRectsData excludeClipRectsData = { compatDc.dc, origin, GetAncestor(hwnd, GA_ROOT) };
 			EnumThreadWindows(GetCurrentThreadId(), &excludeClipRectsForOverlappingWindows,
 				reinterpret_cast<LPARAM>(&excludeClipRectsData));
 		}
 
-		GdiSurface gdiSurface = { surface, origDc };
-		g_dcToSurface[compatDc] = gdiSurface;
-
-		// Release DD critical section acquired by IDirectDrawSurface7::GetDC to avoid deadlocks
-		Compat::origProcs.ReleaseDDThreadLock();
-
-		return compatDc;
+		compatDc.origDc = origDc;
+		g_dcToCompatDc[compatDc.dc] = compatDc;
+		return compatDc.dc;
 	}
 
 	FARPROC getProcAddress(HMODULE module, const char* procName)
@@ -320,22 +250,13 @@ namespace
 
 		HookRecursionGuard recursionGuard;
 
-		auto it = g_dcToSurface.find(hdc);
+		auto it = g_dcToCompatDc.find(hdc);
 
-		if (it != g_dcToSurface.end())
+		if (it != g_dcToCompatDc.end())
 		{
-			// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
-			Compat::origProcs.AcquireDDThreadLock();
-
-			if (FAILED(it->second.surface->lpVtbl->ReleaseDC(it->second.surface, hdc)))
-			{
-				Compat::origProcs.ReleaseDDThreadLock();
-			}
-
-			it->second.surface->lpVtbl->Release(it->second.surface);
-
 			HDC origDc = it->second.origDc;
-			g_dcToSurface.erase(it);
+			CompatGdiDcCache::returnDc(it->second);
+			g_dcToCompatDc.erase(it);
 
 			RealPrimarySurface::update();
 			return origDc;
@@ -518,8 +439,7 @@ void CompatGdiSurface::hookGdi()
 	}
 
 	InitializeCriticalSection(&g_gdiCriticalSection);
-	g_directDraw = createDirectDraw();
-	if (g_directDraw)
+	if (CompatGdiDcCache::init())
 	{
 		DetourTransactionBegin();
 		hookGdiFunction("GetDC", g_origGetDc, &getDc);
@@ -539,4 +459,21 @@ void CompatGdiSurface::hookGdi()
 			nullptr, &caretDestroyEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 	}
 	alreadyHooked = true;
+}
+
+void CompatGdiSurface::release()
+{
+	GdiScopedThreadLock gdiLock;
+	CompatGdiDcCache::release();
+}
+
+void CompatGdiSurface::setSurfaceMemory(void* surfaceMemory, LONG pitch)
+{
+	GdiScopedThreadLock gdiLock;
+	const bool wasReleased = CompatGdiDcCache::isReleased();
+	CompatGdiDcCache::setSurfaceMemory(surfaceMemory, pitch);
+	if (wasReleased)
+	{
+		InvalidateRect(nullptr, nullptr, TRUE);
+	}
 }

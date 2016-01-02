@@ -66,6 +66,9 @@
     <ClInclude Include="DDrawScopedThreadLock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatGdiDcCache.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -102,6 +105,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatDirectDrawPalette.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiDcCache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
