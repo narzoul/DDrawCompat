@@ -14,20 +14,17 @@ namespace CompatGdiDcCache
 		LONG pitch;
 	};
 
-	struct CompatDc
+	struct CachedDc
 	{
-		DWORD cacheId;
 		SurfaceMemoryDesc surfaceMemoryDesc;
 		IDirectDrawSurface7* surface;
-		HDC origDc;
 		HDC dc;
-		int dcState;
 	};
 
-	CompatDc getDc();
+	CachedDc getDc();
 	bool init();
 	bool isReleased();
 	void release();
-	void returnDc(const CompatDc& compatDc);
+	void releaseDc(const CachedDc& cachedDc);
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch);
 }

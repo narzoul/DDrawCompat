@@ -3,7 +3,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDirectDrawPalette.h"
-#include "CompatGdiSurface.h"
+#include "CompatGdi.h"
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
 
@@ -95,7 +95,7 @@ namespace
 				hookDirectDrawPalette(*dd);
 
 				Compat::Log() << "Installing GDI hooks";
-				CompatGdiSurface::hookGdi();
+				CompatGdi::installHooks();
 
 				dd->lpVtbl->Release(dd);
 			}

@@ -22,27 +22,26 @@ namespace CompatGdiDcCache
 namespace
 {
 	using CompatGdiDcCache::SurfaceMemoryDesc;
-	using CompatGdiDcCache::CompatDc;
+	using CompatGdiDcCache::CachedDc;
 	
-	std::map<SurfaceMemoryDesc, std::vector<CompatDc>> g_compatDcCaches;
-	std::vector<CompatDc>* g_currentCompatDcCache = nullptr;
+	std::map<SurfaceMemoryDesc, std::vector<CachedDc>> g_caches;
+	std::vector<CachedDc>* g_currentCache = nullptr;
 
-	DWORD g_cacheId = 0;
 	IDirectDraw7* g_directDraw = nullptr;
 	void* g_surfaceMemory = nullptr;
 	LONG g_pitch = 0;
 
 	IDirectDrawSurface7* createGdiSurface();
-	void releaseCompatDc(CompatDc compatDc);
-	void releaseCompatDcCache(std::vector<CompatDc>& compatDcCache);
+	void releaseCachedDc(CachedDc cachedDc);
+	void releaseCache(std::vector<CachedDc>& cache);
 
 	void clearAllCaches()
 	{
-		for (auto& compatDcCache : g_compatDcCaches)
+		for (auto& cache : g_caches)
 		{
-			releaseCompatDcCache(compatDcCache.second);
+			releaseCache(cache.second);
 		}
-		g_compatDcCaches.clear();
+		g_caches.clear();
 	}
 
 	IDirectDraw7* createDirectDraw()
@@ -65,14 +64,14 @@ namespace
 		return dd;
 	}
 
-	CompatDc createCompatDc()
+	CachedDc createCachedDc()
 	{
-		CompatDc compatDc = {};
+		CachedDc cachedDc = {};
 
 		IDirectDrawSurface7* surface = createGdiSurface();
 		if (!surface)
 		{
-			return compatDc;
+			return cachedDc;
 		}
 
 		HDC dc = nullptr;
@@ -81,18 +80,17 @@ namespace
 		{
 			LOG_ONCE("Failed to create a GDI DC: " << result);
 			surface->lpVtbl->Release(surface);
-			return compatDc;
+			return cachedDc;
 		}
 
 		// Release DD critical section acquired by IDirectDrawSurface7::GetDC to avoid deadlocks
 		Compat::origProcs.ReleaseDDThreadLock();
 
-		compatDc.cacheId = g_cacheId;
-		compatDc.surfaceMemoryDesc.surfaceMemory = g_surfaceMemory;
-		compatDc.surfaceMemoryDesc.pitch = g_pitch;
-		compatDc.dc = dc;
-		compatDc.surface = surface;
-		return compatDc;
+		cachedDc.surfaceMemoryDesc.surfaceMemory = g_surfaceMemory;
+		cachedDc.surfaceMemoryDesc.pitch = g_pitch;
+		cachedDc.dc = dc;
+		cachedDc.surface = surface;
+		return cachedDc;
 	}
 
 	IDirectDrawSurface7* createGdiSurface()
@@ -131,66 +129,65 @@ namespace
 	{
 		for (DWORD i = 0; i < Config::gdiDcCacheSize; ++i)
 		{
-			CompatDc compatDc = createCompatDc();
-			if (!compatDc.dc)
+			CachedDc cachedDc = createCachedDc();
+			if (!cachedDc.dc)
 			{
 				return;
 			}
-			g_currentCompatDcCache->push_back(compatDc);
+			g_currentCache->push_back(cachedDc);
 		}
 	}
 
-	void releaseCompatDc(CompatDc compatDc)
+	void releaseCachedDc(CachedDc cachedDc)
 	{
 		// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
 		Compat::origProcs.AcquireDDThreadLock();
 
 		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.ReleaseDC(
-			compatDc.surface, compatDc.dc)))
+			cachedDc.surface, cachedDc.dc)))
 		{
 			LOG_ONCE("Failed to release a cached DC");
 			Compat::origProcs.ReleaseDDThreadLock();
 		}
 
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(compatDc.surface);
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(cachedDc.surface);
 	}
 
-	void releaseCompatDcCache(std::vector<CompatDc>& compatDcCache)
+	void releaseCache(std::vector<CachedDc>& cache)
 	{
-		for (auto& compatDc : compatDcCache)
+		for (auto& cachedDc : cache)
 		{
-			releaseCompatDc(compatDc);
+			releaseCachedDc(cachedDc);
 		}
 	}
 }
 
 namespace CompatGdiDcCache
 {
-	CompatDc getDc()
+	CachedDc getDc()
 	{
-		CompatDc compatDc = {};
-		if (!g_currentCompatDcCache)
+		CachedDc cachedDc = {};
+		if (!g_currentCache)
 		{
-			return compatDc;
+			return cachedDc;
 		}
 
-		if (g_currentCompatDcCache->empty())
+		if (g_currentCache->empty())
 		{
 			LOG_ONCE("Warning: GDI DC cache size is insufficient");
-			compatDc = createCompatDc();
-			if (!compatDc.dc)
+			cachedDc = createCachedDc();
+			if (!cachedDc.dc)
 			{
-				return compatDc;
+				return cachedDc;
 			}
 		}
 		else
 		{
-			compatDc = g_currentCompatDcCache->back();
-			g_currentCompatDcCache->pop_back();
+			cachedDc = g_currentCache->back();
+			g_currentCache->pop_back();
 		}
 
-		compatDc.dcState = SaveDC(compatDc.dc);
-		return compatDc;
+		return cachedDc;
 	}
 
 	bool init()
@@ -201,31 +198,21 @@ namespace CompatGdiDcCache
 
 	bool isReleased()
 	{
-		return g_compatDcCaches.empty();
+		return g_caches.empty();
 	}
 
 	void release()
 	{
-		if (g_currentCompatDcCache)
+		if (g_currentCache)
 		{
-			g_currentCompatDcCache = nullptr;
+			g_currentCache = nullptr;
 			clearAllCaches();
-			++g_cacheId;
 		}
 	}
 
-	void returnDc(const CompatDc& compatDc)
+	void releaseDc(const CachedDc& cachedDc)
 	{
-		RestoreDC(compatDc.dc, compatDc.dcState);
-		
-		if (compatDc.cacheId != g_cacheId)
-		{
-			releaseCompatDc(compatDc);
-		}
-		else
-		{
-			g_compatDcCaches[compatDc.surfaceMemoryDesc].push_back(compatDc);
-		}
+		g_caches[cachedDc.surfaceMemoryDesc].push_back(cachedDc);
 	}
 
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch)
@@ -235,20 +222,20 @@ namespace CompatGdiDcCache
 
 		if (!surfaceMemory)
 		{
-			g_currentCompatDcCache = nullptr;
+			g_currentCache = nullptr;
 			return;
 		}
 
 		SurfaceMemoryDesc surfaceMemoryDesc = { surfaceMemory, pitch };
-		auto it = g_compatDcCaches.find(surfaceMemoryDesc);
-		if (it == g_compatDcCaches.end())
+		auto it = g_caches.find(surfaceMemoryDesc);
+		if (it == g_caches.end())
 		{
-			g_currentCompatDcCache = &g_compatDcCaches[surfaceMemoryDesc];
+			g_currentCache = &g_caches[surfaceMemoryDesc];
 			fillCurrentCache();
 		}
 		else
 		{
-			g_currentCompatDcCache = &it->second;
+			g_currentCache = &it->second;
 		}
 	}
 }

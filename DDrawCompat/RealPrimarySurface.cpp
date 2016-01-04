@@ -2,7 +2,7 @@
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
-#include "CompatGdiSurface.h"
+#include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "Config.h"
 #include "DDrawProcs.h"
@@ -306,7 +306,7 @@ bool RealPrimarySurface::isLost()
 		DDERR_SURFACELOST == CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.IsLost(g_frontBuffer);
 	if (isLost)
 	{
-		CompatGdiSurface::release();
+		CompatGdi::releaseSurfaceMemory();
 	}
 	return isLost;
 }

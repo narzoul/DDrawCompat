@@ -145,8 +145,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CompatDirectDrawPalette.h" />
+    <ClInclude Include="CompatGdi.h" />
+    <ClInclude Include="CompatGdiDc.h" />
     <ClInclude Include="CompatGdiDcCache.h" />
-    <ClInclude Include="CompatGdiSurface.h" />
+    <ClInclude Include="CompatGdiFunctions.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
@@ -167,8 +169,9 @@
     <ClCompile Include="CompatDirectDraw.cpp" />
     <ClCompile Include="CompatDirectDrawPalette.cpp" />
     <ClCompile Include="CompatDirectDrawSurface.cpp" />
+    <ClCompile Include="CompatGdi.cpp" />
     <ClCompile Include="CompatGdiDcCache.cpp" />
-    <ClCompile Include="CompatGdiSurface.cpp" />
+    <ClCompile Include="CompatGdiFunctions.cpp" />
     <ClCompile Include="CompatVtable.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DllMain.cpp" />
@@ -176,6 +179,7 @@
     <ClCompile Include="DDrawProcs.cpp" />
     <ClCompile Include="IReleaseNotifier.cpp" />
     <ClCompile Include="RealPrimarySurface.cpp" />
+    <ClCompile Include="CompatGdiDc.cpp" />
     <ClCompile Include="UnmodifiedDDrawProcs.cpp" />
   </ItemGroup>
   <ItemGroup>

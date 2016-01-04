@@ -4,7 +4,7 @@
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
-#include "CompatGdiSurface.h"
+#include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
 #include "IReleaseNotifier.h"
@@ -603,7 +603,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 			result = RealPrimarySurface::restore();
 			if (wasLost)
 			{
-				CompatGdiSurface::release();
+				CompatGdi::releaseSurfaceMemory();
 				updateSurfaceParams();
 			}
 		}
@@ -691,7 +691,7 @@ void CompatDirectDrawSurface<TSurface>::updateSurfaceParams()
 	if (SUCCEEDED(s_origVtable.Lock(s_compatPrimarySurface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
 	{
 		s_origVtable.Unlock(s_compatPrimarySurface, nullptr);
-		CompatGdiSurface::setSurfaceMemory(desc.lpSurface, desc.lPitch);
+		CompatGdi::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 	}
 	g_lockingPrimary = false;
 }
