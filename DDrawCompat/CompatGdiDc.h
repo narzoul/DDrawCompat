@@ -4,12 +4,8 @@
 
 #include <Windows.h>
 
-#include "CompatGdiDcCache.h"
-
 namespace CompatGdiDc
 {
-	using CompatGdiDcCache::CachedDc;
-
-	CachedDc getDc(HDC origDc);
-	void releaseDc(const CachedDc& cachedDc);
+	HDC getDc(HDC origDc);
+	void releaseDc(HDC origDc);
 }

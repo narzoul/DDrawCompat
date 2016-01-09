@@ -477,7 +477,6 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Flip(
 	if (This == s_compatPrimarySurface && SUCCEEDED(result))
 	{
 		result = RealPrimarySurface::flip(dwFlags);
-		updateSurfaceParams();
 	}
 	return result;
 }
@@ -603,8 +602,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 			result = RealPrimarySurface::restore();
 			if (wasLost)
 			{
-				CompatGdi::releaseSurfaceMemory();
-				updateSurfaceParams();
+				CompatGdi::invalidate();
 			}
 		}
 	}
@@ -680,20 +678,6 @@ void CompatDirectDrawSurface<TSurface>::restorePrimaryCaps(TDdsCaps& caps)
 {
 	caps.dwCaps ^= DDSCAPS_OFFSCREENPLAIN;
 	caps.dwCaps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE;
-}
-
-template <typename TSurface>
-void CompatDirectDrawSurface<TSurface>::updateSurfaceParams()
-{
-	TSurfaceDesc desc = {};
-	desc.dwSize = sizeof(desc);
-	g_lockingPrimary = true;
-	if (SUCCEEDED(s_origVtable.Lock(s_compatPrimarySurface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
-	{
-		s_origVtable.Unlock(s_compatPrimarySurface, nullptr);
-		CompatGdi::setSurfaceMemory(desc.lpSurface, desc.lPitch);
-	}
-	g_lockingPrimary = false;
 }
 
 template <typename TSurface>

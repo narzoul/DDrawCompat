@@ -94,7 +94,7 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
-      <AdditionalDependencies>dxguid.lib;detours.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -121,7 +121,7 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
-      <AdditionalDependencies>dxguid.lib;detours.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>No</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
@@ -146,9 +146,11 @@
   <ItemGroup>
     <ClInclude Include="CompatDirectDrawPalette.h" />
     <ClInclude Include="CompatGdi.h" />
+    <ClInclude Include="CompatGdiCaret.h" />
     <ClInclude Include="CompatGdiDc.h" />
     <ClInclude Include="CompatGdiDcCache.h" />
     <ClInclude Include="CompatGdiFunctions.h" />
+    <ClInclude Include="CompatGdiWinProc.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
@@ -170,8 +172,10 @@
     <ClCompile Include="CompatDirectDrawPalette.cpp" />
     <ClCompile Include="CompatDirectDrawSurface.cpp" />
     <ClCompile Include="CompatGdi.cpp" />
+    <ClCompile Include="CompatGdiCaret.cpp" />
     <ClCompile Include="CompatGdiDcCache.cpp" />
     <ClCompile Include="CompatGdiFunctions.cpp" />
+    <ClCompile Include="CompatGdiWinProc.cpp" />
     <ClCompile Include="CompatVtable.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DllMain.cpp" />

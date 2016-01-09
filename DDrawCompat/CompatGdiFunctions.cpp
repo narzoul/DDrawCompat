@@ -1,42 +1,30 @@
-#include <algorithm>
-#include <unordered_map>
-#include <vector>
-
-#include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
 #include "CompatGdiFunctions.h"
-#include "CompatPrimarySurface.h"
 #include "DDrawLog.h"
-#include "DDrawScopedThreadLock.h"
-#include "RealPrimarySurface.h"
 
 #include <detours.h>
 
 namespace
 {
-	using CompatGdiDc::CachedDc;
-
-	struct CompatDc : CachedDc
-	{
-		CompatDc(const CachedDc& cachedDc) : CachedDc(cachedDc) {}
-		HGDIOBJ origFont;
-		HGDIOBJ origBrush;
-		HGDIOBJ origPen;
-	};
-
-	std::unordered_map<void*, const char*> g_funcNames;
-	std::vector<CompatDc> g_usedCompatDcs;
-	DWORD* g_usedCompatDcCount = nullptr;
-
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI *)(Params...);
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
-	OrigFuncPtr& getOrigFuncPtr()
+	bool hasDisplayDcArg(HDC dc)
 	{
-		static OrigFuncPtr origFuncPtr = origFunc;
-		return origFuncPtr;
+		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == GetDeviceCaps(dc, TECHNOLOGY);
+	}
+
+	template <typename T>
+	bool hasDisplayDcArg(T)
+	{
+		return false;
+	}
+
+	template <typename T, typename... Params>
+	bool hasDisplayDcArg(T t, Params... params)
+	{
+		return hasDisplayDcArg(t) || hasDisplayDcArg(params...);
 	}
 
 	template <typename T>
@@ -47,140 +35,147 @@ namespace
 
 	HDC replaceDc(HDC dc)
 	{
-		auto it = std::find_if(g_usedCompatDcs.begin(), g_usedCompatDcs.end(),
-			[dc](const CompatDc& compatDc) { return compatDc.dc == dc; });
-		if (it != g_usedCompatDcs.end())
-		{
-			return it->dc;
-		}
+		HDC compatDc = CompatGdiDc::getDc(dc);
+		return compatDc ? compatDc : dc;
+	}
 
-		CompatDc compatDc = CompatGdiDc::getDc(dc);
-		if (!compatDc.dc)
-		{
-			return dc;
-		}
+	template <typename T>
+	void releaseDc(T) {}
 
-		compatDc.origFont = SelectObject(compatDc.dc, GetCurrentObject(dc, OBJ_FONT));
-		compatDc.origBrush = SelectObject(compatDc.dc, GetCurrentObject(dc, OBJ_BRUSH));
-		compatDc.origPen = SelectObject(compatDc.dc, GetCurrentObject(dc, OBJ_PEN));
-		SetTextColor(compatDc.dc, GetTextColor(dc));
-		SetBkColor(compatDc.dc, GetBkColor(dc));
-		SetBkMode(compatDc.dc, GetBkMode(dc));
+	void releaseDc(HDC dc)
+	{
+		CompatGdiDc::releaseDc(dc);
+	}
 
-		g_usedCompatDcs.push_back(compatDc);
-		++*g_usedCompatDcCount;
-		return compatDc.dc;
+	template <typename T, typename... Params>
+	void releaseDc(T t, Params... params)
+	{
+		releaseDc(params...);
+		releaseDc(t);
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiFunc(Params... params)
 	{
-		CompatGdi::GdiScopedThreadLock gdiLock;
-		Compat::DDrawScopedThreadLock ddLock;
-
-		DWORD usedCompatDcCount = 0;
-		g_usedCompatDcCount = &usedCompatDcCount;
-
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Lock(
-			CompatPrimarySurface::surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		if (!hasDisplayDcArg(params...) || !CompatGdi::beginGdiRendering())
 		{
-			return getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+			return CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
 		}
 
-		Result result = getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
-		GdiFlush();
+#ifdef _DEBUG
+		Compat::LogEnter(CompatGdi::g_funcNames[origFunc], params...);
+#endif
 
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Unlock(
-			CompatPrimarySurface::surface, nullptr);
+		Result result = CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
+		releaseDc(params...);
+		CompatGdi::endGdiRendering();
 
-		if (0 != usedCompatDcCount)
-		{
-			RealPrimarySurface::update();
-		}
-
-		for (DWORD i = 0; i < usedCompatDcCount; ++i)
-		{
-			CompatDc& compatDc = g_usedCompatDcs.back();
-			SelectObject(compatDc.dc, compatDc.origFont);
-			SelectObject(compatDc.dc, compatDc.origBrush);
-			SelectObject(compatDc.dc, compatDc.origPen);
-
-			CompatGdiDc::releaseDc(compatDc);
-			g_usedCompatDcs.pop_back();
-		}
+#ifdef _DEBUG
+		Compat::LogLeave(CompatGdi::g_funcNames[origFunc], params...) << result;
+#endif
 
 		return result;
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getCompatGdiFuncPtr(FuncPtr<Result, Params...>&)
+	OrigFuncPtr getCompatGdiFuncPtr(FuncPtr<Result, Params...>)
 	{
 		return &compatGdiFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
-
-	FARPROC getProcAddress(HMODULE module, const char* procName)
-	{
-		if (!module || !procName)
-		{
-			return nullptr;
-		}
-
-		PIMAGE_DOS_HEADER dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(module);
-		if (IMAGE_DOS_SIGNATURE != dosHeader->e_magic) {
-			return nullptr;
-		}
-		char* moduleBase = reinterpret_cast<char*>(module);
-
-		PIMAGE_NT_HEADERS ntHeader = reinterpret_cast<PIMAGE_NT_HEADERS>(
-			reinterpret_cast<char*>(dosHeader) + dosHeader->e_lfanew);
-		if (IMAGE_NT_SIGNATURE != ntHeader->Signature)
-		{
-			return nullptr;
-		}
-
-		PIMAGE_EXPORT_DIRECTORY exportDir = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(
-			moduleBase + ntHeader->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
-
-		DWORD* rvaOfNames = reinterpret_cast<DWORD*>(moduleBase + exportDir->AddressOfNames);
-
-		for (DWORD i = 0; i < exportDir->NumberOfNames; ++i)
-		{
-			if (0 == strcmp(procName, moduleBase + rvaOfNames[i]))
-			{
-				WORD* nameOrds = reinterpret_cast<WORD*>(moduleBase + exportDir->AddressOfNameOrdinals);
-				DWORD* rvaOfFunctions = reinterpret_cast<DWORD*>(moduleBase + exportDir->AddressOfFunctions);
-				return reinterpret_cast<FARPROC>(moduleBase + rvaOfFunctions[nameOrds[i]]);
-			}
-		}
-
-		return nullptr;
-	}
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
-	void hookGdiFunction(const char* moduleName, const char* funcName)
-	{
-		OrigFuncPtr& origFuncPtr = getOrigFuncPtr<OrigFuncPtr, origFunc>();
-		origFuncPtr = reinterpret_cast<OrigFuncPtr>(getProcAddress(GetModuleHandle(moduleName), funcName));
-		OrigFuncPtr newFuncPtr = getCompatGdiFuncPtr<OrigFuncPtr, origFunc>(origFuncPtr);
-		DetourAttach(reinterpret_cast<void**>(&origFuncPtr), newFuncPtr);
-		g_funcNames[origFunc] = funcName;
-	}
 }
 
-void CompatGdiFunctions::hookGdiFunctions()
-{
-#define HOOK_GDI_FUNCTION(module, func) hookGdiFunction<decltype(&func), &func>(#module, #func);
+#define HOOK_GDI_FUNCTION(module, func) \
+	CompatGdi::hookGdiFunction<decltype(&func), &func>( \
+		#module, #func, getCompatGdiFuncPtr<decltype(&func), &func>(&func));
 
 #define HOOK_GDI_TEXT_FUNCTION(module, func) \
 	HOOK_GDI_FUNCTION(module, func##A); \
 	HOOK_GDI_FUNCTION(module, func##W)
 
-	DetourTransactionBegin();
-	HOOK_GDI_FUNCTION(gdi32, BitBlt);
-	DetourTransactionCommit();
+namespace CompatGdiFunctions
+{
+	void installHooks()
+	{
+		DetourTransactionBegin();
 
-#undef HOOK_GDI_TEXT_FUNCTION
-#undef HOOK_GDI_FUNCTION
+		// Bitmap functions
+		HOOK_GDI_FUNCTION(msimg32, AlphaBlend);
+		HOOK_GDI_FUNCTION(gdi32, BitBlt);
+		HOOK_GDI_FUNCTION(gdi32, CreateCompatibleBitmap);
+		HOOK_GDI_FUNCTION(gdi32, CreateDIBitmap);
+		HOOK_GDI_FUNCTION(gdi32, CreateDIBSection);
+		HOOK_GDI_FUNCTION(gdi32, CreateDiscardableBitmap);
+		HOOK_GDI_FUNCTION(gdi32, ExtFloodFill);
+		HOOK_GDI_FUNCTION(gdi32, GetDIBits);
+		HOOK_GDI_FUNCTION(gdi32, GetPixel);
+		HOOK_GDI_FUNCTION(msimg32, GradientFill);
+		HOOK_GDI_FUNCTION(gdi32, MaskBlt);
+		HOOK_GDI_FUNCTION(gdi32, PlgBlt);
+		HOOK_GDI_FUNCTION(gdi32, SetDIBits);
+		HOOK_GDI_FUNCTION(gdi32, SetDIBitsToDevice);
+		HOOK_GDI_FUNCTION(gdi32, SetPixel);
+		HOOK_GDI_FUNCTION(gdi32, SetPixelV);
+		HOOK_GDI_FUNCTION(gdi32, StretchBlt);
+		HOOK_GDI_FUNCTION(gdi32, StretchDIBits);
+		HOOK_GDI_FUNCTION(msimg32, TransparentBlt);
+
+		// Brush functions
+		HOOK_GDI_FUNCTION(gdi32, PatBlt);
+
+		// Device context functions
+		HOOK_GDI_FUNCTION(gdi32, CreateCompatibleDC);
+		HOOK_GDI_FUNCTION(gdi32, DrawEscape);
+
+		// Filled shape functions
+		HOOK_GDI_FUNCTION(gdi32, Chord);
+		HOOK_GDI_FUNCTION(gdi32, Ellipse);
+		HOOK_GDI_FUNCTION(user32, FillRect);
+		HOOK_GDI_FUNCTION(user32, FrameRect);
+		HOOK_GDI_FUNCTION(user32, InvertRect);
+		HOOK_GDI_FUNCTION(gdi32, Pie);
+		HOOK_GDI_FUNCTION(gdi32, Polygon);
+		HOOK_GDI_FUNCTION(gdi32, PolyPolygon);
+		HOOK_GDI_FUNCTION(gdi32, Rectangle);
+		HOOK_GDI_FUNCTION(gdi32, RoundRect);
+
+		// Font and text functions
+		HOOK_GDI_TEXT_FUNCTION(user32, DrawText);
+		HOOK_GDI_TEXT_FUNCTION(user32, DrawTextEx);
+		HOOK_GDI_TEXT_FUNCTION(gdi32, ExtTextOut);
+		HOOK_GDI_TEXT_FUNCTION(gdi32, PolyTextOut);
+		HOOK_GDI_TEXT_FUNCTION(user32, TabbedTextOut);
+		HOOK_GDI_TEXT_FUNCTION(gdi32, TextOut);
+
+		// Line and curve functions
+		HOOK_GDI_FUNCTION(gdi32, AngleArc);
+		HOOK_GDI_FUNCTION(gdi32, Arc);
+		HOOK_GDI_FUNCTION(gdi32, ArcTo);
+		HOOK_GDI_FUNCTION(gdi32, LineTo);
+		HOOK_GDI_FUNCTION(gdi32, PolyBezier);
+		HOOK_GDI_FUNCTION(gdi32, PolyBezierTo);
+		HOOK_GDI_FUNCTION(gdi32, PolyDraw);
+		HOOK_GDI_FUNCTION(gdi32, Polyline);
+		HOOK_GDI_FUNCTION(gdi32, PolylineTo);
+		HOOK_GDI_FUNCTION(gdi32, PolyPolyline);
+
+		// Painting and drawing functions
+		HOOK_GDI_FUNCTION(user32, DrawCaption);
+		HOOK_GDI_FUNCTION(user32, DrawEdge);
+		HOOK_GDI_FUNCTION(user32, DrawFocusRect);
+		HOOK_GDI_FUNCTION(user32, DrawFrameControl);
+		HOOK_GDI_TEXT_FUNCTION(user32, DrawState);
+		HOOK_GDI_TEXT_FUNCTION(user32, GrayString);
+		HOOK_GDI_FUNCTION(user32, PaintDesktop);
+
+		// Region functions
+		HOOK_GDI_FUNCTION(gdi32, FillRgn);
+		HOOK_GDI_FUNCTION(gdi32, FrameRgn);
+		HOOK_GDI_FUNCTION(gdi32, InvertRgn);
+		HOOK_GDI_FUNCTION(gdi32, PaintRgn);
+
+		// Scroll bar functions
+		HOOK_GDI_FUNCTION(user32, ScrollDC);
+
+		DetourTransactionCommit();
+	}
 }

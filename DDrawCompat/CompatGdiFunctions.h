@@ -1,7 +1,6 @@
 #pragma once
 
-class CompatGdiFunctions
+namespace CompatGdiFunctions
 {
-public:
-	static void hookGdiFunctions();
+	void installHooks();
 };

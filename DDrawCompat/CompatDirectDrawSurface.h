@@ -23,7 +23,6 @@ public:
 	static void fixSurfacePtrs(TSurface& surface);
 	static void initPrimarySurfacePtr(const GUID& guid, IUnknown& surface);
 	static void resetPrimarySurfacePtr();
-	static void updateSurfaceParams();
 
 	static HRESULT STDMETHODCALLTYPE Blt(
 		TSurface* This,

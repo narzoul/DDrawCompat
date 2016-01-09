@@ -8,23 +8,15 @@
 
 namespace CompatGdiDcCache
 {
-	struct SurfaceMemoryDesc
-	{
-		void* surfaceMemory;
-		LONG pitch;
-	};
-
 	struct CachedDc
 	{
-		SurfaceMemoryDesc surfaceMemoryDesc;
 		IDirectDrawSurface7* surface;
 		HDC dc;
 	};
 
+	void clear();
 	CachedDc getDc();
 	bool init();
-	bool isReleased();
-	void release();
 	void releaseDc(const CachedDc& cachedDc);
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch);
 }

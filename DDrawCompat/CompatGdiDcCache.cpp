@@ -1,4 +1,3 @@
-#include <map>
 #include <vector>
 
 #include "CompatDirectDraw.h"
@@ -8,41 +7,18 @@
 #include "Config.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
-#include "DDrawScopedThreadLock.h"
-
-namespace CompatGdiDcCache
-{
-	bool operator<(const SurfaceMemoryDesc& desc1, const SurfaceMemoryDesc& desc2)
-	{
-		return desc1.surfaceMemory < desc2.surfaceMemory ||
-			(desc1.surfaceMemory == desc2.surfaceMemory && desc1.pitch < desc2.pitch);
-	}
-}
 
 namespace
 {
-	using CompatGdiDcCache::SurfaceMemoryDesc;
 	using CompatGdiDcCache::CachedDc;
 	
-	std::map<SurfaceMemoryDesc, std::vector<CachedDc>> g_caches;
-	std::vector<CachedDc>* g_currentCache = nullptr;
+	std::vector<CachedDc> g_cache;
 
 	IDirectDraw7* g_directDraw = nullptr;
 	void* g_surfaceMemory = nullptr;
 	LONG g_pitch = 0;
 
 	IDirectDrawSurface7* createGdiSurface();
-	void releaseCachedDc(CachedDc cachedDc);
-	void releaseCache(std::vector<CachedDc>& cache);
-
-	void clearAllCaches()
-	{
-		for (auto& cache : g_caches)
-		{
-			releaseCache(cache.second);
-		}
-		g_caches.clear();
-	}
 
 	IDirectDraw7* createDirectDraw()
 	{
@@ -86,17 +62,13 @@ namespace
 		// Release DD critical section acquired by IDirectDrawSurface7::GetDC to avoid deadlocks
 		Compat::origProcs.ReleaseDDThreadLock();
 
-		cachedDc.surfaceMemoryDesc.surfaceMemory = g_surfaceMemory;
-		cachedDc.surfaceMemoryDesc.pitch = g_pitch;
-		cachedDc.dc = dc;
 		cachedDc.surface = surface;
+		cachedDc.dc = dc;
 		return cachedDc;
 	}
 
 	IDirectDrawSurface7* createGdiSurface()
 	{
-		Compat::DDrawScopedThreadLock ddLock;
-
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
@@ -125,66 +97,49 @@ namespace
 		return surface;
 	}
 
-	void fillCurrentCache()
-	{
-		for (DWORD i = 0; i < Config::gdiDcCacheSize; ++i)
-		{
-			CachedDc cachedDc = createCachedDc();
-			if (!cachedDc.dc)
-			{
-				return;
-			}
-			g_currentCache->push_back(cachedDc);
-		}
-	}
-
 	void releaseCachedDc(CachedDc cachedDc)
 	{
 		// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
 		Compat::origProcs.AcquireDDThreadLock();
 
-		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.ReleaseDC(
-			cachedDc.surface, cachedDc.dc)))
+		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.ReleaseDC(
+			cachedDc.surface, cachedDc.dc);
+		if (FAILED(result))
 		{
-			LOG_ONCE("Failed to release a cached DC");
-			Compat::origProcs.ReleaseDDThreadLock();
+			LOG_ONCE("Failed to release a cached DC: " << result);
 		}
 
 		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(cachedDc.surface);
-	}
-
-	void releaseCache(std::vector<CachedDc>& cache)
-	{
-		for (auto& cachedDc : cache)
-		{
-			releaseCachedDc(cachedDc);
-		}
 	}
 }
 
 namespace CompatGdiDcCache
 {
+	void clear()
+	{
+		for (auto& cachedDc : g_cache)
+		{
+			releaseCachedDc(cachedDc);
+		}
+		g_cache.clear();
+	}
+
 	CachedDc getDc()
 	{
 		CachedDc cachedDc = {};
-		if (!g_currentCache)
+		if (!g_surfaceMemory)
 		{
 			return cachedDc;
 		}
 
-		if (g_currentCache->empty())
+		if (g_cache.empty())
 		{
-			LOG_ONCE("Warning: GDI DC cache size is insufficient");
 			cachedDc = createCachedDc();
-			if (!cachedDc.dc)
-			{
-				return cachedDc;
-			}
 		}
 		else
 		{
-			cachedDc = g_currentCache->back();
-			g_currentCache->pop_back();
+			cachedDc = g_cache.back();
+			g_cache.pop_back();
 		}
 
 		return cachedDc;
@@ -196,46 +151,20 @@ namespace CompatGdiDcCache
 		return nullptr != g_directDraw;
 	}
 
-	bool isReleased()
-	{
-		return g_caches.empty();
-	}
-
-	void release()
-	{
-		if (g_currentCache)
-		{
-			g_currentCache = nullptr;
-			clearAllCaches();
-		}
-	}
-
 	void releaseDc(const CachedDc& cachedDc)
 	{
-		g_caches[cachedDc.surfaceMemoryDesc].push_back(cachedDc);
+		g_cache.push_back(cachedDc);
 	}
 
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch)
 	{
-		g_surfaceMemory = surfaceMemory;
-		g_pitch = pitch;
-
-		if (!surfaceMemory)
+		if (g_surfaceMemory == surfaceMemory && g_pitch == pitch)
 		{
-			g_currentCache = nullptr;
 			return;
 		}
 
-		SurfaceMemoryDesc surfaceMemoryDesc = { surfaceMemory, pitch };
-		auto it = g_caches.find(surfaceMemoryDesc);
-		if (it == g_caches.end())
-		{
-			g_currentCache = &g_caches[surfaceMemoryDesc];
-			fillCurrentCache();
-		}
-		else
-		{
-			g_currentCache = &it->second;
-		}
+		g_surfaceMemory = surfaceMemory;
+		g_pitch = pitch;
+		clear();
 	}
 }

@@ -66,10 +66,6 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	if (SUCCEEDED(result))
 	{
 		CompatDirectDrawSurface<TSurface>::fixSurfacePtrs(**lplpDDSurface);
-		if (isPrimary)
-		{
-			CompatDirectDrawSurface<TSurface>::updateSurfaceParams();
-		}
 	}
 
 	return result;

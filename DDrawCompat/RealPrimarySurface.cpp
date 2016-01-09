@@ -302,13 +302,8 @@ bool RealPrimarySurface::isFullScreen()
 
 bool RealPrimarySurface::isLost()
 {
-	const bool isLost = g_frontBuffer &&
+	return g_frontBuffer &&
 		DDERR_SURFACELOST == CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.IsLost(g_frontBuffer);
-	if (isLost)
-	{
-		CompatGdi::releaseSurfaceMemory();
-	}
-	return isLost;
 }
 
 void RealPrimarySurface::release()
@@ -380,6 +375,8 @@ void RealPrimarySurface::update()
 
 void RealPrimarySurface::updatePalette()
 {
+	CompatGdi::updatePalette();
+
 	if (isFullScreen())
 	{
 		flip(DDFLIP_WAIT);

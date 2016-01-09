@@ -75,6 +75,12 @@
     <ClInclude Include="CompatGdi.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatGdiWinProc.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatGdiCaret.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -120,6 +126,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatGdi.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiWinProc.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiCaret.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
