@@ -361,10 +361,7 @@ void RealPrimarySurface::setPalette(LPDIRECTDRAWPALETTE palette)
 		}
 	}
 
-	if (palette)
-	{
-		updatePalette();
-	}
+	updatePalette();
 }
 
 void RealPrimarySurface::update()
@@ -376,21 +373,5 @@ void RealPrimarySurface::update()
 void RealPrimarySurface::updatePalette()
 {
 	CompatGdi::updatePalette();
-
-	if (isFullScreen())
-	{
-		flip(DDFLIP_WAIT);
-	}
-	else
-	{
-		update();
-	}
-
-	static LARGE_INTEGER lastUpdateTime = {};
-	DWORD timeSinceLastUpdate = getTimeElapsedInMs(lastUpdateTime);
-	if (timeSinceLastUpdate < Config::minPaletteUpdateInterval)
-	{
-		Sleep(Config::minPaletteUpdateInterval - timeSinceLastUpdate);
-	}
-	QueryPerformanceCounter(&lastUpdateTime);
+	updateNow();
 }
