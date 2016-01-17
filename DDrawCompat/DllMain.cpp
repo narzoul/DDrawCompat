@@ -1,4 +1,9 @@
+#define WIN32_LEAN_AND_MEAN
+
 #include <string>
+
+#include <Windows.h>
+#include <Uxtheme.h>
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
@@ -163,6 +168,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		Compat::origProcs.DirectInputCreateA = GetProcAddress(g_origDInputModule, "DirectInputCreateA");
 
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
+		SetThemeAppProperties(0);
 
 		if (Compat::origProcs.SetAppCompatData)
 		{

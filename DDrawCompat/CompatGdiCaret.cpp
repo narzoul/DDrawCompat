@@ -22,6 +22,21 @@ namespace
 	};
 
 	CaretData g_caret = {};
+	CRITICAL_SECTION g_caretCriticalSection;
+
+	class CaretScopedThreadLock
+	{
+	public:
+		CaretScopedThreadLock()
+		{
+			EnterCriticalSection(&g_caretCriticalSection);
+		}
+
+		~CaretScopedThreadLock()
+		{
+			LeaveCriticalSection(&g_caretCriticalSection);
+		}
+	};
 
 	void drawCaret()
 	{
@@ -55,7 +70,7 @@ namespace
 		DWORD /*dwEventThread*/,
 		DWORD /*dwmsEventTime*/)
 	{
-		CompatGdi::GdiScopedThreadLock gdiLock;
+		CaretScopedThreadLock caretLock;
 		if (OBJID_CARET != idObject || !g_caret.isDrawn || g_caret.hwnd != hwnd)
 		{
 			return;
@@ -80,7 +95,7 @@ namespace
 		BOOL result = CALL_ORIG_GDI(CreateCaret)(hWnd, hBitmap, nWidth, nHeight);
 		if (result)
 		{
-			CompatGdi::GdiScopedThreadLock gdiLock;
+			CaretScopedThreadLock caretLock;
 			if (g_caret.isDrawn)
 			{
 				drawCaret();
@@ -99,7 +114,7 @@ namespace
 			return FALSE;
 		}
 
-		CompatGdi::GdiScopedThreadLock gdiLock;
+		CaretScopedThreadLock caretLock;
 		if (!g_caret.isDrawn)
 		{
 			IAccessible* accessible = nullptr;
@@ -129,7 +144,7 @@ namespace
 		BOOL result = CALL_ORIG_GDI(HideCaret)(hWnd);
 		if (result)
 		{
-			CompatGdi::GdiScopedThreadLock gdiLock;
+			CaretScopedThreadLock caretLock;
 			if (g_caret.isDrawn)
 			{
 				drawCaret();
@@ -147,6 +162,8 @@ namespace CompatGdiCaret
 {
 	void installHooks()
 	{
+		InitializeCriticalSection(&g_caretCriticalSection);
+
 		DetourTransactionBegin();
 		HOOK_GDI_FUNCTION(user32, CreateCaret, createCaret);
 		HOOK_GDI_FUNCTION(user32, ShowCaret, showCaret);

@@ -99,10 +99,8 @@ namespace
 			if (hwnd)
 			{
 				ExcludeClipRectsData excludeClipRectsData = { compatDc, origin, GetAncestor(hwnd, GA_ROOT) };
-				EnumThreadWindows(GetCurrentThreadId(), &excludeClipRectsForOverlappingWindows,
+				EnumWindows(&excludeClipRectsForOverlappingWindows,
 					reinterpret_cast<LPARAM>(&excludeClipRectsData));
-				RECT windowRect = {};
-				GetWindowRect(hwnd, &windowRect);
 			}
 		}
 	}
