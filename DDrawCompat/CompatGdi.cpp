@@ -10,7 +10,12 @@
 
 namespace
 {
-	DWORD g_renderingDepth = 0;
+	DWORD g_renderingRefCount = 0;
+	DWORD g_ddLockThreadRenderingRefCount = 0;
+	DWORD g_ddLockThreadId = 0;
+	HANDLE g_ddUnlockBeginEvent = nullptr;
+	HANDLE g_ddUnlockEndEvent = nullptr;
+	bool g_isDelayedUnlockPending = false;
 
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
@@ -60,6 +65,35 @@ namespace
 		}
 		return TRUE;
 	}
+
+	bool lockPrimarySurface()
+	{
+		Compat::origProcs.AcquireDDThreadLock();
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Lock(
+			CompatPrimarySurface::surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		{
+			Compat::origProcs.ReleaseDDThreadLock();
+			return false;
+		}
+
+		g_ddLockThreadId = GetCurrentThreadId();
+		CompatGdiDcCache::setDdLockThreadId(g_ddLockThreadId);
+		CompatGdiDcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
+		return true;
+	}
+
+	void unlockPrimarySurface()
+	{
+		GdiFlush();
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Unlock(
+			CompatPrimarySurface::surface, nullptr);
+		RealPrimarySurface::update();
+
+		Compat::origProcs.ReleaseDDThreadLock();
+	}
 }
 
 namespace CompatGdi
@@ -67,14 +101,23 @@ namespace CompatGdi
 	CRITICAL_SECTION g_gdiCriticalSection;
 	std::unordered_map<void*, const char*> g_funcNames;
 
-	GdiScopedThreadLock::GdiScopedThreadLock()
+	GdiScopedThreadLock::GdiScopedThreadLock() : m_isLocked(true)
 	{
 		EnterCriticalSection(&g_gdiCriticalSection);
 	}
 
 	GdiScopedThreadLock::~GdiScopedThreadLock()
 	{
-		LeaveCriticalSection(&g_gdiCriticalSection);
+		unlock();
+	}
+
+	void GdiScopedThreadLock::unlock()
+	{
+		if (m_isLocked)
+		{
+			LeaveCriticalSection(&g_gdiCriticalSection);
+			m_isLocked = false;
+		}
 	}
 
 	bool beginGdiRendering()
@@ -84,40 +127,63 @@ namespace CompatGdi
 			return false;
 		}
 
-		Compat::origProcs.AcquireDDThreadLock();
-		EnterCriticalSection(&g_gdiCriticalSection);
+		GdiScopedThreadLock gdiLock;
 
-		if (0 == g_renderingDepth)
+		if (0 == g_renderingRefCount)
 		{
-			DDSURFACEDESC2 desc = {};
-			desc.dwSize = sizeof(desc);
-			if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Lock(
-				CompatPrimarySurface::surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+			if (!lockPrimarySurface())
 			{
-				LeaveCriticalSection(&g_gdiCriticalSection);
-				Compat::origProcs.ReleaseDDThreadLock();
 				return false;
 			}
-			CompatGdiDcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
+			++g_ddLockThreadRenderingRefCount;
+		}
+		else if (GetCurrentThreadId() == g_ddLockThreadId)
+		{
+			++g_ddLockThreadRenderingRefCount;
 		}
 
-		++g_renderingDepth;
+		++g_renderingRefCount;
 		return true;
 	}
 
 	void endGdiRendering()
 	{
-		--g_renderingDepth;
-		if (0 == g_renderingDepth)
-		{
-			GdiFlush();
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Unlock(
-				CompatPrimarySurface::surface, nullptr);
-			RealPrimarySurface::update();
-		}
+		CompatGdi::GdiScopedThreadLock gdiLock;
 
-		LeaveCriticalSection(&g_gdiCriticalSection);
-		Compat::origProcs.ReleaseDDThreadLock();
+		if (GetCurrentThreadId() == g_ddLockThreadId)
+		{
+			if (1 == g_renderingRefCount)
+			{
+				unlockPrimarySurface();
+				g_ddLockThreadRenderingRefCount = 0;
+				g_renderingRefCount = 0;
+			}
+			else if (1 == g_ddLockThreadRenderingRefCount)
+			{
+				g_isDelayedUnlockPending = true;
+				gdiLock.unlock();
+				WaitForSingleObject(g_ddUnlockBeginEvent, INFINITE);
+				unlockPrimarySurface();
+				g_ddLockThreadRenderingRefCount = 0;
+				g_renderingRefCount = 0;
+				SetEvent(g_ddUnlockEndEvent);
+			}
+			else
+			{
+				--g_ddLockThreadRenderingRefCount;
+				--g_renderingRefCount;
+			}
+		}
+		else
+		{
+			--g_renderingRefCount;
+			if (1 == g_renderingRefCount && g_isDelayedUnlockPending)
+			{
+				SetEvent(g_ddUnlockBeginEvent);
+				WaitForSingleObject(g_ddUnlockEndEvent, INFINITE);
+				g_isDelayedUnlockPending = false;
+			}
+		}
 	}
 
 	void hookGdiFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
@@ -146,6 +212,14 @@ namespace CompatGdi
 		InitializeCriticalSection(&g_gdiCriticalSection);
 		if (CompatGdiDcCache::init())
 		{
+			g_ddUnlockBeginEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			g_ddUnlockEndEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			if (!g_ddUnlockBeginEvent || !g_ddUnlockEndEvent)
+			{
+				Compat::Log() << "Failed to create the unlock events for GDI";
+				return;
+			}
+
 			CompatGdiFunctions::installHooks();
 			CompatGdiWinProc::installHooks();
 			CompatGdiCaret::installHooks();

@@ -18,5 +18,6 @@ namespace CompatGdiDcCache
 	CachedDc getDc();
 	bool init();
 	void releaseDc(const CachedDc& cachedDc);
+	void setDdLockThreadId(DWORD ddLockThreadId);
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch);
 }

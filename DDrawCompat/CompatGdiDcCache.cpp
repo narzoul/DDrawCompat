@@ -13,6 +13,9 @@ namespace
 	using CompatGdiDcCache::CachedDc;
 	
 	std::vector<CachedDc> g_cache;
+	DWORD g_cacheSize = 0;
+	DWORD g_maxUsedCacheSize = 0;
+	DWORD g_ddLockThreadId = 0;
 
 	IDirectDraw7* g_directDraw = nullptr;
 	void* g_surfaceMemory = nullptr;
@@ -97,6 +100,30 @@ namespace
 		return surface;
 	}
 
+	void extendCache()
+	{
+		if (g_cacheSize >= Config::preallocatedGdiDcCount)
+		{
+			LOG_ONCE("Warning: Preallocated GDI DC count is insufficient. This may lead to graphical issues.");
+		}
+
+		if (GetCurrentThreadId() != g_ddLockThreadId)
+		{
+			return;
+		}
+
+		for (DWORD i = 0; i < Config::preallocatedGdiDcCount; ++i)
+		{
+			CachedDc cachedDc = createCachedDc();
+			if (!cachedDc.dc)
+			{
+				return;
+			}
+			g_cache.push_back(cachedDc);
+			++g_cacheSize;
+		}
+	}
+
 	void releaseCachedDc(CachedDc cachedDc)
 	{
 		// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
@@ -122,6 +149,7 @@ namespace CompatGdiDcCache
 			releaseCachedDc(cachedDc);
 		}
 		g_cache.clear();
+		g_cacheSize = 0;
 	}
 
 	CachedDc getDc()
@@ -134,12 +162,20 @@ namespace CompatGdiDcCache
 
 		if (g_cache.empty())
 		{
-			cachedDc = createCachedDc();
+			extendCache();
 		}
-		else
+
+		if (!g_cache.empty())
 		{
 			cachedDc = g_cache.back();
 			g_cache.pop_back();
+
+			const DWORD usedCacheSize = g_cacheSize - g_cache.size();
+			if (usedCacheSize > g_maxUsedCacheSize)
+			{
+				g_maxUsedCacheSize = usedCacheSize;
+				Compat::Log() << "GDI used DC cache size: " << g_maxUsedCacheSize;
+			}
 		}
 
 		return cachedDc;
@@ -154,6 +190,11 @@ namespace CompatGdiDcCache
 	void releaseDc(const CachedDc& cachedDc)
 	{
 		g_cache.push_back(cachedDc);
+	}
+
+	void setDdLockThreadId(DWORD ddLockThreadId)
+	{
+		g_ddLockThreadId = ddLockThreadId;
 	}
 
 	void setSurfaceMemory(void* surfaceMemory, LONG pitch)

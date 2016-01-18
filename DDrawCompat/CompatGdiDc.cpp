@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <unordered_map>
 
+#include "CompatGdi.h"
 #include "CompatGdiDc.h"
 #include "CompatGdiDcCache.h"
 #include "DDrawLog.h"
@@ -110,8 +111,14 @@ namespace CompatGdiDc
 {
 	HDC getDc(HDC origDc)
 	{
-		if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY) ||
-			g_origDcToCompatDc.end() != std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
+		if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
+		{
+			return nullptr;
+		}
+
+		CompatGdi::GdiScopedThreadLock gdiLock;
+
+		if (g_origDcToCompatDc.end() != std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
 				[=](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == origDc; }))
 		{
 			return nullptr;
@@ -145,6 +152,8 @@ namespace CompatGdiDc
 
 	void releaseDc(HDC origDc)
 	{
+		CompatGdi::GdiScopedThreadLock gdiLock;
+
 		auto it = g_origDcToCompatDc.find(origDc);
 		if (it == g_origDcToCompatDc.end())
 		{

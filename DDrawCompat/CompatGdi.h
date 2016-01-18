@@ -17,6 +17,9 @@ namespace CompatGdi
 	public:
 		GdiScopedThreadLock();
 		~GdiScopedThreadLock();
+		void unlock();
+	private:
+		bool m_isLocked;
 	};
 
 	extern CRITICAL_SECTION g_gdiCriticalSection;
