@@ -14,6 +14,7 @@
 		isAlreadyLogged##__LINE__ = true; \
 	}
 
+std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
 std::ostream& operator<<(std::ostream& os, const RECT& rect);
 std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps);
 std::ostream& operator<<(std::ostream& os, const DDSCAPS2& caps);

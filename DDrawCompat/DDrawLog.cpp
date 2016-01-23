@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <atlstr.h>
 #include <Windows.h>
 
 #include "DDrawLog.h"
@@ -13,6 +14,12 @@ namespace
 		empty.dwSize = t.dwSize;
 		return 0 == memcmp(&t, &empty, sizeof(t));
 	}
+}
+
+std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
+{
+	CStringA str(wstr);
+	return os << '"' << static_cast<const char*>(str) << '"';
 }
 
 std::ostream& operator<<(std::ostream& os, const RECT& rect)
