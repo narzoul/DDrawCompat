@@ -106,6 +106,9 @@ namespace CompatGdiFunctions
 		HOOK_GDI_FUNCTION(gdi32, CreateDIBSection);
 		HOOK_GDI_FUNCTION(gdi32, CreateDiscardableBitmap);
 		HOOK_GDI_FUNCTION(gdi32, ExtFloodFill);
+		HOOK_GDI_FUNCTION(gdi32, GdiAlphaBlend);
+		HOOK_GDI_FUNCTION(gdi32, GdiGradientFill);
+		HOOK_GDI_FUNCTION(gdi32, GdiTransparentBlt);
 		HOOK_GDI_FUNCTION(gdi32, GetDIBits);
 		HOOK_GDI_FUNCTION(gdi32, GetPixel);
 		HOOK_GDI_FUNCTION(msimg32, GradientFill);
@@ -145,6 +148,10 @@ namespace CompatGdiFunctions
 		HOOK_GDI_TEXT_FUNCTION(gdi32, PolyTextOut);
 		HOOK_GDI_TEXT_FUNCTION(user32, TabbedTextOut);
 		HOOK_GDI_TEXT_FUNCTION(gdi32, TextOut);
+
+		// Icon functions
+		HOOK_GDI_FUNCTION(user32, DrawIcon);
+		HOOK_GDI_FUNCTION(user32, DrawIconEx);
 
 		// Line and curve functions
 		HOOK_GDI_FUNCTION(gdi32, AngleArc);
