@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <dwmapi.h>
 #include <Windows.h>
 
 #include "CompatGdi.h"
@@ -9,6 +10,7 @@
 
 namespace
 {
+	void disableDwmAttributes(HWND hwnd);
 	void eraseBackground(HWND hwnd, HDC dc);
 	bool isScrollBarVisible(HWND hwnd, LONG windowStyles, LONG sbStyle, LONG sbObjectId);
 	void ncPaint(HWND hwnd);
@@ -19,7 +21,11 @@ namespace
 		if (HC_ACTION == nCode)
 		{
 			auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
-			if (WM_ERASEBKGND == ret->message)
+			if (WM_CREATE == ret->message)
+			{
+				disableDwmAttributes(ret->hwnd);
+			}
+			else if (WM_ERASEBKGND == ret->message)
 			{
 				if (0 != ret->lResult)
 				{
@@ -44,6 +50,17 @@ namespace
 		}
 
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
+	}
+
+	void disableDwmAttributes(HWND hwnd)
+	{
+		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
+		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY,
+			&ncRenderingPolicy, sizeof(ncRenderingPolicy));
+
+		BOOL disableTransitions = TRUE;
+		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
+			&disableTransitions, sizeof(disableTransitions));
 	}
 
 	void drawSizeBox(HWND hwnd, HDC compatDc, const RECT& windowRect, const RECT& clientRect)
