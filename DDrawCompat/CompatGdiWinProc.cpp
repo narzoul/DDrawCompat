@@ -10,7 +10,8 @@
 namespace
 {
 	void eraseBackground(HWND hwnd, HDC dc);
-	void ncPaint(HWND wnd);
+	void ncPaint(HWND hwnd);
+	void updateScrolledWindow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -37,7 +38,7 @@ namespace
 			}
 			else if (WM_VSCROLL == ret->message || WM_HSCROLL == ret->message)
 			{
-				InvalidateRect(ret->hwnd, nullptr, TRUE);
+				updateScrolledWindow(ret->hwnd);
 			}
 		}
 
@@ -56,6 +57,20 @@ namespace
 			}
 			CompatGdi::endGdiRendering();
 		}
+	}
+
+	LRESULT CALLBACK mouseProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		if (HC_ACTION == nCode)
+		{
+			auto mhs = reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
+			if (WM_MOUSEWHEEL == wParam)
+			{
+				updateScrolledWindow(mhs->hwnd);
+			}
+		}
+
+		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
 
 	void ncPaint(HWND hwnd)
@@ -88,6 +103,11 @@ namespace
 		ReleaseDC(hwnd, windowDc);
 		CompatGdi::endGdiRendering();
 	}
+
+	void updateScrolledWindow(HWND hwnd)
+	{
+		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE);
+	}
 }
 
 namespace CompatGdiWinProc
@@ -96,5 +116,6 @@ namespace CompatGdiWinProc
 	{
 		const DWORD threadId = GetCurrentThreadId();
 		SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
+		SetWindowsHookEx(WH_MOUSE, &mouseProc, nullptr, threadId);
 	}
 }
