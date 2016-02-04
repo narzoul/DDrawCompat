@@ -6,7 +6,12 @@ Games using DirectX 8 and above for rendering are not affected as they don't use
 
 `DDrawCompat` does not use any external renderer (such as OpenGL), nor even a newer version of DirectX. It only changes how DirectDraw (and GDI) is used internally. Since older versions of Direct3D (v7 and below) also rely on DirectDraw, `DDrawCompat` may still be useful for those renderers.
 
-**DISCLAIMER**: I take no responsibility for any damages caused by the use of this software. Use it at your own risk!
+#### License
+Source code is licensed under the `Free Public License 1.0.0`. See `LICENSE.txt` in the repository root for details. The same terms apply for the entire repository, not just for the versions in which the license file appears.
+
+Binary releases are licensed under the `Microsoft Research Shared Source License Agreement (Non-commercial Use Only)`. Each release contains the exact terms in `license.txt`.
+
+Note that `DDrawCompat` does not come from, nor is endorsed by Microsoft. Use it at your own risk!
 
 #### Requirements
 `DDrawCompat` has mainly been tested on Windows 8, but it is expected to be compatible with Windows Vista, 7, 8 and 10.
