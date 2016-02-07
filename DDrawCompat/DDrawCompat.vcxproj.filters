@@ -81,6 +81,9 @@
     <ClInclude Include="CompatGdiCaret.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatGdiTitleBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -132,6 +135,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatGdiCaret.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiTitleBar.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

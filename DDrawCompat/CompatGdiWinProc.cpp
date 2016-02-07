@@ -5,6 +5,7 @@
 
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
+#include "CompatGdiTitleBar.h"
 #include "CompatGdiWinProc.h"
 #include "DDrawLog.h"
 
@@ -137,7 +138,7 @@ namespace
 
 	void ncPaint(HWND hwnd)
 	{
-		if (!CompatGdi::beginGdiRendering())
+		if (!hwnd || !CompatGdi::beginGdiRendering())
 		{
 			return;
 		}
@@ -154,6 +155,10 @@ namespace
 			POINT clientOrigin = {};
 			ClientToScreen(hwnd, &clientOrigin);
 
+			CompatGdi::TitleBar titleBar(hwnd, compatDc);
+			titleBar.drawAll();
+			titleBar.excludeFromClipRegion();
+
 			OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
 			ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
 			CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
@@ -166,6 +171,35 @@ namespace
 
 		ReleaseDC(hwnd, windowDc);
 		CompatGdi::endGdiRendering();
+	}
+
+	void CALLBACK objectStateChangeEvent(
+		HWINEVENTHOOK /*hWinEventHook*/,
+		DWORD /*event*/,
+		HWND hwnd,
+		LONG idObject,
+		LONG /*idChild*/,
+		DWORD /*dwEventThread*/,
+		DWORD /*dwmsEventTime*/)
+	{
+		if (OBJID_TITLEBAR == idObject)
+		{
+			if (!hwnd || !CompatGdi::beginGdiRendering())
+			{
+				return;
+			}
+
+			HDC windowDc = GetWindowDC(hwnd);
+			HDC compatDc = CompatGdiDc::getDc(windowDc);
+			if (compatDc)
+			{
+				CompatGdi::TitleBar(hwnd, compatDc).drawAll();
+				CompatGdiDc::releaseDc(windowDc);
+			}
+
+			ReleaseDC(hwnd, windowDc);
+			CompatGdi::endGdiRendering();
+		}
 	}
 
 	void updateScrolledWindow(HWND hwnd)
@@ -181,5 +215,7 @@ namespace CompatGdiWinProc
 		const DWORD threadId = GetCurrentThreadId();
 		SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
 		SetWindowsHookEx(WH_MOUSE, &mouseProc, nullptr, threadId);
+		SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
+			nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 	}
 }
