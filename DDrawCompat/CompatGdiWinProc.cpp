@@ -5,6 +5,7 @@
 
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
+#include "CompatGdiScrollBar.h"
 #include "CompatGdiTitleBar.h"
 #include "CompatGdiWinProc.h"
 #include "DDrawLog.h"
@@ -159,6 +160,10 @@ namespace
 			titleBar.drawAll();
 			titleBar.excludeFromClipRegion();
 
+			CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
+			scrollBar.drawAll();
+			scrollBar.excludeFromClipRegion();
+
 			OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
 			ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
 			CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
@@ -182,7 +187,7 @@ namespace
 		DWORD /*dwEventThread*/,
 		DWORD /*dwmsEventTime*/)
 	{
-		if (OBJID_TITLEBAR == idObject)
+		if (OBJID_TITLEBAR == idObject || OBJID_HSCROLL == idObject || OBJID_VSCROLL == idObject)
 		{
 			if (!hwnd || !CompatGdi::beginGdiRendering())
 			{
@@ -193,7 +198,18 @@ namespace
 			HDC compatDc = CompatGdiDc::getDc(windowDc);
 			if (compatDc)
 			{
-				CompatGdi::TitleBar(hwnd, compatDc).drawAll();
+				if (OBJID_TITLEBAR == idObject)
+				{
+					CompatGdi::TitleBar(hwnd, compatDc).drawAll();
+				}
+				else if (OBJID_HSCROLL == idObject)
+				{
+					CompatGdi::ScrollBar(hwnd, compatDc).drawHorizArrows();
+				}
+				else if (OBJID_VSCROLL == idObject)
+				{
+					CompatGdi::ScrollBar(hwnd, compatDc).drawVertArrows();
+				}
 				CompatGdiDc::releaseDc(windowDc);
 			}
 
