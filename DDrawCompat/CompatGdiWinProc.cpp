@@ -48,6 +48,15 @@ namespace
 			{
 				updateScrolledWindow(ret->hwnd);
 			}
+			else if (WM_COMMAND == ret->message)
+			{
+				auto msgSource = LOWORD(ret->wParam);
+				auto notifCode = HIWORD(ret->wParam);
+				if (0 != msgSource && 1 != msgSource && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
+				{
+					updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
+				}
+			}
 		}
 
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -83,7 +92,7 @@ namespace
 		if (HC_ACTION == nCode)
 		{
 			auto mhs = reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
-			if (WM_MOUSEWHEEL == wParam)
+			if (WM_MOUSEWHEEL == wParam || WM_MOUSEHWHEEL == wParam)
 			{
 				updateScrolledWindow(mhs->hwnd);
 			}
