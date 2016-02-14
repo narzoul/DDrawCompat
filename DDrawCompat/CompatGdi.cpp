@@ -17,6 +17,9 @@ namespace
 	HANDLE g_ddUnlockEndEvent = nullptr;
 	bool g_isDelayedUnlockPending = false;
 
+	bool g_isPaletteUsed = false;
+	PALETTEENTRY g_usedPaletteEntries[256] = {};
+
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
 		if (!module || !procName)
@@ -142,6 +145,14 @@ namespace CompatGdi
 			++g_ddLockThreadRenderingRefCount;
 		}
 
+		if (!g_isPaletteUsed && CompatPrimarySurface::palette)
+		{
+			g_isPaletteUsed = true;
+			ZeroMemory(g_usedPaletteEntries, sizeof(g_usedPaletteEntries));
+			CompatPrimarySurface::palette->lpVtbl->GetEntries(
+				CompatPrimarySurface::palette, 0, 0, 256, g_usedPaletteEntries);
+		}
+
 		++g_renderingRefCount;
 		return true;
 	}
@@ -235,5 +246,19 @@ namespace CompatGdi
 	{
 		GdiScopedThreadLock gdiLock;
 		CompatGdiDcCache::clear();
+
+		if (g_isPaletteUsed && CompatPrimarySurface::palette)
+		{
+			g_isPaletteUsed = false;
+
+			PALETTEENTRY usedPaletteEntries[256] = {};
+			CompatPrimarySurface::palette->lpVtbl->GetEntries(
+				CompatPrimarySurface::palette, 0, 0, 256, usedPaletteEntries);
+
+			if (0 != memcmp(usedPaletteEntries, g_usedPaletteEntries, sizeof(usedPaletteEntries)))
+			{
+				invalidate();
+			}
+		}
 	}
 }

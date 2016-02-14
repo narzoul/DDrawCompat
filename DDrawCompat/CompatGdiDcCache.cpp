@@ -14,6 +14,7 @@ namespace
 	
 	std::vector<CachedDc> g_cache;
 	DWORD g_cacheSize = 0;
+	DWORD g_cacheId = 0;
 	DWORD g_maxUsedCacheSize = 0;
 	DWORD g_ddLockThreadId = 0;
 
@@ -67,6 +68,7 @@ namespace
 
 		cachedDc.surface = surface;
 		cachedDc.dc = dc;
+		cachedDc.cacheId = g_cacheId;
 		return cachedDc;
 	}
 
@@ -150,6 +152,7 @@ namespace CompatGdiDcCache
 		}
 		g_cache.clear();
 		g_cacheSize = 0;
+		++g_cacheId;
 	}
 
 	CachedDc getDc()
@@ -189,7 +192,14 @@ namespace CompatGdiDcCache
 
 	void releaseDc(const CachedDc& cachedDc)
 	{
-		g_cache.push_back(cachedDc);
+		if (cachedDc.cacheId == g_cacheId)
+		{
+			g_cache.push_back(cachedDc);
+		}
+		else
+		{
+			releaseCachedDc(cachedDc);
+		}
 	}
 
 	void setDdLockThreadId(DWORD ddLockThreadId)

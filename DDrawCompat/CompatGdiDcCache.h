@@ -12,6 +12,7 @@ namespace CompatGdiDcCache
 	{
 		IDirectDrawSurface7* surface;
 		HDC dc;
+		DWORD cacheId;
 	};
 
 	void clear();
