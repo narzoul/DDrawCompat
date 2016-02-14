@@ -13,6 +13,7 @@ namespace CompatGdi
 
 		void drawAll() const;
 		void drawHorizArrows() const;
+		void drawSizeBox() const;
 		void drawVertArrows() const;
 		void excludeFromClipRegion() const;
 
@@ -34,6 +35,7 @@ namespace CompatGdi
 		void excludeFromClipRegion(const RECT& rect) const;
 		void excludeFromClipRegion(const ScrollBarInfo& sbi) const;
 		ScrollBarInfo getScrollBarInfo(LONG objId) const;
+		RECT getSizeBoxRect() const;
 		void setPressedState(ScrollBarChildInfo& sbci) const;
 
 		HWND m_hwnd;
@@ -43,5 +45,7 @@ namespace CompatGdi
 		POINT m_cursorPos;
 		ScrollBarInfo m_horizontalSbi;
 		ScrollBarInfo m_verticalSbi;
+		bool m_hasSizeBox;
+		RECT m_sizeBoxRect;
 	};
 }

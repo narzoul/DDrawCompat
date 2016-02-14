@@ -19,17 +19,19 @@ namespace CompatGdi
 	ScrollBar::ScrollBar(HWND hwnd, HDC compatDc) :
 		m_hwnd(hwnd), m_compatDc(compatDc), m_windowRect(),
 		m_isLeftMouseButtonDown(false), m_cursorPos(),
-		m_horizontalSbi(), m_verticalSbi()
+		m_horizontalSbi(), m_verticalSbi(),
+		m_hasSizeBox(false), m_sizeBoxRect()
 	{
 		const LONG windowStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
 
 		m_horizontalSbi.isVisible = 0 != (windowStyle & WS_HSCROLL);
 		m_verticalSbi.isVisible = 0 != (windowStyle & WS_VSCROLL);
+		m_hasSizeBox = 0 != (windowStyle & WS_SIZEBOX);
+
+		GetWindowRect(hwnd, &m_windowRect);
 
 		if (m_horizontalSbi.isVisible || m_verticalSbi.isVisible)
 		{
-			GetWindowRect(hwnd, &m_windowRect);
-
 			m_isLeftMouseButtonDown =
 				hwnd == GetCapture() &&
 				GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) < 0 &&
@@ -51,12 +53,18 @@ namespace CompatGdi
 				m_verticalSbi = getScrollBarInfo(OBJID_VSCROLL);
 			}
 		}
+
+		if (m_hasSizeBox)
+		{
+			m_sizeBoxRect = getSizeBoxRect();
+		}
 	}
 
 	void ScrollBar::drawAll() const
 	{
 		drawHorizArrows();
 		drawVertArrows();
+		drawSizeBox();
 	}
 
 	void ScrollBar::drawArrow(const ScrollBarChildInfo& sbci, UINT dfcState) const
@@ -81,6 +89,15 @@ namespace CompatGdi
 		{
 			drawArrow(m_horizontalSbi.topLeftArrow, DFCS_SCROLLLEFT);
 			drawArrow(m_horizontalSbi.bottomRightArrow, DFCS_SCROLLRIGHT);
+		}
+	}
+
+	void ScrollBar::drawSizeBox() const
+	{
+		if (m_hasSizeBox)
+		{
+			RECT rect = m_sizeBoxRect;
+			CALL_ORIG_GDI(DrawFrameControl)(m_compatDc, &rect, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
 		}
 	}
 
@@ -111,6 +128,11 @@ namespace CompatGdi
 	{
 		excludeFromClipRegion(m_horizontalSbi);
 		excludeFromClipRegion(m_verticalSbi);
+
+		if (m_hasSizeBox)
+		{
+			excludeFromClipRegion(m_sizeBoxRect);
+		}
 	}
 
 	ScrollBar::ScrollBarInfo ScrollBar::getScrollBarInfo(LONG objId) const
@@ -159,6 +181,36 @@ namespace CompatGdi
 		}
 
 		return scrollBarInfo;
+	}
+
+	RECT ScrollBar::getSizeBoxRect() const
+	{
+		RECT clientRect = {};
+		GetClientRect(m_hwnd, &clientRect);
+		POINT clientOrigin = {};
+		ClientToScreen(m_hwnd, &clientOrigin);
+		OffsetRect(&clientRect, clientOrigin.x - m_windowRect.left, clientOrigin.y - m_windowRect.top);
+
+		const int width = GetSystemMetrics(SM_CXVSCROLL);
+		const int height = GetSystemMetrics(SM_CYHSCROLL);
+
+		RECT sizeBoxRect = {};
+
+		if (m_horizontalSbi.isVisible && m_verticalSbi.isVisible)
+		{
+			sizeBoxRect.left = clientRect.right;
+			sizeBoxRect.top = clientRect.bottom;
+		}
+		else
+		{
+			sizeBoxRect.left = clientRect.right - width;
+			sizeBoxRect.top = clientRect.bottom - height;
+		}
+
+		sizeBoxRect.right = sizeBoxRect.left + width;
+		sizeBoxRect.bottom = sizeBoxRect.top + height;
+
+		return sizeBoxRect;
 	}
 
 	void ScrollBar::setPressedState(ScrollBarChildInfo& sbci) const

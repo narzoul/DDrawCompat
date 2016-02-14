@@ -14,7 +14,6 @@ namespace
 {
 	void disableDwmAttributes(HWND hwnd);
 	void eraseBackground(HWND hwnd, HDC dc);
-	bool isScrollBarVisible(HWND hwnd, LONG windowStyles, LONG sbStyle, LONG sbObjectId);
 	void ncPaint(HWND hwnd);
 	void updateScrolledWindow(HWND hwnd);
 
@@ -65,36 +64,6 @@ namespace
 			&disableTransitions, sizeof(disableTransitions));
 	}
 
-	void drawSizeBox(HWND hwnd, HDC compatDc, const RECT& windowRect, const RECT& clientRect)
-	{
-		LONG style = GetWindowLongPtr(hwnd, GWL_STYLE);
-		if (!(style & WS_SIZEBOX))
-		{
-			return;
-		}
-
-		int width = GetSystemMetrics(SM_CXHSCROLL);
-		int height = GetSystemMetrics(SM_CXVSCROLL);
-		RECT sizeBoxRect = { 0, 0, width, height };
-
-		const bool isVisibleH = isScrollBarVisible(hwnd, style, WS_HSCROLL, OBJID_HSCROLL);
-		const bool isVisibleV = isScrollBarVisible(hwnd, style, WS_VSCROLL, OBJID_VSCROLL);
-
-		OffsetRect(&sizeBoxRect,
-			clientRect.right - (!isVisibleH ? width : 0),
-			clientRect.bottom - (!isVisibleV ? height : 0));
-
-		if (!isVisibleH || !isVisibleV)
-		{
-			HRGN sizeBoxRgn = CreateRectRgnIndirect(&sizeBoxRect);
-			OffsetRgn(sizeBoxRgn, windowRect.left, windowRect.top);
-			ExtSelectClipRgn(compatDc, sizeBoxRgn, RGN_OR);
-			DeleteObject(sizeBoxRgn);
-		}
-
-		CALL_ORIG_GDI(DrawFrameControl)(compatDc, &sizeBoxRect, DFC_SCROLL, DFCS_SCROLLSIZEGRIP);
-	}
-
 	void eraseBackground(HWND hwnd, HDC dc)
 	{
 		if (CompatGdi::beginGdiRendering())
@@ -107,20 +76,6 @@ namespace
 			}
 			CompatGdi::endGdiRendering();
 		}
-	}
-
-	bool isScrollBarVisible(HWND hwnd, LONG windowStyles, LONG sbStyle, LONG sbObjectId)
-	{
-		if (!(windowStyles & sbStyle))
-		{
-			return false;
-		}
-
-		SCROLLBARINFO sbi = {};
-		sbi.cbSize = sizeof(sbi);
-		GetScrollBarInfo(hwnd, sbObjectId, &sbi);
-
-		return !(sbi.rgstate[0] & (STATE_SYSTEM_INVISIBLE | STATE_SYSTEM_OFFSCREEN));
 	}
 
 	LRESULT CALLBACK mouseProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -168,8 +123,6 @@ namespace
 			ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
 			CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
 				windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, windowDc, 0, 0, SRCCOPY);
-
-			drawSizeBox(hwnd, compatDc, windowRect, clientRect);
 
 			CompatGdiDc::releaseDc(windowDc);
 		}
