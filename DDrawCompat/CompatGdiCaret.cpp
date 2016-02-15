@@ -38,6 +38,9 @@ namespace
 		}
 	};
 
+	BOOL WINAPI hideCaret(HWND hWnd);
+	BOOL WINAPI showCaret(HWND hWnd);
+
 	void drawCaret()
 	{
 		if (CompatGdi::beginGdiRendering())
@@ -70,8 +73,13 @@ namespace
 		DWORD /*dwEventThread*/,
 		DWORD /*dwmsEventTime*/)
 	{
+		if (OBJID_CARET != idObject)
+		{
+			return;
+		}
+
 		CaretScopedThreadLock caretLock;
-		if (OBJID_CARET != idObject || !g_caret.isDrawn || g_caret.hwnd != hwnd)
+		if (!g_caret.isDrawn || g_caret.hwnd != hwnd)
 		{
 			return;
 		}
@@ -90,6 +98,50 @@ namespace
 		}
 	}
 
+	void CALLBACK caretLocationChangeEvent(
+		HWINEVENTHOOK /*hWinEventHook*/,
+		DWORD /*event*/,
+		HWND hwnd,
+		LONG idObject,
+		LONG /*idChild*/,
+		DWORD /*dwEventThread*/,
+		DWORD /*dwmsEventTime*/)
+	{
+		if (OBJID_CARET != idObject)
+		{
+			return;
+		}
+
+		CaretScopedThreadLock caretLock;
+		if (g_caret.isDrawn && g_caret.hwnd == hwnd)
+		{
+			hideCaret(hwnd);
+			showCaret(hwnd);
+		}
+	}
+
+	void CALLBACK caretShowEvent(
+		HWINEVENTHOOK /*hWinEventHook*/,
+		DWORD /*event*/,
+		HWND hwnd,
+		LONG idObject,
+		LONG /*idChild*/,
+		DWORD /*dwEventThread*/,
+		DWORD /*dwmsEventTime*/)
+	{
+		if (OBJID_CARET != idObject)
+		{
+			return;
+		}
+
+		CaretScopedThreadLock caretLock;
+		if (!g_caret.isDrawn && g_caret.hwnd == hwnd)
+		{
+			drawCaret();
+			g_caret.isDrawn = true;
+		}
+	}
+
 	BOOL WINAPI createCaret(HWND hWnd, HBITMAP hBitmap, int nWidth, int nHeight)
 	{
 		BOOL result = CALL_ORIG_GDI(CreateCaret)(hWnd, hBitmap, nWidth, nHeight);
@@ -103,6 +155,21 @@ namespace
 			}
 			g_caret.width = nWidth ? nWidth : GetSystemMetrics(SM_CXBORDER);
 			g_caret.height = nHeight ? nHeight : GetSystemMetrics(SM_CYBORDER);
+		}
+		return result;
+	}
+
+	BOOL WINAPI hideCaret(HWND hWnd)
+	{
+		BOOL result = CALL_ORIG_GDI(HideCaret)(hWnd);
+		if (result)
+		{
+			CaretScopedThreadLock caretLock;
+			if (g_caret.isDrawn)
+			{
+				drawCaret();
+				g_caret.isDrawn = false;
+			}
 		}
 		return result;
 	}
@@ -138,21 +205,6 @@ namespace
 
 		return TRUE;
 	}
-
-	BOOL WINAPI hideCaret(HWND hWnd)
-	{
-		BOOL result = CALL_ORIG_GDI(HideCaret)(hWnd);
-		if (result)
-		{
-			CaretScopedThreadLock caretLock;
-			if (g_caret.isDrawn)
-			{
-				drawCaret();
-				g_caret.isDrawn = false;
-			}
-		}
-		return result;
-	}
 }
 
 #define HOOK_GDI_FUNCTION(module, func, newFunc) \
@@ -166,12 +218,16 @@ namespace CompatGdiCaret
 
 		DetourTransactionBegin();
 		HOOK_GDI_FUNCTION(user32, CreateCaret, createCaret);
-		HOOK_GDI_FUNCTION(user32, ShowCaret, showCaret);
 		HOOK_GDI_FUNCTION(user32, HideCaret, hideCaret);
+		HOOK_GDI_FUNCTION(user32, ShowCaret, showCaret);
 		DetourTransactionCommit();
 
 		const DWORD threadId = GetCurrentThreadId();
 		SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY,
 			nullptr, &caretDestroyEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+			nullptr, &caretLocationChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW,
+			nullptr, &caretShowEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 	}
 }
