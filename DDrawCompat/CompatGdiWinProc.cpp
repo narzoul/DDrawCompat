@@ -57,6 +57,10 @@ namespace
 					updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
 			}
+			else if (BM_SETSTYLE == ret->message)
+			{
+				RedrawWindow(ret->hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE);
+			}
 		}
 
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -71,6 +75,19 @@ namespace
 		BOOL disableTransitions = TRUE;
 		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
 			&disableTransitions, sizeof(disableTransitions));
+	}
+
+	bool drawButtonHighlight(HWND hwnd, const RECT& windowRect, HDC compatDc)
+	{
+		if (SendMessage(hwnd, WM_GETDLGCODE, 0, 0) & DLGC_DEFPUSHBUTTON)
+		{
+			RECT rect = {};
+			SetRect(&rect, 0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top);
+			FrameRect(compatDc, &rect, GetSysColorBrush(COLOR_WINDOWFRAME));
+			return true;
+		}
+
+		return false;
 	}
 
 	void eraseBackground(HWND hwnd, HDC dc)
@@ -115,23 +132,27 @@ namespace
 		{
 			RECT windowRect = {};
 			GetWindowRect(hwnd, &windowRect);
-			RECT clientRect = {};
-			GetClientRect(hwnd, &clientRect);
-			POINT clientOrigin = {};
-			ClientToScreen(hwnd, &clientOrigin);
 
-			CompatGdi::TitleBar titleBar(hwnd, compatDc);
-			titleBar.drawAll();
-			titleBar.excludeFromClipRegion();
+			if (!drawButtonHighlight(hwnd, windowRect, compatDc))
+			{
+				CompatGdi::TitleBar titleBar(hwnd, compatDc);
+				titleBar.drawAll();
+				titleBar.excludeFromClipRegion();
 
-			CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
-			scrollBar.drawAll();
-			scrollBar.excludeFromClipRegion();
+				CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
+				scrollBar.drawAll();
+				scrollBar.excludeFromClipRegion();
 
-			OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
-			ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
-			CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
-				windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, windowDc, 0, 0, SRCCOPY);
+				RECT clientRect = {};
+				GetClientRect(hwnd, &clientRect);
+				POINT clientOrigin = {};
+				ClientToScreen(hwnd, &clientOrigin);
+
+				OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
+				ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
+				CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
+					windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, windowDc, 0, 0, SRCCOPY);
+			}
 
 			CompatGdiDc::releaseDc(windowDc);
 		}
