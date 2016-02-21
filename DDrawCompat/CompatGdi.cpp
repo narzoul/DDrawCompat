@@ -58,14 +58,33 @@ namespace
 		return nullptr;
 	}
 
-	BOOL CALLBACK invalidateWindow(HWND hwnd, LPARAM /*lParam*/)
+	BOOL CALLBACK invalidateWindow(HWND hwnd, LPARAM lParam)
 	{
+		if (!IsWindowVisible(hwnd))
+		{
+			return TRUE;
+		}
+
 		DWORD processId = 0;
 		GetWindowThreadProcessId(hwnd, &processId);
-		if (processId == GetCurrentProcessId())
+		if (processId != GetCurrentProcessId())
+		{
+			return TRUE;
+		}
+
+		if (lParam)
+		{
+			POINT origin = {};
+			ClientToScreen(hwnd, &origin);
+			RECT rect = *reinterpret_cast<const RECT*>(lParam);
+			OffsetRect(&rect, -origin.x, -origin.y);
+			RedrawWindow(hwnd, &rect, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+		}
+		else
 		{
 			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 		}
+
 		return TRUE;
 	}
 
@@ -237,9 +256,9 @@ namespace CompatGdi
 		}
 	}
 
-	void invalidate()
+	void invalidate(const RECT* rect)
 	{
-		EnumWindows(&invalidateWindow, 0);
+		EnumWindows(&invalidateWindow, reinterpret_cast<LPARAM>(rect));
 	}
 
 	void updatePalette()
@@ -257,7 +276,7 @@ namespace CompatGdi
 
 			if (0 != memcmp(usedPaletteEntries, g_usedPaletteEntries, sizeof(usedPaletteEntries)))
 			{
-				invalidate();
+				invalidate(nullptr);
 			}
 		}
 	}

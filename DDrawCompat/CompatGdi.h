@@ -45,6 +45,6 @@ namespace CompatGdi
 	}
 
 	void installHooks();
-	void invalidate();
+	void invalidate(const RECT* rect);
 	void updatePalette();
 };

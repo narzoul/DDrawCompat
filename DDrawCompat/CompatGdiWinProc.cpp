@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <unordered_map>
+
 #include <dwmapi.h>
 #include <Windows.h>
 
@@ -12,9 +14,13 @@
 
 namespace
 {
+	std::unordered_map<HWND, RECT> g_prevWindowRect;
+
 	void disableDwmAttributes(HWND hwnd);
 	void eraseBackground(HWND hwnd, HDC dc);
 	void ncPaint(HWND hwnd);
+	void onWindowPosChanged(HWND hwnd);
+	void removeDropShadow(HWND hwnd);
 	void updateScrolledWindow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -25,6 +31,12 @@ namespace
 			if (WM_CREATE == ret->message)
 			{
 				disableDwmAttributes(ret->hwnd);
+				removeDropShadow(ret->hwnd);
+			}
+			else if (WM_DESTROY == ret->message)
+			{
+				CompatGdi::GdiScopedThreadLock lock;
+				g_prevWindowRect.erase(ret->hwnd);
 			}
 			else if (WM_ERASEBKGND == ret->message)
 			{
@@ -42,7 +54,7 @@ namespace
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
 			{
-				CompatGdi::invalidate();
+				onWindowPosChanged(ret->hwnd);
 			}
 			else if (WM_VSCROLL == ret->message || WM_HSCROLL == ret->message)
 			{
@@ -198,6 +210,36 @@ namespace
 
 			ReleaseDC(hwnd, windowDc);
 			CompatGdi::endGdiRendering();
+		}
+	}
+
+	void onWindowPosChanged(HWND hwnd)
+	{
+		CompatGdi::GdiScopedThreadLock lock;
+
+		const auto it = g_prevWindowRect.find(hwnd);
+		if (it != g_prevWindowRect.end())
+		{
+			CompatGdi::invalidate(&it->second);
+		}
+
+		if (IsWindowVisible(hwnd))
+		{
+			GetWindowRect(hwnd, it != g_prevWindowRect.end() ? &it->second : &g_prevWindowRect[hwnd]);
+			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+		}
+		else if (it != g_prevWindowRect.end())
+		{
+			g_prevWindowRect.erase(it);
+		}
+	}
+
+	void removeDropShadow(HWND hwnd)
+	{
+		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
+		if (style & CS_DROPSHADOW)
+		{
+			SetClassLongPtr(hwnd, GCL_STYLE, style ^ CS_DROPSHADOW);
 		}
 	}
 

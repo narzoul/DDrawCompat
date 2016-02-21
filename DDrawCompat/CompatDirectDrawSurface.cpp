@@ -602,7 +602,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 			result = RealPrimarySurface::restore();
 			if (wasLost)
 			{
-				CompatGdi::invalidate();
+				CompatGdi::invalidate(nullptr);
 			}
 		}
 	}
