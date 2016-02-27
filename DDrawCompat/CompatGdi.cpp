@@ -1,3 +1,4 @@
+#include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatGdiCaret.h"
@@ -105,6 +106,39 @@ namespace
 		CompatGdiDcCache::setDdLockThreadId(g_ddLockThreadId);
 		CompatGdiDcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 		return true;
+	}
+
+	/*
+	Workaround for correctly drawing icons with a transparent background using BitBlt and a monochrome 
+	bitmap mask. Normally black (index 0) and white (index 255) are selected as foreground and background
+	colors on the target DC so that a BitBlt with the SRCAND ROP would preserve the background pixels and
+	set the foreground pixels to 0. (Logical AND with 0xFF preserves all bits.)
+	But if the physical palette contains another, earlier white entry, SRCAND will be performed with the
+	wrong index (less than 0xFF), erasing some of the bits from all background pixels.
+	This workaround replaces all unwanted white entries with a similar color.
+	*/
+	void replaceDuplicateWhitePaletteEntries(const PALETTEENTRY (&entries)[256])
+	{
+		PALETTEENTRY newEntries[256] = {};
+		memcpy(newEntries, entries, sizeof(entries));
+
+		bool isReplacementDone = false;
+		for (int i = 0; i < 255; ++i)
+		{
+			if (0xFF == entries[i].peRed && 0xFF == entries[i].peGreen && 0xFF == entries[i].peBlue)
+			{
+				newEntries[i].peRed = 0xFE;
+				newEntries[i].peGreen = 0xFE;
+				newEntries[i].peBlue = 0xFE;
+				isReplacementDone = true;
+			}
+		}
+
+		if (isReplacementDone)
+		{
+			CompatDirectDrawPalette::s_origVtable.SetEntries(
+				CompatPrimarySurface::palette, 0, 0, 256, newEntries);
+		}
 	}
 
 	void unlockPrimarySurface()
@@ -276,6 +310,7 @@ namespace CompatGdi
 
 			if (0 != memcmp(usedPaletteEntries, g_usedPaletteEntries, sizeof(usedPaletteEntries)))
 			{
+				replaceDuplicateWhitePaletteEntries(usedPaletteEntries);
 				invalidate(nullptr);
 			}
 		}
