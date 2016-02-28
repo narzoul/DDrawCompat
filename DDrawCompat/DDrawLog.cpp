@@ -72,6 +72,14 @@ std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd)
 		sd.lpSurface << "," << sd.ddpfPixelFormat << "," << sd.ddsCaps << "," << sd.dwTextureStage << ')';
 }
 
+std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp)
+{
+	RECT wr = {};
+	GetWindowRect(cwrp.hwnd, &wr);
+	return os << "CWRP(" << std::hex << cwrp.message << "," << cwrp.hwnd << ":" << std::dec << wr << "," <<
+		std::hex << cwrp.wParam << "," << cwrp.lParam << "," << cwrp.lResult << std::dec << ")";
+}
+
 namespace Compat
 {
 	Log::Log()

@@ -25,9 +25,11 @@ namespace
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
+		auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
+		Compat::LogEnter("callWndRetProc", nCode, wParam, ret);
+
 		if (HC_ACTION == nCode)
 		{
-			auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
 			if (WM_CREATE == ret->message)
 			{
 				disableDwmAttributes(ret->hwnd);
@@ -75,7 +77,9 @@ namespace
 			}
 		}
 
-		return CallNextHookEx(nullptr, nCode, wParam, lParam);
+		LRESULT result = CallNextHookEx(nullptr, nCode, wParam, lParam);
+		Compat::LogLeave("callWndRetProc", nCode, wParam, ret) << result;
+		return result;
 	}
 
 	void disableDwmAttributes(HWND hwnd)

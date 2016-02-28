@@ -2,6 +2,7 @@
 #include "CompatGdiDc.h"
 #include "CompatGdiFunctions.h"
 #include "DDrawLog.h"
+#include "RealPrimarySurface.h"
 
 #include <detours.h>
 
@@ -57,14 +58,32 @@ namespace
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiFunc(Params... params)
 	{
-		if (!hasDisplayDcArg(params...) || !CompatGdi::beginGdiRendering())
-		{
-			return CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
-		}
-
 #ifdef _DEBUG
 		Compat::LogEnter(CompatGdi::g_funcNames[origFunc], params...);
 #endif
+
+		if (!hasDisplayDcArg(params...) || !CompatGdi::beginGdiRendering())
+		{
+			Result result = CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+
+#ifdef _DEBUG
+			if (!hasDisplayDcArg(params...))
+			{
+				Compat::Log() << "Skipping redirection since there is no display DC argument";
+			}
+			else if (!RealPrimarySurface::isFullScreen())
+			{
+				Compat::Log() << "Skipping redirection due to windowed mode";
+			}
+			else
+			{
+				Compat::Log() << "Skipping redirection since the primary surface could not be locked";
+			}
+			Compat::LogLeave(CompatGdi::g_funcNames[origFunc], params...) << result;
+#endif
+
+			return result;
+		}
 
 		Result result = CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
 		releaseDc(params...);
