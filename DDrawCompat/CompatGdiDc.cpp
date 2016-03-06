@@ -118,12 +118,6 @@ namespace CompatGdiDc
 
 		CompatGdi::GdiScopedThreadLock gdiLock;
 
-		if (g_origDcToCompatDc.end() != std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
-				[=](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == origDc; }))
-		{
-			return nullptr;
-		}
-
 		auto it = g_origDcToCompatDc.find(origDc);
 		if (it != g_origDcToCompatDc.end())
 		{
