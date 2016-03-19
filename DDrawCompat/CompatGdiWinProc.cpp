@@ -8,6 +8,7 @@
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
 #include "CompatGdiScrollBar.h"
+#include "CompatGdiScrollFunctions.h"
 #include "CompatGdiTitleBar.h"
 #include "CompatGdiWinProc.h"
 #include "DDrawLog.h"
@@ -21,7 +22,6 @@ namespace
 	void ncPaint(HWND hwnd);
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
-	void updateScrolledWindow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -60,7 +60,7 @@ namespace
 			}
 			else if (WM_VSCROLL == ret->message || WM_HSCROLL == ret->message)
 			{
-				updateScrolledWindow(ret->hwnd);
+				CompatGdiScrollFunctions::updateScrolledWindow(ret->hwnd);
 			}
 			else if (WM_COMMAND == ret->message)
 			{
@@ -68,7 +68,7 @@ namespace
 				auto notifCode = HIWORD(ret->wParam);
 				if (0 != msgSource && 1 != msgSource && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
 				{
-					updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
+					CompatGdiScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
 			}
 			else if (BM_SETSTYLE == ret->message)
@@ -127,7 +127,7 @@ namespace
 			auto mhs = reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
 			if (WM_MOUSEWHEEL == wParam || WM_MOUSEHWHEEL == wParam)
 			{
-				updateScrolledWindow(mhs->hwnd);
+				CompatGdiScrollFunctions::updateScrolledWindow(mhs->hwnd);
 			}
 		}
 
@@ -245,11 +245,6 @@ namespace
 		{
 			SetClassLongPtr(hwnd, GCL_STYLE, style ^ CS_DROPSHADOW);
 		}
-	}
-
-	void updateScrolledWindow(HWND hwnd)
-	{
-		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 	}
 }
 

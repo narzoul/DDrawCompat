@@ -12,8 +12,9 @@ namespace
 		_In_ const RECT *lpRect,
 		_In_ const RECT *lpClipRect)
 	{
-		InvalidateRect(hWnd, nullptr, TRUE);
-		return CALL_ORIG_GDI(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
+		BOOL result = CALL_ORIG_GDI(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
+		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		return result;
 	}
 
 	int WINAPI scrollWindowEx(
@@ -26,8 +27,10 @@ namespace
 		_Out_       LPRECT prcUpdate,
 		_In_        UINT   flags)
 	{
-		InvalidateRect(hWnd, nullptr, TRUE);
-		return CALL_ORIG_GDI(ScrollWindowEx)(hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
+		int result = CALL_ORIG_GDI(ScrollWindowEx)(
+			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
+		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		return result;
 	}
 }
 
@@ -39,5 +42,10 @@ namespace CompatGdiScrollFunctions
 		HOOK_GDI_FUNCTION(user32, ScrollWindow, scrollWindow);
 		HOOK_GDI_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
 		DetourTransactionCommit();
+	}
+
+	void updateScrolledWindow(HWND hwnd)
+	{
+		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
 	}
 }
