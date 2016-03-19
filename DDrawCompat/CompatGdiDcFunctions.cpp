@@ -128,13 +128,9 @@ namespace
 	}
 }
 
-#define HOOK_GDI_FUNCTION(module, func, newFunc) \
-	CompatGdi::hookGdiFunction<decltype(&func), &func>( \
-		#module, #func, &newFunc);
-
 #define HOOK_GDI_DC_FUNCTION(module, func) \
 	CompatGdi::hookGdiFunction<decltype(&func), &func>( \
-		#module, #func, getCompatGdiDcFuncPtr<decltype(&func), &func>(&func));
+		#module, #func, getCompatGdiDcFuncPtr<decltype(&func), &func>(&func))
 
 #define HOOK_GDI_TEXT_DC_FUNCTION(module, func) \
 	HOOK_GDI_DC_FUNCTION(module, func##A); \

@@ -10,6 +10,9 @@
 
 #define CALL_ORIG_GDI(func) CompatGdi::getOrigFuncPtr<decltype(&func), &func>()
 
+#define HOOK_GDI_FUNCTION(module, func, newFunc) \
+	CompatGdi::hookGdiFunction<decltype(&func), &func>(#module, #func, &newFunc)
+
 namespace CompatGdi
 {
 	class GdiScopedThreadLock

@@ -207,9 +207,6 @@ namespace
 	}
 }
 
-#define HOOK_GDI_FUNCTION(module, func, newFunc) \
-	CompatGdi::hookGdiFunction<decltype(&func), &func>(#module, #func, &newFunc);
-
 namespace CompatGdiCaret
 {
 	void installHooks()
