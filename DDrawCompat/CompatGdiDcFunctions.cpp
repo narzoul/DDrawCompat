@@ -8,6 +8,8 @@
 
 namespace
 {
+	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
+
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI *)(Params...);
 
@@ -207,6 +209,9 @@ namespace CompatGdiDcFunctions
 
 		// Scroll bar functions
 		HOOK_GDI_DC_FUNCTION(user32, ScrollDC);
+
+		// Undocumented functions
+		HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
 
 		DetourTransactionCommit();
 	}

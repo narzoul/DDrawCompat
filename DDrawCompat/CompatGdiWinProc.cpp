@@ -93,19 +93,6 @@ namespace
 			&disableTransitions, sizeof(disableTransitions));
 	}
 
-	bool drawButtonHighlight(HWND hwnd, const RECT& windowRect, HDC compatDc)
-	{
-		if (SendMessage(hwnd, WM_GETDLGCODE, 0, 0) & DLGC_DEFPUSHBUTTON)
-		{
-			RECT rect = {};
-			SetRect(&rect, 0, 0, windowRect.right - windowRect.left, windowRect.bottom - windowRect.top);
-			FrameRect(compatDc, &rect, GetSysColorBrush(COLOR_WINDOWFRAME));
-			return true;
-		}
-
-		return false;
-	}
-
 	void eraseBackground(HWND hwnd, HDC dc)
 	{
 		if (CompatGdi::beginGdiRendering())
@@ -149,26 +136,23 @@ namespace
 			RECT windowRect = {};
 			GetWindowRect(hwnd, &windowRect);
 
-			if (!drawButtonHighlight(hwnd, windowRect, compatDc))
-			{
-				CompatGdi::TitleBar titleBar(hwnd, compatDc);
-				titleBar.drawAll();
-				titleBar.excludeFromClipRegion();
+			CompatGdi::TitleBar titleBar(hwnd, compatDc);
+			titleBar.drawAll();
+			titleBar.excludeFromClipRegion();
 
-				CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
-				scrollBar.drawAll();
-				scrollBar.excludeFromClipRegion();
+			CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
+			scrollBar.drawAll();
+			scrollBar.excludeFromClipRegion();
 
-				RECT clientRect = {};
-				GetClientRect(hwnd, &clientRect);
-				POINT clientOrigin = {};
-				ClientToScreen(hwnd, &clientOrigin);
+			RECT clientRect = {};
+			GetClientRect(hwnd, &clientRect);
+			POINT clientOrigin = {};
+			ClientToScreen(hwnd, &clientOrigin);
 
-				OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
-				ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
-				CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
-					windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, windowDc, 0, 0, SRCCOPY);
-			}
+			OffsetRect(&clientRect, clientOrigin.x - windowRect.left, clientOrigin.y - windowRect.top);
+			ExcludeClipRect(compatDc, clientRect.left, clientRect.top, clientRect.right, clientRect.bottom);
+			CALL_ORIG_GDI(BitBlt)(compatDc, 0, 0,
+				windowRect.right - windowRect.left, windowRect.bottom - windowRect.top, windowDc, 0, 0, SRCCOPY);
 
 			CompatGdiDc::releaseDc(windowDc);
 		}
