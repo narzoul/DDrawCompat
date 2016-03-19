@@ -18,6 +18,7 @@ namespace
 
 	WNDPROC g_origEditWndProc = nullptr;
 	WNDPROC g_origListBoxWndProc = nullptr;
+	WNDPROC g_origScrollBarWndProc = nullptr;
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -156,6 +157,33 @@ namespace
 		return 0;
 	}
 
+	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc)
+	{
+		if (!hwnd || !CompatGdi::beginGdiRendering())
+		{
+			return origWndProc(hwnd, WM_PAINT, 0, 0);
+		}
+
+		PAINTSTRUCT paint = {};
+		HDC dc = BeginPaint(hwnd, &paint);
+		HDC compatDc = CompatGdiDc::getDc(dc);
+
+		if (compatDc)
+		{
+			origWndProc(hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
+			CompatGdiDc::releaseDc(dc);
+		}
+		else
+		{
+			origWndProc(hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
+		}
+
+		EndPaint(hwnd, &paint);
+
+		CompatGdi::endGdiRendering();
+		return 0;
+	}
+
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc)
 	{
 		if (!CompatGdi::beginGdiRendering())
@@ -178,6 +206,34 @@ namespace
 		CompatGdi::endGdiRendering();
 		return result;
 	}
+
+	LRESULT WINAPI scrollBarWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		Compat::LogEnter("scrollBarWndProc", hwnd, msg, wParam, lParam);
+		LRESULT result = 0;
+
+		switch (msg)
+		{
+		case WM_PAINT:
+			result = onPaint(hwnd, g_origScrollBarWndProc);
+			break;
+
+		case WM_SETCURSOR:
+			if (GetWindowLong(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))
+			{
+				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
+			}
+			result = TRUE;
+			break;
+
+		default:
+			result = g_origScrollBarWndProc(hwnd, msg, wParam, lParam);
+			break;
+		}
+
+		Compat::LogLeave("scrollBarWndProc", hwnd, msg, wParam, lParam) << result;
+		return result;
+	}
 }
 
 namespace CompatGdiPaintHandlers
@@ -186,6 +242,7 @@ namespace CompatGdiPaintHandlers
 	{
 		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
 		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
+		CompatGdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
 
 		DetourTransactionBegin();
 		HOOK_GDI_FUNCTION(user32, DefWindowProcA, defWindowProcA);
