@@ -1,6 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
-#include "CompatGdiFunctions.h"
+#include "CompatGdiDcFunctions.h"
 #include "DDrawLog.h"
 #include "RealPrimarySurface.h"
 

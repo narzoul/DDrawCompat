@@ -66,9 +66,6 @@
     <ClInclude Include="CompatGdiDcCache.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompatGdiFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="CompatGdiDc.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -85,6 +82,9 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompatGdiScrollBar.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatGdiDcFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -125,9 +125,6 @@
     <ClCompile Include="CompatGdiDcCache.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CompatGdiFunctions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CompatGdiDc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -144,6 +141,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatGdiScrollBar.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiDcFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

@@ -3,7 +3,7 @@
 #include "CompatGdi.h"
 #include "CompatGdiCaret.h"
 #include "CompatGdiDcCache.h"
-#include "CompatGdiFunctions.h"
+#include "CompatGdiDcFunctions.h"
 #include "CompatGdiWinProc.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
