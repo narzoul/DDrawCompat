@@ -16,6 +16,8 @@
 
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
 std::ostream& operator<<(std::ostream& os, const RECT& rect);
+std::ostream& operator<<(std::ostream& os, HDC__& dc);
+std::ostream& operator<<(std::ostream& os, HWND__& hwnd);
 std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps);
 std::ostream& operator<<(std::ostream& os, const DDSCAPS2& caps);
 std::ostream& operator<<(std::ostream& os, const DDPIXELFORMAT& pf);
@@ -32,7 +34,7 @@ operator<<(std::ostream& os, const T& t)
 
 template <typename T>
 typename std::enable_if<std::is_class<T>::value, std::ostream&>::type
-operator<<(std::ostream& os, const T* t)
+operator<<(std::ostream& os, T* t)
 {
 	return t ? (os << *t) : (os << "null");
 }

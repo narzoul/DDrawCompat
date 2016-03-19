@@ -27,6 +27,20 @@ std::ostream& operator<<(std::ostream& os, const RECT& rect)
 	return os << "R(" << rect.left << ',' << rect.top << ',' << rect.right << ',' << rect.bottom << ')';
 }
 
+std::ostream& operator<<(std::ostream& os, HDC__& dc)
+{
+	return os << "DC(" << static_cast<void*>(&dc) << ',' << WindowFromDC(&dc) << ')';
+}
+
+std::ostream& operator<<(std::ostream& os, HWND__& hwnd)
+{
+	char name[256] = {};
+	GetClassName(&hwnd, name, sizeof(name));
+	RECT rect = {};
+	GetWindowRect(&hwnd, &rect);
+	return os << "WND(" << static_cast<void*>(&hwnd) << ',' << name << ',' << rect << ')';
+}
+
 std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps)
 {
 	return os << "C(" << std::hex << caps.dwCaps << std::dec << ')';
@@ -74,9 +88,7 @@ std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd)
 
 std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp)
 {
-	RECT wr = {};
-	GetWindowRect(cwrp.hwnd, &wr);
-	return os << "CWRP(" << std::hex << cwrp.message << "," << cwrp.hwnd << ":" << std::dec << wr << "," <<
+	return os << "CWRP(" << std::hex << cwrp.message << "," << std::dec << cwrp.hwnd << "," <<
 		std::hex << cwrp.wParam << "," << cwrp.lParam << "," << cwrp.lResult << std::dec << ")";
 }
 
