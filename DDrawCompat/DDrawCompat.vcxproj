@@ -151,6 +151,7 @@
     <ClInclude Include="CompatGdiDcCache.h" />
     <ClInclude Include="CompatGdiDcFunctions.h" />
     <ClInclude Include="CompatGdiScrollBar.h" />
+    <ClInclude Include="CompatGdiScrollFunctions.h" />
     <ClInclude Include="CompatGdiTitleBar.h" />
     <ClInclude Include="CompatGdiWinProc.h" />
     <ClInclude Include="Config.h" />
@@ -178,6 +179,7 @@
     <ClCompile Include="CompatGdiDcCache.cpp" />
     <ClCompile Include="CompatGdiDcFunctions.cpp" />
     <ClCompile Include="CompatGdiScrollBar.cpp" />
+    <ClCompile Include="CompatGdiScrollFunctions.cpp" />
     <ClCompile Include="CompatGdiTitleBar.cpp" />
     <ClCompile Include="CompatGdiWinProc.cpp" />
     <ClCompile Include="CompatVtable.cpp" />

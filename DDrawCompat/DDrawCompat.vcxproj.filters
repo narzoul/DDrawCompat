@@ -87,6 +87,9 @@
     <ClInclude Include="CompatGdiDcFunctions.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatGdiScrollFunctions.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -144,6 +147,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatGdiDcFunctions.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatGdiScrollFunctions.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

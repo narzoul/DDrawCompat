@@ -4,6 +4,7 @@
 #include "CompatGdiCaret.h"
 #include "CompatGdiDcCache.h"
 #include "CompatGdiDcFunctions.h"
+#include "CompatGdiScrollFunctions.h"
 #include "CompatGdiWinProc.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
@@ -285,6 +286,7 @@ namespace CompatGdi
 			}
 
 			CompatGdiDcFunctions::installHooks();
+			CompatGdiScrollFunctions::installHooks();
 			CompatGdiWinProc::installHooks();
 			CompatGdiCaret::installHooks();
 		}
