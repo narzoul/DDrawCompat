@@ -101,6 +101,11 @@ namespace
 	{
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
+
+	HWND WINAPI windowFromDc(HDC dc)
+	{
+		return CALL_ORIG_GDI(WindowFromDC)(CompatGdiDc::getOrigDc(dc));
+	}
 }
 
 #define HOOK_GDI_DC_FUNCTION(module, func) \
@@ -147,6 +152,7 @@ namespace CompatGdiDcFunctions
 		// Device context functions
 		HOOK_GDI_DC_FUNCTION(gdi32, CreateCompatibleDC);
 		HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
+		HOOK_GDI_FUNCTION(user32, WindowFromDC, windowFromDc);
 
 		// Filled shape functions
 		HOOK_GDI_DC_FUNCTION(gdi32, Chord);

@@ -172,6 +172,13 @@ namespace CompatGdiDc
 		return compatDc.dc;
 	}
 
+	HDC getOrigDc(HDC dc)
+	{
+		const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
+			[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
+		return it != g_origDcToCompatDc.end() ? it->first : dc;
+	}
+
 	void releaseDc(HDC origDc)
 	{
 		CompatGdi::GdiScopedThreadLock gdiLock;

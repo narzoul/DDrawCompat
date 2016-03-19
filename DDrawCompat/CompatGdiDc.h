@@ -7,5 +7,6 @@
 namespace CompatGdiDc
 {
 	HDC getDc(HDC origDc);
+	HDC getOrigDc(HDC dc);
 	void releaseDc(HDC origDc);
 }
