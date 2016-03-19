@@ -47,6 +47,7 @@ namespace CompatGdi
 			reinterpret_cast<void*&>(getOrigFuncPtr<OrigFuncPtr, origFunc>()), newFuncPtr);
 	}
 
+	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc);
 	void installHooks();
 	void invalidate(const RECT* rect);
 	void updatePalette();

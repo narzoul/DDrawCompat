@@ -10,8 +10,14 @@ namespace
 {
 	LRESULT WINAPI defWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
 		WNDPROC origDefWindowProc, const char* funcName);
+	LRESULT WINAPI eraseBackgroundProc(
+		HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc, const char* wndProcName);
+	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
+
+	WNDPROC g_origEditWndProc = nullptr;
+	WNDPROC g_origListBoxWndProc = nullptr;
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -36,6 +42,10 @@ namespace
 
 		switch (msg)
 		{
+		case WM_ERASEBKGND:
+			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origDefWindowProc);
+			break;
+
 		case WM_NCPAINT:
 			result = onNcPaint(hwnd, wParam, origDefWindowProc);
 			break;
@@ -62,6 +72,58 @@ namespace
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_GDI(DefWindowProcW), "defWindowProcW");
+	}
+
+	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		return eraseBackgroundProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
+	}
+
+	LRESULT WINAPI eraseBackgroundProc(
+		HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc, const char* wndProcName)
+	{
+		Compat::LogEnter(wndProcName, hwnd, msg, wParam, lParam);
+
+		LPARAM result = 0;
+		if (WM_ERASEBKGND == msg)
+		{
+			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
+		}
+		else
+		{
+			result = origWndProc(hwnd, msg, wParam, lParam);
+		}
+
+		Compat::LogLeave(wndProcName, hwnd, msg, wParam, lParam) << result;
+		return result;
+	}
+
+	LRESULT WINAPI listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		return eraseBackgroundProc(hwnd, msg, wParam, lParam, g_origListBoxWndProc, "listBoxWndProc");
+	}
+
+	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
+	{
+		if (!hwnd || !CompatGdi::beginGdiRendering())
+		{
+			return origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc) , 0);
+		}
+
+		LRESULT result = 0;
+		HDC compatDc = CompatGdiDc::getDc(dc);
+		if (compatDc)
+		{
+			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
+			CompatGdiDc::releaseDc(dc);
+		}
+		else
+		{
+			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
+		}
+
+		CompatGdi::endGdiRendering();
+		return result;
 	}
 
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
@@ -122,6 +184,9 @@ namespace CompatGdiPaintHandlers
 {
 	void installHooks()
 	{
+		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
+		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
+
 		DetourTransactionBegin();
 		HOOK_GDI_FUNCTION(user32, DefWindowProcA, defWindowProcA);
 		HOOK_GDI_FUNCTION(user32, DefWindowProcW, defWindowProcW);

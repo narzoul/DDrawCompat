@@ -273,6 +273,14 @@ namespace CompatGdi
 		}
 	}
 
+	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc)
+	{
+		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
+		oldWndProc = reinterpret_cast<WNDPROC>(
+			SetClassLongPtr(hwnd, GCLP_WNDPROC, reinterpret_cast<LONG>(newWndProc)));
+		DestroyWindow(hwnd);
+	}
+
 	void installHooks()
 	{
 		InitializeCriticalSection(&g_gdiCriticalSection);

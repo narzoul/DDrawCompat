@@ -18,7 +18,6 @@ namespace
 	std::unordered_map<HWND, RECT> g_prevWindowRect;
 
 	void disableDwmAttributes(HWND hwnd);
-	void eraseBackground(HWND hwnd, HDC dc);
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
 
@@ -38,13 +37,6 @@ namespace
 			{
 				CompatGdi::GdiScopedThreadLock lock;
 				g_prevWindowRect.erase(ret->hwnd);
-			}
-			else if (WM_ERASEBKGND == ret->message)
-			{
-				if (0 != ret->lResult)
-				{
-					eraseBackground(ret->hwnd, reinterpret_cast<HDC>(ret->wParam));
-				}
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
 			{
@@ -83,20 +75,6 @@ namespace
 		BOOL disableTransitions = TRUE;
 		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
 			&disableTransitions, sizeof(disableTransitions));
-	}
-
-	void eraseBackground(HWND hwnd, HDC dc)
-	{
-		if (CompatGdi::beginGdiRendering())
-		{
-			HDC compatDc = CompatGdiDc::getDc(dc);
-			if (compatDc)
-			{
-				SendMessage(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
-				CompatGdiDc::releaseDc(dc);
-			}
-			CompatGdi::endGdiRendering();
-		}
 	}
 
 	LRESULT CALLBACK mouseProc(int nCode, WPARAM wParam, LPARAM lParam)
