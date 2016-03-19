@@ -284,7 +284,7 @@ namespace CompatGdi
 				return;
 			}
 
-			CompatGdiFunctions::installHooks();
+			CompatGdiDcFunctions::installHooks();
 			CompatGdiWinProc::installHooks();
 			CompatGdiCaret::installHooks();
 		}
