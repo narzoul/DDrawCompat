@@ -87,7 +87,7 @@ namespace
 		MoveToEx(compatDc.dc, currentPos.x, currentPos.y, nullptr);
 	}
 
-	BOOL CALLBACK excludeClipRectsForOverlappingWindows(HWND hwnd, LPARAM lParam)
+	BOOL CALLBACK excludeClipRectForOverlappingWindow(HWND hwnd, LPARAM lParam)
 	{
 		auto excludeClipRectsData = reinterpret_cast<ExcludeClipRectsData*>(lParam);
 		if (hwnd == excludeClipRectsData->rootWnd)
@@ -107,30 +107,58 @@ namespace
 		return TRUE;
 	}
 
-	void setClippingRegion(HDC compatDc, HDC origDc, POINT& origin)
+	void excludeClipRectsForOverlappingWindows(
+		HWND hwnd, bool isMenuWindow, HDC compatDc, const POINT& origin)
 	{
-		HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
-		const bool isEmptyClipRgn = 1 != GetRandomRgn(origDc, clipRgn, SYSRGN);
-		SelectClipRgn(compatDc, isEmptyClipRgn ? nullptr : clipRgn);
-		DeleteObject(clipRgn);
-
-		HRGN origClipRgn = CreateRectRgn(0, 0, 0, 0);
-		if (1 == GetClipRgn(origDc, origClipRgn))
+		ExcludeClipRectsData excludeClipRectsData = { compatDc, origin, GetAncestor(hwnd, GA_ROOT) };
+		if (!isMenuWindow)
 		{
-			OffsetRgn(origClipRgn, origin.x, origin.y);
-			ExtSelectClipRgn(compatDc, origClipRgn, RGN_AND);
+			EnumWindows(&excludeClipRectForOverlappingWindow,
+				reinterpret_cast<LPARAM>(&excludeClipRectsData));
 		}
-		DeleteObject(origClipRgn);
 
-		if (!isEmptyClipRgn)
+		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
+		while (menuWindow && menuWindow != hwnd)
 		{
-			HWND hwnd = WindowFromDC(origDc);
-			if (hwnd)
+			excludeClipRectForOverlappingWindow(
+				menuWindow, reinterpret_cast<LPARAM>(&excludeClipRectsData));
+			menuWindow = FindWindowEx(nullptr, menuWindow, reinterpret_cast<LPCSTR>(0x8000), nullptr);
+		}
+	}
+
+	void setClippingRegion(HDC compatDc, HDC origDc, const POINT& origin)
+	{
+		const HWND hwnd = WindowFromDC(origDc);
+		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
+
+		if (isMenuWindow)
+		{
+			RECT windowRect = {};
+			GetWindowRect(hwnd, &windowRect);
+
+			HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
+			SelectClipRgn(compatDc, windowRgn);
+			DeleteObject(windowRgn);
+		}
+		else
+		{
+			HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
+			const bool isEmptyClipRgn = 1 != GetRandomRgn(origDc, clipRgn, SYSRGN);
+			SelectClipRgn(compatDc, isEmptyClipRgn ? nullptr : clipRgn);
+			DeleteObject(clipRgn);
+
+			HRGN origClipRgn = CreateRectRgn(0, 0, 0, 0);
+			if (1 == GetClipRgn(origDc, origClipRgn))
 			{
-				ExcludeClipRectsData excludeClipRectsData = { compatDc, origin, GetAncestor(hwnd, GA_ROOT) };
-				EnumWindows(&excludeClipRectsForOverlappingWindows,
-					reinterpret_cast<LPARAM>(&excludeClipRectsData));
+				OffsetRgn(origClipRgn, origin.x, origin.y);
+				ExtSelectClipRgn(compatDc, origClipRgn, RGN_AND);
 			}
+			DeleteObject(origClipRgn);
+		}
+
+		if (hwnd)
+		{
+			excludeClipRectsForOverlappingWindows(hwnd, isMenuWindow, compatDc, origin);
 		}
 	}
 }

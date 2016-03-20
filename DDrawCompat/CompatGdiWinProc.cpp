@@ -18,6 +18,7 @@ namespace
 	std::unordered_map<HWND, RECT> g_prevWindowRect;
 
 	void disableDwmAttributes(HWND hwnd);
+	void onMenuSelect();
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
 
@@ -54,6 +55,10 @@ namespace
 				{
 					CompatGdiScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
+			}
+			else if (WM_MENUSELECT == ret->message)
+			{
+				onMenuSelect();
 			}
 			else if (BM_SETSTYLE == ret->message)
 			{
@@ -128,6 +133,16 @@ namespace
 
 			ReleaseDC(hwnd, windowDc);
 			CompatGdi::endGdiRendering();
+		}
+	}
+
+	void onMenuSelect()
+	{
+		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
+		while (menuWindow)
+		{
+			RedrawWindow(menuWindow, nullptr, nullptr, RDW_INVALIDATE);
+			menuWindow = FindWindowEx(nullptr, menuWindow, reinterpret_cast<LPCSTR>(0x8000), nullptr);
 		}
 	}
 

@@ -13,11 +13,14 @@ namespace
 	LRESULT WINAPI eraseBackgroundProc(
 		HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc, const char* wndProcName);
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
+	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
+	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
 	WNDPROC g_origEditWndProc = nullptr;
 	WNDPROC g_origListBoxWndProc = nullptr;
+	WNDPROC g_origMenuWndProc = nullptr;
 	WNDPROC g_origScrollBarWndProc = nullptr;
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -104,6 +107,26 @@ namespace
 		return eraseBackgroundProc(hwnd, msg, wParam, lParam, g_origListBoxWndProc, "listBoxWndProc");
 	}
 
+	LRESULT WINAPI menuWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		Compat::LogEnter("menuWndProc", hwnd, msg, wParam, lParam);
+		LRESULT result = 0;
+
+		switch (msg)
+		{
+		case WM_PAINT:
+			result = onMenuPaint(hwnd, g_origMenuWndProc);
+			break;
+
+		default:
+			result = g_origMenuWndProc(hwnd, msg, wParam, lParam);
+			break;
+		}
+
+		Compat::LogLeave("menuWndProc", hwnd, msg, wParam, lParam) << result;
+		return result;
+	}
+
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
 	{
 		if (!hwnd || !CompatGdi::beginGdiRendering())
@@ -153,6 +176,32 @@ namespace
 		}
 
 		ReleaseDC(hwnd, windowDc);
+		CompatGdi::endGdiRendering();
+		return 0;
+	}
+
+	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
+	{
+		if (!hwnd || !CompatGdi::beginGdiRendering())
+		{
+			return origWndProc(hwnd, WM_PAINT, 0, 0);
+		}
+
+		HDC dc = GetWindowDC(hwnd);
+		HDC compatDc = CompatGdiDc::getDc(dc);
+		if (compatDc)
+		{
+			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
+				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
+			ValidateRect(hwnd, nullptr);
+			CompatGdiDc::releaseDc(dc);
+		}
+		else
+		{
+			origWndProc(hwnd, WM_PAINT, 0, 0);
+		}
+
+		ReleaseDC(hwnd, dc);
 		CompatGdi::endGdiRendering();
 		return 0;
 	}
@@ -242,6 +291,7 @@ namespace CompatGdiPaintHandlers
 	{
 		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
 		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
+		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
 		CompatGdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
 
 		DetourTransactionBegin();
