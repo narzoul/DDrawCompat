@@ -118,6 +118,14 @@ namespace
 			result = onMenuPaint(hwnd, g_origMenuWndProc);
 			break;
 
+		case 0x1e5:
+			if (-1 == wParam)
+			{
+				// Clearing of selection is not caught by WM_MENUSELECT when mouse leaves menu window
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE);
+			}
+			// fall through to default
+
 		default:
 			result = g_origMenuWndProc(hwnd, msg, wParam, lParam);
 			break;
