@@ -168,6 +168,7 @@
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DirectDrawVtblVisitor.h" />
     <ClInclude Include="DDrawLog.h" />
+    <ClInclude Include="Hook.h" />
     <ClInclude Include="IReleaseNotifier.h" />
     <ClInclude Include="RealPrimarySurface.h" />
   </ItemGroup>
@@ -189,6 +190,7 @@
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="CompatPrimarySurface.cpp" />
     <ClCompile Include="DDrawProcs.cpp" />
+    <ClCompile Include="Hook.cpp" />
     <ClCompile Include="IReleaseNotifier.cpp" />
     <ClCompile Include="RealPrimarySurface.cpp" />
     <ClCompile Include="CompatGdiDc.cpp" />

@@ -93,6 +93,9 @@
     <ClInclude Include="CompatGdiPaintHandlers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Hook.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -156,6 +159,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatGdiPaintHandlers.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

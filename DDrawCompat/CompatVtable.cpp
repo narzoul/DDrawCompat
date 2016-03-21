@@ -2,5 +2,5 @@
 
 namespace Compat
 {
-	std::map<void*, DetouredMethodInfo> detouredMethods;
+	std::map<void*, HookedMethodInfo> g_hookedMethods;
 }

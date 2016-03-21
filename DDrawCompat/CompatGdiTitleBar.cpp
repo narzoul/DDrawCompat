@@ -1,5 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiTitleBar.h"
+#include "Hook.h"
 
 namespace
 {
@@ -99,7 +100,7 @@ namespace CompatGdi
 			flags |= DC_SMALLCAP;
 		}
 
-		CALL_ORIG_GDI(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, flags);
+		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, flags);
 	}
 
 	void TitleBar::drawButton(std::size_t tbiIndex, UINT dfcState) const
@@ -120,7 +121,7 @@ namespace CompatGdi
 		}
 
 		RECT rect = m_tbi.rgrect[tbiIndex];
-		CALL_ORIG_GDI(DrawFrameControl)(m_compatDc, &rect, DFC_CAPTION, dfcState | stateFlags);
+		CALL_ORIG_FUNC(DrawFrameControl)(m_compatDc, &rect, DFC_CAPTION, dfcState | stateFlags);
 	}
 
 	void TitleBar::excludeFromClipRegion() const

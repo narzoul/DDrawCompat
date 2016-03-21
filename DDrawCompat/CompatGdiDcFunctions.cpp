@@ -1,13 +1,16 @@
+#include <unordered_map>
+
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
 #include "CompatGdiDcFunctions.h"
 #include "DDrawLog.h"
+#include "Hook.h"
 #include "RealPrimarySurface.h"
-
-#include <detours.h>
 
 namespace
 {
+	std::unordered_map<void*, const char*> g_funcNames;
+
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
 
 	template <typename Result, typename... Params>
@@ -61,12 +64,12 @@ namespace
 	Result WINAPI compatGdiDcFunc(Params... params)
 	{
 #ifdef _DEBUG
-		Compat::LogEnter(CompatGdi::g_funcNames[origFunc], params...);
+		Compat::LogEnter(g_funcNames[origFunc], params...);
 #endif
 
 		if (!hasDisplayDcArg(params...) || !CompatGdi::beginGdiRendering())
 		{
-			Result result = CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
 
 #ifdef _DEBUG
 			if (!hasDisplayDcArg(params...))
@@ -81,18 +84,18 @@ namespace
 			{
 				Compat::Log() << "Skipping redirection since the primary surface could not be locked";
 			}
-			Compat::LogLeave(CompatGdi::g_funcNames[origFunc], params...) << result;
+			Compat::LogLeave(g_funcNames[origFunc], params...) << result;
 #endif
 
 			return result;
 		}
 
-		Result result = CompatGdi::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
+		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
 		releaseDc(params...);
 		CompatGdi::endGdiRendering();
 
 #ifdef _DEBUG
-		Compat::LogLeave(CompatGdi::g_funcNames[origFunc], params...) << result;
+		Compat::LogLeave(g_funcNames[origFunc], params...) << result;
 #endif
 
 		return result;
@@ -104,15 +107,25 @@ namespace
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
 
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
+	void hookGdiDcFunction(const char* moduleName, const char* funcName)
+	{
+#ifdef _DEBUG
+		g_funcNames[origFunc] = funcName;
+#endif
+
+		Compat::hookFunction<OrigFuncPtr, origFunc>(
+			moduleName, funcName, getCompatGdiDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
+	}
+
 	HWND WINAPI windowFromDc(HDC dc)
 	{
-		return CALL_ORIG_GDI(WindowFromDC)(CompatGdiDc::getOrigDc(dc));
+		return CALL_ORIG_FUNC(WindowFromDC)(CompatGdiDc::getOrigDc(dc));
 	}
 }
 
 #define HOOK_GDI_DC_FUNCTION(module, func) \
-	CompatGdi::hookGdiFunction<decltype(&func), &func>( \
-		#module, #func, getCompatGdiDcFuncPtr<decltype(&func), &func>(&func))
+	hookGdiDcFunction<decltype(&func), &func>(#module, #func)
 
 #define HOOK_GDI_TEXT_DC_FUNCTION(module, func) \
 	HOOK_GDI_DC_FUNCTION(module, func##A); \
@@ -122,7 +135,7 @@ namespace CompatGdiDcFunctions
 {
 	void installHooks()
 	{
-		DetourTransactionBegin();
+		Compat::beginHookTransaction();
 
 		// Bitmap functions
 		HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
@@ -154,7 +167,7 @@ namespace CompatGdiDcFunctions
 		// Device context functions
 		HOOK_GDI_DC_FUNCTION(gdi32, CreateCompatibleDC);
 		HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
-		HOOK_GDI_FUNCTION(user32, WindowFromDC, windowFromDc);
+		HOOK_FUNCTION(user32, WindowFromDC, windowFromDc);
 
 		// Filled shape functions
 		HOOK_GDI_DC_FUNCTION(gdi32, Chord);
@@ -213,6 +226,6 @@ namespace CompatGdiDcFunctions
 		// Undocumented functions
 		HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
 
-		DetourTransactionCommit();
+		Compat::endHookTransaction();
 	}
 }

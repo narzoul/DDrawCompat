@@ -3,11 +3,11 @@
 
 #include <oleacc.h>
 #include <Windows.h>
-#include <detours.h>
 
 #include "CompatGdi.h"
 #include "CompatGdiCaret.h"
 #include "CompatGdiDc.h"
+#include "Hook.h"
 
 namespace
 {
@@ -144,7 +144,7 @@ namespace
 
 	BOOL WINAPI createCaret(HWND hWnd, HBITMAP hBitmap, int nWidth, int nHeight)
 	{
-		BOOL result = CALL_ORIG_GDI(CreateCaret)(hWnd, hBitmap, nWidth, nHeight);
+		BOOL result = CALL_ORIG_FUNC(CreateCaret)(hWnd, hBitmap, nWidth, nHeight);
 		if (result)
 		{
 			CaretScopedThreadLock caretLock;
@@ -161,7 +161,7 @@ namespace
 
 	BOOL WINAPI hideCaret(HWND hWnd)
 	{
-		BOOL result = CALL_ORIG_GDI(HideCaret)(hWnd);
+		BOOL result = CALL_ORIG_FUNC(HideCaret)(hWnd);
 		if (result)
 		{
 			CaretScopedThreadLock caretLock;
@@ -176,7 +176,7 @@ namespace
 
 	BOOL WINAPI showCaret(HWND hWnd)
 	{
-		if (!CALL_ORIG_GDI(ShowCaret)(hWnd))
+		if (!CALL_ORIG_FUNC(ShowCaret)(hWnd))
 		{
 			return FALSE;
 		}
@@ -213,11 +213,11 @@ namespace CompatGdiCaret
 	{
 		InitializeCriticalSection(&g_caretCriticalSection);
 
-		DetourTransactionBegin();
-		HOOK_GDI_FUNCTION(user32, CreateCaret, createCaret);
-		HOOK_GDI_FUNCTION(user32, HideCaret, hideCaret);
-		HOOK_GDI_FUNCTION(user32, ShowCaret, showCaret);
-		DetourTransactionCommit();
+		Compat::beginHookTransaction();
+		HOOK_FUNCTION(user32, CreateCaret, createCaret);
+		HOOK_FUNCTION(user32, HideCaret, hideCaret);
+		HOOK_FUNCTION(user32, ShowCaret, showCaret);
+		Compat::endHookTransaction();
 
 		const DWORD threadId = GetCurrentThreadId();
 		SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY,

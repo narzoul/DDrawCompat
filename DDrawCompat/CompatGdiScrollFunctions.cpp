@@ -1,7 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiScrollFunctions.h"
-
-#include <detours.h>
+#include "Hook.h"
 
 namespace
 {
@@ -12,7 +11,7 @@ namespace
 		_In_ const RECT *lpRect,
 		_In_ const RECT *lpClipRect)
 	{
-		BOOL result = CALL_ORIG_GDI(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
+		BOOL result = CALL_ORIG_FUNC(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
 		return result;
 	}
@@ -27,7 +26,7 @@ namespace
 		_Out_       LPRECT prcUpdate,
 		_In_        UINT   flags)
 	{
-		int result = CALL_ORIG_GDI(ScrollWindowEx)(
+		int result = CALL_ORIG_FUNC(ScrollWindowEx)(
 			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
 		return result;
@@ -38,10 +37,10 @@ namespace CompatGdiScrollFunctions
 {
 	void installHooks()
 	{
-		DetourTransactionBegin();
-		HOOK_GDI_FUNCTION(user32, ScrollWindow, scrollWindow);
-		HOOK_GDI_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
-		DetourTransactionCommit();
+		Compat::beginHookTransaction();
+		HOOK_FUNCTION(user32, ScrollWindow, scrollWindow);
+		HOOK_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
+		Compat::endHookTransaction();
 	}
 
 	void updateScrolledWindow(HWND hwnd)

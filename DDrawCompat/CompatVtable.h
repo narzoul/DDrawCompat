@@ -1,25 +1,21 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-
 #include <map>
 #include <string>
 #include <vector>
 
-#include <Windows.h>
-#include <detours.h>
-
 #include "DDrawLog.h"
 #include "DDrawVtableVisitor.h"
+#include "Hook.h"
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
 namespace Compat
 {
-	struct DetouredMethodInfo
+	struct HookedMethodInfo
 	{
-		DetouredMethodInfo(void*& updatedOrigMethodPtr, std::map<void*, void*>& vtablePtrToCompatVtable)
+		HookedMethodInfo(void*& updatedOrigMethodPtr, std::map<void*, void*>& vtablePtrToCompatVtable)
 			: updatedOrigMethodPtr(updatedOrigMethodPtr), vtablePtrToCompatVtable(vtablePtrToCompatVtable)
 		{
 		}
@@ -28,7 +24,7 @@ namespace Compat
 		std::map<void*, void*>& vtablePtrToCompatVtable;
 	};
 
-	extern std::map<void*, DetouredMethodInfo> detouredMethods;
+	extern std::map<void*, HookedMethodInfo> g_hookedMethods;
 }
 
 template <typename CompatInterface, typename Interface>
@@ -107,8 +103,8 @@ private:
 
 		void hookMethod(void*& origMethodPtr, void* newMethodPtr)
 		{
-			auto it = Compat::detouredMethods.find(origMethodPtr);
-			if (it != Compat::detouredMethods.end())
+			auto it = Compat::g_hookedMethods.find(origMethodPtr);
+			if (it != Compat::g_hookedMethods.end())
 			{
 				origMethodPtr = it->second.updatedOrigMethodPtr;
 				it->second.vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
@@ -116,11 +112,11 @@ private:
 			else
 			{
 				s_vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
-				Compat::detouredMethods.emplace(origMethodPtr,
-					Compat::DetouredMethodInfo(origMethodPtr, s_vtablePtrToCompatVtable));
-				DetourTransactionBegin();
-				DetourAttach(&origMethodPtr, newMethodPtr);
-				DetourTransactionCommit();
+				Compat::g_hookedMethods.emplace(origMethodPtr,
+					Compat::HookedMethodInfo(origMethodPtr, s_vtablePtrToCompatVtable));
+				Compat::beginHookTransaction();
+				Compat::hookFunction(origMethodPtr, newMethodPtr);
+				Compat::endHookTransaction();
 			}
 		}
 

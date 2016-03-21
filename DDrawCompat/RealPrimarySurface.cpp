@@ -7,6 +7,7 @@
 #include "Config.h"
 #include "DDrawProcs.h"
 #include "DDrawTypes.h"
+#include "Hook.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
 
@@ -55,7 +56,7 @@ namespace
 			HDC converterDc = nullptr;
 			origVtable.GetDC(g_paletteConverterSurface, &converterDc);
 
-			result = TRUE == CALL_ORIG_GDI(BitBlt)(destDc, 0, 0,
+			result = TRUE == CALL_ORIG_FUNC(BitBlt)(destDc, 0, 0,
 				RealPrimarySurface::s_surfaceDesc.dwWidth, RealPrimarySurface::s_surfaceDesc.dwHeight,
 				converterDc, 0, 0, SRCCOPY);
 

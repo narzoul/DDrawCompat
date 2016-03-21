@@ -3,8 +3,8 @@
 #include "CompatGdiPaintHandlers.h"
 #include "CompatGdiScrollBar.h"
 #include "CompatGdiTitleBar.h"
-
-#include <detours.h>
+#include "DDrawLog.h"
+#include "Hook.h"
 
 namespace
 {
@@ -25,12 +25,12 @@ namespace
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_GDI(DefDlgProcA), "defDlgProcA");
+		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcA), "defDlgProcA");
 	}
 
 	LRESULT WINAPI defDlgProcW(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_GDI(DefDlgProcW), "defDlgProcW");
+		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcW), "defDlgProcW");
 	}
 
 	LRESULT WINAPI defWindowProc(
@@ -70,12 +70,12 @@ namespace
 
 	LRESULT WINAPI defWindowProcA(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_GDI(DefWindowProcA), "defWindowProcA");
+		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcA), "defWindowProcA");
 	}
 
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_GDI(DefWindowProcW), "defWindowProcW");
+		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
 	}
 
 	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -294,11 +294,11 @@ namespace CompatGdiPaintHandlers
 		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
 		CompatGdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
 
-		DetourTransactionBegin();
-		HOOK_GDI_FUNCTION(user32, DefWindowProcA, defWindowProcA);
-		HOOK_GDI_FUNCTION(user32, DefWindowProcW, defWindowProcW);
-		HOOK_GDI_FUNCTION(user32, DefDlgProcA, defDlgProcA);
-		HOOK_GDI_FUNCTION(user32, DefDlgProcW, defDlgProcW);
-		DetourTransactionCommit();
+		Compat::beginHookTransaction();
+		HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
+		HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
+		HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
+		HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
+		Compat::endHookTransaction();
 	}
 }

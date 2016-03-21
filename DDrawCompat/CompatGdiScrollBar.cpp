@@ -1,5 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiScrollBar.h"
+#include "Hook.h"
 
 namespace
 {
@@ -72,7 +73,7 @@ namespace CompatGdi
 		}
 
 		RECT rect = sbci.rect;
-		CALL_ORIG_GDI(DrawFrameControl)(m_compatDc, &rect, DFC_SCROLL, dfcState | stateFlags);
+		CALL_ORIG_FUNC(DrawFrameControl)(m_compatDc, &rect, DFC_SCROLL, dfcState | stateFlags);
 	}
 
 	void ScrollBar::drawHorizArrows() const
