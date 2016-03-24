@@ -9,6 +9,7 @@
 #include "CompatDirectDrawSurface.h"
 #include "CompatDirectDrawPalette.h"
 #include "CompatGdi.h"
+#include "CompatRegistry.h"
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
 
@@ -101,6 +102,9 @@ namespace
 
 				Compat::Log() << "Installing GDI hooks";
 				CompatGdi::installHooks();
+
+				Compat::Log() << "Installing registry hooks";
+				CompatRegistry::installHooks();
 
 				dd->lpVtbl->Release(dd);
 			}

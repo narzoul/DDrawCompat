@@ -69,7 +69,7 @@ namespace Compat
 		FARPROC procAddr = getProcAddress(GetModuleHandle(moduleName), funcName);
 		if (!procAddr)
 		{
-			Compat::Log() << "Failed to load the address of a function: " << funcName;
+			Compat::LogDebug() << "Failed to load the address of a function: " << funcName;
 			return;
 		}
 

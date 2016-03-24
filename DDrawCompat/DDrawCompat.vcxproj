@@ -155,6 +155,7 @@
     <ClInclude Include="CompatGdiScrollFunctions.h" />
     <ClInclude Include="CompatGdiTitleBar.h" />
     <ClInclude Include="CompatGdiWinProc.h" />
+    <ClInclude Include="CompatRegistry.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
@@ -185,6 +186,7 @@
     <ClCompile Include="CompatGdiScrollFunctions.cpp" />
     <ClCompile Include="CompatGdiTitleBar.cpp" />
     <ClCompile Include="CompatGdiWinProc.cpp" />
+    <ClCompile Include="CompatRegistry.cpp" />
     <ClCompile Include="CompatVtable.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DllMain.cpp" />

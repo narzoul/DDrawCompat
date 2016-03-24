@@ -93,6 +93,8 @@ namespace Compat
 	};
 
 #ifdef _DEBUG
+	typedef Log LogDebug;
+
 	class LogEnter : private Log
 	{
 	public:
@@ -117,6 +119,12 @@ namespace Compat
 		}
 	};
 #else
+	class LogDebug
+	{
+	public:
+		template <typename T> LogDebug& operator<<(const T&) { return *this;  }
+	};
+
 	class LogEnter
 	{
 	public:

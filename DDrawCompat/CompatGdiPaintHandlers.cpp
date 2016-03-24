@@ -3,6 +3,7 @@
 #include "CompatGdiPaintHandlers.h"
 #include "CompatGdiScrollBar.h"
 #include "CompatGdiTitleBar.h"
+#include "CompatRegistry.h"
 #include "DDrawLog.h"
 #include "Hook.h"
 
@@ -297,6 +298,13 @@ namespace CompatGdiPaintHandlers
 {
 	void installHooks()
 	{
+		// Immersive context menus don't display properly (empty items) when theming is disabled
+		CompatRegistry::setValue(
+			HKEY_LOCAL_MACHINE,
+			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FlightedFeatures",
+			"ImmersiveContextMenu",
+			0);
+
 		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
 		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
 		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
