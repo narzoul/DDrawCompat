@@ -16,8 +16,28 @@ namespace
 	}
 }
 
+std::ostream& operator<<(std::ostream& os, const char* str)
+{
+	if (!str)
+	{
+		return os << "null";
+	}
+
+	return os.write(str, strlen(str));
+}
+
+std::ostream& operator<<(std::ostream& os, const unsigned char* data)
+{
+	return os << static_cast<const void*>(data);
+}
+
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 {
+	if (!wstr)
+	{
+		return os << "null";
+	}
+
 	CStringA str(wstr);
 	return os << '"' << static_cast<const char*>(str) << '"';
 }
