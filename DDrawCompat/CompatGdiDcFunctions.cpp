@@ -11,6 +11,7 @@ namespace
 {
 	std::unordered_map<void*, const char*> g_funcNames;
 
+	BOOL WINAPI GdiDrawStream(HDC, DWORD, DWORD) { return FALSE; }
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
 
 	template <typename Result, typename... Params>
@@ -224,6 +225,7 @@ namespace CompatGdiDcFunctions
 		HOOK_GDI_DC_FUNCTION(user32, ScrollDC);
 
 		// Undocumented functions
+		HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
 		HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
 
 		Compat::endHookTransaction();
