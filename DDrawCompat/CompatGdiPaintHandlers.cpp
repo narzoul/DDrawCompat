@@ -3,6 +3,8 @@
 #include "CompatGdiPaintHandlers.h"
 #include "CompatGdiScrollBar.h"
 #include "CompatGdiTitleBar.h"
+#include "CompatPaletteConverter.h"
+#include "CompatPrimarySurface.h"
 #include "CompatRegistry.h"
 #include "DDrawLog.h"
 #include "Hook.h"
@@ -159,6 +161,52 @@ namespace
 		return result;
 	}
 
+	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
+	{
+		if (!hwnd || !CompatGdi::beginGdiRendering())
+		{
+			return origWndProc(hwnd, WM_PAINT, 0, 0);
+		}
+
+		HDC dc = GetWindowDC(hwnd);
+		const bool isMenuPaintDc = true;
+		HDC compatDc = CompatGdiDc::getDc(dc, isMenuPaintDc);
+		if (compatDc)
+		{
+			if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
+			{
+				HDC converterDc = CompatPaletteConverter::lockDc();
+				CompatPaletteConverter::setPalette(nullptr);
+
+				origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(converterDc),
+					PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
+
+				RECT rect = {};
+				GetWindowRect(hwnd, &rect);
+				CALL_ORIG_FUNC(BitBlt)(compatDc, 0, 0,
+					rect.right - rect.left, rect.bottom - rect.top, converterDc, 0, 0, SRCCOPY);
+
+				CompatPaletteConverter::setPalette(CompatPrimarySurface::palette);
+				CompatPaletteConverter::unlockDc();
+			}
+			else
+			{
+				origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
+					PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
+			}
+			ValidateRect(hwnd, nullptr);
+			CompatGdiDc::releaseDc(dc);
+		}
+		else
+		{
+			origWndProc(hwnd, WM_PAINT, 0, 0);
+		}
+
+		ReleaseDC(hwnd, dc);
+		CompatGdi::endGdiRendering();
+		return 0;
+	}
+
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
 	{
 		if (!hwnd || !CompatGdi::beginGdiRendering())
@@ -185,33 +233,6 @@ namespace
 		}
 
 		ReleaseDC(hwnd, windowDc);
-		CompatGdi::endGdiRendering();
-		return 0;
-	}
-
-	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
-	{
-		if (!hwnd || !CompatGdi::beginGdiRendering())
-		{
-			return origWndProc(hwnd, WM_PAINT, 0, 0);
-		}
-
-		HDC dc = GetWindowDC(hwnd);
-		const bool isMenuPaintDc = true;
-		HDC compatDc = CompatGdiDc::getDc(dc, isMenuPaintDc);
-		if (compatDc)
-		{
-			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
-				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
-			ValidateRect(hwnd, nullptr);
-			CompatGdiDc::releaseDc(dc);
-		}
-		else
-		{
-			origWndProc(hwnd, WM_PAINT, 0, 0);
-		}
-
-		ReleaseDC(hwnd, dc);
 		CompatGdi::endGdiRendering();
 		return 0;
 	}
