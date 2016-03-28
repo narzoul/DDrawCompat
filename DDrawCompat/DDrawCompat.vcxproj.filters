@@ -102,6 +102,9 @@
     <ClInclude Include="DDrawRepository.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatPaletteConverter.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -174,6 +177,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DDrawRepository.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatPaletteConverter.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

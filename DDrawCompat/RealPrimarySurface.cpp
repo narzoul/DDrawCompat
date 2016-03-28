@@ -3,6 +3,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
+#include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "Config.h"
 #include "DDrawProcs.h"
@@ -18,7 +19,6 @@ namespace
 
 	IDirectDrawSurface7* g_frontBuffer = nullptr;
 	IDirectDrawSurface7* g_backBuffer = nullptr;
-	IDirectDrawSurface7* g_paletteConverterSurface = nullptr;
 	IReleaseNotifier g_releaseNotifier(onRelease);
 
 	HANDLE g_updateThread = nullptr;
@@ -46,22 +46,23 @@ namespace
 			clipper->lpVtbl->Release(clipper);
 		}
 
-		if (g_paletteConverterSurface)
+		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 		{
-			origVtable.Blt(g_paletteConverterSurface, nullptr, CompatPrimarySurface::surface, nullptr,
+			IDirectDrawSurface7* converterSurface = CompatPaletteConverter::lockSurface();
+			HDC converterDc = CompatPaletteConverter::lockDc();
+
+			origVtable.Blt(converterSurface, nullptr, CompatPrimarySurface::surface, nullptr,
 				DDBLT_WAIT, nullptr);
 
 			HDC destDc = nullptr;
 			origVtable.GetDC(dest, &destDc);
-			HDC converterDc = nullptr;
-			origVtable.GetDC(g_paletteConverterSurface, &converterDc);
-
 			result = TRUE == CALL_ORIG_FUNC(BitBlt)(destDc, 0, 0,
 				RealPrimarySurface::s_surfaceDesc.dwWidth, RealPrimarySurface::s_surfaceDesc.dwHeight,
 				converterDc, 0, 0, SRCCOPY);
-
-			origVtable.ReleaseDC(g_paletteConverterSurface, converterDc);
 			origVtable.ReleaseDC(dest, destDc);
+
+			CompatPaletteConverter::unlockDc();
+			CompatPaletteConverter::unlockSurface();
 		}
 		else
 		{
@@ -73,36 +74,6 @@ namespace
 		return result;
 	}
 	
-	template <typename DirectDraw>
-	HRESULT createPaletteConverterSurface(DirectDraw& dd)
-	{
-		if (CompatPrimarySurface::displayMode.pixelFormat.dwRGBBitCount > 8 &&
-			RealPrimarySurface::s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount > 8)
-		{
-			return DD_OK;
-		}
-
-		typename Types<DirectDraw>::TSurfaceDesc desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
-		desc.dwWidth = RealPrimarySurface::s_surfaceDesc.dwWidth;
-		desc.dwHeight = RealPrimarySurface::s_surfaceDesc.dwHeight;
-		desc.ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-
-		typedef typename Types<DirectDraw>::TCreatedSurface TCreatedSurface;
-		TCreatedSurface* surface = nullptr;
-		HRESULT result = CompatDirectDraw<DirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
-		if (SUCCEEDED(result))
-		{
-			CompatDirectDrawSurface<TCreatedSurface>::s_origVtable.QueryInterface(
-				surface, IID_IDirectDrawSurface7, reinterpret_cast<LPVOID*>(&g_paletteConverterSurface));
-			CompatDirectDrawSurface<TCreatedSurface>::s_origVtable.Release(surface);
-		}
-
-		return result;
-	}
-
 	DWORD getTimeElapsedInMs(const LARGE_INTEGER& time)
 	{
 		LARGE_INTEGER currentTime = {};
@@ -117,11 +88,7 @@ namespace
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
 		g_isFullScreen = false;
-		if (g_paletteConverterSurface)
-		{
-			g_paletteConverterSurface->lpVtbl->Release(g_paletteConverterSurface);
-			g_paletteConverterSurface = nullptr;
-		}
+		CompatPaletteConverter::release();
 
 		ZeroMemory(&RealPrimarySurface::s_surfaceDesc, sizeof(RealPrimarySurface::s_surfaceDesc));
 
@@ -220,13 +187,11 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 	s_surfaceDesc.dwSize = sizeof(s_surfaceDesc);
 	g_frontBuffer->lpVtbl->GetSurfaceDesc(g_frontBuffer, &s_surfaceDesc);
 
-	result = createPaletteConverterSurface(dd);
-	if (FAILED(result))
+	if (!CompatPaletteConverter::init())
 	{
-		Compat::Log() << "Failed to create palette converter surface";
 		g_frontBuffer->lpVtbl->Release(g_frontBuffer);
 		g_frontBuffer = nullptr;
-		return result;
+		return DDERR_GENERIC;
 	}
 
 	if (isFlippable)
@@ -322,15 +287,7 @@ HRESULT RealPrimarySurface::restore()
 
 void RealPrimarySurface::setClipper(LPDIRECTDRAWCLIPPER clipper)
 {
-	if (g_paletteConverterSurface)
-	{
-		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetClipper(
-			g_paletteConverterSurface, clipper);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to set the clipper on the converter surface: " << result);
-		}
-	}
+	CompatPaletteConverter::setClipper(clipper);
 
 	HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetClipper(
 		g_frontBuffer, clipper);
@@ -342,20 +299,10 @@ void RealPrimarySurface::setClipper(LPDIRECTDRAWCLIPPER clipper)
 
 void RealPrimarySurface::setPalette(LPDIRECTDRAWPALETTE palette)
 {
-	auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
-
-	if (g_paletteConverterSurface && CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
-	{
-		HRESULT result = origVtable.SetPalette(g_paletteConverterSurface, palette);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to set the palette on the converter surface: " << result);
-		}
-	}
-
 	if (s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 	{
-		HRESULT result = origVtable.SetPalette(g_frontBuffer, palette);
+		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
+			g_frontBuffer, palette);
 		if (FAILED(result) && DDERR_NOPALETTEATTACHED != result)
 		{
 			LOG_ONCE("Failed to set the palette on the real primary surface: " << result);
@@ -373,6 +320,11 @@ void RealPrimarySurface::update()
 
 void RealPrimarySurface::updatePalette()
 {
+	if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
+	{
+		CompatPaletteConverter::setPalette(CompatPrimarySurface::palette);
+	}
+
 	CompatGdi::updatePalette();
 	updateNow();
 }
