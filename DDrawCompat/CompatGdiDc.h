@@ -6,7 +6,7 @@
 
 namespace CompatGdiDc
 {
-	HDC getDc(HDC origDc);
+	HDC getDc(HDC origDc, bool isMenuPaintDc = false);
 	HDC getOrigDc(HDC dc);
 	void releaseDc(HDC origDc);
 }

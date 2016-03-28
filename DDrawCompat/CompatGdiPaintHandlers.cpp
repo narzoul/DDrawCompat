@@ -197,7 +197,8 @@ namespace
 		}
 
 		HDC dc = GetWindowDC(hwnd);
-		HDC compatDc = CompatGdiDc::getDc(dc);
+		const bool isMenuPaintDc = true;
+		HDC compatDc = CompatGdiDc::getDc(dc, isMenuPaintDc);
 		if (compatDc)
 		{
 			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),

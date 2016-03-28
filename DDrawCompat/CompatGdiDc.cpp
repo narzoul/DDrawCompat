@@ -5,6 +5,7 @@
 #include "CompatGdiDc.h"
 #include "CompatGdiDcCache.h"
 #include "DDrawLog.h"
+#include "Hook.h"
 
 namespace
 {
@@ -126,11 +127,8 @@ namespace
 		}
 	}
 
-	void setClippingRegion(HDC compatDc, HDC origDc, const POINT& origin)
+	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, bool isMenuWindow, const POINT& origin)
 	{
-		const HWND hwnd = WindowFromDC(origDc);
-		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
-
 		if (isMenuWindow)
 		{
 			RECT windowRect = {};
@@ -165,7 +163,7 @@ namespace
 
 namespace CompatGdiDc
 {
-	HDC getDc(HDC origDc)
+	HDC getDc(HDC origDc, bool isMenuPaintDc)
 	{
 		if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
 		{
@@ -181,6 +179,13 @@ namespace CompatGdiDc
 			return it->second.dc;
 		}
 
+		const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
+		if (isMenuWindow && !isMenuPaintDc)
+		{
+			return nullptr;
+		}
+
 		CompatDc compatDc(CompatGdiDcCache::getDc());
 		if (!compatDc.dc)
 		{
@@ -191,7 +196,7 @@ namespace CompatGdiDc
 		GetDCOrgEx(origDc, &origin);
 
 		copyDcAttributes(compatDc, origDc, origin);
-		setClippingRegion(compatDc.dc, origDc, origin);
+		setClippingRegion(compatDc.dc, origDc, hwnd, isMenuWindow, origin);
 
 		compatDc.refCount = 1;
 		compatDc.origDc = origDc;
