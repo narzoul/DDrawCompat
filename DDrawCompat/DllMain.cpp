@@ -12,6 +12,7 @@
 #include "CompatRegistry.h"
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
+#include "DDrawRepository.h"
 
 struct IDirectInput;
 
@@ -31,7 +32,7 @@ namespace
 		}
 	}
 
-	void hookDirectDraw(IDirectDraw& dd)
+	void hookDirectDraw(IDirectDraw7& dd)
 	{
 		IUnknown& ddUnk = reinterpret_cast<IUnknown&>(dd);
 		hookVtable<CompatDirectDraw<IDirectDraw>>(IID_IDirectDraw, ddUnk);
@@ -40,17 +41,17 @@ namespace
 		hookVtable<CompatDirectDraw<IDirectDraw7>>(IID_IDirectDraw7, ddUnk);
 	}
 
-	void hookDirectDrawSurface(IDirectDraw& dd)
+	void hookDirectDrawSurface(IDirectDraw7& dd)
 	{
-		DDSURFACEDESC desc = {};
+		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS;
 		desc.dwWidth = 1;
 		desc.dwHeight = 1;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
 
-		IDirectDrawSurface* surface = nullptr;
-		HRESULT result = CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
+		IDirectDrawSurface7* surface = nullptr;
+		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
 		if (SUCCEEDED(result))
 		{
 			IUnknown& surfaceUnk = reinterpret_cast<IUnknown&>(*surface);
@@ -67,11 +68,11 @@ namespace
 		}
 	}
 
-	void hookDirectDrawPalette(IDirectDraw& dd)
+	void hookDirectDrawPalette(IDirectDraw7& dd)
 	{
 		PALETTEENTRY paletteEntries[2] = {};
 		IDirectDrawPalette* palette = nullptr;
-		HRESULT result = CompatDirectDraw<IDirectDraw>::s_origVtable.CreatePalette(
+		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreatePalette(
 			&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr);
 		if (SUCCEEDED(result))
 		{
@@ -90,12 +91,9 @@ namespace
 		if (!isAlreadyInstalled)
 		{
 			Compat::Log() << "Installing DirectDraw hooks";
-			IDirectDraw* dd = nullptr;
-			HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreate, nullptr, &dd, nullptr);
-			if (SUCCEEDED(result))
+			IDirectDraw7* dd = DDrawRepository::getDirectDraw();
+			if (dd)
 			{
-				dd->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
-
 				hookDirectDraw(*dd);
 				hookDirectDrawSurface(*dd);
 				hookDirectDrawPalette(*dd);
@@ -106,13 +104,8 @@ namespace
 				Compat::Log() << "Installing registry hooks";
 				CompatRegistry::installHooks();
 
-				dd->lpVtbl->Release(dd);
+				Compat::Log() << "Finished installing hooks";
 			}
-			else
-			{
-				Compat::Log() << "Failed to create a DirectDraw object for hooking" << result;
-			}
-			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
 	}

@@ -160,6 +160,7 @@
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
     <ClInclude Include="CompatPrimarySurface.h" />
+    <ClInclude Include="DDrawRepository.h" />
     <ClInclude Include="DDrawScopedThreadLock.h" />
     <ClInclude Include="DDrawTypes.h" />
     <ClInclude Include="CompatDirectDrawSurface.h" />
@@ -196,6 +197,7 @@
     <ClCompile Include="IReleaseNotifier.cpp" />
     <ClCompile Include="RealPrimarySurface.cpp" />
     <ClCompile Include="CompatGdiDc.cpp" />
+    <ClCompile Include="DDrawRepository.cpp" />
     <ClCompile Include="UnmodifiedDDrawProcs.cpp" />
   </ItemGroup>
   <ItemGroup>

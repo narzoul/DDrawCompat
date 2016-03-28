@@ -7,6 +7,7 @@
 #include "Config.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
+#include "DDrawRepository.h"
 
 namespace
 {
@@ -23,26 +24,6 @@ namespace
 	LONG g_pitch = 0;
 
 	IDirectDrawSurface7* createGdiSurface();
-
-	IDirectDraw7* createDirectDraw()
-	{
-		IDirectDraw7* dd = nullptr;
-		CALL_ORIG_DDRAW(DirectDrawCreateEx, nullptr, reinterpret_cast<LPVOID*>(&dd), IID_IDirectDraw7, nullptr);
-		if (!dd)
-		{
-			Compat::Log() << "Failed to create a DirectDraw interface for GDI";
-			return nullptr;
-		}
-
-		if (FAILED(CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-		{
-			Compat::Log() << "Failed to set the cooperative level on the DirectDraw interface for GDI";
-			dd->lpVtbl->Release(dd);
-			return nullptr;
-		}
-
-		return dd;
-	}
 
 	CachedDc createCachedDc()
 	{
@@ -186,7 +167,7 @@ namespace CompatGdiDcCache
 
 	bool init()
 	{
-		g_directDraw = createDirectDraw();
+		g_directDraw = DDrawRepository::getDirectDraw();
 		return nullptr != g_directDraw;
 	}
 

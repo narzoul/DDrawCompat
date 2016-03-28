@@ -99,6 +99,9 @@
     <ClInclude Include="CompatRegistry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DDrawRepository.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -168,6 +171,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatRegistry.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DDrawRepository.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

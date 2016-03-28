@@ -7,6 +7,7 @@
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
+#include "DDrawRepository.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
 
@@ -24,20 +25,7 @@ namespace
 	SimilarSurface getSimilarSurface(const DDSURFACEDESC2& desc);
 	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx);
 
-	IDirectDraw7* g_mirrorDirectDraw = nullptr;
 	bool g_lockingPrimary = false;
-
-	IDirectDraw7* createMirrorDirectDraw()
-	{
-		IDirectDraw7* dd = nullptr;
-		CALL_ORIG_DDRAW(DirectDrawCreateEx, nullptr, reinterpret_cast<void**>(&dd), IID_IDirectDraw7, nullptr);
-		if (!dd ||
-			FAILED(CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-		{
-			Compat::Log() << "Failed to create a helper DirectDraw object for mirroring";
-		}
-		return dd;
-	}
 
 	void fixSurfacePtr(IDirectDrawSurface7& surface, const DDSURFACEDESC2& desc)
 	{
@@ -213,8 +201,15 @@ namespace
 			similarDesc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
 		}
 
+		IDirectDraw7* dd = DDrawRepository::getDirectDraw();
+		if (!dd)
+		{
+			similarSurface.front = nullptr;
+			return similarSurface;
+		}
+
 		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			g_mirrorDirectDraw, &similarDesc, &similarSurface.front, nullptr);
+			dd, &similarDesc, &similarSurface.front, nullptr);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to create a similar front surface");
@@ -223,7 +218,7 @@ namespace
 		}
 
 		result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			g_mirrorDirectDraw, &similarDesc, &similarSurface.back, nullptr);
+			dd, &similarDesc, &similarSurface.back, nullptr);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to create a similar back surface");
@@ -346,8 +341,6 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 		RealPrimarySurface::release();
 		return result;
 	}
-
-	g_mirrorDirectDraw = createMirrorDirectDraw();
 
 	s_compatPrimarySurface = compatSurface;
 	initCompatPrimarySurface();
