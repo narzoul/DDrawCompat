@@ -16,8 +16,6 @@ namespace CompatGdi
 		bool m_isLocked;
 	};
 
-	extern CRITICAL_SECTION g_gdiCriticalSection;
-
 	bool beginGdiRendering();
 	void endGdiRendering();
 

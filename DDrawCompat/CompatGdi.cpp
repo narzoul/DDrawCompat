@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
@@ -13,7 +15,8 @@
 
 namespace
 {
-	DWORD g_renderingRefCount = 0;
+	CRITICAL_SECTION g_gdiCriticalSection;
+	std::atomic<DWORD> g_renderingRefCount = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
 	DWORD g_ddLockThreadId = 0;
 	HANDLE g_ddUnlockBeginEvent = nullptr;
@@ -55,14 +58,11 @@ namespace
 
 	bool lockPrimarySurface()
 	{
-		Compat::origProcs.AcquireDDThreadLock();
-
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Lock(
 			CompatPrimarySurface::surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
 		{
-			Compat::origProcs.ReleaseDDThreadLock();
 			return false;
 		}
 
@@ -146,17 +146,23 @@ namespace CompatGdi
 			return false;
 		}
 
-		GdiScopedThreadLock gdiLock;
-
 		if (0 == g_renderingRefCount)
 		{
+			Compat::origProcs.AcquireDDThreadLock();
+			EnterCriticalSection(&g_gdiCriticalSection);
 			if (!lockPrimarySurface())
 			{
+				LeaveCriticalSection(&g_gdiCriticalSection);
+				Compat::origProcs.ReleaseDDThreadLock();
 				return false;
 			}
-			++g_ddLockThreadRenderingRefCount;
 		}
-		else if (GetCurrentThreadId() == g_ddLockThreadId)
+		else
+		{
+			EnterCriticalSection(&g_gdiCriticalSection);
+		}
+
+		if (GetCurrentThreadId() == g_ddLockThreadId)
 		{
 			++g_ddLockThreadRenderingRefCount;
 		}
@@ -170,6 +176,7 @@ namespace CompatGdi
 		}
 
 		++g_renderingRefCount;
+		LeaveCriticalSection(&g_gdiCriticalSection);
 		return true;
 	}
 
