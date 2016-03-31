@@ -19,6 +19,7 @@ namespace
 
 	void disableDwmAttributes(HWND hwnd);
 	void onMenuSelect();
+	void onScroll(HWND hwnd, HWND scrollBar);
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
 
@@ -45,7 +46,7 @@ namespace
 			}
 			else if (WM_VSCROLL == ret->message || WM_HSCROLL == ret->message)
 			{
-				CompatGdiScrollFunctions::updateScrolledWindow(ret->hwnd);
+				onScroll(ret->hwnd, reinterpret_cast<HWND>(ret->lParam));
 			}
 			else if (WM_COMMAND == ret->message)
 			{
@@ -143,6 +144,21 @@ namespace
 		{
 			RedrawWindow(menuWindow, nullptr, nullptr, RDW_INVALIDATE);
 			menuWindow = FindWindowEx(nullptr, menuWindow, reinterpret_cast<LPCSTR>(0x8000), nullptr);
+		}
+	}
+
+	void onScroll(HWND hwnd, HWND scrollBar)
+	{
+		if (scrollBar)
+		{
+			UpdateWindow(scrollBar);
+		}
+
+		CompatGdiScrollFunctions::updateScrolledWindow(hwnd);
+
+		if (scrollBar)
+		{
+			ValidateRect(scrollBar, nullptr);
 		}
 	}
 
