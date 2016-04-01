@@ -11,10 +11,8 @@
 
 namespace
 {
-	LRESULT WINAPI defWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
-		WNDPROC origDefWindowProc, const char* funcName);
-	LRESULT WINAPI eraseBackgroundProc(
-		HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc, const char* wndProcName);
+	LRESULT WINAPI defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+		WNDPROC origWndProc, const char* origWndProcName);
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
 	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
@@ -28,86 +26,67 @@ namespace
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcA), "defDlgProcA");
+		return defPaintProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcA), "defDlgProcA");
 	}
 
 	LRESULT WINAPI defDlgProcW(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcW), "defDlgProcW");
+		return defPaintProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcW), "defDlgProcW");
 	}
 
-	LRESULT WINAPI defWindowProc(
+	LRESULT WINAPI defPaintProc(
 		HWND hwnd,
 		UINT msg,
 		WPARAM wParam,
 		LPARAM lParam,
-		WNDPROC origDefWindowProc,
-		const char* funcName)
+		WNDPROC origWndProc,
+		const char* origWndProcName)
 	{
-		Compat::LogEnter(funcName, hwnd, msg, wParam, lParam);
+		Compat::LogEnter(origWndProcName, hwnd, msg, wParam, lParam);
 		LRESULT result = 0;
 
 		switch (msg)
 		{
 		case WM_ERASEBKGND:
-			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origDefWindowProc);
+			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
 			break;
 
 		case WM_NCPAINT:
-			result = onNcPaint(hwnd, wParam, origDefWindowProc);
+			result = onNcPaint(hwnd, wParam, origWndProc);
 			break;
 
 		case WM_PRINT:
 		case WM_PRINTCLIENT:
-			result = onPrint(hwnd, msg, reinterpret_cast<HDC>(wParam), lParam, origDefWindowProc);
+			result = onPrint(hwnd, msg, reinterpret_cast<HDC>(wParam), lParam, origWndProc);
 			break;
 
 		default:
-			result = origDefWindowProc(hwnd, msg, wParam, lParam);
+			result = origWndProc(hwnd, msg, wParam, lParam);
 			break;
 		}
 
-		Compat::LogLeave(funcName, hwnd, msg, wParam, lParam) << result;
+		Compat::LogLeave(origWndProcName, hwnd, msg, wParam, lParam) << result;
 		return result;
 	}
 
 	LRESULT WINAPI defWindowProcA(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcA), "defWindowProcA");
+		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcA), "defWindowProcA");
 	}
 
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
+		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
 	}
 
 	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return eraseBackgroundProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
-	}
-
-	LRESULT WINAPI eraseBackgroundProc(
-		HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc, const char* wndProcName)
-	{
-		Compat::LogEnter(wndProcName, hwnd, msg, wParam, lParam);
-
-		LPARAM result = 0;
-		if (WM_ERASEBKGND == msg)
-		{
-			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
-		}
-		else
-		{
-			result = origWndProc(hwnd, msg, wParam, lParam);
-		}
-
-		Compat::LogLeave(wndProcName, hwnd, msg, wParam, lParam) << result;
-		return result;
+		return defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
 	}
 
 	LRESULT WINAPI listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return eraseBackgroundProc(hwnd, msg, wParam, lParam, g_origListBoxWndProc, "listBoxWndProc");
+		return defPaintProc(hwnd, msg, wParam, lParam, g_origListBoxWndProc, "listBoxWndProc");
 	}
 
 	LRESULT WINAPI menuWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -142,7 +121,7 @@ namespace
 	{
 		if (!hwnd || !CompatGdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc) , 0);
+			return origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 		}
 
 		LRESULT result = 0;
