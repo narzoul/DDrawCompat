@@ -1,7 +1,5 @@
-#define CINTERFACE
 #define WIN32_LEAN_AND_MEAN
 
-#include <oleacc.h>
 #include <Windows.h>
 
 #include "CompatGdi.h"
@@ -11,6 +9,9 @@
 
 namespace
 {
+	template <typename Result, typename... Params>
+	using FuncPtr = Result(WINAPI *)(Params...);
+
 	struct CaretData
 	{
 		HWND hwnd;
@@ -18,194 +19,101 @@ namespace
 		long top;
 		long width;
 		long height;
-		bool isDrawn;
+		bool isVisible;
+
+		bool operator==(const CaretData& rhs) const
+		{
+			return hwnd == rhs.hwnd &&
+				left == rhs.left &&
+				top == rhs.top &&
+				width == rhs.width &&
+				height == rhs.height &&
+				isVisible == rhs.isVisible;
+		}
 	};
+
 
 	CaretData g_caret = {};
 	CRITICAL_SECTION g_caretCriticalSection;
+	
+	void updateCaret();
 
-	class CaretScopedThreadLock
+	void CALLBACK compatGdiCaretEvent(HWINEVENTHOOK, DWORD, HWND, LONG idObject, LONG, DWORD, DWORD)
 	{
-	public:
-		CaretScopedThreadLock()
+		if (OBJID_CARET == idObject)
 		{
-			EnterCriticalSection(&g_caretCriticalSection);
+			updateCaret();
 		}
+	}
 
-		~CaretScopedThreadLock()
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	Result WINAPI compatGdiCaretFunc(Params... params)
+	{
+		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+		updateCaret();
+		return result;
+	}
+
+	void drawCaret(const CaretData& caret)
+	{
+		if (caret.isVisible)
+		{
+			HDC dc = GetDC(caret.hwnd);
+			HDC compatDc = CompatGdiDc::getDc(dc);
+			CALL_ORIG_FUNC(PatBlt)(
+				compatDc, caret.left, caret.top, caret.width, caret.height, PATINVERT);
+			CompatGdiDc::releaseDc(dc);
+			ReleaseDC(caret.hwnd, dc);
+		}
+	}
+
+	CaretData getCaretData()
+	{
+		GUITHREADINFO gti = {};
+		gti.cbSize = sizeof(gti);
+		GetGUIThreadInfo(GetCurrentThreadId(), &gti);
+
+		CaretData caretData = {};
+		caretData.hwnd = gti.hwndCaret;
+		caretData.left = gti.rcCaret.left;
+		caretData.top = gti.rcCaret.top;
+		caretData.width = gti.rcCaret.right - gti.rcCaret.left;
+		caretData.height = gti.rcCaret.bottom - gti.rcCaret.top;
+		caretData.isVisible = gti.flags & GUI_CARETBLINKING;
+		return caretData;
+	}
+
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	OrigFuncPtr getCompatGdiCaretFuncPtr(FuncPtr<Result, Params...>)
+	{
+		return &compatGdiCaretFunc<OrigFuncPtr, origFunc, Result, Params...>;
+	}
+
+	void updateCaret()
+	{
+		EnterCriticalSection(&g_caretCriticalSection);
+		CaretData newCaret = getCaretData();
+		if (newCaret == g_caret)
 		{
 			LeaveCriticalSection(&g_caretCriticalSection);
+			return;
 		}
-	};
 
-	BOOL WINAPI hideCaret(HWND hWnd);
-	BOOL WINAPI showCaret(HWND hWnd);
-
-	void drawCaret()
-	{
-		if (CompatGdi::beginGdiRendering())
+		if ((g_caret.isVisible || newCaret.isVisible) && CompatGdi::beginGdiRendering())
 		{
-			HDC dc = GetDC(g_caret.hwnd);
-			HDC compatDc = CompatGdiDc::getDc(dc);
-			PatBlt(compatDc, g_caret.left, g_caret.top, g_caret.width, g_caret.height, PATINVERT);
-			CompatGdiDc::releaseDc(dc);
-			ReleaseDC(g_caret.hwnd, dc);
+			drawCaret(g_caret);
+			drawCaret(newCaret);
 			CompatGdi::endGdiRendering();
 		}
-	}
 
-	LONG getCaretState(IAccessible* accessible)
-	{
-		VARIANT varChild = {};
-		varChild.vt = VT_I4;
-		varChild.lVal = CHILDID_SELF;
-		VARIANT varState = {};
-		accessible->lpVtbl->get_accState(accessible, varChild, &varState);
-		return varState.lVal;
-	}
-
-	void CALLBACK caretDestroyEvent(
-		HWINEVENTHOOK /*hWinEventHook*/,
-		DWORD /*event*/,
-		HWND hwnd,
-		LONG idObject,
-		LONG idChild,
-		DWORD /*dwEventThread*/,
-		DWORD /*dwmsEventTime*/)
-	{
-		if (OBJID_CARET != idObject)
-		{
-			return;
-		}
-
-		CaretScopedThreadLock caretLock;
-		if (!g_caret.isDrawn || g_caret.hwnd != hwnd)
-		{
-			return;
-		}
-
-		IAccessible* accessible = nullptr;
-		VARIANT varChild = {};
-		AccessibleObjectFromEvent(hwnd, idObject, idChild, &accessible, &varChild);
-		if (accessible)
-		{
-			if (STATE_SYSTEM_INVISIBLE == getCaretState(accessible))
-			{
-				drawCaret();
-				g_caret.isDrawn = false;
-			}
-			accessible->lpVtbl->Release(accessible);
-		}
-	}
-
-	void CALLBACK caretLocationChangeEvent(
-		HWINEVENTHOOK /*hWinEventHook*/,
-		DWORD /*event*/,
-		HWND hwnd,
-		LONG idObject,
-		LONG /*idChild*/,
-		DWORD /*dwEventThread*/,
-		DWORD /*dwmsEventTime*/)
-	{
-		if (OBJID_CARET != idObject)
-		{
-			return;
-		}
-
-		CaretScopedThreadLock caretLock;
-		if (g_caret.isDrawn && g_caret.hwnd == hwnd)
-		{
-			hideCaret(hwnd);
-			showCaret(hwnd);
-		}
-	}
-
-	void CALLBACK caretShowEvent(
-		HWINEVENTHOOK /*hWinEventHook*/,
-		DWORD /*event*/,
-		HWND hwnd,
-		LONG idObject,
-		LONG /*idChild*/,
-		DWORD /*dwEventThread*/,
-		DWORD /*dwmsEventTime*/)
-	{
-		if (OBJID_CARET != idObject)
-		{
-			return;
-		}
-
-		CaretScopedThreadLock caretLock;
-		if (!g_caret.isDrawn && g_caret.hwnd == hwnd)
-		{
-			drawCaret();
-			g_caret.isDrawn = true;
-		}
-	}
-
-	BOOL WINAPI createCaret(HWND hWnd, HBITMAP hBitmap, int nWidth, int nHeight)
-	{
-		BOOL result = CALL_ORIG_FUNC(CreateCaret)(hWnd, hBitmap, nWidth, nHeight);
-		if (result)
-		{
-			CaretScopedThreadLock caretLock;
-			if (g_caret.isDrawn)
-			{
-				drawCaret();
-				g_caret.isDrawn = false;
-			}
-			g_caret.width = nWidth ? nWidth : GetSystemMetrics(SM_CXBORDER);
-			g_caret.height = nHeight ? nHeight : GetSystemMetrics(SM_CYBORDER);
-		}
-		return result;
-	}
-
-	BOOL WINAPI hideCaret(HWND hWnd)
-	{
-		BOOL result = CALL_ORIG_FUNC(HideCaret)(hWnd);
-		if (result)
-		{
-			CaretScopedThreadLock caretLock;
-			if (g_caret.isDrawn)
-			{
-				drawCaret();
-				g_caret.isDrawn = false;
-			}
-		}
-		return result;
-	}
-
-	BOOL WINAPI showCaret(HWND hWnd)
-	{
-		if (!CALL_ORIG_FUNC(ShowCaret)(hWnd))
-		{
-			return FALSE;
-		}
-
-		CaretScopedThreadLock caretLock;
-		if (!g_caret.isDrawn)
-		{
-			IAccessible* accessible = nullptr;
-			AccessibleObjectFromWindow(hWnd, static_cast<DWORD>(OBJID_CARET), IID_IAccessible,
-				reinterpret_cast<void**>(&accessible));
-			if (accessible)
-			{
-				if (0 == getCaretState(accessible))
-				{
-					POINT caretPos = {};
-					GetCaretPos(&caretPos);
-					g_caret.left = caretPos.x;
-					g_caret.top = caretPos.y;
-					g_caret.hwnd = hWnd;
-					drawCaret();
-					g_caret.isDrawn = true;
-				}
-				accessible->lpVtbl->Release(accessible);
-			}
-		}
-
-		return TRUE;
+		g_caret = newCaret;
+		LeaveCriticalSection(&g_caretCriticalSection);
 	}
 }
+
+#define HOOK_GDI_CARET_FUNCTION(module, func) \
+	Compat::hookFunction<decltype(&func), &func>( \
+		#module, #func, getCompatGdiCaretFuncPtr<decltype(&func), &func>(&func));
 
 namespace CompatGdiCaret
 {
@@ -214,17 +122,17 @@ namespace CompatGdiCaret
 		InitializeCriticalSection(&g_caretCriticalSection);
 
 		Compat::beginHookTransaction();
-		HOOK_FUNCTION(user32, CreateCaret, createCaret);
-		HOOK_FUNCTION(user32, HideCaret, hideCaret);
-		HOOK_FUNCTION(user32, ShowCaret, showCaret);
+		HOOK_GDI_CARET_FUNCTION(user32, CreateCaret);
+		HOOK_GDI_CARET_FUNCTION(user32, DestroyCaret);
+		HOOK_GDI_CARET_FUNCTION(user32, HideCaret);
+		HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
+		HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
 		Compat::endHookTransaction();
 
 		const DWORD threadId = GetCurrentThreadId();
-		SetWinEventHook(EVENT_OBJECT_DESTROY, EVENT_OBJECT_DESTROY,
-			nullptr, &caretDestroyEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
+			nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 		SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
-			nullptr, &caretLocationChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
-		SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_SHOW,
-			nullptr, &caretShowEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+			nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 	}
 }
