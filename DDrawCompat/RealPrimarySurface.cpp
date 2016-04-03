@@ -64,6 +64,14 @@ namespace
 
 			CompatPaletteConverter::unlockDc();
 			CompatPaletteConverter::unlockSurface();
+
+			if (dest == g_frontBuffer)
+			{
+				// Force the screen to be updated. It won't refresh from BitBlt alone.
+				RECT r = { 0, 0, 1, 1 };
+				CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.BltFast(
+					g_frontBuffer, 0, 0, g_frontBuffer, &r, DDBLTFAST_WAIT);
+			}
 		}
 		else
 		{
@@ -99,18 +107,7 @@ namespace
 	void updateNow()
 	{
 		QueryPerformanceCounter(&g_lastUpdateTime);
-
-		if (g_backBuffer)
-		{
-			if (compatBlt(g_backBuffer))
-			{
-				g_frontBuffer->lpVtbl->Flip(g_frontBuffer, nullptr, DDFLIP_NOVSYNC | DDFLIP_WAIT);
-			}
-		}
-		else
-		{
-			compatBlt(g_frontBuffer);
-		}
+		compatBlt(g_frontBuffer);
 	}
 
 	DWORD WINAPI updateThreadProc(LPVOID /*lpParameter*/)
@@ -233,12 +230,6 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 	if (!g_backBuffer)
 	{
 		return DDERR_NOTFLIPPABLE;
-	}
-
-	if (flags & DDFLIP_NOVSYNC)
-	{
-		update();
-		return DD_OK;
 	}
 
 	compatBlt(g_backBuffer);
