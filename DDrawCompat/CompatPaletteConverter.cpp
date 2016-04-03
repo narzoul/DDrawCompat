@@ -87,20 +87,12 @@ namespace
 
 namespace CompatPaletteConverter
 {
-	bool init()
+	bool create()
 	{
 		if (CompatPrimarySurface::displayMode.pixelFormat.dwRGBBitCount > 8 &&
 			RealPrimarySurface::s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount > 8)
 		{
 			return true;
-		}
-
-		static bool isFirstInit = true;
-		if (isFirstInit)
-		{
-			InitializeCriticalSection(&g_criticalSection);
-			initHalftonePalette();
-			isFirstInit = false;
 		}
 
 		void* bits = nullptr;
@@ -134,6 +126,12 @@ namespace CompatPaletteConverter
 		g_surface = surface;
 		LeaveCriticalSection(&g_criticalSection);
 		return true;
+	}
+
+	void init()
+	{
+		InitializeCriticalSection(&g_criticalSection);
+		initHalftonePalette();
 	}
 
 	HDC lockDc()

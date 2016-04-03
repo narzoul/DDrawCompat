@@ -187,7 +187,7 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 	s_surfaceDesc.dwSize = sizeof(s_surfaceDesc);
 	g_frontBuffer->lpVtbl->GetSurfaceDesc(g_frontBuffer, &s_surfaceDesc);
 
-	if (!CompatPaletteConverter::init())
+	if (!CompatPaletteConverter::create())
 	{
 		g_frontBuffer->lpVtbl->Release(g_frontBuffer);
 		g_frontBuffer = nullptr;

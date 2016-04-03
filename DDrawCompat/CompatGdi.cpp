@@ -9,6 +9,7 @@
 #include "CompatGdiPaintHandlers.h"
 #include "CompatGdiScrollFunctions.h"
 #include "CompatGdiWinProc.h"
+#include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
 #include "RealPrimarySurface.h"
@@ -231,6 +232,7 @@ namespace CompatGdi
 	void installHooks()
 	{
 		InitializeCriticalSection(&g_gdiCriticalSection);
+		CompatPaletteConverter::init();
 		if (CompatGdiDcCache::init())
 		{
 			g_ddUnlockBeginEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);

@@ -6,7 +6,8 @@
 
 namespace CompatPaletteConverter
 {
-	bool init();
+	bool create();
+	void init();
 	HDC lockDc();
 	IDirectDrawSurface7* lockSurface();
 	void release();
