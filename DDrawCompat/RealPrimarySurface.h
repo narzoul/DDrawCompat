@@ -17,9 +17,9 @@ public:
 	static void release();
 	static HRESULT restore();
 	static void setClipper(LPDIRECTDRAWCLIPPER clipper);
-	static void setPalette(LPDIRECTDRAWPALETTE palette);
+	static void setPalette();
 	static void update();
-	static void updatePalette();
+	static void updatePalette(DWORD startingEntry, DWORD count);
 
 	static DDSURFACEDESC2 s_surfaceDesc;
 };

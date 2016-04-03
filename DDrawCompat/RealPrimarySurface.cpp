@@ -1,6 +1,7 @@
 #include <atomic>
 
 #include "CompatDirectDraw.h"
+#include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPaletteConverter.h"
@@ -297,19 +298,19 @@ void RealPrimarySurface::setClipper(LPDIRECTDRAWCLIPPER clipper)
 	}
 }
 
-void RealPrimarySurface::setPalette(LPDIRECTDRAWPALETTE palette)
+void RealPrimarySurface::setPalette()
 {
 	if (s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 	{
 		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
-			g_frontBuffer, palette);
+			g_frontBuffer, CompatPrimarySurface::palette);
 		if (FAILED(result) && DDERR_NOPALETTEATTACHED != result)
 		{
 			LOG_ONCE("Failed to set the palette on the real primary surface: " << result);
 		}
 	}
 
-	updatePalette();
+	updatePalette(0, 256);
 }
 
 void RealPrimarySurface::update()
@@ -318,13 +319,9 @@ void RealPrimarySurface::update()
 	SetEvent(g_updateEvent);
 }
 
-void RealPrimarySurface::updatePalette()
+void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
-	if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
-	{
-		CompatPaletteConverter::setPalette(CompatPrimarySurface::palette);
-	}
-
-	CompatGdi::updatePalette();
+	CompatPaletteConverter::setPrimaryPalette(startingEntry, count);
+	CompatGdi::updatePalette(startingEntry, count);
 	updateNow();
 }

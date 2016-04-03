@@ -155,7 +155,7 @@ namespace
 			if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 			{
 				HDC converterDc = CompatPaletteConverter::lockDc();
-				CompatPaletteConverter::setPalette(nullptr);
+				CompatPaletteConverter::setHalftonePalette();
 
 				origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(converterDc),
 					PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
@@ -165,7 +165,7 @@ namespace
 				CALL_ORIG_FUNC(BitBlt)(compatDc, 0, 0,
 					rect.right - rect.left, rect.bottom - rect.top, converterDc, 0, 0, SRCCOPY);
 
-				CompatPaletteConverter::setPalette(CompatPrimarySurface::palette);
+				CompatPaletteConverter::setPrimaryPalette(0, 256);
 				CompatPaletteConverter::unlockDc();
 			}
 			else

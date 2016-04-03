@@ -12,7 +12,8 @@ namespace CompatPaletteConverter
 	IDirectDrawSurface7* lockSurface();
 	void release();
 	void setClipper(IDirectDrawClipper* clipper);
-	void setPalette(IDirectDrawPalette* palette);
+	void setHalftonePalette();
+	void setPrimaryPalette(DWORD startingEntry, DWORD count);
 	void unlockDc();
 	void unlockSurface();
 }

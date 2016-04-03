@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
@@ -18,9 +19,9 @@ namespace
 	HGDIOBJ g_oldBitmap = nullptr;
 	IDirectDrawSurface7* g_surface = nullptr;
 
-	void convertPaletteEntriesToRgbQuad(RGBQUAD (&entries)[256])
+	void convertPaletteEntriesToRgbQuad(RGBQUAD* entries, DWORD count)
 	{
-		for (int i = 0; i < 256; ++i)
+		for (DWORD i = 0; i < count; ++i)
 		{
 			entries[i].rgbReserved = 0;
 			std::swap(entries[i].rgbRed, entries[i].rgbBlue);
@@ -78,7 +79,7 @@ namespace
 		HPALETTE palette = CreateHalftonePalette(dc);
 
 		GetPaletteEntries(palette, 0, 256, reinterpret_cast<PALETTEENTRY*>(g_halftonePalette));
-		convertPaletteEntriesToRgbQuad(g_halftonePalette);
+		convertPaletteEntriesToRgbQuad(g_halftonePalette, 256);
 
 		DeleteObject(palette);
 		ReleaseDC(nullptr, dc);
@@ -181,18 +182,25 @@ namespace CompatPaletteConverter
 		LeaveCriticalSection(&g_criticalSection);
 	}
 
-	void setPalette(IDirectDrawPalette* palette)
+	void setHalftonePalette()
+	{
+		EnterCriticalSection(&g_criticalSection);
+		SetDIBColorTable(g_dc, 0, 256, g_halftonePalette);
+		LeaveCriticalSection(&g_criticalSection);
+	}
+
+	void setPrimaryPalette(DWORD startingEntry, DWORD count)
 	{
 		EnterCriticalSection(&g_criticalSection);
 		if (g_dc)
 		{
-			if (palette)
+			if (CompatPrimarySurface::palette)
 			{
 				RGBQUAD entries[256] = {};
-				CompatDirectDrawPalette::s_origVtable.GetEntries(
-					palette, 0, 0, 256, reinterpret_cast<PALETTEENTRY*>(entries));
-				convertPaletteEntriesToRgbQuad(entries);
-				SetDIBColorTable(g_dc, 0, 256, entries);
+				std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry],
+					count * sizeof(PALETTEENTRY));
+				convertPaletteEntriesToRgbQuad(entries, count);
+				SetDIBColorTable(g_dc, startingEntry, count, entries);
 			}
 			else
 			{

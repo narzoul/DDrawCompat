@@ -1,4 +1,5 @@
 #include <atomic>
+#include <cstring>
 
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
@@ -24,7 +25,6 @@ namespace
 	HANDLE g_ddUnlockEndEvent = nullptr;
 	bool g_isDelayedUnlockPending = false;
 
-	bool g_isPaletteUsed = false;
 	PALETTEENTRY g_usedPaletteEntries[256] = {};
 
 	BOOL CALLBACK invalidateWindow(HWND hwnd, LPARAM lParam)
@@ -82,19 +82,25 @@ namespace
 	wrong index (less than 0xFF), erasing some of the bits from all background pixels.
 	This workaround replaces all unwanted white entries with a similar color.
 	*/
-	void replaceDuplicateWhitePaletteEntries(const PALETTEENTRY (&entries)[256])
+	void replaceDuplicateWhitePaletteEntries(DWORD startingEntry, DWORD count)
 	{
-		PALETTEENTRY newEntries[256] = {};
-		memcpy(newEntries, entries, sizeof(entries));
+		if (startingEntry + count > 255)
+		{
+			count = 255 - startingEntry;
+		}
+
+		PALETTEENTRY entries[256] = {};
+		std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry], 
+			count * sizeof(PALETTEENTRY));
 
 		bool isReplacementDone = false;
-		for (int i = 0; i < 255; ++i)
+		for (DWORD i = 0; i < count; ++i)
 		{
 			if (0xFF == entries[i].peRed && 0xFF == entries[i].peGreen && 0xFF == entries[i].peBlue)
 			{
-				newEntries[i].peRed = 0xFE;
-				newEntries[i].peGreen = 0xFE;
-				newEntries[i].peBlue = 0xFE;
+				entries[i].peRed = 0xFE;
+				entries[i].peGreen = 0xFE;
+				entries[i].peBlue = 0xFE;
 				isReplacementDone = true;
 			}
 		}
@@ -102,7 +108,7 @@ namespace
 		if (isReplacementDone)
 		{
 			CompatDirectDrawPalette::s_origVtable.SetEntries(
-				CompatPrimarySurface::palette, 0, 0, 256, newEntries);
+				CompatPrimarySurface::palette, 0, startingEntry, count, entries);
 		}
 	}
 
@@ -166,14 +172,6 @@ namespace CompatGdi
 		if (GetCurrentThreadId() == g_ddLockThreadId)
 		{
 			++g_ddLockThreadRenderingRefCount;
-		}
-
-		if (!g_isPaletteUsed && CompatPrimarySurface::palette)
-		{
-			g_isPaletteUsed = true;
-			ZeroMemory(g_usedPaletteEntries, sizeof(g_usedPaletteEntries));
-			CompatPrimarySurface::palette->lpVtbl->GetEntries(
-				CompatPrimarySurface::palette, 0, 0, 256, g_usedPaletteEntries);
 		}
 
 		++g_renderingRefCount;
@@ -256,24 +254,15 @@ namespace CompatGdi
 		EnumWindows(&invalidateWindow, reinterpret_cast<LPARAM>(rect));
 	}
 
-	void updatePalette()
+	void updatePalette(DWORD startingEntry, DWORD count)
 	{
 		GdiScopedThreadLock gdiLock;
 		CompatGdiDcCache::clear();
 
-		if (g_isPaletteUsed && CompatPrimarySurface::palette)
+		if (CompatPrimarySurface::palette)
 		{
-			g_isPaletteUsed = false;
-
-			PALETTEENTRY usedPaletteEntries[256] = {};
-			CompatPrimarySurface::palette->lpVtbl->GetEntries(
-				CompatPrimarySurface::palette, 0, 0, 256, usedPaletteEntries);
-
-			if (0 != memcmp(usedPaletteEntries, g_usedPaletteEntries, sizeof(usedPaletteEntries)))
-			{
-				replaceDuplicateWhitePaletteEntries(usedPaletteEntries);
-				invalidate(nullptr);
-			}
+			replaceDuplicateWhitePaletteEntries(startingEntry, count);
+			invalidate(nullptr);
 		}
 	}
 }

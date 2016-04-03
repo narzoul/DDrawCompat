@@ -14,6 +14,7 @@ namespace
 		CompatPrimarySurface::palette = nullptr;
 		CompatPrimarySurface::width = 0;
 		CompatPrimarySurface::height = 0;
+		ZeroMemory(&CompatPrimarySurface::paletteEntries, sizeof(CompatPrimarySurface::paletteEntries));
 		ZeroMemory(&CompatPrimarySurface::pixelFormat, sizeof(CompatPrimarySurface::pixelFormat));
 
 		CompatDirectDrawSurface<IDirectDrawSurface>::resetPrimarySurfacePtr();
@@ -51,6 +52,7 @@ namespace CompatPrimarySurface
 	DisplayMode displayMode = {};
 	IDirectDrawSurface7* surface = nullptr;
 	LPDIRECTDRAWPALETTE palette = nullptr;
+	PALETTEENTRY paletteEntries[256] = {};
 	LONG width = 0;
 	LONG height = 0;
 	DDPIXELFORMAT pixelFormat = {};

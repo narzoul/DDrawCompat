@@ -21,6 +21,7 @@ namespace CompatPrimarySurface
 	extern DisplayMode displayMode;
 	extern IDirectDrawSurface7* surface;
 	extern LPDIRECTDRAWPALETTE palette;
+	extern PALETTEENTRY paletteEntries[256];
 	extern LONG width;
 	extern LONG height;
 	extern DDPIXELFORMAT pixelFormat;

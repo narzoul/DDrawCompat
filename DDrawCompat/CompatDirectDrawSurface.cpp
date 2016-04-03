@@ -620,11 +620,16 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::SetPalette(
 	TSurface* This,
 	LPDIRECTDRAWPALETTE lpDDPalette)
 {
+	if (This == s_compatPrimarySurface && lpDDPalette == CompatPrimarySurface::palette)
+	{
+		return DD_OK;
+	}
+
 	HRESULT result = s_origVtable.SetPalette(This, lpDDPalette);
 	if (This == s_compatPrimarySurface && SUCCEEDED(result))
 	{
 		CompatPrimarySurface::palette = lpDDPalette;
-		RealPrimarySurface::setPalette(lpDDPalette);
+		RealPrimarySurface::setPalette();
 	}
 	return result;
 }
