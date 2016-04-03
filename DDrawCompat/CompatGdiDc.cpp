@@ -16,9 +16,7 @@ namespace
 		CompatDc(const CachedDc& cachedDc = {}) : CachedDc(cachedDc) {}
 		DWORD refCount;
 		HDC origDc;
-		HGDIOBJ origFont;
-		HGDIOBJ origBrush;
-		HGDIOBJ origPen;
+		int savedState;
 	};
 
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
@@ -27,15 +25,14 @@ namespace
 	struct ExcludeClipRectsData
 	{
 		HDC compatDc;
-		POINT origin;
 		HWND rootWnd;
 	};
 
 	void copyDcAttributes(CompatDc& compatDc, HDC origDc, POINT& origin)
 	{
-		compatDc.origFont = SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
-		compatDc.origBrush = SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_BRUSH));
-		compatDc.origPen = SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_PEN));
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_BRUSH));
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_PEN));
 
 		if (GM_ADVANCED == GetGraphicsMode(origDc))
 		{
@@ -43,11 +40,6 @@ namespace
 			XFORM transform = {};
 			GetWorldTransform(origDc, &transform);
 			SetWorldTransform(compatDc.dc, &transform);
-		}
-		else if (GM_COMPATIBLE != GetGraphicsMode(compatDc.dc))
-		{
-			ModifyWorldTransform(compatDc.dc, nullptr, MWT_IDENTITY);
-			SetGraphicsMode(compatDc.dc, GM_COMPATIBLE);
 		}
 
 		SetMapMode(compatDc.dc, GetMapMode(origDc));
@@ -101,17 +93,19 @@ namespace
 			return TRUE;
 		}
 
-		RECT rect = {};
-		GetWindowRect(hwnd, &rect);
-		OffsetRect(&rect, -excludeClipRectsData->origin.x, -excludeClipRectsData->origin.y);
-		ExcludeClipRect(excludeClipRectsData->compatDc, rect.left, rect.top, rect.right, rect.bottom);
+		RECT windowRect = {};
+		GetWindowRect(hwnd, &windowRect);
+
+		HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
+		ExtSelectClipRgn(excludeClipRectsData->compatDc, windowRgn, RGN_DIFF);
+		DeleteObject(windowRgn);
+
 		return TRUE;
 	}
 
-	void excludeClipRectsForOverlappingWindows(
-		HWND hwnd, bool isMenuWindow, HDC compatDc, const POINT& origin)
+	void excludeClipRectsForOverlappingWindows(HWND hwnd, bool isMenuWindow, HDC compatDc)
 	{
-		ExcludeClipRectsData excludeClipRectsData = { compatDc, origin, GetAncestor(hwnd, GA_ROOT) };
+		ExcludeClipRectsData excludeClipRectsData = { compatDc, GetAncestor(hwnd, GA_ROOT) };
 		if (!isMenuWindow)
 		{
 			EnumWindows(&excludeClipRectForOverlappingWindow,
@@ -129,35 +123,28 @@ namespace
 
 	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, bool isMenuWindow, const POINT& origin)
 	{
-		if (isMenuWindow)
+		HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
+		if (1 == GetClipRgn(origDc, clipRgn))
 		{
-			RECT windowRect = {};
-			GetWindowRect(hwnd, &windowRect);
-
-			HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
-			SelectClipRgn(compatDc, windowRgn);
-			DeleteObject(windowRgn);
-		}
-		else
-		{
-			HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
-			const bool isEmptyClipRgn = 1 != GetRandomRgn(origDc, clipRgn, SYSRGN);
-			SelectClipRgn(compatDc, isEmptyClipRgn ? nullptr : clipRgn);
-			DeleteObject(clipRgn);
-
-			HRGN origClipRgn = CreateRectRgn(0, 0, 0, 0);
-			if (1 == GetClipRgn(origDc, origClipRgn))
-			{
-				OffsetRgn(origClipRgn, origin.x, origin.y);
-				ExtSelectClipRgn(compatDc, origClipRgn, RGN_AND);
-			}
-			DeleteObject(origClipRgn);
+			OffsetRgn(clipRgn, origin.x, origin.y);
+			SelectClipRgn(compatDc, clipRgn);
 		}
 
 		if (hwnd)
 		{
-			excludeClipRectsForOverlappingWindows(hwnd, isMenuWindow, compatDc, origin);
+			if (isMenuWindow || 1 != GetRandomRgn(origDc, clipRgn, SYSRGN))
+			{
+				RECT rect = {};
+				GetWindowRect(hwnd, &rect);
+				SetRectRgn(clipRgn, rect.left, rect.top, rect.right, rect.bottom);
+			}
+
+			excludeClipRectsForOverlappingWindows(hwnd, isMenuWindow, compatDc);
+			ExtSelectClipRgn(compatDc, clipRgn, RGN_AND);
 		}
+
+		DeleteObject(clipRgn);
+		SetMetaRgn(compatDc);
 	}
 }
 
@@ -195,6 +182,7 @@ namespace CompatGdiDc
 		POINT origin = {};
 		GetDCOrgEx(origDc, &origin);
 
+		compatDc.savedState = SaveDC(compatDc.dc);
 		copyDcAttributes(compatDc, origDc, origin);
 		setClippingRegion(compatDc.dc, origDc, hwnd, isMenuWindow, origin);
 
@@ -226,9 +214,7 @@ namespace CompatGdiDc
 		--compatDc.refCount;
 		if (0 == compatDc.refCount)
 		{
-			SelectObject(compatDc.dc, compatDc.origFont);
-			SelectObject(compatDc.dc, compatDc.origBrush);
-			SelectObject(compatDc.dc, compatDc.origPen);
+			RestoreDC(compatDc.dc, compatDc.savedState);
 			CompatGdiDcCache::releaseDc(compatDc);
 			g_origDcToCompatDc.erase(origDc);
 		}
