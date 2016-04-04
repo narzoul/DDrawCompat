@@ -28,7 +28,8 @@ namespace CompatGdi
 		int m_buttonWidth;
 		int m_buttonHeight;
 		TITLEBARINFOEX m_tbi;
+		RECT m_windowRect;
+		bool m_hasIcon;
 		bool m_hasTitleBar;
-		bool m_isToolWindow;
 	};
 }

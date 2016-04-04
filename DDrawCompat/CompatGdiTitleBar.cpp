@@ -1,5 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiTitleBar.h"
+#include "CompatPrimarySurface.h"
 #include "Hook.h"
 
 namespace
@@ -18,7 +19,7 @@ namespace CompatGdi
 {
 	TitleBar::TitleBar(HWND hwnd, HDC compatDc) :
 		m_hwnd(hwnd), m_compatDc(compatDc), m_buttonWidth(0), m_buttonHeight(0), m_tbi(),
-		m_hasTitleBar(false), m_isToolWindow(false)
+		m_windowRect(), m_hasIcon(false), m_hasTitleBar(false)
 	{
 		m_hasTitleBar = 0 != (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION);
 		if (!m_hasTitleBar)
@@ -36,21 +37,21 @@ namespace CompatGdi
 
 		POINT origin = {};
 		ClientToScreen(hwnd, &origin);
+		m_hasIcon = m_tbi.rcTitleBar.left > origin.x;
 		m_tbi.rcTitleBar.left = origin.x;
+		m_tbi.rcTitleBar.bottom -= 1;
 
-		RECT windowRect = {};
-		GetWindowRect(hwnd, &windowRect);
-		OffsetRect(&m_tbi.rcTitleBar, -windowRect.left, -windowRect.top);
+		GetWindowRect(hwnd, &m_windowRect);
+		OffsetRect(&m_tbi.rcTitleBar, -m_windowRect.left, -m_windowRect.top);
 
-		m_isToolWindow = 0 != (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_TOOLWINDOW);
-		m_buttonWidth = GetSystemMetrics(m_isToolWindow ? SM_CXSMSIZE : SM_CXSIZE) - 2;
-		m_buttonHeight = GetSystemMetrics(m_isToolWindow ? SM_CYSMSIZE : SM_CYSIZE) - 4;
+		m_buttonWidth = GetSystemMetrics(SM_CXSIZE) - 2;
+		m_buttonHeight = GetSystemMetrics(SM_CYSIZE) - 4;
 
 		for (std::size_t i = TBII_MINIMIZE_BUTTON; i <= TBII_CLOSE_BUTTON; ++i)
 		{
 			if (isVisible(i))
 			{
-				OffsetRect(&m_tbi.rgrect[i], -windowRect.left, -windowRect.top);
+				OffsetRect(&m_tbi.rgrect[i], -m_windowRect.left, -m_windowRect.top);
 				adjustButtonSize(m_tbi.rgrect[i]);
 			}
 		}
@@ -90,17 +91,33 @@ namespace CompatGdi
 			return;
 		}
 
-		UINT flags = DC_ICON | DC_TEXT;
+		UINT flags = 0;
 		if (GetActiveWindow() == m_hwnd)
 		{
 			flags |= DC_ACTIVE;
 		}
-		if (m_isToolWindow)
+		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount > 8)
 		{
-			flags |= DC_SMALLCAP;
+			flags |= DC_GRADIENT;
 		}
 
-		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, flags);
+		RECT clipRect = m_tbi.rcTitleBar;
+		OffsetRect(&clipRect, m_windowRect.left, m_windowRect.top);
+		HRGN clipRgn = CreateRectRgnIndirect(&clipRect);
+		SelectClipRgn(m_compatDc, clipRgn);
+		DeleteObject(clipRgn);
+
+		RECT textRect = m_tbi.rcTitleBar;
+		if (m_hasIcon)
+		{
+			CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, DC_ICON | flags);
+			textRect.left -= 1;
+		}
+
+		textRect.top -= 1;
+		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &textRect, DC_TEXT | flags);
+
+		SelectClipRgn(m_compatDc, nullptr);
 	}
 
 	void TitleBar::drawButton(std::size_t tbiIndex, UINT dfcState) const
