@@ -18,6 +18,7 @@ namespace
 	std::unordered_map<HWND, RECT> g_prevWindowRect;
 
 	void disableDwmAttributes(HWND hwnd);
+	void onActivate(HWND hwnd);
 	void onMenuSelect();
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
@@ -42,6 +43,10 @@ namespace
 			else if (WM_WINDOWPOSCHANGED == ret->message)
 			{
 				onWindowPosChanged(ret->hwnd);
+			}
+			else if (WM_ACTIVATE == ret->message)
+			{
+				onActivate(ret->hwnd);
 			}
 			else if (WM_COMMAND == ret->message)
 			{
@@ -95,7 +100,7 @@ namespace
 			{
 				if (OBJID_TITLEBAR == idObject)
 				{
-					CompatGdi::TitleBar(hwnd, compatDc).drawAll();
+					CompatGdi::TitleBar(hwnd, compatDc).drawButtons();
 				}
 				else if (OBJID_HSCROLL == idObject)
 				{
@@ -111,6 +116,24 @@ namespace
 			ReleaseDC(hwnd, windowDc);
 			CompatGdi::endGdiRendering();
 		}
+	}
+
+	void onActivate(HWND hwnd)
+	{
+		RECT windowRect = {};
+		GetWindowRect(hwnd, &windowRect);
+		RECT clientRect = {};
+		GetClientRect(hwnd, &clientRect);
+		POINT clientOrigin = {};
+		ClientToScreen(hwnd, &clientOrigin);
+		OffsetRect(&windowRect, -clientOrigin.x, -clientOrigin.y);
+
+		HRGN ncRgn = CreateRectRgnIndirect(&windowRect);
+		HRGN clientRgn = CreateRectRgnIndirect(&clientRect);
+		CombineRgn(ncRgn, ncRgn, clientRgn, RGN_DIFF);
+		RedrawWindow(hwnd, nullptr, ncRgn, RDW_FRAME | RDW_INVALIDATE);
+		DeleteObject(clientRgn);
+		DeleteObject(ncRgn);
 	}
 
 	void onMenuSelect()
