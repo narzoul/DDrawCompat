@@ -19,7 +19,6 @@ namespace
 
 	void disableDwmAttributes(HWND hwnd);
 	void onMenuSelect();
-	void onScroll(HWND hwnd, HWND scrollBar);
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
 
@@ -44,15 +43,10 @@ namespace
 			{
 				onWindowPosChanged(ret->hwnd);
 			}
-			else if (WM_VSCROLL == ret->message || WM_HSCROLL == ret->message)
-			{
-				onScroll(ret->hwnd, reinterpret_cast<HWND>(ret->lParam));
-			}
 			else if (WM_COMMAND == ret->message)
 			{
-				auto msgSource = LOWORD(ret->wParam);
 				auto notifCode = HIWORD(ret->wParam);
-				if (0 != msgSource && 1 != msgSource && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
+				if (ret->lParam && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
 				{
 					CompatGdiScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
@@ -60,10 +54,6 @@ namespace
 			else if (WM_MENUSELECT == ret->message)
 			{
 				onMenuSelect();
-			}
-			else if (BM_SETSTYLE == ret->message)
-			{
-				RedrawWindow(ret->hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE);
 			}
 		}
 
@@ -81,20 +71,6 @@ namespace
 		BOOL disableTransitions = TRUE;
 		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
 			&disableTransitions, sizeof(disableTransitions));
-	}
-
-	LRESULT CALLBACK mouseProc(int nCode, WPARAM wParam, LPARAM lParam)
-	{
-		if (HC_ACTION == nCode)
-		{
-			auto mhs = reinterpret_cast<MOUSEHOOKSTRUCT*>(lParam);
-			if (WM_MOUSEWHEEL == wParam || WM_MOUSEHWHEEL == wParam)
-			{
-				CompatGdiScrollFunctions::updateScrolledWindow(mhs->hwnd);
-			}
-		}
-
-		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
 
 	void CALLBACK objectStateChangeEvent(
@@ -147,21 +123,6 @@ namespace
 		}
 	}
 
-	void onScroll(HWND hwnd, HWND scrollBar)
-	{
-		if (scrollBar)
-		{
-			UpdateWindow(scrollBar);
-		}
-
-		CompatGdiScrollFunctions::updateScrolledWindow(hwnd);
-
-		if (scrollBar)
-		{
-			ValidateRect(scrollBar, nullptr);
-		}
-	}
-
 	void onWindowPosChanged(HWND hwnd)
 	{
 		CompatGdi::GdiScopedThreadLock lock;
@@ -199,7 +160,6 @@ namespace CompatGdiWinProc
 	{
 		const DWORD threadId = GetCurrentThreadId();
 		SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
-		SetWindowsHookEx(WH_MOUSE, &mouseProc, nullptr, threadId);
 		SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 			nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 	}

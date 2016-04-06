@@ -1,5 +1,6 @@
 #include "CompatGdi.h"
 #include "CompatGdiScrollFunctions.h"
+#include "DDrawLog.h"
 #include "Hook.h"
 
 namespace
@@ -11,8 +12,13 @@ namespace
 		_In_ const RECT *lpRect,
 		_In_ const RECT *lpClipRect)
 	{
+		Compat::LogEnter("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		BOOL result = CALL_ORIG_FUNC(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
-		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		if (result)
+		{
+			CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		}
+		Compat::LogLeave("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect) << result;
 		return result;
 	}
 
@@ -26,9 +32,16 @@ namespace
 		_Out_       LPRECT prcUpdate,
 		_In_        UINT   flags)
 	{
+		Compat::LogEnter("scrollWindowEx",
+			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 		int result = CALL_ORIG_FUNC(ScrollWindowEx)(
 			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
-		CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		if (ERROR != result)
+		{
+			CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+		}
+		Compat::LogLeave("scrollWindowEx",
+			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags) << result;
 		return result;
 	}
 }
@@ -45,6 +58,6 @@ namespace CompatGdiScrollFunctions
 
 	void updateScrolledWindow(HWND hwnd)
 	{
-		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN);
 	}
 }

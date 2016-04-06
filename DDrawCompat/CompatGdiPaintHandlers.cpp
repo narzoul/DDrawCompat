@@ -2,6 +2,7 @@
 #include "CompatGdiDc.h"
 #include "CompatGdiPaintHandlers.h"
 #include "CompatGdiScrollBar.h"
+#include "CompatGdiScrollFunctions.h"
 #include "CompatGdiTitleBar.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
@@ -81,7 +82,12 @@ namespace
 
 	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
+		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
+		if (0 == result && (WM_HSCROLL == msg || WM_VSCROLL == msg))
+		{
+			CompatGdiScrollFunctions::updateScrolledWindow(hwnd);
+		}
+		return result;
 	}
 
 	LRESULT WINAPI listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
