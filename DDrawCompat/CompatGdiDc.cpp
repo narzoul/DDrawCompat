@@ -166,7 +166,7 @@ namespace CompatGdiDc
 			return it->second.dc;
 		}
 
-		const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+		const HWND hwnd = WindowFromDC(origDc);
 		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
 		if (isMenuWindow && !isMenuPaintDc)
 		{
