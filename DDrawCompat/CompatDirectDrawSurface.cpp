@@ -431,6 +431,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 
 	if (This == s_compatPrimarySurface && SUCCEEDED(result))
 	{
+		RealPrimarySurface::invalidate(lpDestRect);
 		RealPrimarySurface::update();
 	}
 
@@ -455,6 +456,23 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::BltFast(
 	HRESULT result = s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	if (This == s_compatPrimarySurface && SUCCEEDED(result))
 	{
+		const LONG x = dwX;
+		const LONG y = dwY;
+		RECT destRect = { x, y, x, y};
+		if (lpSrcRect)
+		{
+			destRect.right += lpSrcRect->right - lpSrcRect->left;
+			destRect.bottom += lpSrcRect->bottom - lpSrcRect->top;
+		}
+		else
+		{
+			TSurfaceDesc desc = {};
+			desc.dwSize = sizeof(desc);
+			s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
+			destRect.right += desc.dwWidth;
+			destRect.bottom += desc.dwHeight;
+		}
+		RealPrimarySurface::invalidate(&destRect);
 		RealPrimarySurface::update();
 	}
 	return result;
@@ -531,6 +549,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Lock(
 	HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 	if (SUCCEEDED(result) && g_lockingPrimary && lpDDSurfaceDesc)
 	{
+		RealPrimarySurface::invalidate(lpDestRect);
 		restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps);
 	}
 	else if (DDERR_SURFACELOST == result)
@@ -574,6 +593,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::ReleaseDC(TSurface*
 	HRESULT result = s_origVtable.ReleaseDC(This, hDC);
 	if (This == s_compatPrimarySurface && SUCCEEDED(result))
 	{
+		RealPrimarySurface::invalidate(nullptr);
 		RealPrimarySurface::update();
 	}
 	return result;

@@ -12,6 +12,7 @@ public:
 
 	static HRESULT flip(DWORD flags);
 	static IDirectDrawSurface7* getSurface();
+	static void invalidate(const RECT* rect);
 	static bool isFullScreen();
 	static bool isLost();
 	static void release();

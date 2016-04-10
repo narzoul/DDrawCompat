@@ -117,6 +117,7 @@ namespace
 		GdiFlush();
 		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Unlock(
 			CompatPrimarySurface::surface, nullptr);
+		RealPrimarySurface::invalidate(nullptr);
 		RealPrimarySurface::update();
 
 		Compat::origProcs.ReleaseDDThreadLock();

@@ -24,6 +24,7 @@ namespace
 
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
+	RECT g_updateRect = {};
 	bool g_isFlipEvent = false;
 	LARGE_INTEGER g_lastUpdateTime = {};
 	LARGE_INTEGER g_qpcFrequency = {};
@@ -52,14 +53,14 @@ namespace
 			IDirectDrawSurface7* converterSurface = CompatPaletteConverter::lockSurface();
 			HDC converterDc = CompatPaletteConverter::lockDc();
 
-			origVtable.Blt(converterSurface, nullptr, CompatPrimarySurface::surface, nullptr,
-				DDBLT_WAIT, nullptr);
+			origVtable.Blt(converterSurface, &g_updateRect,
+				CompatPrimarySurface::surface, &g_updateRect, DDBLT_WAIT, nullptr);
 
 			HDC destDc = nullptr;
 			origVtable.GetDC(dest, &destDc);
-			result = TRUE == CALL_ORIG_FUNC(BitBlt)(destDc, 0, 0,
-				RealPrimarySurface::s_surfaceDesc.dwWidth, RealPrimarySurface::s_surfaceDesc.dwHeight,
-				converterDc, 0, 0, SRCCOPY);
+			result = TRUE == CALL_ORIG_FUNC(BitBlt)(destDc, g_updateRect.left, g_updateRect.top,
+				g_updateRect.right - g_updateRect.left, g_updateRect.bottom - g_updateRect.top,
+				converterDc, g_updateRect.left, g_updateRect.top, SRCCOPY);
 			origVtable.ReleaseDC(dest, destDc);
 
 			CompatPaletteConverter::unlockDc();
@@ -75,8 +76,13 @@ namespace
 		}
 		else
 		{
-			result = SUCCEEDED(origVtable.Blt(
-				dest, nullptr, CompatPrimarySurface::surface, nullptr, DDBLT_WAIT, nullptr));
+			result = SUCCEEDED(origVtable.Blt(dest, &g_updateRect,
+				CompatPrimarySurface::surface, &g_updateRect, DDBLT_WAIT, nullptr));
+		}
+
+		if (result)
+		{
+			SetRectEmpty(&g_updateRect);
 		}
 
 		Compat::LogLeave("RealPrimarySurface::compatBlt", dest);
@@ -232,6 +238,7 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 		return DDERR_NOTFLIPPABLE;
 	}
 
+	invalidate(nullptr);
 	compatBlt(g_backBuffer);
 	if (flags & DDFLIP_DONOTWAIT)
 	{
@@ -251,6 +258,19 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 IDirectDrawSurface7* RealPrimarySurface::getSurface()
 {
 	return g_frontBuffer;
+}
+
+void RealPrimarySurface::invalidate(const RECT* rect)
+{
+	if (rect)
+	{
+		UnionRect(&g_updateRect, &g_updateRect, rect);
+	}
+	else
+	{
+		SetRect(&g_updateRect, 0, 0,
+			CompatPrimarySurface::displayMode.width, CompatPrimarySurface::displayMode.height);
+	}
 }
 
 bool RealPrimarySurface::isFullScreen()
@@ -306,13 +326,17 @@ void RealPrimarySurface::setPalette()
 
 void RealPrimarySurface::update()
 {
-	g_isFlipEvent = false;
-	SetEvent(g_updateEvent);
+	if (!IsRectEmpty(&g_updateRect))
+	{
+		g_isFlipEvent = false;
+		SetEvent(g_updateEvent);
+	}
 }
 
 void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
 	CompatPaletteConverter::setPrimaryPalette(startingEntry, count);
 	CompatGdi::updatePalette(startingEntry, count);
+	invalidate(nullptr);
 	updateNow();
 }
