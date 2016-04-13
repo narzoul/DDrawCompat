@@ -10,6 +10,7 @@
 #include "DDrawTypes.h"
 #include "Hook.h"
 #include "RealPrimarySurface.h"
+#include "ScopedCriticalSection.h"
 
 namespace
 {
@@ -121,11 +122,10 @@ namespace CompatPaletteConverter
 			return false;
 		}
 
-		EnterCriticalSection(&g_criticalSection);
+		Compat::ScopedCriticalSection lock(g_criticalSection);
 		g_oldBitmap = SelectObject(dc, dib);
 		g_dc = dc;
 		g_surface = surface;
-		LeaveCriticalSection(&g_criticalSection);
 		return true;
 	}
 
@@ -149,11 +149,10 @@ namespace CompatPaletteConverter
 
 	void release()
 	{
-		EnterCriticalSection(&g_criticalSection);
+		Compat::ScopedCriticalSection lock(g_criticalSection);
 
 		if (!g_surface)
 		{
-			LeaveCriticalSection(&g_criticalSection);
 			return;
 		}
 
@@ -163,13 +162,11 @@ namespace CompatPaletteConverter
 		DeleteObject(SelectObject(g_dc, g_oldBitmap));
 		DeleteDC(g_dc);
 		g_dc = nullptr;
-
-		LeaveCriticalSection(&g_criticalSection);
 	}
 
 	void setClipper(IDirectDrawClipper* clipper)
 	{
-		EnterCriticalSection(&g_criticalSection);
+		Compat::ScopedCriticalSection lock(g_criticalSection);
 		if (g_surface)
 		{
 			HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetClipper(
@@ -179,7 +176,6 @@ namespace CompatPaletteConverter
 				LOG_ONCE("Failed to set a clipper on the palette converter surface: " << result);
 			}
 		}
-		LeaveCriticalSection(&g_criticalSection);
 	}
 
 	void setHalftonePalette()
@@ -191,7 +187,7 @@ namespace CompatPaletteConverter
 
 	void setPrimaryPalette(DWORD startingEntry, DWORD count)
 	{
-		EnterCriticalSection(&g_criticalSection);
+		Compat::ScopedCriticalSection lock(g_criticalSection);
 		if (g_dc)
 		{
 			if (CompatPrimarySurface::palette)
@@ -207,7 +203,6 @@ namespace CompatPaletteConverter
 				SetDIBColorTable(g_dc, 0, 256, g_halftonePalette);
 			}
 		}
-		LeaveCriticalSection(&g_criticalSection);
 	}
 
 	void unlockDc()

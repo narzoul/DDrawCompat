@@ -6,6 +6,7 @@
 #include "CompatGdiCaret.h"
 #include "CompatGdiDc.h"
 #include "Hook.h"
+#include "ScopedCriticalSection.h"
 
 namespace
 {
@@ -91,11 +92,11 @@ namespace
 
 	void updateCaret()
 	{
-		EnterCriticalSection(&g_caretCriticalSection);
+		Compat::ScopedCriticalSection lock(g_caretCriticalSection);
+
 		CaretData newCaret = getCaretData();
 		if (newCaret == g_caret)
 		{
-			LeaveCriticalSection(&g_caretCriticalSection);
 			return;
 		}
 
@@ -107,7 +108,6 @@ namespace
 		}
 
 		g_caret = newCaret;
-		LeaveCriticalSection(&g_caretCriticalSection);
 	}
 }
 

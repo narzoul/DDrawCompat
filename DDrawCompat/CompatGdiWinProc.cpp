@@ -12,6 +12,7 @@
 #include "CompatGdiTitleBar.h"
 #include "CompatGdiWinProc.h"
 #include "DDrawLog.h"
+#include "ScopedCriticalSection.h"
 
 namespace
 {
@@ -37,7 +38,7 @@ namespace
 			}
 			else if (WM_DESTROY == ret->message)
 			{
-				CompatGdi::GdiScopedThreadLock lock;
+				Compat::ScopedCriticalSection lock(CompatGdi::g_gdiCriticalSection);
 				g_prevWindowRect.erase(ret->hwnd);
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
@@ -148,7 +149,7 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd)
 	{
-		CompatGdi::GdiScopedThreadLock lock;
+		Compat::ScopedCriticalSection lock(CompatGdi::g_gdiCriticalSection);
 
 		const auto it = g_prevWindowRect.find(hwnd);
 		if (it != g_prevWindowRect.end())

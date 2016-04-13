@@ -6,6 +6,7 @@
 #include "CompatGdiDcCache.h"
 #include "DDrawLog.h"
 #include "Hook.h"
+#include "ScopedCriticalSection.h"
 
 namespace
 {
@@ -157,7 +158,7 @@ namespace CompatGdiDc
 			return nullptr;
 		}
 
-		CompatGdi::GdiScopedThreadLock gdiLock;
+		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
 
 		auto it = g_origDcToCompatDc.find(origDc);
 		if (it != g_origDcToCompatDc.end())
@@ -202,7 +203,7 @@ namespace CompatGdiDc
 
 	void releaseDc(HDC origDc)
 	{
-		CompatGdi::GdiScopedThreadLock gdiLock;
+		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
 
 		auto it = g_origDcToCompatDc.find(origDc);
 		if (it == g_origDcToCompatDc.end())

@@ -14,10 +14,10 @@
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
 #include "RealPrimarySurface.h"
+#include "ScopedCriticalSection.h"
 
 namespace
 {
-	CRITICAL_SECTION g_gdiCriticalSection;
 	std::atomic<DWORD> g_renderingRefCount = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
 	DWORD g_ddLockThreadId = 0;
@@ -128,25 +128,6 @@ namespace CompatGdi
 {
 	CRITICAL_SECTION g_gdiCriticalSection;
 
-	GdiScopedThreadLock::GdiScopedThreadLock() : m_isLocked(true)
-	{
-		EnterCriticalSection(&g_gdiCriticalSection);
-	}
-
-	GdiScopedThreadLock::~GdiScopedThreadLock()
-	{
-		unlock();
-	}
-
-	void GdiScopedThreadLock::unlock()
-	{
-		if (m_isLocked)
-		{
-			LeaveCriticalSection(&g_gdiCriticalSection);
-			m_isLocked = false;
-		}
-	}
-
 	bool beginGdiRendering()
 	{
 		if (!RealPrimarySurface::isFullScreen())
@@ -182,7 +163,7 @@ namespace CompatGdi
 
 	void endGdiRendering()
 	{
-		CompatGdi::GdiScopedThreadLock gdiLock;
+		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
 
 		if (GetCurrentThreadId() == g_ddLockThreadId)
 		{
@@ -257,7 +238,7 @@ namespace CompatGdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		GdiScopedThreadLock gdiLock;
+		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
 		CompatGdiDcCache::clear();
 
 		if (CompatPrimarySurface::palette)
