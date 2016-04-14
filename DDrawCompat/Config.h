@@ -4,7 +4,7 @@ typedef unsigned long DWORD;
 
 namespace Config
 {
-	const DWORD minRefreshInterval = 1000 / 60;
-	const DWORD minRefreshIntervalAfterFlip = 1000 / 10;
+	const int maxPrimaryUpdateRate = 60;
+	const int primaryUpdateDelayAfterFlip = 100;
 	const DWORD preallocatedGdiDcCount = 4;
 }

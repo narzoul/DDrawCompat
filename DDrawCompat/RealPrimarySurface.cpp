@@ -7,6 +7,7 @@
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "Config.h"
+#include "DDrawScopedThreadLock.h"
 #include "DDrawProcs.h"
 #include "DDrawTypes.h"
 #include "Hook.h"
@@ -15,8 +16,10 @@
 
 namespace
 {
+	long long msToQpc(int ms);
 	void onRelease();
-	void updateNow();
+	int qpcToMs(long long qpc);
+	void updateNow(long long qpcNow);
 
 	IDirectDrawSurface7* g_frontBuffer = nullptr;
 	IDirectDrawSurface7* g_backBuffer = nullptr;
@@ -25,9 +28,9 @@ namespace
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
 	RECT g_updateRect = {};
-	bool g_isFlipEvent = false;
-	LARGE_INTEGER g_lastUpdateTime = {};
-	LARGE_INTEGER g_qpcFrequency = {};
+	long long g_qpcFrequency = 0;
+	long long g_qpcMinUpdateInterval = 0;
+	std::atomic<long long> g_qpcNextUpdate = 0;
 
 	std::atomic<bool> g_isFullScreen(false);
 
@@ -88,18 +91,31 @@ namespace
 		Compat::LogLeave("RealPrimarySurface::compatBlt", dest);
 		return result;
 	}
-	
-	DWORD getTimeElapsedInMs(const LARGE_INTEGER& time)
+
+	long long getNextUpdateQpc(long long qpcNow)
 	{
-		LARGE_INTEGER currentTime = {};
-		QueryPerformanceCounter(&currentTime);
-		return static_cast<DWORD>((currentTime.QuadPart - time.QuadPart) * 1000 / g_qpcFrequency.QuadPart);
+		long long qpcNextUpdate = g_qpcNextUpdate;
+		const long long missedIntervals = (qpcNow - qpcNextUpdate) / g_qpcMinUpdateInterval;
+		return qpcNextUpdate + g_qpcMinUpdateInterval * (missedIntervals + 1);
+	}
+
+	bool isNextUpdateSignaledAndReady(long long qpcNow)
+	{
+		return qpcToMs(qpcNow - g_qpcNextUpdate) >= 0 &&
+			WAIT_OBJECT_0 == WaitForSingleObject(g_updateEvent, 0);
+	}
+
+	long long msToQpc(int ms)
+	{
+		return static_cast<long long>(ms) * g_qpcFrequency / 1000;
 	}
 
 	void onRelease()
 	{
 		Compat::LogEnter("RealPrimarySurface::onRelease");
 
+		ResetEvent(g_updateEvent);
+		timeEndPeriod(1);
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
 		g_isFullScreen = false;
@@ -110,10 +126,31 @@ namespace
 		Compat::LogLeave("RealPrimarySurface::onRelease");
 	}
 
-	void updateNow()
+	int qpcToMs(long long qpc)
 	{
-		QueryPerformanceCounter(&g_lastUpdateTime);
-		compatBlt(g_frontBuffer);
+		return static_cast<int>(qpc * 1000 / g_qpcFrequency);
+	}
+
+	long long queryPerformanceCounter()
+	{
+		LARGE_INTEGER qpc = {};
+		QueryPerformanceCounter(&qpc);
+		return qpc.QuadPart;
+	}
+
+	void updateNow(long long qpcNow)
+	{
+		ResetEvent(g_updateEvent);
+
+		if (compatBlt(g_frontBuffer))
+		{
+			long long qpcNextUpdate = getNextUpdateQpc(qpcNow);
+			if (qpcToMs(qpcNow - qpcNextUpdate) >= 0)
+			{
+				qpcNextUpdate += g_qpcMinUpdateInterval;
+			}
+			g_qpcNextUpdate = qpcNextUpdate;
+		}
 	}
 
 	DWORD WINAPI updateThreadProc(LPVOID /*lpParameter*/)
@@ -122,31 +159,19 @@ namespace
 		{
 			WaitForSingleObject(g_updateEvent, INFINITE);
 
-			Compat::origProcs.AcquireDDThreadLock();
-			ResetEvent(g_updateEvent);
-			if (!g_frontBuffer)
+			const long long qpcTargetNextUpdate = g_qpcNextUpdate;
+			const int msUntilNextUpdate = qpcToMs(qpcTargetNextUpdate - queryPerformanceCounter());
+			if (msUntilNextUpdate > 0)
 			{
-				Compat::origProcs.ReleaseDDThreadLock();
-				continue;
+				Sleep(msUntilNextUpdate);
 			}
 
-			if (!g_isFlipEvent)
+			Compat::DDrawScopedThreadLock lock;
+			const long long qpcNow = queryPerformanceCounter();
+			const bool isTargetUpdateStillNeeded = qpcTargetNextUpdate == g_qpcNextUpdate;
+			if (g_frontBuffer && (isTargetUpdateStillNeeded || isNextUpdateSignaledAndReady(qpcNow)))
 			{
-				updateNow();
-			}
-
-			DWORD timeSinceLastUpdate = getTimeElapsedInMs(g_lastUpdateTime);
-			DWORD minRefreshInterval = g_isFlipEvent ?
-				Config::minRefreshIntervalAfterFlip : Config::minRefreshInterval;
-			DWORD minRefreshIntervalTimeout = timeSinceLastUpdate < minRefreshInterval ?
-				minRefreshInterval - timeSinceLastUpdate : 0;
-
-			g_isFlipEvent = false;
-			Compat::origProcs.ReleaseDDThreadLock();
-
-			if (minRefreshIntervalTimeout)
-			{
-				Sleep(minRefreshIntervalTimeout);
+				updateNow(qpcNow);
 			}
 		}
 	}
@@ -205,7 +230,11 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 		g_frontBuffer->lpVtbl->GetAttachedSurface(g_frontBuffer, &backBufferCaps, &g_backBuffer);
 	}
 
-	QueryPerformanceFrequency(&g_qpcFrequency);
+	LARGE_INTEGER qpc;
+	QueryPerformanceFrequency(&qpc);
+	g_qpcFrequency = qpc.QuadPart;
+	g_qpcMinUpdateInterval = g_qpcFrequency / Config::maxPrimaryUpdateRate;
+	g_qpcNextUpdate = queryPerformanceCounter();
 
 	if (!g_updateEvent)
 	{
@@ -222,6 +251,7 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 		IID_IReleaseNotifier, &g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
 
 	g_isFullScreen = isFlippable;
+	timeBeginPeriod(1);
 
 	return DD_OK;
 }
@@ -238,6 +268,8 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 		return DDERR_NOTFLIPPABLE;
 	}
 
+	ResetEvent(g_updateEvent);
+
 	invalidate(nullptr);
 	compatBlt(g_backBuffer);
 	if (flags & DDFLIP_DONOTWAIT)
@@ -248,9 +280,9 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 	HRESULT result = g_frontBuffer->lpVtbl->Flip(g_frontBuffer, nullptr, flags | DDFLIP_WAIT);
 	if (SUCCEEDED(result))
 	{
-		QueryPerformanceCounter(&g_lastUpdateTime);
-		g_isFlipEvent = true;
-		SetEvent(g_updateEvent);
+		g_qpcNextUpdate = getNextUpdateQpc(
+			queryPerformanceCounter() + msToQpc(Config::primaryUpdateDelayAfterFlip));
+		SetRectEmpty(&g_updateRect);
 	}
 	return result;
 }
@@ -328,8 +360,15 @@ void RealPrimarySurface::update()
 {
 	if (!IsRectEmpty(&g_updateRect))
 	{
-		g_isFlipEvent = false;
-		SetEvent(g_updateEvent);
+		const long long qpcNow = queryPerformanceCounter();
+		if (qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)
+		{
+			updateNow(qpcNow);
+		}
+		else
+		{
+			SetEvent(g_updateEvent);
+		}
 	}
 }
 
@@ -338,5 +377,5 @@ void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 	CompatPaletteConverter::setPrimaryPalette(startingEntry, count);
 	CompatGdi::updatePalette(startingEntry, count);
 	invalidate(nullptr);
-	updateNow();
+	update();
 }
