@@ -121,6 +121,11 @@ namespace
 
 	void onActivate(HWND hwnd)
 	{
+		if (!CompatGdi::isEmulationEnabled())
+		{
+			return;
+		}
+
 		RECT windowRect = {};
 		GetWindowRect(hwnd, &windowRect);
 		RECT clientRect = {};
@@ -139,6 +144,11 @@ namespace
 
 	void onMenuSelect()
 	{
+		if (!CompatGdi::isEmulationEnabled())
+		{
+			return;
+		}
+
 		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
 		while (menuWindow)
 		{
@@ -159,8 +169,11 @@ namespace
 
 		if (IsWindowVisible(hwnd))
 		{
-			GetWindowRect(hwnd, it != g_prevWindowRect.end() ? &it->second : &g_prevWindowRect[hwnd]);
-			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+			if (CompatGdi::isEmulationEnabled())
+			{
+				GetWindowRect(hwnd, it != g_prevWindowRect.end() ? &it->second : &g_prevWindowRect[hwnd]);
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+			}
 		}
 		else if (it != g_prevWindowRect.end())
 		{

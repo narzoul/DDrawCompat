@@ -5,7 +5,6 @@
 #include "CompatGdiDcFunctions.h"
 #include "DDrawLog.h"
 #include "Hook.h"
-#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -77,9 +76,9 @@ namespace
 			{
 				Compat::Log() << "Skipping redirection since there is no display DC argument";
 			}
-			else if (!RealPrimarySurface::isFullScreen())
+			else if (!CompatGdi::isEmulationEnabled())
 			{
-				Compat::Log() << "Skipping redirection due to windowed mode";
+				Compat::Log() << "Skipping redirection since GDI emulation is disabled";
 			}
 			else
 			{

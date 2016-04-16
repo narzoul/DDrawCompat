@@ -58,6 +58,9 @@ namespace CompatGdiScrollFunctions
 
 	void updateScrolledWindow(HWND hwnd)
 	{
-		RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN);
+		if (CompatGdi::isEmulationEnabled())
+		{
+			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN);
+		}
 	}
 }

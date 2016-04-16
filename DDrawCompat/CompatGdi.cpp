@@ -130,7 +130,7 @@ namespace CompatGdi
 
 	bool beginGdiRendering()
 	{
-		if (!RealPrimarySurface::isFullScreen())
+		if (!isEmulationEnabled())
 		{
 			return false;
 		}
@@ -233,11 +233,24 @@ namespace CompatGdi
 
 	void invalidate(const RECT* rect)
 	{
-		EnumWindows(&invalidateWindow, reinterpret_cast<LPARAM>(rect));
+		if (isEmulationEnabled())
+		{
+			EnumWindows(&invalidateWindow, reinterpret_cast<LPARAM>(rect));
+		}
+	}
+
+	bool isEmulationEnabled()
+	{
+		return RealPrimarySurface::isFullScreen();
 	}
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
+		if (!isEmulationEnabled())
+		{
+			return;
+		}
+
 		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
 		CompatGdiDcCache::clear();
 
