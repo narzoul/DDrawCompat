@@ -53,21 +53,15 @@ namespace
 
 		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 		{
-			IDirectDrawSurface7* converterSurface = CompatPaletteConverter::lockSurface();
-			HDC converterDc = CompatPaletteConverter::lockDc();
-
-			origVtable.Blt(converterSurface, &g_updateRect,
+			origVtable.Blt(CompatPaletteConverter::getSurface(), &g_updateRect,
 				CompatPrimarySurface::surface, &g_updateRect, DDBLT_WAIT, nullptr);
 
 			HDC destDc = nullptr;
 			origVtable.GetDC(dest, &destDc);
 			result = TRUE == CALL_ORIG_FUNC(BitBlt)(destDc, g_updateRect.left, g_updateRect.top,
 				g_updateRect.right - g_updateRect.left, g_updateRect.bottom - g_updateRect.top,
-				converterDc, g_updateRect.left, g_updateRect.top, SRCCOPY);
+				CompatPaletteConverter::getDc(), g_updateRect.left, g_updateRect.top, SRCCOPY);
 			origVtable.ReleaseDC(dest, destDc);
-
-			CompatPaletteConverter::unlockDc();
-			CompatPaletteConverter::unlockSurface();
 
 			if (dest == g_frontBuffer)
 			{
@@ -374,7 +368,7 @@ void RealPrimarySurface::update()
 
 void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
-	CompatPaletteConverter::setPrimaryPalette(startingEntry, count);
+	CompatPaletteConverter::updatePalette(startingEntry, count);
 	CompatGdi::updatePalette(startingEntry, count);
 	invalidate(nullptr);
 	update();

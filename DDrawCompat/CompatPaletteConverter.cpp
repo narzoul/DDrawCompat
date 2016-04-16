@@ -14,9 +14,7 @@
 
 namespace
 {
-	CRITICAL_SECTION g_criticalSection = {};
 	HDC g_dc = nullptr;
-	RGBQUAD g_halftonePalette[256] = {};
 	HGDIOBJ g_oldBitmap = nullptr;
 	IDirectDrawSurface7* g_surface = nullptr;
 
@@ -73,18 +71,6 @@ namespace
 		CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(dd, &desc, &surface, nullptr);
 		return surface;
 	}
-
-	void initHalftonePalette()
-	{
-		HDC dc = GetDC(nullptr);
-		HPALETTE palette = CreateHalftonePalette(dc);
-
-		GetPaletteEntries(palette, 0, 256, reinterpret_cast<PALETTEENTRY*>(g_halftonePalette));
-		convertPaletteEntriesToRgbQuad(g_halftonePalette, 256);
-
-		DeleteObject(palette);
-		ReleaseDC(nullptr, dc);
-	}
 }
 
 namespace CompatPaletteConverter
@@ -122,35 +108,24 @@ namespace CompatPaletteConverter
 			return false;
 		}
 
-		Compat::ScopedCriticalSection lock(g_criticalSection);
 		g_oldBitmap = SelectObject(dc, dib);
 		g_dc = dc;
 		g_surface = surface;
 		return true;
 	}
 
-	void init()
+	HDC getDc()
 	{
-		InitializeCriticalSection(&g_criticalSection);
-		initHalftonePalette();
-	}
-
-	HDC lockDc()
-	{
-		EnterCriticalSection(&g_criticalSection);
 		return g_dc;
 	}
 
-	IDirectDrawSurface7* lockSurface()
+	IDirectDrawSurface7* getSurface()
 	{
-		EnterCriticalSection(&g_criticalSection);
 		return g_surface;
 	}
 
 	void release()
 	{
-		Compat::ScopedCriticalSection lock(g_criticalSection);
-
 		if (!g_surface)
 		{
 			return;
@@ -166,7 +141,6 @@ namespace CompatPaletteConverter
 
 	void setClipper(IDirectDrawClipper* clipper)
 	{
-		Compat::ScopedCriticalSection lock(g_criticalSection);
 		if (g_surface)
 		{
 			HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetClipper(
@@ -178,40 +152,15 @@ namespace CompatPaletteConverter
 		}
 	}
 
-	void setHalftonePalette()
+	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		EnterCriticalSection(&g_criticalSection);
-		SetDIBColorTable(g_dc, 0, 256, g_halftonePalette);
-		LeaveCriticalSection(&g_criticalSection);
-	}
-
-	void setPrimaryPalette(DWORD startingEntry, DWORD count)
-	{
-		Compat::ScopedCriticalSection lock(g_criticalSection);
-		if (g_dc)
+		if (g_dc && CompatPrimarySurface::palette)
 		{
-			if (CompatPrimarySurface::palette)
-			{
-				RGBQUAD entries[256] = {};
-				std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry],
-					count * sizeof(PALETTEENTRY));
-				convertPaletteEntriesToRgbQuad(entries, count);
-				SetDIBColorTable(g_dc, startingEntry, count, entries);
-			}
-			else
-			{
-				SetDIBColorTable(g_dc, 0, 256, g_halftonePalette);
-			}
+			RGBQUAD entries[256] = {};
+			std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry],
+				count * sizeof(PALETTEENTRY));
+			convertPaletteEntriesToRgbQuad(entries, count);
+			SetDIBColorTable(g_dc, startingEntry, count, entries);
 		}
-	}
-
-	void unlockDc()
-	{
-		LeaveCriticalSection(&g_criticalSection);
-	}
-
-	void unlockSurface()
-	{
-		LeaveCriticalSection(&g_criticalSection);
 	}
 };

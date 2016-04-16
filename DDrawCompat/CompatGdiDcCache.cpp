@@ -1,6 +1,8 @@
+#include <cstring>
 #include <vector>
 
 #include "CompatDirectDraw.h"
+#include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdiDcCache.h"
 #include "CompatPrimarySurface.h"
@@ -20,6 +22,8 @@ namespace
 	DWORD g_ddLockThreadId = 0;
 
 	IDirectDraw7* g_directDraw = nullptr;
+	IDirectDrawPalette* g_palette = nullptr;
+	PALETTEENTRY g_paletteEntries[256] = {};
 	void* g_surfaceMemory = nullptr;
 	LONG g_pitch = 0;
 
@@ -74,10 +78,9 @@ namespace
 			return nullptr;
 		}
 
-		if (CompatPrimarySurface::palette)
+		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
-				surface, CompatPrimarySurface::palette);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(surface, g_palette);
 		}
 
 		return surface;
@@ -168,6 +171,11 @@ namespace CompatGdiDcCache
 	bool init()
 	{
 		g_directDraw = DDrawRepository::getDirectDraw();
+		if (g_directDraw)
+		{
+			CompatDirectDraw<IDirectDraw7>::s_origVtable.CreatePalette(
+				g_directDraw, DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette, nullptr);
+		}
 		return nullptr != g_directDraw;
 	}
 
@@ -198,5 +206,32 @@ namespace CompatGdiDcCache
 		g_surfaceMemory = surfaceMemory;
 		g_pitch = pitch;
 		clear();
+	}
+
+	void updatePalette(DWORD startingEntry, DWORD count)
+	{
+		PALETTEENTRY entries[256] = {};
+		std::memcpy(&entries[startingEntry],
+			&CompatPrimarySurface::paletteEntries[startingEntry],
+			count * sizeof(PALETTEENTRY));
+
+		for (DWORD i = startingEntry; i < startingEntry + count; ++i)
+		{
+			if (entries[i].peFlags & PC_RESERVED)
+			{
+				entries[i] = CompatPrimarySurface::paletteEntries[0];
+				entries[i].peFlags = CompatPrimarySurface::paletteEntries[i].peFlags;
+			}
+		}
+
+		if (0 != std::memcmp(&g_paletteEntries[startingEntry], &entries[startingEntry],
+			count * sizeof(PALETTEENTRY)))
+		{
+			std::memcpy(&g_paletteEntries[startingEntry], &entries[startingEntry],
+				count * sizeof(PALETTEENTRY));
+			CompatDirectDrawPalette::s_origVtable.SetEntries(
+				g_palette, 0, startingEntry, count, g_paletteEntries);
+			clear();
+		}
 	}
 }

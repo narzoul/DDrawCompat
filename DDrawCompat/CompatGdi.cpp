@@ -1,5 +1,4 @@
 #include <atomic>
-#include <cstring>
 
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
@@ -24,8 +23,6 @@ namespace
 	HANDLE g_ddUnlockBeginEvent = nullptr;
 	HANDLE g_ddUnlockEndEvent = nullptr;
 	bool g_isDelayedUnlockPending = false;
-
-	PALETTEENTRY g_usedPaletteEntries[256] = {};
 
 	BOOL CALLBACK invalidateWindow(HWND hwnd, LPARAM lParam)
 	{
@@ -71,45 +68,6 @@ namespace
 		CompatGdiDcCache::setDdLockThreadId(g_ddLockThreadId);
 		CompatGdiDcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 		return true;
-	}
-
-	/*
-	Workaround for correctly drawing icons with a transparent background using BitBlt and a monochrome 
-	bitmap mask. Normally black (index 0) and white (index 255) are selected as foreground and background
-	colors on the target DC so that a BitBlt with the SRCAND ROP would preserve the background pixels and
-	set the foreground pixels to 0. (Logical AND with 0xFF preserves all bits.)
-	But if the physical palette contains another, earlier white entry, SRCAND will be performed with the
-	wrong index (less than 0xFF), erasing some of the bits from all background pixels.
-	This workaround replaces all unwanted white entries with a similar color.
-	*/
-	void replaceDuplicateWhitePaletteEntries(DWORD startingEntry, DWORD count)
-	{
-		if (startingEntry + count > 255)
-		{
-			count = 255 - startingEntry;
-		}
-
-		PALETTEENTRY entries[256] = {};
-		std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry], 
-			count * sizeof(PALETTEENTRY));
-
-		bool isReplacementDone = false;
-		for (DWORD i = 0; i < count; ++i)
-		{
-			if (0xFF == entries[i].peRed && 0xFF == entries[i].peGreen && 0xFF == entries[i].peBlue)
-			{
-				entries[i].peRed = 0xFE;
-				entries[i].peGreen = 0xFE;
-				entries[i].peBlue = 0xFE;
-				isReplacementDone = true;
-			}
-		}
-
-		if (isReplacementDone)
-		{
-			CompatDirectDrawPalette::s_origVtable.SetEntries(
-				CompatPrimarySurface::palette, 0, startingEntry, count, entries);
-		}
 	}
 
 	void unlockPrimarySurface()
@@ -212,7 +170,6 @@ namespace CompatGdi
 	void installHooks()
 	{
 		InitializeCriticalSection(&g_gdiCriticalSection);
-		CompatPaletteConverter::init();
 		if (CompatGdiDcCache::init())
 		{
 			g_ddUnlockBeginEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -246,18 +203,9 @@ namespace CompatGdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (!isEmulationEnabled())
+		if (isEmulationEnabled() && CompatPrimarySurface::palette)
 		{
-			return;
-		}
-
-		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
-		CompatGdiDcCache::clear();
-
-		if (CompatPrimarySurface::palette)
-		{
-			replaceDuplicateWhitePaletteEntries(startingEntry, count);
-			invalidate(nullptr);
+			CompatGdiDcCache::updatePalette(startingEntry, count);
 		}
 	}
 }

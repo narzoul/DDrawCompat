@@ -4,7 +4,6 @@
 #include "CompatGdiScrollBar.h"
 #include "CompatGdiScrollFunctions.h"
 #include "CompatGdiTitleBar.h"
-#include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "CompatRegistry.h"
 #include "DDrawLog.h"
@@ -158,27 +157,8 @@ namespace
 		HDC compatDc = CompatGdiDc::getDc(dc, isMenuPaintDc);
 		if (compatDc)
 		{
-			if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
-			{
-				HDC converterDc = CompatPaletteConverter::lockDc();
-				CompatPaletteConverter::setHalftonePalette();
-
-				origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(converterDc),
-					PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
-
-				RECT rect = {};
-				GetWindowRect(hwnd, &rect);
-				CALL_ORIG_FUNC(BitBlt)(compatDc, 0, 0,
-					rect.right - rect.left, rect.bottom - rect.top, converterDc, 0, 0, SRCCOPY);
-
-				CompatPaletteConverter::setPrimaryPalette(0, 256);
-				CompatPaletteConverter::unlockDc();
-			}
-			else
-			{
-				origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
-					PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
-			}
+			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
+				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
 			ValidateRect(hwnd, nullptr);
 			CompatGdiDc::releaseDc(dc);
 		}

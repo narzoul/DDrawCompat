@@ -7,13 +7,9 @@
 namespace CompatPaletteConverter
 {
 	bool create();
-	void init();
-	HDC lockDc();
-	IDirectDrawSurface7* lockSurface();
+	HDC getDc();
+	IDirectDrawSurface7* getSurface();
 	void release();
 	void setClipper(IDirectDrawClipper* clipper);
-	void setHalftonePalette();
-	void setPrimaryPalette(DWORD startingEntry, DWORD count);
-	void unlockDc();
-	void unlockSurface();
+	void updatePalette(DWORD startingEntry, DWORD count);
 }
