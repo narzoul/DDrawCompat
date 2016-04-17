@@ -13,12 +13,11 @@
 #include "Hook.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
+#include "Time.h"
 
 namespace
 {
-	long long msToQpc(int ms);
 	void onRelease();
-	int qpcToMs(long long qpc);
 	void updateNow(long long qpcNow);
 
 	IDirectDrawSurface7* g_frontBuffer = nullptr;
@@ -28,7 +27,6 @@ namespace
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
 	RECT g_updateRect = {};
-	long long g_qpcFrequency = 0;
 	long long g_qpcMinUpdateInterval = 0;
 	std::atomic<long long> g_qpcNextUpdate = 0;
 
@@ -95,13 +93,8 @@ namespace
 
 	bool isNextUpdateSignaledAndReady(long long qpcNow)
 	{
-		return qpcToMs(qpcNow - g_qpcNextUpdate) >= 0 &&
+		return Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0 &&
 			WAIT_OBJECT_0 == WaitForSingleObject(g_updateEvent, 0);
-	}
-
-	long long msToQpc(int ms)
-	{
-		return static_cast<long long>(ms) * g_qpcFrequency / 1000;
 	}
 
 	void onRelease()
@@ -120,18 +113,6 @@ namespace
 		Compat::LogLeave("RealPrimarySurface::onRelease");
 	}
 
-	int qpcToMs(long long qpc)
-	{
-		return static_cast<int>(qpc * 1000 / g_qpcFrequency);
-	}
-
-	long long queryPerformanceCounter()
-	{
-		LARGE_INTEGER qpc = {};
-		QueryPerformanceCounter(&qpc);
-		return qpc.QuadPart;
-	}
-
 	void updateNow(long long qpcNow)
 	{
 		ResetEvent(g_updateEvent);
@@ -139,7 +120,7 @@ namespace
 		if (compatBlt(g_frontBuffer))
 		{
 			long long qpcNextUpdate = getNextUpdateQpc(qpcNow);
-			if (qpcToMs(qpcNow - qpcNextUpdate) >= 0)
+			if (Time::qpcToMs(qpcNow - qpcNextUpdate) >= 0)
 			{
 				qpcNextUpdate += g_qpcMinUpdateInterval;
 			}
@@ -154,14 +135,15 @@ namespace
 			WaitForSingleObject(g_updateEvent, INFINITE);
 
 			const long long qpcTargetNextUpdate = g_qpcNextUpdate;
-			const int msUntilNextUpdate = qpcToMs(qpcTargetNextUpdate - queryPerformanceCounter());
+			const int msUntilNextUpdate =
+				Time::qpcToMs(qpcTargetNextUpdate - Time::queryPerformanceCounter());
 			if (msUntilNextUpdate > 0)
 			{
 				Sleep(msUntilNextUpdate);
 			}
 
 			Compat::DDrawScopedThreadLock lock;
-			const long long qpcNow = queryPerformanceCounter();
+			const long long qpcNow = Time::queryPerformanceCounter();
 			const bool isTargetUpdateStillNeeded = qpcTargetNextUpdate == g_qpcNextUpdate;
 			if (g_frontBuffer && (isTargetUpdateStillNeeded || isNextUpdateSignaledAndReady(qpcNow)))
 			{
@@ -224,11 +206,8 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 		g_frontBuffer->lpVtbl->GetAttachedSurface(g_frontBuffer, &backBufferCaps, &g_backBuffer);
 	}
 
-	LARGE_INTEGER qpc;
-	QueryPerformanceFrequency(&qpc);
-	g_qpcFrequency = qpc.QuadPart;
-	g_qpcMinUpdateInterval = g_qpcFrequency / Config::maxPrimaryUpdateRate;
-	g_qpcNextUpdate = queryPerformanceCounter();
+	g_qpcMinUpdateInterval = Time::g_qpcFrequency / Config::maxPrimaryUpdateRate;
+	g_qpcNextUpdate = Time::queryPerformanceCounter();
 
 	if (!g_updateEvent)
 	{
@@ -275,7 +254,7 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 	if (SUCCEEDED(result))
 	{
 		g_qpcNextUpdate = getNextUpdateQpc(
-			queryPerformanceCounter() + msToQpc(Config::primaryUpdateDelayAfterFlip));
+			Time::queryPerformanceCounter() + Time::msToQpc(Config::primaryUpdateDelayAfterFlip));
 		SetRectEmpty(&g_updateRect);
 	}
 	return result;
@@ -354,8 +333,8 @@ void RealPrimarySurface::update()
 {
 	if (!IsRectEmpty(&g_updateRect))
 	{
-		const long long qpcNow = queryPerformanceCounter();
-		if (qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)
+		const long long qpcNow = Time::queryPerformanceCounter();
+		if (Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)
 		{
 			updateNow(qpcNow);
 		}

@@ -3,6 +3,7 @@
 #include <vector>
 
 #include "CompatDirectDraw.h"
+#include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
@@ -640,9 +641,16 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::SetPalette(
 	TSurface* This,
 	LPDIRECTDRAWPALETTE lpDDPalette)
 {
-	if (This == s_compatPrimarySurface && lpDDPalette == CompatPrimarySurface::palette)
+	if (This == s_compatPrimarySurface)
 	{
-		return DD_OK;
+		if (lpDDPalette)
+		{
+			CompatDirectDrawPalette::waitForNextUpdate();
+		}
+		if (lpDDPalette == CompatPrimarySurface::palette)
+		{
+			return DD_OK;
+		}
 	}
 
 	HRESULT result = s_origVtable.SetPalette(This, lpDDPalette);

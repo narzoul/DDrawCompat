@@ -14,4 +14,6 @@ public:
 		DWORD dwStartingEntry,
 		DWORD dwCount,
 		LPPALETTEENTRY lpEntries);
+
+	static void waitForNextUpdate();
 };

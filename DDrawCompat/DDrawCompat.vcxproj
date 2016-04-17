@@ -175,6 +175,7 @@
     <ClInclude Include="IReleaseNotifier.h" />
     <ClInclude Include="RealPrimarySurface.h" />
     <ClInclude Include="ScopedCriticalSection.h" />
+    <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompatDirectDraw.cpp" />
@@ -201,6 +202,7 @@
     <ClCompile Include="RealPrimarySurface.cpp" />
     <ClCompile Include="CompatGdiDc.cpp" />
     <ClCompile Include="DDrawRepository.cpp" />
+    <ClCompile Include="Time.cpp" />
     <ClCompile Include="UnmodifiedDDrawProcs.cpp" />
   </ItemGroup>
   <ItemGroup>

@@ -13,6 +13,7 @@
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
+#include "Time.h"
 
 struct IDirectInput;
 
@@ -166,6 +167,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
+		Time::init();
 
 		if (Compat::origProcs.SetAppCompatData)
 		{
