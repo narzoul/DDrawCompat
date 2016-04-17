@@ -10,6 +10,8 @@ public:
 	template <typename DirectDraw>
 	static HRESULT create(DirectDraw& dd);
 
+	static void disableUpdates();
+	static void enableUpdates();
 	static HRESULT flip(DWORD flags);
 	static IDirectDrawSurface7* getSurface();
 	static void invalidate(const RECT* rect);

@@ -8,6 +8,7 @@
 #include "CompatRegistry.h"
 #include "DDrawLog.h"
 #include "Hook.h"
+#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -135,6 +136,10 @@ namespace
 		{
 			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
 			CompatGdiDc::releaseDc(dc);
+			if (result)
+			{
+				RealPrimarySurface::disableUpdates();
+			}
 		}
 		else
 		{
@@ -142,6 +147,13 @@ namespace
 		}
 
 		CompatGdi::endGdiRendering();
+
+		if (result && compatDc)
+		{
+			UpdateWindow(hwnd);
+			RealPrimarySurface::enableUpdates();
+		}
+
 		return result;
 	}
 

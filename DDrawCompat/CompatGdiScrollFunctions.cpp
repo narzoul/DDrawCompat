@@ -2,6 +2,7 @@
 #include "CompatGdiScrollFunctions.h"
 #include "DDrawLog.h"
 #include "Hook.h"
+#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -60,7 +61,10 @@ namespace CompatGdiScrollFunctions
 	{
 		if (CompatGdi::isEmulationEnabled())
 		{
-			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN);
+			RealPrimarySurface::disableUpdates();
+			RedrawWindow(hwnd, nullptr, nullptr,
+				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
+			RealPrimarySurface::enableUpdates();
 		}
 	}
 }

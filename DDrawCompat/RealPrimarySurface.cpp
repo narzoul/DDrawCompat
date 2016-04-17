@@ -27,6 +27,7 @@ namespace
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
 	RECT g_updateRect = {};
+	std::atomic<int> g_disableUpdateCount = 0;
 	long long g_qpcMinUpdateInterval = 0;
 	std::atomic<long long> g_qpcNextUpdate = 0;
 
@@ -35,6 +36,11 @@ namespace
 	bool compatBlt(IDirectDrawSurface7* dest)
 	{
 		Compat::LogEnter("RealPrimarySurface::compatBlt", dest);
+
+		if (g_disableUpdateCount > 0)
+		{
+			return false;
+		}
 
 		bool result = false;
 		const auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
@@ -234,6 +240,20 @@ template HRESULT RealPrimarySurface::create(IDirectDraw2&);
 template HRESULT RealPrimarySurface::create(IDirectDraw4&);
 template HRESULT RealPrimarySurface::create(IDirectDraw7&);
 
+void RealPrimarySurface::disableUpdates()
+{
+	++g_disableUpdateCount;
+	ResetEvent(g_updateEvent);
+}
+
+void RealPrimarySurface::enableUpdates()
+{
+	if (0 == --g_disableUpdateCount)
+	{
+		update();
+	}
+}
+
 HRESULT RealPrimarySurface::flip(DWORD flags)
 {
 	if (!g_backBuffer)
@@ -331,7 +351,7 @@ void RealPrimarySurface::setPalette()
 
 void RealPrimarySurface::update()
 {
-	if (!IsRectEmpty(&g_updateRect))
+	if (!IsRectEmpty(&g_updateRect) && 0 == g_disableUpdateCount)
 	{
 		const long long qpcNow = Time::queryPerformanceCounter();
 		if (Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)
