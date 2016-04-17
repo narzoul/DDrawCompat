@@ -1,5 +1,3 @@
-#include <atomic>
-
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
@@ -17,7 +15,7 @@
 
 namespace
 {
-	std::atomic<DWORD> g_renderingRefCount = 0;
+	DWORD g_renderingRefCount = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
 	DWORD g_ddLockThreadId = 0;
 	HANDLE g_ddUnlockBeginEvent = nullptr;
@@ -93,20 +91,18 @@ namespace CompatGdi
 			return false;
 		}
 
+		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
+
 		if (0 == g_renderingRefCount)
 		{
+			LeaveCriticalSection(&g_gdiCriticalSection);
 			Compat::origProcs.AcquireDDThreadLock();
 			EnterCriticalSection(&g_gdiCriticalSection);
 			if (!lockPrimarySurface())
 			{
-				LeaveCriticalSection(&g_gdiCriticalSection);
 				Compat::origProcs.ReleaseDDThreadLock();
 				return false;
 			}
-		}
-		else
-		{
-			EnterCriticalSection(&g_gdiCriticalSection);
 		}
 
 		if (GetCurrentThreadId() == g_ddLockThreadId)
@@ -115,13 +111,12 @@ namespace CompatGdi
 		}
 
 		++g_renderingRefCount;
-		LeaveCriticalSection(&g_gdiCriticalSection);
 		return true;
 	}
 
 	void endGdiRendering()
 	{
-		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
+		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
 
 		if (GetCurrentThreadId() == g_ddLockThreadId)
 		{
