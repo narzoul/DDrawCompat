@@ -20,10 +20,16 @@ namespace
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
+	WNDPROC g_origComboListBoxWndProc = nullptr;
 	WNDPROC g_origEditWndProc = nullptr;
 	WNDPROC g_origListBoxWndProc = nullptr;
 	WNDPROC g_origMenuWndProc = nullptr;
 	WNDPROC g_origScrollBarWndProc = nullptr;
+
+	LRESULT WINAPI comboListBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		return defPaintProc(hwnd, msg, wParam, lParam, g_origComboListBoxWndProc, "comboListBoxWndProc");
+	}
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -304,6 +310,7 @@ namespace CompatGdiPaintHandlers
 			"ImmersiveContextMenu",
 			0);
 
+		CompatGdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
 		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
 		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
 		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
