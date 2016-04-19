@@ -3,4 +3,5 @@
 namespace CompatGdiPaintHandlers
 {
 	void installHooks();
+	void uninstallHooks();
 }

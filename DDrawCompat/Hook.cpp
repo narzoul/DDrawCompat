@@ -1,5 +1,8 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <utility>
+#include <vector>
+
 #include <Windows.h>
 #include <detours.h>
 
@@ -8,6 +11,8 @@
 
 namespace
 {
+	std::vector<std::pair<void*, void*>> g_hookedFunctions;
+
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
 		if (!module || !procName)
@@ -45,25 +50,36 @@ namespace
 
 		return nullptr;
 	}
+
+	void hookFunction(const char* funcName, void*& origFuncPtr, void* newFuncPtr)
+	{
+		DetourTransactionBegin();
+		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
+		const bool commitSuccessful = NO_ERROR == DetourTransactionCommit();
+		if (!attachSuccessful || !commitSuccessful)
+		{
+			if (funcName)
+			{
+				Compat::Log() << "Failed to hook a function: " << funcName;
+			}
+			else
+			{
+				Compat::Log() << "Failed to hook a function: " << origFuncPtr;
+			}
+			return;
+		}
+
+		g_hookedFunctions.push_back(std::make_pair(origFuncPtr, newFuncPtr));
+	}
 }
 
 namespace Compat
 {
-	void beginHookTransaction()
-	{
-		DetourTransactionBegin();
-	}
-
-	void endHookTransaction()
-	{
-		DetourTransactionCommit();
-	}
-
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr)
 	{
-		DetourAttach(&origFuncPtr, newFuncPtr);
+		::hookFunction(nullptr, origFuncPtr, newFuncPtr);
 	}
-
+	
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
 		FARPROC procAddr = getProcAddress(GetModuleHandle(moduleName), funcName);
@@ -74,10 +90,16 @@ namespace Compat
 		}
 
 		origFuncPtr = procAddr;
-		if (NO_ERROR != DetourAttach(&origFuncPtr, newFuncPtr))
+		::hookFunction(funcName, origFuncPtr, newFuncPtr);
+	}
+
+	void unhookAllFunctions()
+	{
+		for (auto& hookedFunc : g_hookedFunctions)
 		{
-			Compat::Log() << "Failed to hook a function: " << funcName;
-			return;
+			DetourTransactionBegin();
+			DetourDetach(&hookedFunc.first, hookedFunc.second);
+			DetourTransactionCommit();
 		}
 	}
 }

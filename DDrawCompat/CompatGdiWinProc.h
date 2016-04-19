@@ -3,4 +3,5 @@
 namespace CompatGdiWinProc
 {
 	void installHooks();
+	void uninstallHooks();
 }

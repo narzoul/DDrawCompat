@@ -10,6 +10,9 @@
 
 namespace
 {
+	HWINEVENTHOOK g_compatGdiCaretGeneralEventHook = nullptr;
+	HWINEVENTHOOK g_compatGdiCaretLocationChangeEventHook = nullptr;
+
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI *)(Params...);
 
@@ -121,18 +124,23 @@ namespace CompatGdiCaret
 	{
 		InitializeCriticalSection(&g_caretCriticalSection);
 
-		Compat::beginHookTransaction();
 		HOOK_GDI_CARET_FUNCTION(user32, CreateCaret);
 		HOOK_GDI_CARET_FUNCTION(user32, DestroyCaret);
 		HOOK_GDI_CARET_FUNCTION(user32, HideCaret);
 		HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
 		HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
-		Compat::endHookTransaction();
 
 		const DWORD threadId = GetCurrentThreadId();
-		SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
+		g_compatGdiCaretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
 			nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
-		SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
-			nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		g_compatGdiCaretLocationChangeEventHook = SetWinEventHook(
+			EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr, &compatGdiCaretEvent,
+			0, threadId, WINEVENT_OUTOFCONTEXT);
+	}
+
+	void uninstallHooks()
+	{
+		UnhookWinEvent(g_compatGdiCaretLocationChangeEventHook);
+		UnhookWinEvent(g_compatGdiCaretGeneralEventHook);
 	}
 }

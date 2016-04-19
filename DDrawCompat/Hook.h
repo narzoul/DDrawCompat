@@ -7,9 +7,6 @@
 
 namespace Compat
 {
-	void beginHookTransaction();
-	void endHookTransaction();
-
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	OrigFuncPtr& getOrigFuncPtr()
 	{
@@ -26,4 +23,6 @@ namespace Compat
 		hookFunction(moduleName, funcName,
 			reinterpret_cast<void*&>(getOrigFuncPtr<OrigFuncPtr, origFunc>()), newFuncPtr);
 	}
+
+	void unhookAllFunctions();
 }

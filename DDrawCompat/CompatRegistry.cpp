@@ -90,9 +90,7 @@ namespace CompatRegistry
 {
 	void installHooks()
 	{
-		Compat::beginHookTransaction();
 		HOOK_FUNCTION(KernelBase, RegGetValueW, regGetValueW);
-		Compat::endHookTransaction();
 	}
 
 	void setValue(HKEY key, const char* subKey, const char* valueName, DWORD value)

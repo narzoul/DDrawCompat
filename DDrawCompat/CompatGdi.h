@@ -13,6 +13,8 @@ namespace CompatGdi
 	void installHooks();
 	void invalidate(const RECT* rect);
 	bool isEmulationEnabled();
+	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
+	void uninstallHooks();
 	void updatePalette(DWORD startingEntry, DWORD count);
 
 	extern CRITICAL_SECTION g_gdiCriticalSection;

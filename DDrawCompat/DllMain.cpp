@@ -13,6 +13,7 @@
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
+#include "RealPrimarySurface.h"
 #include "Time.h"
 
 struct IDirectInput;
@@ -142,6 +143,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 {
 	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
+		char currentProcessPath[MAX_PATH] = {};
+		GetModuleFileName(nullptr, currentProcessPath, MAX_PATH);
+		Compat::Log() << "Process path: " << currentProcessPath;
+
 		char currentDllPath[MAX_PATH] = {};
 		GetModuleFileName(hinstDLL, currentDllPath, MAX_PATH);
 		Compat::Log() << "Loading DDrawCompat from " << currentDllPath;
@@ -181,8 +186,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	}
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
+		Compat::Log() << "Detaching DDrawCompat";
+		RealPrimarySurface::removeUpdateThread();
+		CompatGdi::uninstallHooks();
+		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);
 		FreeLibrary(g_origDDrawModule);
+		Compat::Log() << "DDrawCompat detached successfully";
 	}
 
 	return TRUE;

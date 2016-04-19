@@ -18,6 +18,7 @@ public:
 	static bool isFullScreen();
 	static bool isLost();
 	static void release();
+	static void removeUpdateThread();
 	static HRESULT restore();
 	static void setClipper(LPDIRECTDRAWCLIPPER clipper);
 	static void setPalette();

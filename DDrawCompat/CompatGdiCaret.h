@@ -3,4 +3,5 @@
 namespace CompatGdiCaret
 {
 	void installHooks();
+	void uninstallHooks();
 }

@@ -135,8 +135,6 @@ namespace CompatGdiDcFunctions
 {
 	void installHooks()
 	{
-		Compat::beginHookTransaction();
-
 		// Bitmap functions
 		HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 		HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
@@ -226,7 +224,5 @@ namespace CompatGdiDcFunctions
 		// Undocumented functions
 		HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
 		HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
-
-		Compat::endHookTransaction();
 	}
 }

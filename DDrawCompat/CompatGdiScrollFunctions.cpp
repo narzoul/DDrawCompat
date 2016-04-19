@@ -47,10 +47,8 @@ namespace CompatGdiScrollFunctions
 {
 	void installHooks()
 	{
-		Compat::beginHookTransaction();
 		HOOK_FUNCTION(user32, ScrollWindow, scrollWindow);
 		HOOK_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
-		Compat::endHookTransaction();
 	}
 
 	void updateScrolledWindow(HWND hwnd)

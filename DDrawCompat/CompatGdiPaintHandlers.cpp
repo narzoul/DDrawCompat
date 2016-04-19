@@ -316,11 +316,18 @@ namespace CompatGdiPaintHandlers
 		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
 		CompatGdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
 
-		Compat::beginHookTransaction();
 		HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
 		HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
 		HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
 		HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
-		Compat::endHookTransaction();
+	}
+
+	void uninstallHooks()
+	{
+		CompatGdi::unhookWndProc("ComboLBox", g_origComboListBoxWndProc);
+		CompatGdi::unhookWndProc("Edit", g_origEditWndProc);
+		CompatGdi::unhookWndProc("ListBox", g_origListBoxWndProc);
+		CompatGdi::unhookWndProc("#32768", g_origMenuWndProc);
+		CompatGdi::unhookWndProc("ScrollBar", g_origScrollBarWndProc);
 	}
 }

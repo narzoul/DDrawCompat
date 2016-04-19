@@ -196,6 +196,20 @@ namespace CompatGdi
 		return RealPrimarySurface::isFullScreen();
 	}
 
+	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)
+	{
+		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
+		SetClassLongPtr(hwnd, GCLP_WNDPROC, reinterpret_cast<LONG>(oldWndProc));
+		DestroyWindow(hwnd);
+	}
+
+	void uninstallHooks()
+	{
+		CompatGdiCaret::uninstallHooks();
+		CompatGdiWinProc::uninstallHooks();
+		CompatGdiPaintHandlers::uninstallHooks();
+	}
+
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
 		if (isEmulationEnabled() && CompatPrimarySurface::palette)

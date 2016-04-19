@@ -16,6 +16,8 @@
 
 namespace
 {
+	HHOOK g_callWndRetProcHook = nullptr;
+	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
 	std::unordered_map<HWND, RECT> g_prevWindowRect;
 
 	void disableDwmAttributes(HWND hwnd);
@@ -196,8 +198,14 @@ namespace CompatGdiWinProc
 	void installHooks()
 	{
 		const DWORD threadId = GetCurrentThreadId();
-		SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
-		SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
+		g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
+		g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 			nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+	}
+
+	void uninstallHooks()
+	{
+		UnhookWinEvent(g_objectStateChangeEventHook);
+		UnhookWindowsHookEx(g_callWndRetProcHook);
 	}
 }

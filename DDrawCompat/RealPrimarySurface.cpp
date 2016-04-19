@@ -24,6 +24,7 @@ namespace
 	IDirectDrawSurface7* g_backBuffer = nullptr;
 	IReleaseNotifier g_releaseNotifier(onRelease);
 
+	bool g_stopUpdateThread = false;
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
 	RECT g_updateRect = {};
@@ -139,6 +140,11 @@ namespace
 		while (true)
 		{
 			WaitForSingleObject(g_updateEvent, INFINITE);
+
+			if (g_stopUpdateThread)
+			{
+				return 0;
+			}
 
 			const long long qpcTargetNextUpdate = g_qpcNextUpdate;
 			const int msUntilNextUpdate =
@@ -315,6 +321,25 @@ void RealPrimarySurface::release()
 	{
 		g_frontBuffer->lpVtbl->Release(g_frontBuffer);
 	}
+}
+
+void RealPrimarySurface::removeUpdateThread()
+{
+	if (!g_updateThread)
+	{
+		return;
+	}
+
+	g_stopUpdateThread = true;
+	SetEvent(g_updateEvent);
+	if (WAIT_OBJECT_0 != WaitForSingleObject(g_updateThread, 1000))
+	{
+		TerminateThread(g_updateThread, 0);
+		Compat::Log() << "The update thread was terminated forcefully";
+	}
+	ResetEvent(g_updateEvent);
+	g_stopUpdateThread = false;
+	g_updateThread = nullptr;
 }
 
 HRESULT RealPrimarySurface::restore()

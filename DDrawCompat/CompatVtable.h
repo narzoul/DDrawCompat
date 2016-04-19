@@ -114,9 +114,7 @@ private:
 				s_vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
 				Compat::g_hookedMethods.emplace(origMethodPtr,
 					Compat::HookedMethodInfo(origMethodPtr, s_vtablePtrToCompatVtable));
-				Compat::beginHookTransaction();
 				Compat::hookFunction(origMethodPtr, newMethodPtr);
-				Compat::endHookTransaction();
 			}
 		}
 
