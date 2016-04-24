@@ -1,6 +1,4 @@
-#include <algorithm>
 #include <set>
-#include <vector>
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
@@ -14,23 +12,14 @@
 
 namespace
 {
-	struct SimilarSurface
-	{
-		DWORD width;
-		DWORD height;
-		DDPIXELFORMAT pixelFormat;
-		IDirectDrawSurface7* front;
-		IDirectDrawSurface7* back;
-	};
-
-	SimilarSurface getSimilarSurface(const DDSURFACEDESC2& desc);
 	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx);
 
 	bool g_lockingPrimary = false;
 
 	void fixSurfacePtr(IDirectDrawSurface7& surface, const DDSURFACEDESC2& desc)
 	{
-		if ((desc.dwFlags & DDSD_CAPS) && (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
+		if ((desc.dwFlags & DDSD_CAPS) && (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) ||
+			0 == desc.dwWidth || 0 == desc.dwHeight)
 		{
 			return;
 		}
@@ -38,16 +27,15 @@ namespace
 		DDSURFACEDESC2 tempSurfaceDesc = desc;
 		tempSurfaceDesc.dwWidth = 1;
 		tempSurfaceDesc.dwHeight = 1;
-		SimilarSurface tempSurface = getSimilarSurface(desc);
-		if (!tempSurface.front)
+		DDrawRepository::ScopedSurface tempSurface(desc);
+		if (!tempSurface.surface)
 		{
-			LOG_ONCE("Failed to fix a surface memory pointer");
 			return;
 		}
 
 		RECT r = { 0, 0, 1, 1 };
 		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Blt(
-			&surface, &r, tempSurface.front, &r, DDBLT_WAIT, nullptr);
+			&surface, &r, tempSurface.surface, &r, DDBLT_WAIT, nullptr);
 	}
 
 	HRESULT WINAPI enumSurfacesCallback(
@@ -100,8 +88,8 @@ namespace
 			desc.dwHeight = srcRect->bottom - srcRect->top;
 		}
 
-		SimilarSurface similarSurface = getSimilarSurface(desc);
-		if (!similarSurface.front)
+		DDrawRepository::ScopedSurface mirroredSurface(desc);
+		if (!mirroredSurface.surface)
 		{
 			return nullptr;
 		}
@@ -109,19 +97,23 @@ namespace
 		RECT rect = { 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
 		if ((mirrorFx & DDBLTFX_MIRRORLEFTRIGHT) && (mirrorFx & DDBLTFX_MIRRORUPDOWN))
 		{
-			if (!mirrorBlt(*similarSurface.back, surface, srcRect ? *srcRect : rect, DDBLTFX_MIRRORLEFTRIGHT) ||
-				!mirrorBlt(*similarSurface.front, *similarSurface.back, rect, DDBLTFX_MIRRORUPDOWN))
+			DDrawRepository::Surface tempMirroredSurface = DDrawRepository::ScopedSurface(desc);
+			if (!tempMirroredSurface.surface ||
+				!mirrorBlt(*tempMirroredSurface.surface, surface, srcRect ? *srcRect : rect,
+					DDBLTFX_MIRRORLEFTRIGHT) ||
+				!mirrorBlt(*mirroredSurface.surface, *tempMirroredSurface.surface, rect,
+					DDBLTFX_MIRRORUPDOWN))
 			{
 				return nullptr;
 			}
 		}
-		else if (!mirrorBlt(*similarSurface.front, surface, srcRect ? *srcRect : rect, mirrorFx))
+		else if (!mirrorBlt(*mirroredSurface.surface, surface, srcRect ? *srcRect : rect, mirrorFx))
 		{
 			return nullptr;
 		}
 
-		origVtable.AddRef(similarSurface.front);
-		return similarSurface.front;
+		origVtable.AddRef(mirroredSurface.surface);
+		return mirroredSurface.surface;
 	}
 
 	template <typename TSurface>
@@ -145,105 +137,6 @@ namespace
 			CompatDirectDrawSurface<TSurface>::s_iid, reinterpret_cast<void**>(&mirroredSurface));
 		origVtable7.Release(mirroredSurface7);
 		return mirroredSurface;
-	}
-
-	SimilarSurface getSimilarSurface(const DDSURFACEDESC2& desc)
-	{
-		static std::vector<SimilarSurface> similarSurfacesVidMem;
-		static std::vector<SimilarSurface> similarSurfacesSysMem;
-
-		std::vector<SimilarSurface>& similarSurfaces =
-			(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) ? similarSurfacesSysMem : similarSurfacesVidMem;
-
-		DDPIXELFORMAT pf = desc.ddpfPixelFormat;
-		if (!(pf.dwFlags & DDPF_FOURCC))
-		{
-			pf.dwFourCC = 0;
-		}
-		if (!(pf.dwFlags & (DDPF_ALPHAPIXELS | DDPF_ZPIXELS)))
-		{
-			pf.dwRGBAlphaBitMask = 0;
-		}
-		auto it = std::find_if(similarSurfaces.begin(), similarSurfaces.end(),
-			[&](SimilarSurface& s) { return 0 == memcmp(&s.pixelFormat, &pf, sizeof(pf)); });
-
-		auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
-		SimilarSurface similarSurface = {};
-		if (it != similarSurfaces.end())
-		{
-			if (DDERR_SURFACELOST == origVtable.IsLost(it->front) ||
-				DDERR_SURFACELOST == origVtable.IsLost(it->back))
-			{
-				origVtable.Release(it->front);
-				origVtable.Release(it->back);
-				similarSurfaces.erase(it);
-				it = similarSurfaces.end();
-			}
-			else
-			{
-				similarSurface = *it;
-			}
-		}
-
-		if (similarSurface.width >= desc.dwWidth && similarSurface.height >= desc.dwHeight)
-		{
-			return similarSurface;
-		}
-
-		DDSURFACEDESC2 similarDesc = {};
-		similarDesc.dwSize = sizeof(similarDesc);
-		similarDesc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
-		similarDesc.dwWidth = max(similarSurface.width, desc.dwWidth);
-		similarDesc.dwHeight = max(similarSurface.height, desc.dwHeight);
-		similarDesc.ddpfPixelFormat = pf;
-		similarDesc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-		if (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
-		{
-			similarDesc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
-		}
-
-		IDirectDraw7* dd = DDrawRepository::getDirectDraw();
-		if (!dd)
-		{
-			similarSurface.front = nullptr;
-			return similarSurface;
-		}
-
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			dd, &similarDesc, &similarSurface.front, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to create a similar front surface");
-			similarSurface.front = nullptr;
-			return similarSurface;
-		}
-
-		result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			dd, &similarDesc, &similarSurface.back, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to create a similar back surface");
-			origVtable.Release(similarSurface.front);
-			similarSurface.front = nullptr;
-			return similarSurface;
-		}
-
-		similarSurface.width = similarDesc.dwWidth;
-		similarSurface.height = similarDesc.dwHeight;
-		similarSurface.pixelFormat = pf;
-
-		if (it != similarSurfaces.end())
-		{
-			origVtable.Release(it->front);
-			origVtable.Release(it->back);
-			*it = similarSurface;
-		}
-		else
-		{
-			similarSurfaces.push_back(similarSurface);
-		}
-
-		return similarSurface;
 	}
 
 	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx)
