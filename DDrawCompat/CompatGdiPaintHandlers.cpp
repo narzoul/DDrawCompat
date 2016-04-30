@@ -86,6 +86,23 @@ namespace
 		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
 	}
 
+	void disableImmersiveContextMenus()
+	{
+		// Immersive context menus don't display properly (empty items) when theming is disabled
+		CompatRegistry::setValue(
+			HKEY_LOCAL_MACHINE,
+			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FlightedFeatures",
+			"ImmersiveContextMenu",
+			0);
+
+		// An update in Windows 10 seems to have moved the key from the above location
+		CompatRegistry::setValue(
+			HKEY_LOCAL_MACHINE,
+			"Software\\Microsoft\\Windows\\CurrentVersion\\FlightedFeatures",
+			"ImmersiveContextMenu",
+			0);
+	}
+
 	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
@@ -303,12 +320,7 @@ namespace CompatGdiPaintHandlers
 {
 	void installHooks()
 	{
-		// Immersive context menus don't display properly (empty items) when theming is disabled
-		CompatRegistry::setValue(
-			HKEY_LOCAL_MACHINE,
-			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FlightedFeatures",
-			"ImmersiveContextMenu",
-			0);
+		disableImmersiveContextMenus();
 
 		CompatGdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
 		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
