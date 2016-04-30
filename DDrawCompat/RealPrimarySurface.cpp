@@ -111,7 +111,11 @@ namespace
 		ResetEvent(g_updateEvent);
 		timeEndPeriod(1);
 		g_frontBuffer = nullptr;
-		g_backBuffer = nullptr;
+		if (g_backBuffer)
+		{
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(g_backBuffer);
+			g_backBuffer = nullptr;
+		}
 		g_isFullScreen = false;
 		CompatPaletteConverter::release();
 
