@@ -106,6 +106,12 @@ std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd)
 		sd.lpSurface << "," << sd.ddpfPixelFormat << "," << sd.ddsCaps << "," << sd.dwTextureStage << ')';
 }
 
+std::ostream& operator<<(std::ostream& os, const CWPSTRUCT& cwrp)
+{
+	return os << "CWP(" << std::hex << cwrp.message << "," << std::dec << cwrp.hwnd << "," <<
+		std::hex << cwrp.wParam << "," << cwrp.lParam << std::dec << ")";
+}
+
 std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp)
 {
 	return os << "CWRP(" << std::hex << cwrp.message << "," << std::dec << cwrp.hwnd << "," <<

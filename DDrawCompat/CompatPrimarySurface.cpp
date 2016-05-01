@@ -41,6 +41,7 @@ namespace CompatPrimarySurface
 		dm.width = desc.dwWidth;
 		dm.height = desc.dwHeight;
 		dm.pixelFormat = desc.ddpfPixelFormat;
+		dm.refreshRate = desc.dwRefreshRate;
 		return dm;
 	}
 
@@ -50,6 +51,7 @@ namespace CompatPrimarySurface
 	template DisplayMode getDisplayMode(IDirectDraw7& dd);
 
 	DisplayMode displayMode = {};
+	bool isDisplayModeChanged = false;
 	IDirectDrawSurface7* surface = nullptr;
 	LPDIRECTDRAWPALETTE palette = nullptr;
 	PALETTEENTRY paletteEntries[256] = {};

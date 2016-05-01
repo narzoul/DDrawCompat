@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <Uxtheme.h>
 
+#include "CompatActivateAppHandler.h"
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDirectDrawPalette.h"
@@ -99,6 +100,7 @@ namespace
 				hookDirectDraw(*dd);
 				hookDirectDrawSurface(*dd);
 				hookDirectDrawPalette(*dd);
+				CompatActivateAppHandler::installHooks();
 
 				Compat::Log() << "Installing GDI hooks";
 				CompatGdi::installHooks();
@@ -188,6 +190,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	{
 		Compat::Log() << "Detaching DDrawCompat";
 		RealPrimarySurface::removeUpdateThread();
+		CompatActivateAppHandler::uninstallHooks();
 		CompatGdi::uninstallHooks();
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);

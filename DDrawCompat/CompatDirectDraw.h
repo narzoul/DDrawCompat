@@ -20,7 +20,8 @@ public:
 		IUnknown* pUnkOuter);
 
 	static HRESULT STDMETHODCALLTYPE RestoreDisplayMode(TDirectDraw* This);
-	
+	static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
+
 	template <typename... Params>
 	static HRESULT STDMETHODCALLTYPE SetDisplayMode(
 		TDirectDraw* This,

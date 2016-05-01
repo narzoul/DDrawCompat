@@ -13,12 +13,14 @@ namespace CompatPrimarySurface
 		LONG width;
 		LONG height;
 		DDPIXELFORMAT pixelFormat;
+		DWORD refreshRate;
 	};
 
 	template <typename TDirectDraw>
 	DisplayMode getDisplayMode(TDirectDraw& dd);
 
 	extern DisplayMode displayMode;
+	extern bool isDisplayModeChanged;
 	extern IDirectDrawSurface7* surface;
 	extern LPDIRECTDRAWPALETTE palette;
 	extern PALETTEENTRY paletteEntries[256];

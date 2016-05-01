@@ -25,6 +25,7 @@ std::ostream& operator<<(std::ostream& os, const DDSCAPS2& caps);
 std::ostream& operator<<(std::ostream& os, const DDPIXELFORMAT& pf);
 std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC& sd);
 std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd);
+std::ostream& operator<<(std::ostream& os, const CWPSTRUCT& cwrp);
 std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp);
 
 template <typename T>

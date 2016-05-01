@@ -1,3 +1,4 @@
+#include "CompatActivateAppHandler.h"
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
@@ -15,6 +16,16 @@ namespace
 		}
 		return DDENUMRET_CANCEL;
 	}
+
+	DWORD getRefreshRate()
+	{
+		return 0;
+	}
+
+	DWORD getRefreshRate(DWORD dwRefreshRate, DWORD /*dwFlags*/)
+	{
+		return dwRefreshRate;
+	}
 }
 
 template <typename TDirectDraw>
@@ -22,6 +33,7 @@ void CompatDirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 {
 	vtable.CreateSurface = &CreateSurface;
 	vtable.RestoreDisplayMode = &RestoreDisplayMode;
+	vtable.SetCooperativeLevel = &SetCooperativeLevel;
 	vtable.SetDisplayMode = &SetDisplayMode;
 }
 
@@ -78,13 +90,26 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::RestoreDisplayMode(TDir
 	if (SUCCEEDED(result))
 	{
 		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*This);
+		CompatPrimarySurface::isDisplayModeChanged = false;
+	}
+	return result;
+}
+
+template <typename TDirectDraw>
+HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetCooperativeLevel(
+	TDirectDraw* This, HWND hWnd, DWORD dwFlags)
+{
+	HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
+	if (dwFlags & DDSCL_FULLSCREEN)
+	{
+		CompatActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
 	}
 	return result;
 }
 
 template <typename TDirectDraw>
 template <typename... Params>
-static HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
+HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
 	TDirectDraw* This,
 	DWORD dwWidth,
 	DWORD dwHeight,
@@ -130,6 +155,8 @@ static HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
 		CompatPrimarySurface::displayMode.width = dwWidth;
 		CompatPrimarySurface::displayMode.height = dwHeight;
 		CompatPrimarySurface::displayMode.pixelFormat = pf;
+		CompatPrimarySurface::displayMode.refreshRate = getRefreshRate(params...);
+		CompatPrimarySurface::isDisplayModeChanged = true;
 	}
 	else
 	{
