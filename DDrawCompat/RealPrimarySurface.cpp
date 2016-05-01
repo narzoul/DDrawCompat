@@ -367,12 +367,8 @@ void RealPrimarySurface::setPalette()
 {
 	if (s_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 	{
-		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
+		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(
 			g_frontBuffer, CompatPrimarySurface::palette);
-		if (FAILED(result) && DDERR_NOPALETTEATTACHED != result)
-		{
-			LOG_ONCE("Failed to set the palette on the real primary surface: " << result);
-		}
 	}
 
 	updatePalette(0, 256);

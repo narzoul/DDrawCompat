@@ -62,12 +62,8 @@ namespace
 		surface.desc.ddpfPixelFormat = pf;
 		surface.desc.ddsCaps.dwCaps = caps;
 
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
+		CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
 			dd, &surface.desc, &surface.surface, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to create a repository surface: " << result);
-		}
 		return surface;
 	}
 

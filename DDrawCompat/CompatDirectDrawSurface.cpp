@@ -288,6 +288,10 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 		(lpDDBltFx->dwDDFX & (DDBLTFX_MIRRORLEFTRIGHT | DDBLTFX_MIRRORUPDOWN)))
 	{
 		mirroredSrcSurface = getMirroredSurface(*lpDDSrcSurface, lpSrcRect, lpDDBltFx->dwDDFX);
+		if (!mirroredSrcSurface)
+		{
+			LOG_ONCE("Failed to emulate a mirrored Blt");
+		}
 	}
 
 	if (mirroredSrcSurface)
