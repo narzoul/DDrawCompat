@@ -565,8 +565,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Unlock(TSurface* Th
 template <typename TSurface>
 void CompatDirectDrawSurface<TSurface>::restorePrimaryCaps(TDdsCaps& caps)
 {
-	caps.dwCaps ^= DDSCAPS_OFFSCREENPLAIN;
-	caps.dwCaps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE;
+	caps.dwCaps &= ~(DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY);
+	caps.dwCaps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE | DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
 }
 
 template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface>::s_iid = IID_IDirectDrawSurface;
