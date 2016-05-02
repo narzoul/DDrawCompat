@@ -236,8 +236,12 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 		return result;
 	}
 
-	s_compatPrimarySurface = compatSurface;
-	initCompatPrimarySurface();
+	IDirectDrawSurface7* compatSurface7 = nullptr;
+	s_origVtable.QueryInterface(compatSurface, IID_IDirectDrawSurface7,
+		reinterpret_cast<void**>(&compatSurface7));
+	CompatPrimarySurface::setPrimary(compatSurface7);
+	CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(compatSurface7);
+
 	return DD_OK;
 }
 
@@ -251,22 +255,6 @@ void CompatDirectDrawSurface<TSurface>::fixSurfacePtrs(TSurface& surface)
 }
 
 template <typename TSurface>
-void CompatDirectDrawSurface<TSurface>::initPrimarySurfacePtr(const GUID& guid, IUnknown& surface)
-{
-	if (SUCCEEDED(surface.lpVtbl->QueryInterface(
-		&surface, guid, reinterpret_cast<LPVOID*>(&s_compatPrimarySurface))))
-	{
-		s_compatPrimarySurface->lpVtbl->Release(s_compatPrimarySurface);
-	}
-}
-
-template <typename TSurface>
-void CompatDirectDrawSurface<TSurface>::resetPrimarySurfacePtr()
-{
-	s_compatPrimarySurface = nullptr;
-}
-
-template <typename TSurface>
 HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 	TSurface* This,
 	LPRECT lpDestRect,
@@ -275,7 +263,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 	DWORD dwFlags,
 	LPDDBLTFX lpDDBltFx)
 {
-	if ((This == s_compatPrimarySurface || lpDDSrcSurface == s_compatPrimarySurface) &&
+	const bool isPrimaryDest = CompatPrimarySurface::isPrimary(This);
+	if ((isPrimaryDest || CompatPrimarySurface::isPrimary(lpDDSrcSurface)) &&
 		RealPrimarySurface::isLost())
 	{
 		return DDERR_SURFACELOST;
@@ -327,7 +316,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 		result = s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (isPrimaryDest && SUCCEEDED(result))
 	{
 		RealPrimarySurface::invalidate(lpDestRect);
 		RealPrimarySurface::update();
@@ -345,14 +334,15 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::BltFast(
 	LPRECT lpSrcRect,
 	DWORD dwTrans)
 {
-	if ((This == s_compatPrimarySurface || lpDDSrcSurface == s_compatPrimarySurface) &&
+	const bool isPrimaryDest = CompatPrimarySurface::isPrimary(This);
+	if ((isPrimaryDest || CompatPrimarySurface::isPrimary(lpDDSrcSurface)) &&
 		RealPrimarySurface::isLost())
 	{
 		return DDERR_SURFACELOST;
 	}
 
 	HRESULT result = s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (isPrimaryDest && SUCCEEDED(result))
 	{
 		const LONG x = dwX;
 		const LONG y = dwY;
@@ -383,7 +373,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Flip(
 	DWORD dwFlags)
 {
 	HRESULT result = s_origVtable.Flip(This, lpDDSurfaceTargetOverride, dwFlags);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (SUCCEEDED(result) && CompatPrimarySurface::isPrimary(This))
 	{
 		result = RealPrimarySurface::flip(dwFlags);
 	}
@@ -396,7 +386,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::GetCaps(
 	TDdsCaps* lpDDSCaps)
 {
 	HRESULT result = s_origVtable.GetCaps(This, lpDDSCaps);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (SUCCEEDED(result) && CompatPrimarySurface::isPrimary(This))
 	{
 		restorePrimaryCaps(*lpDDSCaps);
 	}
@@ -409,7 +399,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::GetSurfaceDesc(
 	TSurfaceDesc* lpDDSurfaceDesc)
 {
 	HRESULT result = s_origVtable.GetSurfaceDesc(This, lpDDSurfaceDesc);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result) && !g_lockingPrimary)
+	if (SUCCEEDED(result) && !g_lockingPrimary && CompatPrimarySurface::isPrimary(This))
 	{
 		restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps);
 	}
@@ -420,7 +410,7 @@ template <typename TSurface>
 HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::IsLost(TSurface* This)
 {
 	HRESULT result = s_origVtable.IsLost(This);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (SUCCEEDED(result) && CompatPrimarySurface::isPrimary(This))
 	{
 		result = RealPrimarySurface::isLost() ? DDERR_SURFACELOST : DD_OK;
 	}
@@ -435,7 +425,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Lock(
 	DWORD dwFlags,
 	HANDLE hEvent)
 {
-	if (This == s_compatPrimarySurface)
+	if (CompatPrimarySurface::isPrimary(This))
 	{
 		if (RealPrimarySurface::isLost())
 		{
@@ -472,7 +462,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::QueryInterface(
 	REFIID riid,
 	LPVOID* obp)
 {
-	if (This == s_compatPrimarySurface && riid == IID_IDirectDrawGammaControl)
+	if (riid == IID_IDirectDrawGammaControl && CompatPrimarySurface::isPrimary(This))
 	{
 		return RealPrimarySurface::getSurface()->lpVtbl->QueryInterface(
 			RealPrimarySurface::getSurface(), riid, obp);
@@ -483,13 +473,14 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::QueryInterface(
 template <typename TSurface>
 HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 {
-	if (This == s_compatPrimarySurface && RealPrimarySurface::isLost())
+	const bool isPrimary = CompatPrimarySurface::isPrimary(This);
+	if (isPrimary && RealPrimarySurface::isLost())
 	{
 		return DDERR_SURFACELOST;
 	}
 
 	HRESULT result = s_origVtable.ReleaseDC(This, hDC);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (isPrimary && SUCCEEDED(result))
 	{
 		RealPrimarySurface::invalidate(nullptr);
 		RealPrimarySurface::update();
@@ -508,7 +499,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 		{
 			fixSurfacePtrs(*This);
 		}
-		if (This == s_compatPrimarySurface)
+		if (CompatPrimarySurface::isPrimary(This))
 		{
 			result = RealPrimarySurface::restore();
 			if (wasLost)
@@ -526,7 +517,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::SetClipper(
 	LPDIRECTDRAWCLIPPER lpDDClipper)
 {
 	HRESULT result = s_origVtable.SetClipper(This, lpDDClipper);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (SUCCEEDED(result) && CompatPrimarySurface::isPrimary(This))
 	{
 		RealPrimarySurface::setClipper(lpDDClipper);
 	}
@@ -538,7 +529,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::SetPalette(
 	TSurface* This,
 	LPDIRECTDRAWPALETTE lpDDPalette)
 {
-	if (This == s_compatPrimarySurface)
+	const bool isPrimary = CompatPrimarySurface::isPrimary(This);
+	if (isPrimary)
 	{
 		if (lpDDPalette)
 		{
@@ -551,7 +543,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::SetPalette(
 	}
 
 	HRESULT result = s_origVtable.SetPalette(This, lpDDPalette);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (isPrimary && SUCCEEDED(result))
 	{
 		CompatPrimarySurface::palette = lpDDPalette;
 		RealPrimarySurface::setPalette();
@@ -563,37 +555,11 @@ template <typename TSurface>
 HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 {
 	HRESULT result = s_origVtable.Unlock(This, lpRect);
-	if (This == s_compatPrimarySurface && SUCCEEDED(result))
+	if (SUCCEEDED(result) && CompatPrimarySurface::isPrimary(This))
 	{
 		RealPrimarySurface::update();
 	}
 	return result;
-}
-
-template <typename TSurface>
-void CompatDirectDrawSurface<TSurface>::initCompatPrimarySurface()
-{
-	Compat::LogEnter("CompatDirectDrawSurface::initCompatPrimarySurface");
-
-	IUnknown& unk = reinterpret_cast<IUnknown&>(*s_compatPrimarySurface);
-	CompatDirectDrawSurface<IDirectDrawSurface>::initPrimarySurfacePtr(IID_IDirectDrawSurface, unk);
-	CompatDirectDrawSurface<IDirectDrawSurface2>::initPrimarySurfacePtr(IID_IDirectDrawSurface2, unk);
-	CompatDirectDrawSurface<IDirectDrawSurface3>::initPrimarySurfacePtr(IID_IDirectDrawSurface3, unk);
-	CompatDirectDrawSurface<IDirectDrawSurface4>::initPrimarySurfacePtr(IID_IDirectDrawSurface4, unk);
-	CompatDirectDrawSurface<IDirectDrawSurface7>::initPrimarySurfacePtr(IID_IDirectDrawSurface7, unk);
-
-	if (SUCCEEDED(s_origVtable.QueryInterface(
-		s_compatPrimarySurface,
-		IID_IDirectDrawSurface7,
-		reinterpret_cast<LPVOID*>(&CompatPrimarySurface::surface))))
-	{
-		IReleaseNotifier* releaseNotifier = &CompatPrimarySurface::releaseNotifier;
-		CompatPrimarySurface::surface->lpVtbl->SetPrivateData(CompatPrimarySurface::surface,
-			IID_IReleaseNotifier, releaseNotifier, sizeof(releaseNotifier), DDSPD_IUNKNOWNPOINTER);
-		CompatPrimarySurface::surface->lpVtbl->Release(CompatPrimarySurface::surface);
-	}
-
-	Compat::LogLeave("CompatDirectDrawSurface::initCompatPrimarySurface");
 }
 
 template <typename TSurface>
@@ -602,9 +568,6 @@ void CompatDirectDrawSurface<TSurface>::restorePrimaryCaps(TDdsCaps& caps)
 	caps.dwCaps ^= DDSCAPS_OFFSCREENPLAIN;
 	caps.dwCaps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE;
 }
-
-template <typename TSurface>
-TSurface* CompatDirectDrawSurface<TSurface>::s_compatPrimarySurface = nullptr;
 
 template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface>::s_iid = IID_IDirectDrawSurface;
 template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface2>::s_iid = IID_IDirectDrawSurface2;

@@ -19,6 +19,9 @@ namespace CompatPrimarySurface
 	template <typename TDirectDraw>
 	DisplayMode getDisplayMode(TDirectDraw& dd);
 
+	bool isPrimary(void* surfacePtr);
+	void setPrimary(IDirectDrawSurface7* surfacePtr);
+
 	extern DisplayMode displayMode;
 	extern bool isDisplayModeChanged;
 	extern IDirectDrawSurface7* surface;

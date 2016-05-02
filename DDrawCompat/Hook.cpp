@@ -1,7 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <map>
 #include <utility>
-#include <vector>
 
 #include <Windows.h>
 #include <detours.h>
@@ -11,7 +11,13 @@
 
 namespace
 {
-	std::vector<std::pair<void*, void*>> g_hookedFunctions;
+	struct HookedFunctionInfo
+	{
+		void* trampoline;
+		void* newFunction;
+	};
+
+	std::map<void*, HookedFunctionInfo> g_hookedFunctions;
 
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
@@ -53,6 +59,15 @@ namespace
 
 	void hookFunction(const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
+		const auto it = g_hookedFunctions.find(origFuncPtr);
+		if (it != g_hookedFunctions.end())
+		{
+			origFuncPtr = it->second.trampoline;
+			return;
+		}
+
+		void* const hookedFuncPtr = origFuncPtr;
+
 		DetourTransactionBegin();
 		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
 		const bool commitSuccessful = NO_ERROR == DetourTransactionCommit();
@@ -69,7 +84,7 @@ namespace
 			return;
 		}
 
-		g_hookedFunctions.push_back(std::make_pair(origFuncPtr, newFuncPtr));
+		g_hookedFunctions[hookedFuncPtr] = { origFuncPtr, newFuncPtr };
 	}
 }
 
@@ -79,7 +94,7 @@ namespace Compat
 	{
 		::hookFunction(nullptr, origFuncPtr, newFuncPtr);
 	}
-	
+
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
 		FARPROC procAddr = getProcAddress(GetModuleHandle(moduleName), funcName);
@@ -98,7 +113,7 @@ namespace Compat
 		for (auto& hookedFunc : g_hookedFunctions)
 		{
 			DetourTransactionBegin();
-			DetourDetach(&hookedFunc.first, hookedFunc.second);
+			DetourDetach(&hookedFunc.second.trampoline, hookedFunc.second.newFunction);
 			DetourTransactionCommit();
 		}
 	}

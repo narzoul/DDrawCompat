@@ -11,22 +11,6 @@
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
-namespace Compat
-{
-	struct HookedMethodInfo
-	{
-		HookedMethodInfo(void*& updatedOrigMethodPtr, std::map<void*, void*>& vtablePtrToCompatVtable)
-			: updatedOrigMethodPtr(updatedOrigMethodPtr), vtablePtrToCompatVtable(vtablePtrToCompatVtable)
-		{
-		}
-
-		void*& updatedOrigMethodPtr;
-		std::map<void*, void*>& vtablePtrToCompatVtable;
-	};
-
-	extern std::map<void*, HookedMethodInfo> g_hookedMethods;
-}
-
 template <typename CompatInterface, typename Interface>
 class CompatVtable
 {
@@ -65,7 +49,7 @@ private:
 			else
 			{
 				s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
-				hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+				Compat::hookFunction(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
 			}
 		}
 
@@ -75,7 +59,7 @@ private:
 			s_funcNames[getKey<MemberDataPtr, ptr>()] = vtableTypeName + "::" + funcName;
 
 			s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
-			hookMethod(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+			Compat::hookFunction(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
 
 			if (!(s_compatVtable.*ptr))
 			{
@@ -101,23 +85,6 @@ private:
 			return &threadSafeFunc<MemberDataPtr, ptr, Result, Params...>;
 		}
 
-		void hookMethod(void*& origMethodPtr, void* newMethodPtr)
-		{
-			auto it = Compat::g_hookedMethods.find(origMethodPtr);
-			if (it != Compat::g_hookedMethods.end())
-			{
-				origMethodPtr = it->second.updatedOrigMethodPtr;
-				it->second.vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
-			}
-			else
-			{
-				s_vtablePtrToCompatVtable[s_vtablePtr] = &s_compatVtable;
-				Compat::g_hookedMethods.emplace(origMethodPtr,
-					Compat::HookedMethodInfo(origMethodPtr, s_vtablePtrToCompatVtable));
-				Compat::hookFunction(origMethodPtr, newMethodPtr);
-			}
-		}
-
 		template <typename MemberDataPtr, MemberDataPtr ptr, typename Result, typename IntfPtr, typename... Params>
 		static Result STDMETHODCALLTYPE threadSafeFunc(IntfPtr This, Params... params)
 		{
@@ -126,17 +93,7 @@ private:
 			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), This, params...);
 #endif
 
-			Result result;
-			auto it = s_vtablePtrToCompatVtable.find(This->lpVtbl);
-			if (it != s_vtablePtrToCompatVtable.end())
-			{
-				Vtable<Interface>& compatVtable = *static_cast<Vtable<Interface>*>(it->second);
-				result = (compatVtable.*ptr)(This, params...);
-			}
-			else
-			{
-				result = (s_origVtable.*ptr)(This, params...);
-			}
+			Result result = (s_compatVtable.*ptr)(This, params...);
 
 #ifdef _DEBUG
 			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), This, params...) << result;
@@ -162,7 +119,6 @@ private:
 	static Vtable<Interface>* s_vtablePtr;
 	static Vtable<Interface> s_compatVtable;
 	static Vtable<Interface> s_threadSafeVtable;
-	static std::map<void*, void*> s_vtablePtrToCompatVtable;
 	static std::map<std::vector<unsigned char>, std::string> s_funcNames;
 };
 
@@ -177,9 +133,6 @@ Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_compatVtable(Compa
 
 template <typename CompatInterface, typename Interface>
 Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_threadSafeVtable = {};
-
-template <typename CompatInterface, typename Interface>
-std::map<void*, void*> CompatVtable<CompatInterface, Interface>::s_vtablePtrToCompatVtable;
 
 template <typename CompatInterface, typename Interface>
 std::map<std::vector<unsigned char>, std::string> CompatVtable<CompatInterface, Interface>::s_funcNames;

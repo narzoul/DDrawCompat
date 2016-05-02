@@ -137,9 +137,6 @@
     <ClCompile Include="IReleaseNotifier.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="CompatVtable.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CompatDirectDraw.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

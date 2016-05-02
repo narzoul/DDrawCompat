@@ -21,8 +21,6 @@ public:
 		TSurface*& compatSurface);
 
 	static void fixSurfacePtrs(TSurface& surface);
-	static void initPrimarySurfacePtr(const GUID& guid, IUnknown& surface);
-	static void resetPrimarySurfacePtr();
 
 	static HRESULT STDMETHODCALLTYPE Blt(
 		TSurface* This,
@@ -66,7 +64,5 @@ public:
 	static const IID& s_iid;
 
 private:
-	static void initCompatPrimarySurface();
 	static void restorePrimaryCaps(TDdsCaps& caps);
-	static TSurface* s_compatPrimarySurface;
 };
