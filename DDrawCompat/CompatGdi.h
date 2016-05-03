@@ -9,6 +9,9 @@ namespace CompatGdi
 	bool beginGdiRendering();
 	void endGdiRendering();
 
+	void disableEmulation();
+	void enableEmulation();
+
 	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc);
 	void installHooks();
 	void invalidate(const RECT* rect);

@@ -1,3 +1,5 @@
+#include <atomic>
+
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
@@ -15,6 +17,7 @@
 
 namespace
 {
+	std::atomic<int> g_disableEmulationCount = 0;
 	DWORD g_renderingRefCount = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
 	DWORD g_ddLockThreadId = 0;
@@ -154,6 +157,16 @@ namespace CompatGdi
 		}
 	}
 
+	void disableEmulation()
+	{
+		++g_disableEmulationCount;
+	}
+
+	void enableEmulation()
+	{
+		--g_disableEmulationCount;
+	}
+
 	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc)
 	{
 		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
@@ -193,7 +206,7 @@ namespace CompatGdi
 
 	bool isEmulationEnabled()
 	{
-		return RealPrimarySurface::isFullScreen();
+		return g_disableEmulationCount <= 0 && RealPrimarySurface::isFullScreen();
 	}
 
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)

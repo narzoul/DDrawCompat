@@ -1,6 +1,7 @@
 #include "CompatActivateAppHandler.h"
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
+#include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawLog.h"
 #include "RealPrimarySurface.h"
@@ -54,9 +55,11 @@ namespace
 					CompatDirectDraw<IDirectDraw7>::s_origVtable.SetDisplayMode(
 						dd, dm.width, dm.height, 32, dm.refreshRate, 0);
 				}
+				CompatGdi::enableEmulation();
 			}
 			else
 			{
+				CompatGdi::disableEmulation();
 				if (CompatPrimarySurface::isDisplayModeChanged)
 				{
 					CompatDirectDraw<IDirectDraw7>::s_origVtable.RestoreDisplayMode(dd);
