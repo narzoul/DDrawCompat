@@ -4,12 +4,13 @@
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawLog.h"
-#include "RealPrimarySurface.h"
 
 extern HWND g_mainWindow;
 
 namespace
 {
+	bool g_isActive = true;
+	IUnknown* g_fullScreenDirectDraw = nullptr;
 	HWND g_fullScreenCooperativeWindow = nullptr;
 	DWORD g_fullScreenCooperativeFlags = 0;
 	HHOOK g_callWndProcHook = nullptr;
@@ -36,14 +37,14 @@ namespace
 	{
 		Compat::LogEnter("handleActivateApp", isActivated);
 
-		static bool isActive = true;
-		if (isActivated != isActive && RealPrimarySurface::isFullScreen())
+		const bool isActiveChanged = g_isActive != isActivated;
+		g_isActive = isActivated;
+
+		if (isActiveChanged && g_fullScreenDirectDraw)
 		{
-			IUnknown* ddIntf = nullptr;
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.GetDDInterface(
-				RealPrimarySurface::getSurface(), reinterpret_cast<void**>(&ddIntf));
 			IDirectDraw7* dd = nullptr;
-			ddIntf->lpVtbl->QueryInterface(ddIntf, IID_IDirectDraw7, reinterpret_cast<void**>(&dd));
+			g_fullScreenDirectDraw->lpVtbl->QueryInterface(
+				g_fullScreenDirectDraw, IID_IDirectDraw7, reinterpret_cast<void**>(&dd));
 
 			if (isActivated)
 			{
@@ -69,11 +70,9 @@ namespace
 				ShowWindow(g_fullScreenCooperativeWindow, SW_MINIMIZE);
 			}
 
-			dd->lpVtbl->Release(dd);
-			ddIntf->lpVtbl->Release(ddIntf);
+			CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
 		}
 
-		isActive = isActivated;
 		Compat::LogLeave("handleActivateApp", isActivated);
 	}
 }
@@ -86,8 +85,14 @@ namespace CompatActivateAppHandler
 		g_callWndProcHook = SetWindowsHookEx(WH_CALLWNDPROC, callWndProc, nullptr, threadId);
 	}
 
-	void setFullScreenCooperativeLevel(HWND hwnd, DWORD flags)
+	bool isActive()
 	{
+		return g_isActive;
+	}
+
+	void setFullScreenCooperativeLevel(IUnknown* dd, HWND hwnd, DWORD flags)
+	{
+		g_fullScreenDirectDraw = dd;
 		g_fullScreenCooperativeWindow = hwnd;
 		g_fullScreenCooperativeFlags = flags;
 	}

@@ -2,9 +2,52 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
+#include "IReleaseNotifier.h"
 
 namespace
 {
+	struct DirectDrawInterface
+	{
+		void* vtable;
+		void* ddObject;
+		DirectDrawInterface* next;
+		DWORD refCount;
+		DWORD unknown1;
+		DWORD unknown2;
+	};
+
+	DirectDrawInterface* g_fullScreenDirectDraw = nullptr;
+	IDirectDrawSurface* g_fullScreenTagSurface = nullptr;
+
+	void onReleaseFullScreenTagSurface();
+
+	IReleaseNotifier g_fullScreenTagSurfaceReleaseNotifier(&onReleaseFullScreenTagSurface);
+
+	IDirectDrawSurface* createFullScreenTagSurface(IDirectDraw& dd)
+	{
+		DDSURFACEDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS;
+		desc.dwWidth = 1;
+		desc.dwHeight = 1;
+		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
+
+		IDirectDrawSurface* tagSurface = nullptr;
+		CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &tagSurface, nullptr);
+		if (tagSurface)
+		{
+			IDirectDrawSurface7* tagSurface7 = nullptr;
+			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.QueryInterface(
+				tagSurface, IID_IDirectDrawSurface7, reinterpret_cast<void**>(&tagSurface7));
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPrivateData(
+				tagSurface7, IID_IReleaseNotifier, &g_fullScreenTagSurfaceReleaseNotifier,
+				sizeof(&g_fullScreenTagSurfaceReleaseNotifier), DDSPD_IUNKNOWNPOINTER);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(tagSurface7);
+		}
+
+		return tagSurface;
+	}
+
 	template <typename TSurfaceDesc>
 	HRESULT PASCAL enumDisplayModesCallback(
 		TSurfaceDesc* lpDDSurfaceDesc,
@@ -15,6 +58,19 @@ namespace
 			*static_cast<DDPIXELFORMAT*>(lpContext) = lpDDSurfaceDesc->ddpfPixelFormat;
 		}
 		return DDENUMRET_CANCEL;
+	}
+
+	bool isFullScreenDirectDraw(void* dd)
+	{
+		return dd && g_fullScreenDirectDraw &&
+			static_cast<DirectDrawInterface*>(dd)->ddObject == g_fullScreenDirectDraw->ddObject;
+	}
+
+	void onReleaseFullScreenTagSurface()
+	{
+		CompatActivateAppHandler::setFullScreenCooperativeLevel(nullptr, nullptr, 0);
+		g_fullScreenDirectDraw = nullptr;
+		g_fullScreenTagSurface = nullptr;
 	}
 
 	template <typename TDirectDraw>
@@ -80,6 +136,36 @@ namespace
 		HRESULT result = setDisplayMode(dd, dwWidth, dwHeight, dwBPP, 0, 0);
 		CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
 		return result;
+	}
+
+	void setFullScreenDirectDraw(IDirectDraw& dd)
+	{
+		if (g_fullScreenTagSurface)
+		{
+			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.Release(g_fullScreenTagSurface);
+			g_fullScreenTagSurface = nullptr;
+		}
+		g_fullScreenTagSurface = createFullScreenTagSurface(dd);
+
+		/*
+		IDirectDraw interfaces don't conform to the COM rule about object identity:
+		QueryInterface with IID_IUnknown does not always return the same pointer for the same object.
+		The IUnknown (== IDirectDraw v1) interface may even be freed, making the interface invalid,
+		while the DirectDraw object itself can still be kept alive by its other interfaces.
+		Unfortunately, the IDirectDrawSurface GetDDInterface method inherits this problem and may
+		also return an invalid (already freed) interface pointer.
+		To work around this problem, a copy of the necessary interface data is passed
+		to CompatActivateAppHandler, which is sufficient for it to use QueryInterface to "safely"
+		obtain a valid interface pointer (other than IUnknown/IDirectDraw v1) to the full-screen
+		DirectDraw object.
+		*/
+
+		static DirectDrawInterface fullScreenDirectDraw = {};
+		ZeroMemory(&fullScreenDirectDraw, sizeof(fullScreenDirectDraw));
+		DirectDrawInterface& ddIntf = reinterpret_cast<DirectDrawInterface&>(dd);
+		fullScreenDirectDraw.vtable = ddIntf.vtable;
+		fullScreenDirectDraw.ddObject = ddIntf.ddObject;
+		g_fullScreenDirectDraw = &fullScreenDirectDraw;
 	}
 }
 
@@ -154,10 +240,27 @@ template <typename TDirectDraw>
 HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetCooperativeLevel(
 	TDirectDraw* This, HWND hWnd, DWORD dwFlags)
 {
-	HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
-	if (dwFlags & DDSCL_FULLSCREEN)
+	if ((dwFlags & DDSCL_FULLSCREEN) && !CompatActivateAppHandler::isActive())
 	{
-		CompatActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
+		return DDERR_EXCLUSIVEMODEALREADYSET;
+	}
+
+	HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
+	if (SUCCEEDED(result))
+	{
+		if (dwFlags & DDSCL_FULLSCREEN)
+		{
+			IDirectDraw* dd = nullptr;
+			s_origVtable.QueryInterface(This, IID_IDirectDraw, reinterpret_cast<void**>(&dd));
+			setFullScreenDirectDraw(*dd);
+			CompatActivateAppHandler::setFullScreenCooperativeLevel(
+				reinterpret_cast<IUnknown*>(g_fullScreenDirectDraw), hWnd, dwFlags);
+			CompatDirectDraw<IDirectDraw>::s_origVtable.Release(dd);
+		}
+		else if (isFullScreenDirectDraw(This) && g_fullScreenTagSurface)
+		{
+			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.Release(g_fullScreenTagSurface);
+		}
 	}
 	return result;
 }

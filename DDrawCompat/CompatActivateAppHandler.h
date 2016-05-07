@@ -4,9 +4,12 @@
 
 #include <Windows.h>
 
+struct IUnknown;
+
 namespace CompatActivateAppHandler
 {
 	void installHooks();
-	void setFullScreenCooperativeLevel(HWND hwnd, DWORD flags);
+	bool isActive();
+	void setFullScreenCooperativeLevel(IUnknown* dd, HWND hwnd, DWORD flags);
 	void uninstallHooks();
 }
