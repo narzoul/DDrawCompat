@@ -17,6 +17,35 @@ namespace
 
 	void handleActivateApp(bool isActivated);
 
+	void activateApp(IDirectDraw7& dd)
+	{
+		CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
+			&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
+		if (CompatPrimarySurface::isDisplayModeChanged)
+		{
+			const CompatPrimarySurface::DisplayMode& dm = CompatPrimarySurface::displayMode;
+			CompatDirectDraw<IDirectDraw7>::s_origVtable.SetDisplayMode(
+				&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
+		}
+		CompatGdi::enableEmulation();
+	}
+
+	void deactivateApp(IDirectDraw7& dd)
+	{
+		CompatGdi::disableEmulation();
+		if (CompatPrimarySurface::isDisplayModeChanged)
+		{
+			CompatDirectDraw<IDirectDraw7>::s_origVtable.RestoreDisplayMode(&dd);
+		}
+		CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
+			&dd, g_fullScreenCooperativeWindow, DDSCL_NORMAL);
+
+		if (!(g_fullScreenCooperativeFlags & DDSCL_NOWINDOWCHANGES))
+		{
+			ShowWindow(g_fullScreenCooperativeWindow, SW_SHOWMINNOACTIVE);
+		}
+	}
+
 	LRESULT CALLBACK callWndProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		auto ret = reinterpret_cast<CWPSTRUCT*>(lParam);
@@ -48,26 +77,11 @@ namespace
 
 			if (isActivated)
 			{
-				CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
-					dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
-				if (CompatPrimarySurface::isDisplayModeChanged)
-				{
-					const CompatPrimarySurface::DisplayMode& dm = CompatPrimarySurface::displayMode;
-					CompatDirectDraw<IDirectDraw7>::s_origVtable.SetDisplayMode(
-						dd, dm.width, dm.height, 32, dm.refreshRate, 0);
-				}
-				CompatGdi::enableEmulation();
+				activateApp(*dd);
 			}
 			else
 			{
-				CompatGdi::disableEmulation();
-				if (CompatPrimarySurface::isDisplayModeChanged)
-				{
-					CompatDirectDraw<IDirectDraw7>::s_origVtable.RestoreDisplayMode(dd);
-				}
-				CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
-					dd, g_fullScreenCooperativeWindow, DDSCL_NORMAL);
-				ShowWindow(g_fullScreenCooperativeWindow, SW_MINIMIZE);
+				deactivateApp(*dd);
 			}
 
 			CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
