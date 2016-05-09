@@ -19,6 +19,16 @@ namespace
 
 	void activateApp(IDirectDraw7& dd)
 	{
+		if (!(g_fullScreenCooperativeFlags & DDSCL_NOWINDOWCHANGES))
+		{
+			ShowWindow(g_fullScreenCooperativeWindow, SW_RESTORE);
+			HWND lastActivePopup = GetLastActivePopup(g_fullScreenCooperativeWindow);
+			if (lastActivePopup && lastActivePopup != g_fullScreenCooperativeWindow)
+			{
+				BringWindowToTop(lastActivePopup);
+			}
+		}
+
 		CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
 			&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
 		if (CompatPrimarySurface::isDisplayModeChanged)
@@ -27,12 +37,19 @@ namespace
 			CompatDirectDraw<IDirectDraw7>::s_origVtable.SetDisplayMode(
 				&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
 		}
-		CompatGdi::enableEmulation();
+
+		if (CompatPrimarySurface::surface)
+		{
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Restore(
+				CompatPrimarySurface::surface);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(
+				*CompatPrimarySurface::surface);
+			CompatGdi::invalidate(nullptr);
+		}
 	}
 
 	void deactivateApp(IDirectDraw7& dd)
 	{
-		CompatGdi::disableEmulation();
 		if (CompatPrimarySurface::isDisplayModeChanged)
 		{
 			CompatDirectDraw<IDirectDraw7>::s_origVtable.RestoreDisplayMode(&dd);
@@ -66,10 +83,18 @@ namespace
 	{
 		Compat::LogEnter("handleActivateApp", isActivated);
 
-		const bool isActiveChanged = g_isActive != isActivated;
+		if (isActivated == g_isActive)
+		{
+			return;
+		}
 		g_isActive = isActivated;
 
-		if (isActiveChanged && g_fullScreenDirectDraw)
+		if (!isActivated)
+		{
+			CompatGdi::disableEmulation();
+		}
+
+		if (g_fullScreenDirectDraw)
 		{
 			IDirectDraw7* dd = nullptr;
 			g_fullScreenDirectDraw->lpVtbl->QueryInterface(
@@ -85,6 +110,11 @@ namespace
 			}
 
 			CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
+		}
+
+		if (isActivated)
+		{
+			CompatGdi::enableEmulation();
 		}
 
 		Compat::LogLeave("handleActivateApp", isActivated);
