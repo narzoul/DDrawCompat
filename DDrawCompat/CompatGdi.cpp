@@ -59,8 +59,8 @@ namespace
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		if (FAILED(CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Lock(
-			CompatPrimarySurface::surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		auto primary(CompatPrimarySurface::getPrimary());
+		if (FAILED(primary->Lock(primary, nullptr, &desc, DDLOCK_WAIT, nullptr)))
 		{
 			return false;
 		}
@@ -74,8 +74,8 @@ namespace
 	void unlockPrimarySurface()
 	{
 		GdiFlush();
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Unlock(
-			CompatPrimarySurface::surface, nullptr);
+		auto primary(CompatPrimarySurface::getPrimary());
+		primary->Unlock(primary, nullptr);
 		RealPrimarySurface::invalidate(nullptr);
 		RealPrimarySurface::update();
 

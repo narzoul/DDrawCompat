@@ -11,12 +11,24 @@
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
-template <typename CompatInterface, typename Interface>
-class CompatVtable
+template <typename Interface>
+class CompatVtableBase
 {
 public:
 	typedef Interface Interface;
 
+	static const Vtable<Interface>& getOrigVtable(Interface& intf)
+	{
+		return s_origVtable.AddRef ? s_origVtable : *intf.lpVtbl;
+	}
+
+	static Vtable<Interface> s_origVtable;
+};
+
+template <typename CompatInterface, typename Interface>
+class CompatVtable : public CompatVtableBase<Interface>
+{
+public:
 	static void hookVtable(Interface& intf)
 	{
 		static bool isInitialized = false;
@@ -31,8 +43,6 @@ public:
 			forEach<Vtable<Interface>>(visitor);
 		}
 	}
-
-	static Vtable<Interface> s_origVtable;
 
 private:
 	class InitVisitor
@@ -122,11 +132,11 @@ private:
 	static std::map<std::vector<unsigned char>, std::string> s_funcNames;
 };
 
-template <typename CompatInterface, typename Interface>
-Vtable<Interface>* CompatVtable<CompatInterface, Interface>::s_vtablePtr = nullptr;
+template <typename Interface>
+Vtable<Interface> CompatVtableBase<Interface>::s_origVtable = {};
 
 template <typename CompatInterface, typename Interface>
-Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_origVtable = {};
+Vtable<Interface>* CompatVtable<CompatInterface, Interface>::s_vtablePtr = nullptr;
 
 template <typename CompatInterface, typename Interface>
 Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_compatVtable(CompatInterface::getCompatVtable());

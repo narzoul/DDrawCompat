@@ -236,11 +236,8 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 		return result;
 	}
 
-	IDirectDrawSurface7* compatSurface7 = nullptr;
-	s_origVtable.QueryInterface(compatSurface, IID_IDirectDrawSurface7,
-		reinterpret_cast<void**>(&compatSurface7));
-	CompatPrimarySurface::setPrimary(compatSurface7);
-	CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(compatSurface7);
+	CompatPtr<IDirectDrawSurface7> primary(Compat::queryInterface<IDirectDrawSurface7>(compatSurface));
+	CompatPrimarySurface::setPrimary(*primary);
 
 	return DD_OK;
 }

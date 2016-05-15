@@ -3,6 +3,7 @@
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
+#include "CompatPtr.h"
 #include "DDrawLog.h"
 
 extern HWND g_mainWindow;
@@ -38,12 +39,10 @@ namespace
 				&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
 		}
 
-		if (CompatPrimarySurface::surface)
+		auto primary(CompatPrimarySurface::getPrimary());
+		if (primary && SUCCEEDED(primary->Restore(primary)))
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Restore(
-				CompatPrimarySurface::surface);
-			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(
-				*CompatPrimarySurface::surface);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
 			CompatGdi::invalidate(nullptr);
 		}
 	}

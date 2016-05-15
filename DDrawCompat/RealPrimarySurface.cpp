@@ -56,10 +56,11 @@ namespace
 			clipper->lpVtbl->Release(clipper);
 		}
 
+		auto primary(CompatPrimarySurface::getPrimary());
 		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 		{
 			origVtable.Blt(CompatPaletteConverter::getSurface(), &g_updateRect,
-				CompatPrimarySurface::surface, &g_updateRect, DDBLT_WAIT, nullptr);
+				primary, &g_updateRect, DDBLT_WAIT, nullptr);
 
 			HDC destDc = nullptr;
 			origVtable.GetDC(dest, &destDc);
@@ -79,7 +80,7 @@ namespace
 		else
 		{
 			result = SUCCEEDED(origVtable.Blt(dest, &g_updateRect,
-				CompatPrimarySurface::surface, &g_updateRect, DDBLT_WAIT, nullptr));
+				primary, &g_updateRect, DDBLT_WAIT, nullptr));
 		}
 
 		if (result)
@@ -394,6 +395,9 @@ void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
 	CompatPaletteConverter::updatePalette(startingEntry, count);
 	CompatGdi::updatePalette(startingEntry, count);
-	invalidate(nullptr);
-	update();
+	if (CompatPrimarySurface::palette)
+	{
+		invalidate(nullptr);
+		update();
+	}
 }

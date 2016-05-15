@@ -4,28 +4,21 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
+#include "CompatPtr.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
 
 namespace
 {
+	CompatWeakPtr<IDirectDrawSurface> g_primarySurface = nullptr;
 	std::vector<void*> g_primarySurfacePtrs;
-
-	void addPrimary(IDirectDrawSurface7* surface, const IID& iid)
-	{
-		IUnknown* intf = nullptr;
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.QueryInterface(
-			surface, iid, reinterpret_cast<void**>(&intf));
-		g_primarySurfacePtrs.push_back(intf);
-		intf->lpVtbl->Release(intf);
-	}
 
 	void onRelease()
 	{
 		Compat::LogEnter("CompatPrimarySurface::onRelease");
 
 		g_primarySurfacePtrs.clear();
-		CompatPrimarySurface::surface = nullptr;
+		g_primarySurface = nullptr;
 		CompatPrimarySurface::palette = nullptr;
 		CompatPrimarySurface::width = 0;
 		CompatPrimarySurface::height = 0;
@@ -59,32 +52,41 @@ namespace CompatPrimarySurface
 	template DisplayMode getDisplayMode(IDirectDraw4& dd);
 	template DisplayMode getDisplayMode(IDirectDraw7& dd);
 
-	bool isPrimary(void* surfacePtr)
+	CompatPtr<IDirectDrawSurface7> getPrimary()
 	{
-		return g_primarySurfacePtrs.end() !=
-			std::find(g_primarySurfacePtrs.begin(), g_primarySurfacePtrs.end(), surfacePtr);
+		if (!g_primarySurface)
+		{
+			return nullptr;
+		}
+		return CompatPtr<IDirectDrawSurface7>(
+			Compat::queryInterface<IDirectDrawSurface7>(g_primarySurface.get()));
 	}
 
-	void setPrimary(IDirectDrawSurface7* surfacePtr)
+	bool isPrimary(void* surface)
 	{
-		surface = surfacePtr;
+		return g_primarySurfacePtrs.end() !=
+			std::find(g_primarySurfacePtrs.begin(), g_primarySurfacePtrs.end(), surface);
+	}
+
+	void setPrimary(CompatRef<IDirectDrawSurface7> surface)
+	{
+		CompatPtr<IDirectDrawSurface> surfacePtr(Compat::queryInterface<IDirectDrawSurface>(&surface));
+		g_primarySurface = surfacePtr;
 
 		g_primarySurfacePtrs.clear();
+		g_primarySurfacePtrs.push_back(&surface);
+		g_primarySurfacePtrs.push_back(CompatPtr<IDirectDrawSurface4>(surfacePtr));
+		g_primarySurfacePtrs.push_back(CompatPtr<IDirectDrawSurface3>(surfacePtr));
+		g_primarySurfacePtrs.push_back(CompatPtr<IDirectDrawSurface2>(surfacePtr));
 		g_primarySurfacePtrs.push_back(surfacePtr);
-		addPrimary(surfacePtr, IID_IDirectDrawSurface4);
-		addPrimary(surfacePtr, IID_IDirectDrawSurface3);
-		addPrimary(surfacePtr, IID_IDirectDrawSurface2);
-		addPrimary(surfacePtr, IID_IDirectDrawSurface);
 
 		IReleaseNotifier* releaseNotifierPtr = &releaseNotifier;
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPrivateData(
-			surfacePtr, IID_IReleaseNotifier, releaseNotifierPtr, sizeof(releaseNotifierPtr),
-			DDSPD_IUNKNOWNPOINTER);
+		surface->SetPrivateData(&surface, IID_IReleaseNotifier,
+			releaseNotifierPtr, sizeof(releaseNotifierPtr), DDSPD_IUNKNOWNPOINTER);
 	}
 
 	DisplayMode displayMode = {};
 	bool isDisplayModeChanged = false;
-	IDirectDrawSurface7* surface = nullptr;
 	LPDIRECTDRAWPALETTE palette = nullptr;
 	PALETTEENTRY paletteEntries[256] = {};
 	LONG width = 0;

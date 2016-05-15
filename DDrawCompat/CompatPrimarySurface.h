@@ -4,6 +4,9 @@
 
 #include <ddraw.h>
 
+#include "CompatPtr.h"
+#include "CompatRef.h"
+
 class IReleaseNotifier;
 
 namespace CompatPrimarySurface
@@ -19,12 +22,12 @@ namespace CompatPrimarySurface
 	template <typename TDirectDraw>
 	DisplayMode getDisplayMode(TDirectDraw& dd);
 
-	bool isPrimary(void* surfacePtr);
-	void setPrimary(IDirectDrawSurface7* surfacePtr);
+	CompatPtr<IDirectDrawSurface7> getPrimary();
+	bool isPrimary(void* surface);
+	void setPrimary(CompatRef<IDirectDrawSurface7> surface);
 
 	extern DisplayMode displayMode;
 	extern bool isDisplayModeChanged;
-	extern IDirectDrawSurface7* surface;
 	extern LPDIRECTDRAWPALETTE palette;
 	extern PALETTEENTRY paletteEntries[256];
 	extern LONG width;

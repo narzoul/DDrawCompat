@@ -157,7 +157,11 @@
     <ClInclude Include="CompatGdiTitleBar.h" />
     <ClInclude Include="CompatGdiWinProc.h" />
     <ClInclude Include="CompatPaletteConverter.h" />
+    <ClInclude Include="CompatPtr.h" />
+    <ClInclude Include="CompatQueryInterface.h" />
+    <ClInclude Include="CompatRef.h" />
     <ClInclude Include="CompatRegistry.h" />
+    <ClInclude Include="CompatWeakPtr.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
