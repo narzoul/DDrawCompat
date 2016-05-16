@@ -1,7 +1,6 @@
 #include <cstring>
 #include <vector>
 
-#include "CompatDirectDrawPalette.h"
 #include "CompatGdiDcCache.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -20,7 +19,7 @@ namespace
 	DWORD g_maxUsedCacheSize = 0;
 	DWORD g_ddLockThreadId = 0;
 
-	IDirectDrawPalette* g_palette = nullptr;
+	CompatWeakPtr<IDirectDrawPalette> g_palette;
 	PALETTEENTRY g_paletteEntries[256] = {};
 	void* g_surfaceMemory = nullptr;
 	LONG g_pitch = 0;
@@ -167,7 +166,8 @@ namespace CompatGdiDcCache
 	bool init()
 	{
 		auto dd(DDrawRepository::getDirectDraw());
-		dd->CreatePalette(dd, DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette, nullptr);
+		dd->CreatePalette(dd,
+			DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette.getRef(), nullptr);
 		return nullptr != g_palette;
 	}
 
@@ -221,8 +221,7 @@ namespace CompatGdiDcCache
 		{
 			std::memcpy(&g_paletteEntries[startingEntry], &entries[startingEntry],
 				count * sizeof(PALETTEENTRY));
-			CompatDirectDrawPalette::s_origVtable.SetEntries(
-				g_palette, 0, startingEntry, count, g_paletteEntries);
+			g_palette->SetEntries(g_palette, 0, startingEntry, count, g_paletteEntries);
 			clear();
 		}
 	}

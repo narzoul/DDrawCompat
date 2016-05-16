@@ -27,7 +27,7 @@ namespace CompatPrimarySurface
 
 	extern DisplayMode displayMode;
 	extern bool isDisplayModeChanged;
-	extern LPDIRECTDRAWPALETTE palette;
+	extern CompatWeakPtr<IDirectDrawPalette> palette;
 	extern PALETTEENTRY paletteEntries[256];
 	extern LONG width;
 	extern LONG height;

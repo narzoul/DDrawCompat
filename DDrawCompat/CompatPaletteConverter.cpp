@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstring>
 
-#include "CompatDirectDrawPalette.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -131,7 +130,7 @@ namespace CompatPaletteConverter
 		g_dc = nullptr;
 	}
 
-	void setClipper(IDirectDrawClipper* clipper)
+	void setClipper(CompatWeakPtr<IDirectDrawClipper> clipper)
 	{
 		if (g_surface)
 		{

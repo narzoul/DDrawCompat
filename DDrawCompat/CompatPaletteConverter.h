@@ -12,6 +12,6 @@ namespace CompatPaletteConverter
 	HDC getDc();
 	CompatWeakPtr<IDirectDrawSurface7> getSurface();
 	void release();
-	void setClipper(IDirectDrawClipper* clipper);
+	void setClipper(CompatWeakPtr<IDirectDrawClipper> clipper);
 	void updatePalette(DWORD startingEntry, DWORD count);
 }

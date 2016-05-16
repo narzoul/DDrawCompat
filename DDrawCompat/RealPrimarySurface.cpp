@@ -1,6 +1,5 @@
 #include <atomic>
 
-#include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPaletteConverter.h"
@@ -23,6 +22,7 @@ namespace
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_backBuffer;
+	CompatWeakPtr<IDirectDrawClipper> g_clipper;
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	IReleaseNotifier g_releaseNotifier(onRelease);
 
@@ -46,16 +46,6 @@ namespace
 		}
 
 		bool result = false;
-
-		if (!RealPrimarySurface::isFullScreen())
-		{
-			IDirectDrawClipper* clipper = nullptr;
-			if (FAILED(g_frontBuffer->GetClipper(g_frontBuffer, &clipper)))
-			{
-				return false;
-			}
-			clipper->lpVtbl->Release(clipper);
-		}
 
 		auto primary(CompatPrimarySurface::getPrimary());
 		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
@@ -161,6 +151,7 @@ namespace
 		timeEndPeriod(1);
 		g_frontBuffer = nullptr;
 		g_backBuffer.release();
+		g_clipper = nullptr;
 		g_isFullScreen = false;
 		CompatPaletteConverter::release();
 
@@ -347,15 +338,16 @@ HRESULT RealPrimarySurface::restore()
 	return g_frontBuffer->Restore(g_frontBuffer);
 }
 
-void RealPrimarySurface::setClipper(LPDIRECTDRAWCLIPPER clipper)
+void RealPrimarySurface::setClipper(CompatWeakPtr<IDirectDrawClipper> clipper)
 {
-	CompatPaletteConverter::setClipper(clipper);
-
 	HRESULT result = g_frontBuffer->SetClipper(g_frontBuffer, clipper);
 	if (FAILED(result))
 	{
 		LOG_ONCE("Failed to set clipper on the real primary surface: " << result);
+		return;
 	}
+	CompatPaletteConverter::setClipper(clipper);
+	g_clipper = clipper;
 }
 
 void RealPrimarySurface::setPalette()
@@ -370,7 +362,7 @@ void RealPrimarySurface::setPalette()
 
 void RealPrimarySurface::update()
 {
-	if (!IsRectEmpty(&g_updateRect) && 0 == g_disableUpdateCount)
+	if (!IsRectEmpty(&g_updateRect) && 0 == g_disableUpdateCount && (g_isFullScreen || g_clipper))
 	{
 		const long long qpcNow = Time::queryPerformanceCounter();
 		if (Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)

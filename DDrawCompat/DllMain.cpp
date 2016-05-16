@@ -82,12 +82,12 @@ namespace
 	void hookDirectDrawPalette(CompatRef<IDirectDraw7> dd)
 	{
 		PALETTEENTRY paletteEntries[2] = {};
-		IDirectDrawPalette* palette = nullptr;
-		HRESULT result = dd->CreatePalette(&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr);
+		CompatPtr<IDirectDrawPalette> palette;
+		HRESULT result = dd->CreatePalette(&dd,
+			DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
 			CompatDirectDrawPalette::hookVtable(*palette);
-			palette->lpVtbl->Release(palette);
 		}
 		else
 		{

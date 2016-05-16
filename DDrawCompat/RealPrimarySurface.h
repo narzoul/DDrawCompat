@@ -23,7 +23,7 @@ public:
 	static void release();
 	static void removeUpdateThread();
 	static HRESULT restore();
-	static void setClipper(LPDIRECTDRAWCLIPPER clipper);
+	static void setClipper(CompatWeakPtr<IDirectDrawClipper> clipper);
 	static void setPalette();
 	static void update();
 	static void updatePalette(DWORD startingEntry, DWORD count);

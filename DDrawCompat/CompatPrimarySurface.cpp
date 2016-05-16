@@ -80,7 +80,7 @@ namespace CompatPrimarySurface
 
 	DisplayMode displayMode = {};
 	bool isDisplayModeChanged = false;
-	LPDIRECTDRAWPALETTE palette = nullptr;
+	CompatWeakPtr<IDirectDrawPalette> palette;
 	PALETTEENTRY paletteEntries[256] = {};
 	LONG width = 0;
 	LONG height = 0;
