@@ -4,12 +4,14 @@
 
 #include <ddraw.h>
 
+#include "CompatWeakPtr.h"
+
 namespace DDrawRepository
 {
 	struct Surface
 	{
 		DDSURFACEDESC2 desc;
-		IDirectDrawSurface7* surface;
+		CompatWeakPtr<IDirectDrawSurface7> surface;
 	};
 
 	class ScopedSurface : public Surface

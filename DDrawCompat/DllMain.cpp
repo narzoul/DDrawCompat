@@ -11,6 +11,7 @@
 #include "CompatDirectDrawPalette.h"
 #include "CompatGdi.h"
 #include "CompatRegistry.h"
+#include "CompatPtr.h"
 #include "CompatVtable.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
@@ -35,6 +36,12 @@ namespace
 		}
 	}
 
+	template <typename CompatInterface>
+	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf)
+	{
+		CompatInterface::hookVtable(*intf);
+	}
+
 	void hookDirectDraw(IDirectDraw7& dd)
 	{
 		IUnknown& ddUnk = reinterpret_cast<IUnknown&>(dd);
@@ -53,17 +60,17 @@ namespace
 		desc.dwHeight = 1;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
 
-		IDirectDrawSurface7* surface = nullptr;
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(&dd, &desc, &surface, nullptr);
+		CompatPtr<IDirectDrawSurface7> surface;
+		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
+			&dd, &desc, &surface.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			IUnknown& surfaceUnk = reinterpret_cast<IUnknown&>(*surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface>>(IID_IDirectDrawSurface, surfaceUnk);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface2>>(IID_IDirectDrawSurface2, surfaceUnk);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface3>>(IID_IDirectDrawSurface3, surfaceUnk);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface4>>(IID_IDirectDrawSurface4, surfaceUnk);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface7>>(IID_IDirectDrawSurface7, surfaceUnk);
-			surface->lpVtbl->Release(surface);
+			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
+			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface>>(surface);
+			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface2>>(surface);
+			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface3>>(surface);
+			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface4>>(surface);
+			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface7>>(surface);
 		}
 		else
 		{

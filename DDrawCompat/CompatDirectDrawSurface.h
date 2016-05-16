@@ -2,6 +2,7 @@
 
 #include <type_traits>
 
+#include "CompatRef.h"
 #include "CompatVtable.h"
 #include "DDrawTypes.h"
 #include "DirectDrawSurfaceVtblVisitor.h"
@@ -22,7 +23,7 @@ public:
 		TSurfaceDesc compatDesc,
 		TSurface*& compatSurface);
 
-	static void fixSurfacePtrs(TSurface& surface);
+	static void fixSurfacePtrs(CompatRef<TSurface> surface);
 
 	static HRESULT STDMETHODCALLTYPE Blt(
 		TSurface* This,

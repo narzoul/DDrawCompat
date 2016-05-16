@@ -2,7 +2,7 @@
 #include <vector>
 
 #include "CompatDirectDraw.h"
-#include "CompatDirectDrawSurface.h"
+#include "CompatPtr.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
@@ -63,7 +63,7 @@ namespace
 		surface.desc.ddsCaps.dwCaps = caps;
 
 		CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			dd, &surface.desc, &surface.surface, nullptr);
+			dd, &surface.desc, &surface.surface.getRef(), nullptr);
 		return surface;
 	}
 
@@ -76,7 +76,7 @@ namespace
 			if (it->desc.dwWidth <= width && it->desc.dwHeight <= height &&
 				0 == memcmp(&it->desc.ddpfPixelFormat, &pf, sizeof(pf)))
 			{
-				CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(it->surface);
+				it->surface.release();
 				it = cachedSurfaces.erase(it);
 			}
 			else
@@ -89,17 +89,16 @@ namespace
 	std::vector<Surface>::iterator findSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf,
 		std::vector<Surface>& cachedSurfaces)
 	{
-		auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
-
 		auto it = cachedSurfaces.begin();
 		while (it != cachedSurfaces.end())
 		{
 			if (it->desc.dwWidth >= width && it->desc.dwHeight >= height &&
 				0 == memcmp(&it->desc.ddpfPixelFormat, &pf, sizeof(pf)))
 			{
-				if (FAILED(origVtable.IsLost(it->surface)) && FAILED(origVtable.Restore(it->surface)))
+				if (FAILED(it->surface->IsLost(it->surface)) &&
+					FAILED(it->surface->Restore(it->surface)))
 				{
-					origVtable.Release(it->surface);
+					it->surface.release();
 					it = cachedSurfaces.erase(it);
 					continue;
 				}

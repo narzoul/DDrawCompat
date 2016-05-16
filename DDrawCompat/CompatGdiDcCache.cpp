@@ -3,9 +3,9 @@
 
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
-#include "CompatDirectDrawSurface.h"
 #include "CompatGdiDcCache.h"
 #include "CompatPrimarySurface.h"
+#include "CompatPtr.h"
 #include "Config.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
@@ -27,37 +27,36 @@ namespace
 	void* g_surfaceMemory = nullptr;
 	LONG g_pitch = 0;
 
-	IDirectDrawSurface7* createGdiSurface();
+	CompatPtr<IDirectDrawSurface7> createGdiSurface();
 
 	CachedDc createCachedDc()
 	{
 		CachedDc cachedDc = {};
 
-		IDirectDrawSurface7* surface = createGdiSurface();
+		CompatPtr<IDirectDrawSurface7> surface(createGdiSurface());
 		if (!surface)
 		{
 			return cachedDc;
 		}
 
 		HDC dc = nullptr;
-		HRESULT result = surface->lpVtbl->GetDC(surface, &dc);
+		HRESULT result = surface->GetDC(surface, &dc);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to create a GDI DC: " << result);
-			surface->lpVtbl->Release(surface);
 			return cachedDc;
 		}
 
 		// Release DD critical section acquired by IDirectDrawSurface7::GetDC to avoid deadlocks
 		Compat::origProcs.ReleaseDDThreadLock();
 
-		cachedDc.surface = surface;
+		cachedDc.surface = surface.detach();
 		cachedDc.dc = dc;
 		cachedDc.cacheId = g_cacheId;
 		return cachedDc;
 	}
 
-	IDirectDrawSurface7* createGdiSurface()
+	CompatPtr<IDirectDrawSurface7> createGdiSurface()
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
@@ -69,9 +68,9 @@ namespace
 		desc.lPitch = g_pitch;
 		desc.lpSurface = g_surfaceMemory;
 
-		IDirectDrawSurface7* surface = nullptr;
+		CompatPtr<IDirectDrawSurface7> surface;
 		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			g_directDraw, &desc, &surface, nullptr);
+			g_directDraw, &desc, &surface.getRef(), nullptr);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to create a GDI surface: " << result);
@@ -80,7 +79,7 @@ namespace
 
 		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPalette(surface, g_palette);
+			surface->SetPalette(surface, g_palette);
 		}
 
 		return surface;
@@ -115,14 +114,13 @@ namespace
 		// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
 		Compat::origProcs.AcquireDDThreadLock();
 
-		HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.ReleaseDC(
-			cachedDc.surface, cachedDc.dc);
+		HRESULT result = cachedDc.surface->ReleaseDC(cachedDc.surface, cachedDc.dc);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to release a cached DC: " << result);
 		}
 
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(cachedDc.surface);
+		cachedDc.surface.release();
 	}
 }
 

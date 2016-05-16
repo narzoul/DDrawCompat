@@ -1,7 +1,6 @@
 #include <atomic>
 
 #include "CompatDirectDrawPalette.h"
-#include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatGdiCaret.h"
 #include "CompatGdiDcCache.h"

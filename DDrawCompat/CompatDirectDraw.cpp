@@ -2,6 +2,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
+#include "CompatPtr.h"
 #include "IReleaseNotifier.h"
 
 namespace
@@ -17,13 +18,13 @@ namespace
 	};
 
 	DirectDrawInterface* g_fullScreenDirectDraw = nullptr;
-	IDirectDrawSurface* g_fullScreenTagSurface = nullptr;
+	CompatWeakPtr<IDirectDrawSurface> g_fullScreenTagSurface;
 
 	void onReleaseFullScreenTagSurface();
 
 	IReleaseNotifier g_fullScreenTagSurfaceReleaseNotifier(&onReleaseFullScreenTagSurface);
 
-	IDirectDrawSurface* createFullScreenTagSurface(IDirectDraw& dd)
+	CompatPtr<IDirectDrawSurface> createFullScreenTagSurface(IDirectDraw& dd)
 	{
 		DDSURFACEDESC desc = {};
 		desc.dwSize = sizeof(desc);
@@ -32,17 +33,14 @@ namespace
 		desc.dwHeight = 1;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
-		IDirectDrawSurface* tagSurface = nullptr;
-		CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &tagSurface, nullptr);
+		CompatPtr<IDirectDrawSurface> tagSurface;
+		CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &tagSurface.getRef(), nullptr);
 		if (tagSurface)
 		{
-			IDirectDrawSurface7* tagSurface7 = nullptr;
-			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.QueryInterface(
-				tagSurface, IID_IDirectDrawSurface7, reinterpret_cast<void**>(&tagSurface7));
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.SetPrivateData(
+			CompatPtr<IDirectDrawSurface7> tagSurface7(tagSurface);
+			tagSurface7->SetPrivateData(
 				tagSurface7, IID_IReleaseNotifier, &g_fullScreenTagSurfaceReleaseNotifier,
 				sizeof(&g_fullScreenTagSurfaceReleaseNotifier), DDSPD_IUNKNOWNPOINTER);
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(tagSurface7);
 		}
 
 		return tagSurface;
@@ -140,12 +138,8 @@ namespace
 
 	void setFullScreenDirectDraw(IDirectDraw& dd)
 	{
-		if (g_fullScreenTagSurface)
-		{
-			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.Release(g_fullScreenTagSurface);
-			g_fullScreenTagSurface = nullptr;
-		}
-		g_fullScreenTagSurface = createFullScreenTagSurface(dd);
+		g_fullScreenTagSurface.release();
+		g_fullScreenTagSurface = createFullScreenTagSurface(dd).detach();
 
 		/*
 		IDirectDraw interfaces don't conform to the COM rule about object identity:
@@ -259,7 +253,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetCooperativeLevel(
 		}
 		else if (isFullScreenDirectDraw(This) && g_fullScreenTagSurface)
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.Release(g_fullScreenTagSurface);
+			g_fullScreenTagSurface.release();
 		}
 	}
 	return result;

@@ -4,11 +4,13 @@
 
 #include <ddraw.h>
 
+#include "CompatWeakPtr.h"
+
 namespace CompatPaletteConverter
 {
-	bool create();
+	bool create(const DDSURFACEDESC2& primaryDesc);
 	HDC getDc();
-	IDirectDrawSurface7* getSurface();
+	CompatWeakPtr<IDirectDrawSurface7> getSurface();
 	void release();
 	void setClipper(IDirectDrawClipper* clipper);
 	void updatePalette(DWORD startingEntry, DWORD count);

@@ -4,6 +4,8 @@
 
 #include <ddraw.h>
 
+#include "CompatWeakPtr.h"
+
 class RealPrimarySurface
 {
 public:
@@ -13,7 +15,7 @@ public:
 	static void disableUpdates();
 	static void enableUpdates();
 	static HRESULT flip(DWORD flags);
-	static IDirectDrawSurface7* getSurface();
+	static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 	static void invalidate(const RECT* rect);
 	static bool isFullScreen();
 	static bool isLost();
@@ -24,6 +26,4 @@ public:
 	static void setPalette();
 	static void update();
 	static void updatePalette(DWORD startingEntry, DWORD count);
-
-	static DDSURFACEDESC2 s_surfaceDesc;
 };

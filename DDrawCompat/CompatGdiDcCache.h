@@ -6,11 +6,13 @@
 #include <ddraw.h>
 #include <Windows.h>
 
+#include "CompatWeakPtr.h"
+
 namespace CompatGdiDcCache
 {
 	struct CachedDc
 	{
-		IDirectDrawSurface7* surface;
+		CompatWeakPtr<IDirectDrawSurface7> surface;
 		HDC dc;
 		DWORD cacheId;
 	};

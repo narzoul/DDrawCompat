@@ -5,6 +5,7 @@
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
+#include "CompatPtr.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
 #include "IReleaseNotifier.h"
@@ -12,11 +13,12 @@
 
 namespace
 {
-	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx);
+	bool mirrorBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
+		RECT srcRect, DWORD mirrorFx);
 
 	bool g_lockingPrimary = false;
 
-	void fixSurfacePtr(IDirectDrawSurface7& surface, const DDSURFACEDESC2& desc)
+	void fixSurfacePtr(CompatRef<IDirectDrawSurface7> surface, const DDSURFACEDESC2& desc)
 	{
 		if ((desc.dwFlags & DDSD_CAPS) && (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) ||
 			0 == desc.dwWidth || 0 == desc.dwHeight)
@@ -34,48 +36,44 @@ namespace
 		}
 
 		RECT r = { 0, 0, 1, 1 };
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Blt(
-			&surface, &r, tempSurface.surface, &r, DDBLT_WAIT, nullptr);
+		surface->Blt(&surface, &r, tempSurface.surface, &r, DDBLT_WAIT, nullptr);
 	}
 
-	HRESULT WINAPI enumSurfacesCallback(
+	HRESULT WINAPI fixSurfacePtrEnumCallback(
 		LPDIRECTDRAWSURFACE7 lpDDSurface,
 		LPDDSURFACEDESC2 lpDDSurfaceDesc,
 		LPVOID lpContext)
 	{
 		auto& visitedSurfaces = *static_cast<std::set<IDirectDrawSurface7*>*>(lpContext);
 
-		if (visitedSurfaces.find(lpDDSurface) == visitedSurfaces.end())
+		CompatPtr<IDirectDrawSurface7> surface(lpDDSurface);
+		if (visitedSurfaces.find(surface) == visitedSurfaces.end())
 		{
-			visitedSurfaces.insert(lpDDSurface);
-			fixSurfacePtr(*lpDDSurface, *lpDDSurfaceDesc);
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
-				lpDDSurface, lpContext, &enumSurfacesCallback);
+			visitedSurfaces.insert(surface);
+			fixSurfacePtr(*surface, *lpDDSurfaceDesc);
+			surface->EnumAttachedSurfaces(surface, lpContext, &fixSurfacePtrEnumCallback);
 		}
 
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.Release(lpDDSurface);
 		return DDENUMRET_OK;
 	}
 
-	void fixSurfacePtrs(IDirectDrawSurface7& surface)
+	void fixSurfacePtrs(CompatRef<IDirectDrawSurface7> surface)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.GetSurfaceDesc(&surface, &desc);
-		
+		surface->GetSurfaceDesc(&surface, &desc);
+
 		fixSurfacePtr(surface, desc);
 		std::set<IDirectDrawSurface7*> visitedSurfaces{ &surface };
-		CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
-			&surface, &visitedSurfaces, &enumSurfacesCallback);
+		surface->EnumAttachedSurfaces(&surface, &visitedSurfaces, &fixSurfacePtrEnumCallback);
 	}
 
-	IDirectDrawSurface7* getMirroredSurface(IDirectDrawSurface7& surface, RECT* srcRect, DWORD mirrorFx)
+	CompatWeakPtr<IDirectDrawSurface7> getMirroredSurface(
+		CompatRef<IDirectDrawSurface7> surface, RECT* srcRect, DWORD mirrorFx)
 	{
-		auto& origVtable = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
-
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		HRESULT result = origVtable.GetSurfaceDesc(&surface, &desc);
+		HRESULT result = surface->GetSurfaceDesc(&surface, &desc);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to get surface description for mirroring: " << result);
@@ -112,34 +110,11 @@ namespace
 			return nullptr;
 		}
 
-		origVtable.AddRef(mirroredSurface.surface);
 		return mirroredSurface.surface;
 	}
 
-	template <typename TSurface>
-	TSurface* getMirroredSurface(TSurface& surface, RECT* rect, DWORD mirrorFx)
-	{
-		auto& origVtable = CompatDirectDrawSurface<TSurface>::s_origVtable;
-
-		IDirectDrawSurface7* surface7 = nullptr;
-		origVtable.QueryInterface(&surface, IID_IDirectDrawSurface7, reinterpret_cast<void**>(&surface7));
-		IDirectDrawSurface7* mirroredSurface7 = getMirroredSurface(*surface7, rect, mirrorFx);
-		surface7->lpVtbl->Release(surface7);
-
-		if (!mirroredSurface7)
-		{
-			return nullptr;
-		}
-
-		auto& origVtable7 = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable;
-		TSurface* mirroredSurface = nullptr;
-		origVtable7.QueryInterface(mirroredSurface7,
-			CompatDirectDrawSurface<TSurface>::s_iid, reinterpret_cast<void**>(&mirroredSurface));
-		origVtable7.Release(mirroredSurface7);
-		return mirroredSurface;
-	}
-
-	bool mirrorBlt(IDirectDrawSurface7& dst, IDirectDrawSurface7& src, RECT srcRect, DWORD mirrorFx)
+	bool mirrorBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
+		RECT srcRect, DWORD mirrorFx)
 	{
 		if (DDBLTFX_MIRRORLEFTRIGHT == mirrorFx)
 		{
@@ -147,8 +122,7 @@ namespace
 			srcRect.left = srcRect.right - 1;
 			for (LONG x = 0; x < width; ++x)
 			{
-				HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.BltFast(
-					&dst, x, 0, &src, &srcRect, DDBLTFAST_WAIT);
+				HRESULT result = dst->BltFast(&dst, x, 0, &src, &srcRect, DDBLTFAST_WAIT);
 				if (FAILED(result))
 				{
 					LOG_ONCE("Failed BltFast for mirroring: " << result);
@@ -164,8 +138,7 @@ namespace
 			srcRect.top = srcRect.bottom - 1;
 			for (LONG y = 0; y < height; ++y)
 			{
-				HRESULT result = CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable.BltFast(
-					&dst, 0, y, &src, &srcRect, DDBLTFAST_WAIT);
+				HRESULT result = dst->BltFast(&dst, 0, y, &src, &srcRect, DDBLTFAST_WAIT);
 				if (FAILED(result))
 				{
 					LOG_ONCE("Failed BltFast for mirroring: " << result);
@@ -243,12 +216,10 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 }
 
 template <typename TSurface>
-void CompatDirectDrawSurface<TSurface>::fixSurfacePtrs(TSurface& surface)
+void CompatDirectDrawSurface<TSurface>::fixSurfacePtrs(CompatRef<TSurface> surface)
 {
-	IDirectDrawSurface7* surface7 = nullptr;
-	surface.lpVtbl->QueryInterface(&surface, IID_IDirectDrawSurface7, reinterpret_cast<LPVOID*>(&surface7));
+	CompatPtr<IDirectDrawSurface7> surface7(Compat::queryInterface<IDirectDrawSurface7>(&surface));
 	::fixSurfacePtrs(*surface7);
-	surface7->lpVtbl->Release(surface7);
 }
 
 template <typename TSurface>
@@ -268,12 +239,15 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 	}
 
 	HRESULT result = DD_OK;
-	TSurface* mirroredSrcSurface = nullptr;
+	CompatPtr<TSurface> mirroredSrcSurface;
 
 	if (lpDDSrcSurface && (dwFlags & DDBLT_DDFX) && lpDDBltFx &&
 		(lpDDBltFx->dwDDFX & (DDBLTFX_MIRRORLEFTRIGHT | DDBLTFX_MIRRORUPDOWN)))
 	{
-		mirroredSrcSurface = getMirroredSurface(*lpDDSrcSurface, lpSrcRect, lpDDBltFx->dwDDFX);
+		CompatPtr<IDirectDrawSurface7> srcSurface(
+			Compat::queryInterface<IDirectDrawSurface7>(lpDDSrcSurface));
+		mirroredSrcSurface.reset(Compat::queryInterface<TSurface>(
+			getMirroredSurface(*srcSurface, lpSrcRect, lpDDBltFx->dwDDFX).get()));
 		if (!mirroredSrcSurface)
 		{
 			LOG_ONCE("Failed to emulate a mirrored Blt");
@@ -305,8 +279,6 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Blt(
 		{
 			result = s_origVtable.Blt(This, lpDestRect, mirroredSrcSurface, nullptr, flags, &fx);
 		}
-
-		s_origVtable.Release(mirroredSrcSurface);
 	}
 	else
 	{
@@ -461,8 +433,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::QueryInterface(
 {
 	if (riid == IID_IDirectDrawGammaControl && CompatPrimarySurface::isPrimary(This))
 	{
-		return RealPrimarySurface::getSurface()->lpVtbl->QueryInterface(
-			RealPrimarySurface::getSurface(), riid, obp);
+		auto realPrimary(RealPrimarySurface::getSurface());
+		return realPrimary->QueryInterface(realPrimary, riid, obp);
 	}
 	return s_origVtable.QueryInterface(This, riid, obp);
 }
