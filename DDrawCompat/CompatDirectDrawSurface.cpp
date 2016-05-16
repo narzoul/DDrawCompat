@@ -174,13 +174,14 @@ void CompatDirectDrawSurface<TSurface>::setCompatVtable(Vtable<TSurface>& vtable
 template <typename TSurface>
 template <typename TDirectDraw>
 HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
-	TDirectDraw& dd,
+	CompatRef<TDirectDraw> dd,
 	TSurfaceDesc compatDesc,
 	TSurface*& compatSurface)
 {
 	if (0 == CompatPrimarySurface::displayMode.pixelFormat.dwSize)
 	{
-		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(dd);
+		CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
+		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*dd7);
 	}
 
 	HRESULT result = RealPrimarySurface::create(dd);
@@ -200,8 +201,7 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 	compatDesc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
 	compatDesc.ddpfPixelFormat = CompatPrimarySurface::pixelFormat;
 
-	result = CompatDirectDraw<TDirectDraw>::s_origVtable.CreateSurface(
-		&dd, &compatDesc, &compatSurface, nullptr);
+	result = dd->CreateSurface(&dd, &compatDesc, &compatSurface, nullptr);
 	if (FAILED(result))
 	{
 		Compat::Log() << "Failed to create the compat primary surface!";
@@ -551,18 +551,18 @@ template CompatDirectDrawSurface<IDirectDrawSurface4>;
 template CompatDirectDrawSurface<IDirectDrawSurface7>;
 
 template HRESULT CompatDirectDrawSurface<IDirectDrawSurface>::createCompatPrimarySurface(
-	IDirectDraw& dd,
+	CompatRef<IDirectDraw> dd,
 	TSurfaceDesc compatDesc,
 	IDirectDrawSurface*& compatSurface);
 template HRESULT CompatDirectDrawSurface<IDirectDrawSurface>::createCompatPrimarySurface(
-	IDirectDraw2& dd,
+	CompatRef<IDirectDraw2> dd,
 	TSurfaceDesc compatDesc,
 	IDirectDrawSurface*& compatSurface);
 template HRESULT CompatDirectDrawSurface<IDirectDrawSurface4>::createCompatPrimarySurface(
-	IDirectDraw4& dd,
+	CompatRef<IDirectDraw4> dd,
 	TSurfaceDesc compatDesc,
 	IDirectDrawSurface4*& compatSurface);
 template HRESULT CompatDirectDrawSurface<IDirectDrawSurface7>::createCompatPrimarySurface(
-	IDirectDraw7& dd,
+	CompatRef<IDirectDraw7> dd,
 	TSurfaceDesc compatDesc,
 	IDirectDrawSurface7*& compatSurface);

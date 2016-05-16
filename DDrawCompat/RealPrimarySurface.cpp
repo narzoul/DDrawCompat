@@ -1,13 +1,11 @@
 #include <atomic>
 
-#include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatGdi.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
-#include "CompatRef.h"
 #include "Config.h"
 #include "DDrawScopedThreadLock.h"
 #include "DDrawProcs.h"
@@ -217,7 +215,7 @@ namespace
 }
 
 template <typename DirectDraw>
-HRESULT RealPrimarySurface::create(DirectDraw& dd)
+HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
 {
 	typename Types<DirectDraw>::TSurfaceDesc desc = {};
 	desc.dwSize = sizeof(desc);
@@ -226,8 +224,7 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 	desc.dwBackBufferCount = 1;
 
 	CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
-	HRESULT result = CompatDirectDraw<DirectDraw>::s_origVtable.CreateSurface(
-		&dd, &desc, &surface.getRef(), nullptr);
+	HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
 	bool isFlippable = true;
 	if (DDERR_NOEXCLUSIVEMODE == result)
@@ -236,8 +233,7 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 		desc.dwBackBufferCount = 0;
 		isFlippable = false;
-		result = CompatDirectDraw<DirectDraw>::s_origVtable.CreateSurface(
-			&dd, &desc, &surface.getRef(), nullptr);
+		result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 	}
 
 	if (FAILED(result))
@@ -249,10 +245,10 @@ HRESULT RealPrimarySurface::create(DirectDraw& dd)
 	return init(surface);
 }
 
-template HRESULT RealPrimarySurface::create(IDirectDraw&);
-template HRESULT RealPrimarySurface::create(IDirectDraw2&);
-template HRESULT RealPrimarySurface::create(IDirectDraw4&);
-template HRESULT RealPrimarySurface::create(IDirectDraw7&);
+template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw>);
+template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw2>);
+template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw4>);
+template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw7>);
 
 void RealPrimarySurface::disableUpdates()
 {

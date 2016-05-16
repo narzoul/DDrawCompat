@@ -4,6 +4,7 @@
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
+#include "CompatRef.h"
 #include "DDrawLog.h"
 
 extern HWND g_mainWindow;
@@ -11,14 +12,14 @@ extern HWND g_mainWindow;
 namespace
 {
 	bool g_isActive = true;
-	IUnknown* g_fullScreenDirectDraw = nullptr;
+	CompatWeakPtr<IUnknown> g_fullScreenDirectDraw = nullptr;
 	HWND g_fullScreenCooperativeWindow = nullptr;
 	DWORD g_fullScreenCooperativeFlags = 0;
 	HHOOK g_callWndProcHook = nullptr;
 
 	void handleActivateApp(bool isActivated);
 
-	void activateApp(IDirectDraw7& dd)
+	void activateApp(CompatRef<IDirectDraw7> dd)
 	{
 		if (!(g_fullScreenCooperativeFlags & DDSCL_NOWINDOWCHANGES))
 		{
@@ -30,13 +31,11 @@ namespace
 			}
 		}
 
-		CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
-			&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
+		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
 		if (CompatPrimarySurface::isDisplayModeChanged)
 		{
 			const CompatPrimarySurface::DisplayMode& dm = CompatPrimarySurface::displayMode;
-			CompatDirectDraw<IDirectDraw7>::s_origVtable.SetDisplayMode(
-				&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
+			dd->SetDisplayMode(&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
 		}
 
 		auto primary(CompatPrimarySurface::getPrimary());
@@ -47,14 +46,13 @@ namespace
 		}
 	}
 
-	void deactivateApp(IDirectDraw7& dd)
+	void deactivateApp(CompatRef<IDirectDraw7> dd)
 	{
 		if (CompatPrimarySurface::isDisplayModeChanged)
 		{
-			CompatDirectDraw<IDirectDraw7>::s_origVtable.RestoreDisplayMode(&dd);
+			dd->RestoreDisplayMode(&dd);
 		}
-		CompatDirectDraw<IDirectDraw7>::s_origVtable.SetCooperativeLevel(
-			&dd, g_fullScreenCooperativeWindow, DDSCL_NORMAL);
+		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, DDSCL_NORMAL);
 
 		if (!(g_fullScreenCooperativeFlags & DDSCL_NOWINDOWCHANGES))
 		{
@@ -95,10 +93,7 @@ namespace
 
 		if (g_fullScreenDirectDraw)
 		{
-			IDirectDraw7* dd = nullptr;
-			g_fullScreenDirectDraw->lpVtbl->QueryInterface(
-				g_fullScreenDirectDraw, IID_IDirectDraw7, reinterpret_cast<void**>(&dd));
-
+			CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(g_fullScreenDirectDraw.get()));
 			if (isActivated)
 			{
 				activateApp(*dd);
@@ -107,8 +102,6 @@ namespace
 			{
 				deactivateApp(*dd);
 			}
-
-			CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
 		}
 
 		if (isActivated)
@@ -133,7 +126,7 @@ namespace CompatActivateAppHandler
 		return g_isActive;
 	}
 
-	void setFullScreenCooperativeLevel(IUnknown* dd, HWND hwnd, DWORD flags)
+	void setFullScreenCooperativeLevel(CompatWeakPtr<IUnknown> dd, HWND hwnd, DWORD flags)
 	{
 		g_fullScreenDirectDraw = dd;
 		g_fullScreenCooperativeWindow = hwnd;

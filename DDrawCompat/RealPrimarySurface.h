@@ -5,12 +5,13 @@
 #include <ddraw.h>
 
 #include "CompatWeakPtr.h"
+#include "CompatRef.h"
 
 class RealPrimarySurface
 {
 public:
 	template <typename DirectDraw>
-	static HRESULT create(DirectDraw& dd);
+	static HRESULT create(CompatRef<DirectDraw> dd);
 
 	static void disableUpdates();
 	static void enableUpdates();

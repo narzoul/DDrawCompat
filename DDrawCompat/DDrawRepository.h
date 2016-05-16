@@ -21,5 +21,5 @@ namespace DDrawRepository
 		~ScopedSurface();
 	};
 
-	IDirectDraw7* getDirectDraw();
+	CompatWeakPtr<IDirectDraw7> getDirectDraw();
 }

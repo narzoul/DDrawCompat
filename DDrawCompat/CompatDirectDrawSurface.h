@@ -19,7 +19,7 @@ public:
 
 	template <typename TDirectDraw>
 	static HRESULT createCompatPrimarySurface(
-		TDirectDraw& dd,
+		CompatRef<TDirectDraw> dd,
 		TSurfaceDesc compatDesc,
 		TSurface*& compatSurface);
 

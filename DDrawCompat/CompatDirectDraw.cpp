@@ -3,6 +3,7 @@
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
+#include "CompatRef.h"
 #include "IReleaseNotifier.h"
 
 namespace
@@ -24,7 +25,7 @@ namespace
 
 	IReleaseNotifier g_fullScreenTagSurfaceReleaseNotifier(&onReleaseFullScreenTagSurface);
 
-	CompatPtr<IDirectDrawSurface> createFullScreenTagSurface(IDirectDraw& dd)
+	CompatPtr<IDirectDrawSurface> createFullScreenTagSurface(CompatRef<IDirectDraw> dd)
 	{
 		DDSURFACEDESC desc = {};
 		desc.dwSize = sizeof(desc);
@@ -34,7 +35,7 @@ namespace
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
 		CompatPtr<IDirectDrawSurface> tagSurface;
-		CompatDirectDraw<IDirectDraw>::s_origVtable.CreateSurface(&dd, &desc, &tagSurface.getRef(), nullptr);
+		dd->CreateSurface(&dd, &desc, &tagSurface.getRef(), nullptr);
 		if (tagSurface)
 		{
 			CompatPtr<IDirectDrawSurface7> tagSurface7(tagSurface);
@@ -71,11 +72,10 @@ namespace
 		g_fullScreenTagSurface = nullptr;
 	}
 
-	template <typename TDirectDraw>
-	HRESULT setDisplayMode(TDirectDraw* This, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP,
+	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP,
 		DWORD dwRefreshRate, DWORD dwFlags)
 	{
-		typename Types<TDirectDraw>::TSurfaceDesc desc = {};
+		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dwWidth;
@@ -95,8 +95,8 @@ namespace
 		DDPIXELFORMAT pf = {};
 		if (dwBPP > 8)
 		{
-			if (FAILED(CompatDirectDraw<TDirectDraw>::s_origVtable.EnumDisplayModes(
-				This, 0, &desc, &pf, &enumDisplayModesCallback)) || 0 == pf.dwSize)
+			if (FAILED(dd->EnumDisplayModes(&dd, 0, &desc, &pf, &enumDisplayModesCallback)) ||
+				0 == pf.dwSize)
 			{
 				Compat::Log() << "Failed to find the requested display mode: " <<
 					dwWidth << "x" << dwHeight << "x" << dwBPP;
@@ -108,8 +108,7 @@ namespace
 			pf = desc.ddpfPixelFormat;
 		}
 
-		HRESULT result = CompatDirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(
-			This, dwWidth, dwHeight, 32, dwRefreshRate, dwFlags);
+		HRESULT result = dd->SetDisplayMode(&dd, dwWidth, dwHeight, 32, dwRefreshRate, dwFlags);
 		if (SUCCEEDED(result))
 		{
 			CompatPrimarySurface::displayMode.width = dwWidth;
@@ -126,17 +125,12 @@ namespace
 		return result;
 	}
 
-	HRESULT setDisplayMode(IDirectDraw* This, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP)
+	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP)
 	{
-		IDirectDraw7* dd = nullptr;
-		CompatDirectDraw<IDirectDraw>::s_origVtable.QueryInterface(
-			This, IID_IDirectDraw7, reinterpret_cast<void**>(&dd));
-		HRESULT result = setDisplayMode(dd, dwWidth, dwHeight, dwBPP, 0, 0);
-		CompatDirectDraw<IDirectDraw7>::s_origVtable.Release(dd);
-		return result;
+		return setDisplayMode(dd, dwWidth, dwHeight, dwBPP, 0, 0);
 	}
 
-	void setFullScreenDirectDraw(IDirectDraw& dd)
+	void setFullScreenDirectDraw(CompatRef<IDirectDraw> dd)
 	{
 		g_fullScreenTagSurface.release();
 		g_fullScreenTagSurface = createFullScreenTagSurface(dd).detach();
@@ -156,7 +150,7 @@ namespace
 
 		static DirectDrawInterface fullScreenDirectDraw = {};
 		ZeroMemory(&fullScreenDirectDraw, sizeof(fullScreenDirectDraw));
-		DirectDrawInterface& ddIntf = reinterpret_cast<DirectDrawInterface&>(dd);
+		DirectDrawInterface& ddIntf = reinterpret_cast<DirectDrawInterface&>(dd.get());
 		fullScreenDirectDraw.vtable = ddIntf.vtable;
 		fullScreenDirectDraw.ddObject = ddIntf.ddObject;
 		g_fullScreenDirectDraw = &fullScreenDirectDraw;
@@ -187,7 +181,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 
 	if (isPrimary)
 	{
-		result = CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
+		result = CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface<TDirectDraw>(
 			*This, *lpDDSurfaceDesc, *lplpDDSurface);
 	}
 	else
@@ -224,7 +218,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::RestoreDisplayMode(TDir
 	HRESULT result = s_origVtable.RestoreDisplayMode(This);
 	if (SUCCEEDED(result))
 	{
-		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*This);
+		CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
+		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*dd);
 		CompatPrimarySurface::isDisplayModeChanged = false;
 	}
 	return result;
@@ -244,12 +239,10 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetCooperativeLevel(
 	{
 		if (dwFlags & DDSCL_FULLSCREEN)
 		{
-			IDirectDraw* dd = nullptr;
-			s_origVtable.QueryInterface(This, IID_IDirectDraw, reinterpret_cast<void**>(&dd));
+			CompatPtr<IDirectDraw> dd(Compat::queryInterface<IDirectDraw>(This));
 			setFullScreenDirectDraw(*dd);
 			CompatActivateAppHandler::setFullScreenCooperativeLevel(
 				reinterpret_cast<IUnknown*>(g_fullScreenDirectDraw), hWnd, dwFlags);
-			CompatDirectDraw<IDirectDraw>::s_origVtable.Release(dd);
 		}
 		else if (isFullScreenDirectDraw(This) && g_fullScreenTagSurface)
 		{
@@ -268,8 +261,14 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
 	DWORD dwBPP,
 	Params... params)
 {
-	return setDisplayMode(This, dwWidth, dwHeight, dwBPP, params...);
+	CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
+	return setDisplayMode(*dd, dwWidth, dwHeight, dwBPP, params...);
 }
+
+template <> const IID& CompatDirectDraw<IDirectDraw>::s_iid = IID_IDirectDraw;
+template <> const IID& CompatDirectDraw<IDirectDraw2>::s_iid = IID_IDirectDraw2;
+template <> const IID& CompatDirectDraw<IDirectDraw4>::s_iid = IID_IDirectDraw4;
+template <> const IID& CompatDirectDraw<IDirectDraw7>::s_iid = IID_IDirectDraw7;
 
 template CompatDirectDraw<IDirectDraw>;
 template CompatDirectDraw<IDirectDraw2>;

@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -33,24 +32,18 @@ namespace
 
 namespace CompatPrimarySurface
 {
-	template <typename TDirectDraw>
-	DisplayMode getDisplayMode(TDirectDraw& dd)
+	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd)
 	{
 		DisplayMode dm = {};
-		typename CompatDirectDraw<TDirectDraw>::TSurfaceDesc desc = {};
+		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		CompatDirectDraw<TDirectDraw>::s_origVtable.GetDisplayMode(&dd, &desc);
+		dd->GetDisplayMode(&dd, &desc);
 		dm.width = desc.dwWidth;
 		dm.height = desc.dwHeight;
 		dm.pixelFormat = desc.ddpfPixelFormat;
 		dm.refreshRate = desc.dwRefreshRate;
 		return dm;
 	}
-
-	template DisplayMode getDisplayMode(IDirectDraw& dd);
-	template DisplayMode getDisplayMode(IDirectDraw2& dd);
-	template DisplayMode getDisplayMode(IDirectDraw4& dd);
-	template DisplayMode getDisplayMode(IDirectDraw7& dd);
 
 	CompatPtr<IDirectDrawSurface7> getPrimary()
 	{

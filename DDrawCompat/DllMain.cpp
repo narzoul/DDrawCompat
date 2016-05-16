@@ -42,16 +42,18 @@ namespace
 		CompatInterface::hookVtable(*intf);
 	}
 
-	void hookDirectDraw(IDirectDraw7& dd)
+	void hookDirectDraw(CompatRef<IDirectDraw7> dd)
 	{
-		IUnknown& ddUnk = reinterpret_cast<IUnknown&>(dd);
-		hookVtable<CompatDirectDraw<IDirectDraw>>(IID_IDirectDraw, ddUnk);
-		hookVtable<CompatDirectDraw<IDirectDraw2>>(IID_IDirectDraw2, ddUnk);
-		hookVtable<CompatDirectDraw<IDirectDraw4>>(IID_IDirectDraw4, ddUnk);
-		hookVtable<CompatDirectDraw<IDirectDraw7>>(IID_IDirectDraw7, ddUnk);
+		CompatDirectDraw<IDirectDraw7>::s_origVtable = *(&dd)->lpVtbl;
+		CompatPtr<IDirectDraw7> dd7(&dd);
+		hookVtable<CompatDirectDraw<IDirectDraw>>(dd7);
+		hookVtable<CompatDirectDraw<IDirectDraw2>>(dd7);
+		hookVtable<CompatDirectDraw<IDirectDraw4>>(dd7);
+		hookVtable<CompatDirectDraw<IDirectDraw7>>(dd7);
+		dd7.detach();
 	}
 
-	void hookDirectDrawSurface(IDirectDraw7& dd)
+	void hookDirectDrawSurface(CompatRef<IDirectDraw7> dd)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
@@ -61,8 +63,7 @@ namespace
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
 
 		CompatPtr<IDirectDrawSurface7> surface;
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			&dd, &desc, &surface.getRef(), nullptr);
+		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
 			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
@@ -78,12 +79,11 @@ namespace
 		}
 	}
 
-	void hookDirectDrawPalette(IDirectDraw7& dd)
+	void hookDirectDrawPalette(CompatRef<IDirectDraw7> dd)
 	{
 		PALETTEENTRY paletteEntries[2] = {};
 		IDirectDrawPalette* palette = nullptr;
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreatePalette(
-			&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr);
+		HRESULT result = dd->CreatePalette(&dd, DDPCAPS_1BIT, paletteEntries, &palette, nullptr);
 		if (SUCCEEDED(result))
 		{
 			CompatDirectDrawPalette::hookVtable(*palette);
@@ -101,7 +101,7 @@ namespace
 		if (!isAlreadyInstalled)
 		{
 			Compat::Log() << "Installing DirectDraw hooks";
-			IDirectDraw7* dd = DDrawRepository::getDirectDraw();
+			auto dd(DDrawRepository::getDirectDraw());
 			if (dd)
 			{
 				hookDirectDraw(*dd);

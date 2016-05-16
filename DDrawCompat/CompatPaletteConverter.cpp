@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <cstring>
 
-#include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
@@ -50,12 +49,6 @@ namespace
 
 	CompatPtr<IDirectDrawSurface7> createSurface(const DDSURFACEDESC2& primaryDesc, void* bits)
 	{
-		IDirectDraw7* dd = DDrawRepository::getDirectDraw();
-		if (!dd)
-		{
-			return nullptr;
-		}
-
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS |
@@ -67,8 +60,9 @@ namespace
 		desc.lPitch = (primaryDesc.dwWidth + 3) & ~3;
 		desc.lpSurface = bits;
 
+		auto dd(DDrawRepository::getDirectDraw());
 		CompatPtr<IDirectDrawSurface7> surface;
-		CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		return surface;
 	}
 }

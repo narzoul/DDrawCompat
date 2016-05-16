@@ -19,8 +19,7 @@ namespace CompatPrimarySurface
 		DWORD refreshRate;
 	};
 
-	template <typename TDirectDraw>
-	DisplayMode getDisplayMode(TDirectDraw& dd);
+	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd);
 
 	CompatPtr<IDirectDrawSurface7> getPrimary();
 	bool isPrimary(void* surface);

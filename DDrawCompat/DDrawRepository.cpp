@@ -1,7 +1,6 @@
 #include <algorithm>
 #include <vector>
 
-#include "CompatDirectDraw.h"
 #include "CompatPtr.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
@@ -14,7 +13,7 @@ namespace
 	static std::vector<Surface> g_sysMemSurfaces;
 	static std::vector<Surface> g_vidMemSurfaces;
 
-	IDirectDraw7* createDirectDraw();
+	CompatPtr<IDirectDraw7> createDirectDraw();
 	Surface createSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
 	std::vector<Surface>::iterator findSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf,
 		std::vector<Surface>& cachedSurfaces);
@@ -24,22 +23,21 @@ namespace
 	void normalizePixelFormat(DDPIXELFORMAT& pf);
 	void returnSurface(const Surface& surface);
 
-	IDirectDraw7* createDirectDraw()
+	CompatPtr<IDirectDraw7> createDirectDraw()
 	{
-		IDirectDraw7* dd = nullptr;
+		CompatPtr<IDirectDraw7> dd;
 		HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreateEx, nullptr,
-			reinterpret_cast<void**>(&dd), IID_IDirectDraw7, nullptr);
+			reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr);
 		if (FAILED(result))
 		{
 			Compat::Log() << "Failed to create a DirectDraw object in the repository: " << result;
 			return nullptr;
 		}
 
-		result = dd->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
+		result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 		if (FAILED(result))
 		{
 			Compat::Log() << "Failed to set the cooperative level in the repository: " << result;
-			dd->lpVtbl->Release(dd);
 			return nullptr;
 		}
 
@@ -49,11 +47,6 @@ namespace
 	Surface createSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
 	{
 		Surface surface = {};
-		IDirectDraw7* dd = DDrawRepository::getDirectDraw();
-		if (!dd)
-		{
-			return surface;
-		}
 
 		surface.desc.dwSize = sizeof(surface.desc);
 		surface.desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
@@ -62,8 +55,8 @@ namespace
 		surface.desc.ddpfPixelFormat = pf;
 		surface.desc.ddsCaps.dwCaps = caps;
 
-		CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			dd, &surface.desc, &surface.surface.getRef(), nullptr);
+		auto dd(DDrawRepository::getDirectDraw());
+		dd->CreateSurface(dd, &surface.desc, &surface.surface.getRef(), nullptr);
 		return surface;
 	}
 
@@ -177,9 +170,9 @@ namespace DDrawRepository
 		returnSurface(*this);
 	}
 
-	IDirectDraw7* getDirectDraw()
+	CompatWeakPtr<IDirectDraw7> getDirectDraw()
 	{
-		static IDirectDraw7* dd = createDirectDraw();
-		return dd;
+		static auto dd = new CompatPtr<IDirectDraw7>(createDirectDraw());
+		return *dd;
 	}
 }

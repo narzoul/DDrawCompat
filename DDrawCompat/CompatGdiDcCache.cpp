@@ -1,7 +1,6 @@
 #include <cstring>
 #include <vector>
 
-#include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
 #include "CompatGdiDcCache.h"
 #include "CompatPrimarySurface.h"
@@ -21,7 +20,6 @@ namespace
 	DWORD g_maxUsedCacheSize = 0;
 	DWORD g_ddLockThreadId = 0;
 
-	IDirectDraw7* g_directDraw = nullptr;
 	IDirectDrawPalette* g_palette = nullptr;
 	PALETTEENTRY g_paletteEntries[256] = {};
 	void* g_surfaceMemory = nullptr;
@@ -68,9 +66,9 @@ namespace
 		desc.lPitch = g_pitch;
 		desc.lpSurface = g_surfaceMemory;
 
+		auto dd(DDrawRepository::getDirectDraw());
 		CompatPtr<IDirectDrawSurface7> surface;
-		HRESULT result = CompatDirectDraw<IDirectDraw7>::s_origVtable.CreateSurface(
-			g_directDraw, &desc, &surface.getRef(), nullptr);
+		HRESULT result = dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		if (FAILED(result))
 		{
 			LOG_ONCE("Failed to create a GDI surface: " << result);
@@ -168,13 +166,9 @@ namespace CompatGdiDcCache
 
 	bool init()
 	{
-		g_directDraw = DDrawRepository::getDirectDraw();
-		if (g_directDraw)
-		{
-			CompatDirectDraw<IDirectDraw7>::s_origVtable.CreatePalette(
-				g_directDraw, DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette, nullptr);
-		}
-		return nullptr != g_directDraw;
+		auto dd(DDrawRepository::getDirectDraw());
+		dd->CreatePalette(dd, DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette, nullptr);
+		return nullptr != g_palette;
 	}
 
 	void releaseDc(const CachedDc& cachedDc)
