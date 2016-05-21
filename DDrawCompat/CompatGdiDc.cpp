@@ -124,6 +124,11 @@ namespace
 
 	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, bool isMenuWindow, const POINT& origin)
 	{
+		if (GetDesktopWindow() == hwnd)
+		{
+			return;
+		}
+
 		HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
 		if (1 == GetClipRgn(origDc, clipRgn))
 		{
@@ -167,7 +172,7 @@ namespace CompatGdiDc
 			return it->second.dc;
 		}
 
-		const HWND hwnd = WindowFromDC(origDc);
+		const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
 		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
 		if (isMenuWindow && !isMenuPaintDc)
 		{

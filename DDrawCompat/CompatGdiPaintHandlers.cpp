@@ -83,6 +83,15 @@ namespace
 
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
+		if (WM_CREATE == msg)
+		{
+			auto className = reinterpret_cast<CREATESTRUCTW*>(lParam)->lpszClass;
+			if (reinterpret_cast<DWORD>(className) > 0xFFFF &&
+				0 == lstrcmpW(className, L"CompatWindowDesktopReplacement"))
+			{
+				return -1;
+			}
+		}
 		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
 	}
 
