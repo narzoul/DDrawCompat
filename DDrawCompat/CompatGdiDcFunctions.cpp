@@ -10,6 +10,9 @@ namespace
 {
 	std::unordered_map<void*, const char*> g_funcNames;
 
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
+	DWORD getDdLockFlags(Params... params);
+
 	BOOL WINAPI GdiDrawStream(HDC, DWORD, DWORD) { return FALSE; }
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
 
@@ -67,7 +70,8 @@ namespace
 		Compat::LogEnter(g_funcNames[origFunc], params...);
 #endif
 
-		if (!hasDisplayDcArg(params...) || !CompatGdi::beginGdiRendering())
+		if (!hasDisplayDcArg(params...) ||
+			!CompatGdi::beginGdiRendering(getDdLockFlags<OrigFuncPtr, origFunc>(params...)))
 		{
 			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
 
@@ -105,6 +109,18 @@ namespace
 	OrigFuncPtr getCompatGdiDcFuncPtr(FuncPtr<Result, Params...>)
 	{
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
+	}
+
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
+	DWORD getDdLockFlags(Params...)
+	{
+		return 0;
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&GetPixel), &GetPixel>(HDC, int, int)
+	{
+		return DDLOCK_READONLY;
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>

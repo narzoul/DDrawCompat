@@ -17,6 +17,7 @@ namespace
 {
 	std::atomic<int> g_disableEmulationCount = 0;
 	DWORD g_renderingRefCount = 0;
+	DWORD g_ddLockFlags = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
 	DWORD g_ddLockThreadId = 0;
 	HANDLE g_ddUnlockBeginEvent = nullptr;
@@ -53,14 +54,20 @@ namespace
 		return TRUE;
 	}
 
-	bool lockPrimarySurface()
+	bool lockPrimarySurface(DWORD lockFlags)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		auto primary(CompatPrimarySurface::getPrimary());
-		if (FAILED(primary->Lock(primary, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		if (FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
 		{
 			return false;
+		}
+
+		g_ddLockFlags = lockFlags;
+		if (0 != lockFlags)
+		{
+			EnterCriticalSection(&CompatGdi::g_gdiCriticalSection);
 		}
 
 		g_ddLockThreadId = GetCurrentThreadId();
@@ -74,8 +81,17 @@ namespace
 		GdiFlush();
 		auto primary(CompatPrimarySurface::getPrimary());
 		primary->Unlock(primary, nullptr);
-		RealPrimarySurface::invalidate(nullptr);
-		RealPrimarySurface::update();
+		if (DDLOCK_READONLY != g_ddLockFlags)
+		{
+			RealPrimarySurface::invalidate(nullptr);
+			RealPrimarySurface::update();
+		}
+
+		if (0 != g_ddLockFlags)
+		{
+			LeaveCriticalSection(&CompatGdi::g_gdiCriticalSection);
+		}
+		g_ddLockFlags = 0;
 
 		Compat::origProcs.ReleaseDDThreadLock();
 	}
@@ -85,7 +101,7 @@ namespace CompatGdi
 {
 	CRITICAL_SECTION g_gdiCriticalSection;
 
-	bool beginGdiRendering()
+	bool beginGdiRendering(DWORD lockFlags)
 	{
 		if (!isEmulationEnabled())
 		{
@@ -99,7 +115,7 @@ namespace CompatGdi
 			LeaveCriticalSection(&g_gdiCriticalSection);
 			Compat::origProcs.AcquireDDThreadLock();
 			EnterCriticalSection(&g_gdiCriticalSection);
-			if (!lockPrimarySurface())
+			if (!lockPrimarySurface(lockFlags))
 			{
 				Compat::origProcs.ReleaseDDThreadLock();
 				return false;

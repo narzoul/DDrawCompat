@@ -6,7 +6,7 @@
 
 namespace CompatGdi
 {
-	bool beginGdiRendering();
+	bool beginGdiRendering(DWORD lockFlags = 0);
 	void endGdiRendering();
 
 	void disableEmulation();
