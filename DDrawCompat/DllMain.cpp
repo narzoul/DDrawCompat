@@ -137,6 +137,18 @@ namespace
 		return true;
 	}
 
+	void printEnvironmentVariable(const char* var)
+	{
+		const DWORD size = GetEnvironmentVariable(var, nullptr, 0);
+		std::string value(size, 0);
+		if (!value.empty())
+		{
+			GetEnvironmentVariable(var, &value.front(), size);
+			value.pop_back();
+		}
+		Compat::Log() << "Environment variable " << var << " = \"" << value << '"';
+	}
+
 	void suppressEmulatedDirectDraw(GUID*& guid)
 	{
 		if (reinterpret_cast<GUID*>(DDCREATE_EMULATIONONLY) == guid)
@@ -157,6 +169,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		char currentProcessPath[MAX_PATH] = {};
 		GetModuleFileName(nullptr, currentProcessPath, MAX_PATH);
 		Compat::Log() << "Process path: " << currentProcessPath;
+
+		printEnvironmentVariable("__COMPAT_LAYER");
 
 		char currentDllPath[MAX_PATH] = {};
 		GetModuleFileName(hinstDLL, currentDllPath, MAX_PATH);
