@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <cstring>
 
+#include "CompatDisplayMode.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -25,7 +26,7 @@ namespace
 		}
 	}
 
-	HBITMAP createDibSection(const DDSURFACEDESC2& primaryDesc, void*& bits)
+	HBITMAP createDibSection(const CompatDisplayMode::DisplayMode& dm, void*& bits)
 	{
 		struct PalettizedBitmapInfo
 		{
@@ -35,28 +36,27 @@ namespace
 
 		PalettizedBitmapInfo bmi = {};
 		bmi.header.biSize = sizeof(bmi.header);
-		bmi.header.biWidth = primaryDesc.dwWidth;
-		bmi.header.biHeight = -static_cast<LONG>(primaryDesc.dwHeight);
+		bmi.header.biWidth = dm.width;
+		bmi.header.biHeight = -static_cast<LONG>(dm.height);
 		bmi.header.biPlanes = 1;
-		bmi.header.biBitCount = 8;
+		bmi.header.biBitCount = static_cast<WORD>(dm.pixelFormat.dwRGBBitCount);
 		bmi.header.biCompression = BI_RGB;
-		bmi.header.biClrUsed = 256;
 
 		return CreateDIBSection(nullptr, reinterpret_cast<BITMAPINFO*>(&bmi),
 			DIB_RGB_COLORS, &bits, nullptr, 0);
 	}
 
-	CompatPtr<IDirectDrawSurface7> createSurface(const DDSURFACEDESC2& primaryDesc, void* bits)
+	CompatPtr<IDirectDrawSurface7> createSurface(const CompatDisplayMode::DisplayMode& dm, void* bits)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS |
 			DDSD_PITCH | DDSD_LPSURFACE;
-		desc.dwWidth = primaryDesc.dwWidth;
-		desc.dwHeight = primaryDesc.dwHeight;
-		desc.ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
+		desc.dwWidth = dm.width;
+		desc.dwHeight = dm.height;
+		desc.ddpfPixelFormat = dm.pixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-		desc.lPitch = (primaryDesc.dwWidth + 3) & ~3;
+		desc.lPitch = (dm.width * dm.pixelFormat.dwRGBBitCount / 8 + 3) & ~3;
 		desc.lpSurface = bits;
 
 		auto dd(DDrawRepository::getDirectDraw());
@@ -68,23 +68,25 @@ namespace
 
 namespace CompatPaletteConverter
 {
-	bool create(const DDSURFACEDESC2& primaryDesc)
+	bool create()
 	{
-		if (CompatPrimarySurface::displayMode.pixelFormat.dwRGBBitCount > 8 &&
-			primaryDesc.ddpfPixelFormat.dwRGBBitCount > 8)
+		auto dd(DDrawRepository::getDirectDraw());
+		auto dm(CompatDisplayMode::getDisplayMode(*dd));
+		if (dm.pixelFormat.dwRGBBitCount > 8 &&
+			CompatDisplayMode::getRealDisplayMode(*dd).pixelFormat.dwRGBBitCount > 8)
 		{
 			return true;
 		}
 
 		void* bits = nullptr;
-		HBITMAP dib = createDibSection(primaryDesc, bits);
+		HBITMAP dib = createDibSection(dm, bits);
 		if (!dib)
 		{
 			Compat::Log() << "Failed to create the palette converter DIB section";
 			return false;
 		}
 
-		CompatPtr<IDirectDrawSurface7> surface(createSurface(primaryDesc, bits));
+		CompatPtr<IDirectDrawSurface7> surface(createSurface(dm, bits));
 		if (!surface)
 		{
 			Compat::Log() << "Failed to create the palette converter surface";

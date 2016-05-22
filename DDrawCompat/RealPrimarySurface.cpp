@@ -48,7 +48,7 @@ namespace
 		bool result = false;
 
 		auto primary(CompatPrimarySurface::getPrimary());
-		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
+		if (CompatPrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
 			auto paletteConverter(CompatPaletteConverter::getSurface());
 			paletteConverter->Blt(paletteConverter, &g_updateRect,
@@ -92,17 +92,17 @@ namespace
 
 	HRESULT init(CompatPtr<IDirectDrawSurface7> surface)
 	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		surface->GetSurfaceDesc(surface, &desc);
-
-		if (!CompatPaletteConverter::create(desc))
+		if (!CompatPaletteConverter::create())
 		{
 			return DDERR_GENERIC;
 		}
 
-		CompatPtr<IDirectDrawSurface7> backBuffer;
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		surface->GetSurfaceDesc(surface, &desc);
+
 		const bool isFlippable = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP);
+		CompatPtr<IDirectDrawSurface7> backBuffer;
 		if (isFlippable)
 		{
 			DDSCAPS2 backBufferCaps = {};
@@ -294,8 +294,8 @@ void RealPrimarySurface::invalidate(const RECT* rect)
 	}
 	else
 	{
-		SetRect(&g_updateRect, 0, 0,
-			CompatPrimarySurface::displayMode.width, CompatPrimarySurface::displayMode.height);
+		auto primaryDesc = CompatPrimarySurface::getDesc();
+		SetRect(&g_updateRect, 0, 0, primaryDesc.dwWidth, primaryDesc.dwHeight);
 	}
 }
 

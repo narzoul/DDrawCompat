@@ -1,6 +1,7 @@
 #include "CompatActivateAppHandler.h"
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
+#include "CompatDisplayMode.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -32,11 +33,8 @@ namespace
 		}
 
 		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
-		if (CompatPrimarySurface::isDisplayModeChanged)
-		{
-			const CompatPrimarySurface::DisplayMode& dm = CompatPrimarySurface::displayMode;
-			dd->SetDisplayMode(&dd, dm.width, dm.height, 32, dm.refreshRate, 0);
-		}
+		auto dm = CompatDisplayMode::getDisplayMode(dd);
+		dd->SetDisplayMode(&dd, dm.width, dm.height, 32, dm.refreshRate, dm.flags);
 
 		auto primary(CompatPrimarySurface::getPrimary());
 		if (primary && SUCCEEDED(primary->Restore(primary)))
@@ -48,10 +46,7 @@ namespace
 
 	void deactivateApp(CompatRef<IDirectDraw7> dd)
 	{
-		if (CompatPrimarySurface::isDisplayModeChanged)
-		{
-			dd->RestoreDisplayMode(&dd);
-		}
+		dd->RestoreDisplayMode(&dd);
 		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, DDSCL_NORMAL);
 
 		if (!(g_fullScreenCooperativeFlags & DDSCL_NOWINDOWCHANGES))

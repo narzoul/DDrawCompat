@@ -146,6 +146,7 @@
   <ItemGroup>
     <ClInclude Include="CompatActivateAppHandler.h" />
     <ClInclude Include="CompatDirectDrawPalette.h" />
+    <ClInclude Include="CompatDisplayMode.h" />
     <ClInclude Include="CompatGdi.h" />
     <ClInclude Include="CompatGdiCaret.h" />
     <ClInclude Include="CompatGdiDc.h" />
@@ -187,6 +188,7 @@
     <ClCompile Include="CompatDirectDraw.cpp" />
     <ClCompile Include="CompatDirectDrawPalette.cpp" />
     <ClCompile Include="CompatDirectDrawSurface.cpp" />
+    <ClCompile Include="CompatDisplayMode.cpp" />
     <ClCompile Include="CompatGdi.cpp" />
     <ClCompile Include="CompatGdiCaret.cpp" />
     <ClCompile Include="CompatGdiDcCache.cpp" />

@@ -8,7 +8,7 @@
 
 namespace CompatPaletteConverter
 {
-	bool create(const DDSURFACEDESC2& primaryDesc);
+	bool create();
 	HDC getDc();
 	CompatWeakPtr<IDirectDrawSurface7> getSurface();
 	void release();

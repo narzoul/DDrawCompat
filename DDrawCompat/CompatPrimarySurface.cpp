@@ -9,8 +9,12 @@
 
 namespace
 {
+	void onRelease();
+
+	DDSURFACEDESC2 g_primarySurfaceDesc = {};
 	CompatWeakPtr<IDirectDrawSurface> g_primarySurface = nullptr;
 	std::vector<void*> g_primarySurfacePtrs;
+	IReleaseNotifier g_releaseNotifier(onRelease);
 
 	void onRelease()
 	{
@@ -19,10 +23,8 @@ namespace
 		g_primarySurfacePtrs.clear();
 		g_primarySurface = nullptr;
 		CompatPrimarySurface::palette = nullptr;
-		CompatPrimarySurface::width = 0;
-		CompatPrimarySurface::height = 0;
 		ZeroMemory(&CompatPrimarySurface::paletteEntries, sizeof(CompatPrimarySurface::paletteEntries));
-		ZeroMemory(&CompatPrimarySurface::pixelFormat, sizeof(CompatPrimarySurface::pixelFormat));
+		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
 		RealPrimarySurface::release();
 
@@ -32,17 +34,9 @@ namespace
 
 namespace CompatPrimarySurface
 {
-	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd)
+	const DDSURFACEDESC2& getDesc()
 	{
-		DisplayMode dm = {};
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		dd->GetDisplayMode(&dd, &desc);
-		dm.width = desc.dwWidth;
-		dm.height = desc.dwHeight;
-		dm.pixelFormat = desc.ddpfPixelFormat;
-		dm.refreshRate = desc.dwRefreshRate;
-		return dm;
+		return g_primarySurfaceDesc;
 	}
 
 	CompatPtr<IDirectDrawSurface7> getPrimary()
@@ -66,6 +60,10 @@ namespace CompatPrimarySurface
 		CompatPtr<IDirectDrawSurface> surfacePtr(Compat::queryInterface<IDirectDrawSurface>(&surface));
 		g_primarySurface = surfacePtr;
 
+		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
+		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
+		surface->GetSurfaceDesc(&surface, &g_primarySurfaceDesc);
+
 		g_primarySurfacePtrs.clear();
 		g_primarySurfacePtrs.push_back(&surface);
 		g_primarySurfacePtrs.push_back(CompatPtr<IDirectDrawSurface4>(surfacePtr));
@@ -73,17 +71,11 @@ namespace CompatPrimarySurface
 		g_primarySurfacePtrs.push_back(CompatPtr<IDirectDrawSurface2>(surfacePtr));
 		g_primarySurfacePtrs.push_back(surfacePtr);
 
-		IReleaseNotifier* releaseNotifierPtr = &releaseNotifier;
+		IReleaseNotifier* releaseNotifierPtr = &g_releaseNotifier;
 		surface->SetPrivateData(&surface, IID_IReleaseNotifier,
 			releaseNotifierPtr, sizeof(releaseNotifierPtr), DDSPD_IUNKNOWNPOINTER);
 	}
 
-	DisplayMode displayMode = {};
-	bool isDisplayModeChanged = false;
 	CompatWeakPtr<IDirectDrawPalette> palette;
 	PALETTEENTRY paletteEntries[256] = {};
-	LONG width = 0;
-	LONG height = 0;
-	DDPIXELFORMAT pixelFormat = {};
-	IReleaseNotifier releaseNotifier(onRelease);
 }

@@ -1,7 +1,7 @@
 #include "CompatActivateAppHandler.h"
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
-#include "CompatPrimarySurface.h"
+#include "CompatDisplayMode.h"
 #include "CompatPtr.h"
 #include "CompatRef.h"
 #include "IReleaseNotifier.h"
@@ -47,18 +47,6 @@ namespace
 		return tagSurface;
 	}
 
-	template <typename TSurfaceDesc>
-	HRESULT PASCAL enumDisplayModesCallback(
-		TSurfaceDesc* lpDDSurfaceDesc,
-		LPVOID lpContext)
-	{
-		if (lpDDSurfaceDesc)
-		{
-			*static_cast<DDPIXELFORMAT*>(lpContext) = lpDDSurfaceDesc->ddpfPixelFormat;
-		}
-		return DDENUMRET_CANCEL;
-	}
-
 	bool isFullScreenDirectDraw(void* dd)
 	{
 		return dd && g_fullScreenDirectDraw &&
@@ -70,64 +58,6 @@ namespace
 		CompatActivateAppHandler::setFullScreenCooperativeLevel(nullptr, nullptr, 0);
 		g_fullScreenDirectDraw = nullptr;
 		g_fullScreenTagSurface = nullptr;
-	}
-
-	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP,
-		DWORD dwRefreshRate, DWORD dwFlags)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
-		desc.dwWidth = dwWidth;
-		desc.dwHeight = dwHeight;
-		desc.ddpfPixelFormat.dwSize = sizeof(desc.ddpfPixelFormat);
-		desc.ddpfPixelFormat.dwFlags = DDPF_RGB;
-		desc.ddpfPixelFormat.dwRGBBitCount = dwBPP;
-
-		switch (dwBPP)
-		{
-		case 1: desc.ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED1; break;
-		case 2: desc.ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED2; break;
-		case 4: desc.ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED4; break;
-		case 8: desc.ddpfPixelFormat.dwFlags |= DDPF_PALETTEINDEXED8; break;
-		}
-
-		DDPIXELFORMAT pf = {};
-		if (dwBPP > 8)
-		{
-			if (FAILED(dd->EnumDisplayModes(&dd, 0, &desc, &pf, &enumDisplayModesCallback)) ||
-				0 == pf.dwSize)
-			{
-				Compat::Log() << "Failed to find the requested display mode: " <<
-					dwWidth << "x" << dwHeight << "x" << dwBPP;
-				return DDERR_INVALIDMODE;
-			}
-		}
-		else
-		{
-			pf = desc.ddpfPixelFormat;
-		}
-
-		HRESULT result = dd->SetDisplayMode(&dd, dwWidth, dwHeight, 32, dwRefreshRate, dwFlags);
-		if (SUCCEEDED(result))
-		{
-			CompatPrimarySurface::displayMode.width = dwWidth;
-			CompatPrimarySurface::displayMode.height = dwHeight;
-			CompatPrimarySurface::displayMode.pixelFormat = pf;
-			CompatPrimarySurface::displayMode.refreshRate = dwRefreshRate;
-			CompatPrimarySurface::isDisplayModeChanged = true;
-		}
-		else
-		{
-			Compat::Log() << "Failed to set the display mode to " << dwWidth << "x" << dwHeight << "x32";
-		}
-
-		return result;
-	}
-
-	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd, DWORD dwWidth, DWORD dwHeight, DWORD dwBPP)
-	{
-		return setDisplayMode(dd, dwWidth, dwHeight, dwBPP, 0, 0);
 	}
 
 	void setFullScreenDirectDraw(CompatRef<IDirectDraw> dd)
@@ -186,16 +116,19 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	}
 	else
 	{
-		if (CompatPrimarySurface::displayMode.pixelFormat.dwSize != 0 &&
+		if (lpDDSurfaceDesc &&
 			!(lpDDSurfaceDesc->dwFlags & DDSD_PIXELFORMAT) &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_WIDTH) &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_HEIGHT) &&
 			!((lpDDSurfaceDesc->dwFlags & DDSD_CAPS) &&
 				(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER))))
 		{
+			CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
+			auto dm = CompatDisplayMode::getDisplayMode(*dd);
+
 			TSurfaceDesc desc = *lpDDSurfaceDesc;
 			desc.dwFlags |= DDSD_PIXELFORMAT;
-			desc.ddpfPixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
+			desc.ddpfPixelFormat = dm.pixelFormat;
 			result = s_origVtable.CreateSurface(This, &desc, lplpDDSurface, pUnkOuter);
 		}
 		else
@@ -215,14 +148,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 template <typename TDirectDraw>
 HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::RestoreDisplayMode(TDirectDraw* This)
 {
-	HRESULT result = s_origVtable.RestoreDisplayMode(This);
-	if (SUCCEEDED(result))
-	{
-		CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*dd);
-		CompatPrimarySurface::isDisplayModeChanged = false;
-	}
-	return result;
+	CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
+	return CompatDisplayMode::restoreDisplayMode(*dd);
 }
 
 template <typename TDirectDraw>
@@ -262,7 +189,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
 	Params... params)
 {
 	CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-	return setDisplayMode(*dd, dwWidth, dwHeight, dwBPP, params...);
+	return CompatDisplayMode::setDisplayMode(*dd, dwWidth, dwHeight, dwBPP, params...);
 }
 
 template <> const IID& CompatDirectDraw<IDirectDraw>::s_iid = IID_IDirectDraw;

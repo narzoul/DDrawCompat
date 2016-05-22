@@ -96,7 +96,7 @@ namespace CompatGdi
 		{
 			flags |= DC_ACTIVE;
 		}
-		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount > 8)
+		if (CompatPrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount > 8)
 		{
 			flags |= DC_GRADIENT;
 		}

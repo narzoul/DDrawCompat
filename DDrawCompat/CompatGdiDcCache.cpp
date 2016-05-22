@@ -55,12 +55,8 @@ namespace
 
 	CompatPtr<IDirectDrawSurface7> createGdiSurface()
 	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
+		DDSURFACEDESC2 desc = CompatPrimarySurface::getDesc();
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
-		desc.dwWidth = CompatPrimarySurface::width;
-		desc.dwHeight = CompatPrimarySurface::height;
-		desc.ddpfPixelFormat = CompatPrimarySurface::pixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 		desc.lPitch = g_pitch;
 		desc.lpSurface = g_surfaceMemory;
@@ -74,7 +70,7 @@ namespace
 			return nullptr;
 		}
 
-		if (CompatPrimarySurface::pixelFormat.dwRGBBitCount <= 8)
+		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
 			surface->SetPalette(surface, g_palette);
 		}

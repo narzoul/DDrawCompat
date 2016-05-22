@@ -3,6 +3,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
+#include "CompatDisplayMode.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -178,28 +179,20 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 	TSurfaceDesc compatDesc,
 	TSurface*& compatSurface)
 {
-	if (0 == CompatPrimarySurface::displayMode.pixelFormat.dwSize)
-	{
-		CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
-		CompatPrimarySurface::displayMode = CompatPrimarySurface::getDisplayMode(*dd7);
-	}
-
 	HRESULT result = RealPrimarySurface::create(dd);
 	if (FAILED(result))
 	{
 		return result;
 	}
 
-	CompatPrimarySurface::width = CompatPrimarySurface::displayMode.width;
-	CompatPrimarySurface::height = CompatPrimarySurface::displayMode.height;
-	CompatPrimarySurface::pixelFormat = CompatPrimarySurface::displayMode.pixelFormat;
-
+	CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
+	const auto& dm = CompatDisplayMode::getDisplayMode(*dd7);
 	compatDesc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
-	compatDesc.dwWidth = CompatPrimarySurface::width;
-	compatDesc.dwHeight = CompatPrimarySurface::height;
-	compatDesc.ddsCaps.dwCaps ^= DDSCAPS_PRIMARYSURFACE;
+	compatDesc.dwWidth = dm.width;
+	compatDesc.dwHeight = dm.height;
+	compatDesc.ddsCaps.dwCaps &= ~DDSCAPS_PRIMARYSURFACE;
 	compatDesc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
-	compatDesc.ddpfPixelFormat = CompatPrimarySurface::pixelFormat;
+	compatDesc.ddpfPixelFormat = dm.pixelFormat;
 
 	result = dd->CreateSurface(&dd, &compatDesc, &compatSurface, nullptr);
 	if (FAILED(result))
