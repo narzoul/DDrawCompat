@@ -121,7 +121,7 @@ namespace
 		if (!g_updateThread)
 		{
 			g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
-			SetThreadPriority(g_updateThread, THREAD_PRIORITY_ABOVE_NORMAL);
+			SetThreadPriority(g_updateThread, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		surface->SetPrivateData(surface, IID_IReleaseNotifier,

@@ -179,6 +179,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		VISIT_ALL_DDRAW_PROCS(LOAD_ORIGINAL_DDRAW_PROC);
 		Compat::origProcs.DirectInputCreateA = GetProcAddress(g_origDInputModule, "DirectInputCreateA");
 
+		const BOOL disablePriorityBoost = TRUE;
+		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
 		Time::init();
