@@ -17,6 +17,11 @@ namespace CompatDisplayMode
 		DWORD flags;
 	};
 
+	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy);
+	HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
+		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage);
+	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight);
+
 	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd);
 	DisplayMode getRealDisplayMode(CompatRef<IDirectDraw7> dd);
 	HRESULT restoreDisplayMode(CompatRef<IDirectDraw7> dd);

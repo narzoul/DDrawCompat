@@ -1,5 +1,6 @@
 #include <unordered_map>
 
+#include "CompatDisplayMode.h"
 #include "CompatGdi.h"
 #include "CompatGdiDc.h"
 #include "CompatGdiDcFunctions.h"
@@ -111,6 +112,11 @@ namespace
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
 
+	DWORD getDdLockFlagsBlt(HDC hdcDest, HDC hdcSrc)
+	{
+		return hasDisplayDcArg(hdcSrc) && !hasDisplayDcArg(hdcDest) ? DDLOCK_READONLY : 0;
+	}
+
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
 	DWORD getDdLockFlags(Params...)
 	{
@@ -118,9 +124,72 @@ namespace
 	}
 
 	template <>
+	DWORD getDdLockFlags<decltype(&AlphaBlend), &AlphaBlend>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, BLENDFUNCTION)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&BitBlt), &BitBlt>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, DWORD)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&GdiAlphaBlend), &GdiAlphaBlend>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, BLENDFUNCTION)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&GdiTransparentBlt), &GdiTransparentBlt >(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, UINT)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&GetDIBits), &GetDIBits>(
+		HDC, HBITMAP, UINT, UINT, LPVOID, LPBITMAPINFO, UINT)
+	{
+		return DDLOCK_READONLY;
+	}
+
+	template <>
 	DWORD getDdLockFlags<decltype(&GetPixel), &GetPixel>(HDC, int, int)
 	{
 		return DDLOCK_READONLY;
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&MaskBlt), &MaskBlt>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, HBITMAP, int, int, DWORD)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&PlgBlt), &PlgBlt>(
+		HDC hdcDest, const POINT*, HDC hdcSrc, int, int, int, int, HBITMAP, int, int)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&StretchBlt), &StretchBlt>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, DWORD)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+	}
+
+	template <>
+	DWORD getDdLockFlags<decltype(&TransparentBlt), &TransparentBlt>(
+		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, UINT)
+	{
+		return getDdLockFlagsBlt(hdcDest, hdcSrc);
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
@@ -154,10 +223,9 @@ namespace CompatGdiDcFunctions
 		// Bitmap functions
 		HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 		HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
-		HOOK_GDI_DC_FUNCTION(gdi32, CreateCompatibleBitmap);
-		HOOK_GDI_DC_FUNCTION(gdi32, CreateDIBitmap);
-		HOOK_GDI_DC_FUNCTION(gdi32, CreateDIBSection);
-		HOOK_GDI_DC_FUNCTION(gdi32, CreateDiscardableBitmap);
+		HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, CompatDisplayMode::createCompatibleBitmap);
+		HOOK_FUNCTION(gdi32, CreateDIBitmap, CompatDisplayMode::createDIBitmap);
+		HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, CompatDisplayMode::createDiscardableBitmap);
 		HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
 		HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
 		HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);
@@ -179,7 +247,6 @@ namespace CompatGdiDcFunctions
 		HOOK_GDI_DC_FUNCTION(gdi32, PatBlt);
 
 		// Device context functions
-		HOOK_GDI_DC_FUNCTION(gdi32, CreateCompatibleDC);
 		HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
 		HOOK_FUNCTION(user32, WindowFromDC, windowFromDc);
 

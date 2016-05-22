@@ -1,8 +1,30 @@
 #include "CompatDisplayMode.h"
+#include "CompatPtr.h"
+#include "DDrawProcs.h"
+#include "DDrawRepository.h"
+#include "Hook.h"
 
 namespace
 {
+	CompatWeakPtr<IDirectDrawSurface7> g_compatibleSurface = {};
+	HDC g_compatibleDc = nullptr;
 	CompatDisplayMode::DisplayMode g_emulatedDisplayMode = {};
+
+	CompatPtr<IDirectDrawSurface7> createCompatibleSurface()
+	{
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
+		desc.dwWidth = 1;
+		desc.dwHeight = 1;
+		desc.ddpfPixelFormat = g_emulatedDisplayMode.pixelFormat;
+		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
+
+		auto dd = DDrawRepository::getDirectDraw();
+		CompatPtr<IDirectDrawSurface7> surface;
+		dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		return surface;
+	}
 
 	template <typename TSurfaceDesc>
 	HRESULT PASCAL enumDisplayModesCallback(
@@ -49,13 +71,63 @@ namespace
 			Compat::Log() << "Failed to find the requested display mode: " <<
 				width << "x" << height << "x" << bpp;
 		}
-		
+
 		return pf;
+	}
+
+	void releaseCompatibleDc()
+	{
+		if (g_compatibleDc)
+		{
+			Compat::origProcs.AcquireDDThreadLock();
+			g_compatibleSurface->ReleaseDC(g_compatibleSurface, g_compatibleDc);
+			g_compatibleDc = nullptr;
+			g_compatibleSurface.release();
+		}
+	}
+
+	void replaceDc(HDC& hdc)
+	{
+		if (g_compatibleDc && hdc && OBJ_DC == GetObjectType(hdc) &&
+			DT_RASDISPLAY == GetDeviceCaps(hdc, TECHNOLOGY))
+		{
+			hdc = g_compatibleDc;
+		}
+	}
+
+	void updateCompatibleDc()
+	{
+		releaseCompatibleDc();
+		g_compatibleSurface = createCompatibleSurface().detach();
+		if (g_compatibleSurface &&
+			SUCCEEDED(g_compatibleSurface->GetDC(g_compatibleSurface, &g_compatibleDc)))
+		{
+			Compat::origProcs.ReleaseDDThreadLock();
+		}
 	}
 }
 
 namespace CompatDisplayMode
 {
+	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
+	{
+		replaceDc(hdc);
+		return CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy);
+	}
+
+	HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
+		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
+	{
+		replaceDc(hdc);
+		return CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
+	}
+
+	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
+	{
+		replaceDc(hdc);
+		return CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight);
+	}
+
 	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd)
 	{
 		if (0 == g_emulatedDisplayMode.width)
@@ -85,6 +157,7 @@ namespace CompatDisplayMode
 		if (SUCCEEDED(result))
 		{
 			ZeroMemory(&g_emulatedDisplayMode, sizeof(g_emulatedDisplayMode));
+			releaseCompatibleDc();
 		}
 		return result;
 	}
@@ -111,6 +184,7 @@ namespace CompatDisplayMode
 		g_emulatedDisplayMode.pixelFormat = pf;
 		g_emulatedDisplayMode.refreshRate = refreshRate;
 		g_emulatedDisplayMode.flags = flags;
+		updateCompatibleDc();
 
 		return DD_OK;
 	}
