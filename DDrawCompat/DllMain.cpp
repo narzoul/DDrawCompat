@@ -9,6 +9,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDirectDrawPalette.h"
+#include "CompatFontSmoothing.h"
 #include "CompatGdi.h"
 #include "CompatRegistry.h"
 #include "CompatPtr.h"
@@ -183,6 +184,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
+		CompatFontSmoothing::g_origSystemSettings = CompatFontSmoothing::getSystemSettings();
 		Time::init();
 
 		if (Compat::origProcs.SetAppCompatData)
@@ -204,6 +206,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);
 		FreeLibrary(g_origDDrawModule);
+		CompatFontSmoothing::setSystemSettingsForced(CompatFontSmoothing::g_origSystemSettings);
 		Compat::Log() << "DDrawCompat detached successfully";
 	}
 

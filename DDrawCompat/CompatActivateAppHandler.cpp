@@ -2,6 +2,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDisplayMode.h"
+#include "CompatFontSmoothing.h"
 #include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -16,6 +17,7 @@ namespace
 	CompatWeakPtr<IUnknown> g_fullScreenDirectDraw = nullptr;
 	HWND g_fullScreenCooperativeWindow = nullptr;
 	DWORD g_fullScreenCooperativeFlags = 0;
+	CompatFontSmoothing::SystemSettings g_fontSmoothingSettings = {};
 	HHOOK g_callWndProcHook = nullptr;
 
 	void handleActivateApp(bool isActivated);
@@ -42,6 +44,8 @@ namespace
 			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
 			CompatGdi::invalidate(nullptr);
 		}
+
+		CompatFontSmoothing::setSystemSettings(g_fontSmoothingSettings);
 	}
 
 	void deactivateApp(CompatRef<IDirectDraw7> dd)
@@ -53,6 +57,9 @@ namespace
 		{
 			ShowWindow(g_fullScreenCooperativeWindow, SW_SHOWMINNOACTIVE);
 		}
+
+		g_fontSmoothingSettings = CompatFontSmoothing::getSystemSettings();
+		CompatFontSmoothing::setSystemSettings(CompatFontSmoothing::g_origSystemSettings);
 	}
 
 	LRESULT CALLBACK callWndProc(int nCode, WPARAM wParam, LPARAM lParam)
