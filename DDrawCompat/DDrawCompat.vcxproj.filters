@@ -132,6 +132,9 @@
     <ClInclude Include="CompatFontSmoothing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="CompatHooks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -216,6 +219,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatFontSmoothing.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

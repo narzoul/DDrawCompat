@@ -158,6 +158,7 @@
     <ClInclude Include="CompatGdiScrollFunctions.h" />
     <ClInclude Include="CompatGdiTitleBar.h" />
     <ClInclude Include="CompatGdiWinProc.h" />
+    <ClInclude Include="CompatHooks.h" />
     <ClInclude Include="CompatPaletteConverter.h" />
     <ClInclude Include="CompatPtr.h" />
     <ClInclude Include="CompatQueryInterface.h" />
@@ -200,6 +201,7 @@
     <ClCompile Include="CompatGdiScrollFunctions.cpp" />
     <ClCompile Include="CompatGdiTitleBar.cpp" />
     <ClCompile Include="CompatGdiWinProc.cpp" />
+    <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatPaletteConverter.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
     <ClCompile Include="DDrawLog.cpp" />

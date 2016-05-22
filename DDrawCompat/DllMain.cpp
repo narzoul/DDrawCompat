@@ -11,6 +11,7 @@
 #include "CompatDirectDrawPalette.h"
 #include "CompatFontSmoothing.h"
 #include "CompatGdi.h"
+#include "CompatHooks.h"
 #include "CompatRegistry.h"
 #include "CompatPtr.h"
 #include "CompatVtable.h"
@@ -185,6 +186,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
 		CompatFontSmoothing::g_origSystemSettings = CompatFontSmoothing::getSystemSettings();
+		CompatHooks::installHooks();
 		Time::init();
 
 		if (Compat::origProcs.SetAppCompatData)
