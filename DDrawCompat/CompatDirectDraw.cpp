@@ -117,18 +117,27 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	else
 	{
 		if (lpDDSurfaceDesc &&
-			!(lpDDSurfaceDesc->dwFlags & DDSD_PIXELFORMAT) &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_WIDTH) &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_HEIGHT) &&
 			!((lpDDSurfaceDesc->dwFlags & DDSD_CAPS) &&
-				(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER))))
+			(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER))))
 		{
 			CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
 			auto dm = CompatDisplayMode::getDisplayMode(*dd);
 
 			TSurfaceDesc desc = *lpDDSurfaceDesc;
-			desc.dwFlags |= DDSD_PIXELFORMAT;
-			desc.ddpfPixelFormat = dm.pixelFormat;
+			if (!(desc.dwFlags & DDSD_PIXELFORMAT))
+			{
+				desc.dwFlags |= DDSD_PIXELFORMAT;
+				desc.ddpfPixelFormat = dm.pixelFormat;
+			}
+			if (!((desc.dwFlags & DDSD_CAPS) &&
+				(desc.ddsCaps.dwCaps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
+					DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER))))
+			{
+				desc.dwFlags |= DDSD_CAPS;
+				desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
+			}
 			result = s_origVtable.CreateSurface(This, &desc, lplpDDSurface, pUnkOuter);
 		}
 		else
