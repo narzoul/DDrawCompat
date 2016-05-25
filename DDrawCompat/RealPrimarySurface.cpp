@@ -212,7 +212,7 @@ HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
 	desc.dwSize = sizeof(desc);
 	desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 	desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
-	desc.dwBackBufferCount = 1;
+	desc.dwBackBufferCount = 2;
 
 	CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
 	HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
@@ -266,12 +266,8 @@ HRESULT RealPrimarySurface::flip(DWORD flags)
 
 	invalidate(nullptr);
 	compatBlt(*g_backBuffer);
-	if (flags & DDFLIP_DONOTWAIT)
-	{
-		flags ^= DDFLIP_DONOTWAIT;
-	}
 	
-	HRESULT result = g_frontBuffer->Flip(g_frontBuffer, nullptr, flags | DDFLIP_WAIT);
+	HRESULT result = g_frontBuffer->Flip(g_frontBuffer, nullptr, flags);
 	if (SUCCEEDED(result))
 	{
 		g_qpcNextUpdate = getNextUpdateQpc(
