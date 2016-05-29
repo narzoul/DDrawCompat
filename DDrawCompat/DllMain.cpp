@@ -9,6 +9,7 @@
 #include "CompatDirectDraw.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDirectDrawPalette.h"
+#include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
 #include "CompatGdi.h"
 #include "CompatHooks.h"
@@ -199,6 +200,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
+
+		CompatDisplayMode::installHooks();
 		CompatFontSmoothing::g_origSystemSettings = CompatFontSmoothing::getSystemSettings();
 		CompatHooks::installHooks();
 		Time::init();

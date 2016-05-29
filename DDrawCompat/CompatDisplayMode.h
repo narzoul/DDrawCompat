@@ -17,6 +17,8 @@ namespace CompatDisplayMode
 		DWORD flags;
 	};
 
+	void installHooks();
+
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy);
 	HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
 		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage);

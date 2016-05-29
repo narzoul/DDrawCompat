@@ -17,6 +17,8 @@
 std::ostream& operator<<(std::ostream& os, const char* str);
 std::ostream& operator<<(std::ostream& os, const unsigned char* data);
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
+std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm);
+std::ostream& operator<<(std::ostream& os, const DEVMODEW& dm);
 std::ostream& operator<<(std::ostream& os, const RECT& rect);
 std::ostream& operator<<(std::ostream& os, HDC__& dc);
 std::ostream& operator<<(std::ostream& os, HWND__& hwnd);

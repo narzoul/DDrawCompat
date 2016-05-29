@@ -10,6 +10,61 @@ namespace
 	HDC g_compatibleDc = nullptr;
 	CompatDisplayMode::DisplayMode g_emulatedDisplayMode = {};
 
+	template <typename CStr, typename DevMode,
+		typename ChangeDisplaySettingsExPtr, typename EnumDisplaySettingsPtr>
+	LONG changeDisplaySettingsEx(
+		ChangeDisplaySettingsExPtr origChangeDisplaySettings,
+		EnumDisplaySettingsPtr origEnumDisplaySettings,
+		CStr lpszDeviceName, DevMode* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	{
+		DevMode targetDevMode = {};
+		if (lpDevMode)
+		{
+			targetDevMode = *lpDevMode;
+		}
+		else
+		{
+			targetDevMode.dmSize = sizeof(targetDevMode);
+			origEnumDisplaySettings(lpszDeviceName, ENUM_REGISTRY_SETTINGS, &targetDevMode);
+		}
+
+		if (targetDevMode.dmPelsWidth)
+		{
+			DevMode currentDevMode = {};
+			currentDevMode.dmSize = sizeof(currentDevMode);
+			origEnumDisplaySettings(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currentDevMode);
+
+			if (targetDevMode.dmPelsWidth == currentDevMode.dmPelsWidth &&
+				targetDevMode.dmPelsHeight == currentDevMode.dmPelsHeight &&
+				targetDevMode.dmBitsPerPel == currentDevMode.dmBitsPerPel &&
+				targetDevMode.dmDisplayFrequency == currentDevMode.dmDisplayFrequency &&
+				targetDevMode.dmDisplayFlags == currentDevMode.dmDisplayFlags)
+			{
+				HANDLE dwmDxFullScreenTransitionEvent = OpenEventW(
+					EVENT_MODIFY_STATE, FALSE, L"DWM_DX_FULLSCREEN_TRANSITION_EVENT");
+				SetEvent(dwmDxFullScreenTransitionEvent);
+				CloseHandle(dwmDxFullScreenTransitionEvent);
+				return DISP_CHANGE_SUCCESSFUL;
+			}
+		}
+
+		return origChangeDisplaySettings(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+	}
+
+	LONG WINAPI changeDisplaySettingsExA(
+		LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	{
+		return changeDisplaySettingsEx(CALL_ORIG_FUNC(ChangeDisplaySettingsExA),
+			CALL_ORIG_FUNC(EnumDisplaySettingsA), lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+	}
+
+	LONG WINAPI changeDisplaySettingsExW(
+		LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	{
+		return changeDisplaySettingsEx(CALL_ORIG_FUNC(ChangeDisplaySettingsExW),
+			CALL_ORIG_FUNC(EnumDisplaySettingsW), lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+	}
+
 	CompatPtr<IDirectDrawSurface7> createCompatibleSurface()
 	{
 		DDSURFACEDESC2 desc = {};
@@ -149,6 +204,12 @@ namespace CompatDisplayMode
 		dm.pixelFormat = desc.ddpfPixelFormat;
 		dm.refreshRate = desc.dwRefreshRate;
 		return dm;
+	}
+
+	void installHooks()
+	{
+		HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
+		HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
 	}
 
 	HRESULT restoreDisplayMode(CompatRef<IDirectDraw7> dd)

@@ -14,6 +14,13 @@ namespace
 		empty.dwSize = t.dwSize;
 		return 0 == memcmp(&t, &empty, sizeof(t));
 	}
+
+	template <typename DevMode>
+	std::ostream& streamDevMode(std::ostream& os, const DevMode& dm)
+	{
+		return os << "DM(" << dm.dmPelsWidth << ',' << dm.dmPelsHeight << ',' << dm.dmBitsPerPel <<
+			',' << dm.dmDisplayFrequency << ',' << dm.dmDisplayFlags << ')';
+	}
 }
 
 std::ostream& operator<<(std::ostream& os, const char* str)
@@ -40,6 +47,16 @@ std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 
 	CStringA str(wstr);
 	return os << '"' << static_cast<const char*>(str) << '"';
+}
+
+std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm)
+{
+	return streamDevMode(os, dm);
+}
+
+std::ostream& operator<<(std::ostream& os, const DEVMODEW& dm)
+{
+	return streamDevMode(os, dm);
 }
 
 std::ostream& operator<<(std::ostream& os, const RECT& rect)
