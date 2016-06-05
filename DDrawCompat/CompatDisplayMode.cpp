@@ -8,7 +8,7 @@ namespace
 {
 	CompatWeakPtr<IDirectDrawSurface7> g_compatibleSurface = {};
 	HDC g_compatibleDc = nullptr;
-	CompatDisplayMode::DisplayMode g_emulatedDisplayMode = {};
+	DDSURFACEDESC2 g_emulatedDisplayMode = {};
 
 	template <typename CStr, typename DevMode,
 		typename ChangeDisplaySettingsExPtr, typename EnumDisplaySettingsPtr>
@@ -72,7 +72,7 @@ namespace
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
 		desc.dwWidth = 1;
 		desc.dwHeight = 1;
-		desc.ddpfPixelFormat = g_emulatedDisplayMode.pixelFormat;
+		desc.ddpfPixelFormat = g_emulatedDisplayMode.ddpfPixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
 		auto dd = DDrawRepository::getDirectDraw();
@@ -130,6 +130,14 @@ namespace
 		return pf;
 	}
 
+	DDSURFACEDESC2 getRealDisplayMode(CompatRef<IDirectDraw7> dd)
+	{
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		dd->GetDisplayMode(&dd, &desc);
+		return desc;
+	}
+
 	void releaseCompatibleDc()
 	{
 		if (g_compatibleDc)
@@ -183,27 +191,13 @@ namespace CompatDisplayMode
 		return CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight);
 	}
 
-	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd)
+	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
 	{
-		if (0 == g_emulatedDisplayMode.width)
+		if (0 == g_emulatedDisplayMode.dwSize)
 		{
 			g_emulatedDisplayMode = getRealDisplayMode(dd);
 		}
 		return g_emulatedDisplayMode;
-	}
-
-	DisplayMode getRealDisplayMode(CompatRef<IDirectDraw7> dd)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		dd->GetDisplayMode(&dd, &desc);
-
-		DisplayMode dm = {};
-		dm.width = desc.dwWidth;
-		dm.height = desc.dwHeight;
-		dm.pixelFormat = desc.ddpfPixelFormat;
-		dm.refreshRate = desc.dwRefreshRate;
-		return dm;
 	}
 
 	void installHooks()
@@ -240,11 +234,8 @@ namespace CompatDisplayMode
 			return result;
 		}
 
-		g_emulatedDisplayMode.width = width;
-		g_emulatedDisplayMode.height = height;
-		g_emulatedDisplayMode.pixelFormat = pf;
-		g_emulatedDisplayMode.refreshRate = refreshRate;
-		g_emulatedDisplayMode.flags = flags;
+		g_emulatedDisplayMode = getRealDisplayMode(dd);
+		g_emulatedDisplayMode.ddpfPixelFormat = pf;
 		updateCompatibleDc();
 
 		return DD_OK;

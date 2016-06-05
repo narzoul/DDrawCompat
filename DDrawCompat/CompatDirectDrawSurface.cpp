@@ -188,11 +188,11 @@ HRESULT CompatDirectDrawSurface<TSurface>::createCompatPrimarySurface(
 	CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
 	const auto& dm = CompatDisplayMode::getDisplayMode(*dd7);
 	compatDesc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
-	compatDesc.dwWidth = dm.width;
-	compatDesc.dwHeight = dm.height;
+	compatDesc.dwWidth = dm.dwWidth;
+	compatDesc.dwHeight = dm.dwHeight;
 	compatDesc.ddsCaps.dwCaps &= ~DDSCAPS_PRIMARYSURFACE;
 	compatDesc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
-	compatDesc.ddpfPixelFormat = dm.pixelFormat;
+	compatDesc.ddpfPixelFormat = dm.ddpfPixelFormat;
 
 	result = dd->CreateSurface(&dd, &compatDesc, &compatSurface, nullptr);
 	if (FAILED(result))

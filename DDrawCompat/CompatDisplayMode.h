@@ -8,15 +8,6 @@
 
 namespace CompatDisplayMode
 {
-	struct DisplayMode
-	{
-		DWORD width;
-		DWORD height;
-		DDPIXELFORMAT pixelFormat;
-		DWORD refreshRate;
-		DWORD flags;
-	};
-
 	void installHooks();
 
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy);
@@ -24,8 +15,7 @@ namespace CompatDisplayMode
 		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage);
 	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight);
 
-	DisplayMode getDisplayMode(CompatRef<IDirectDraw7> dd);
-	DisplayMode getRealDisplayMode(CompatRef<IDirectDraw7> dd);
+	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
 	HRESULT restoreDisplayMode(CompatRef<IDirectDraw7> dd);
 	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd,
 		DWORD width, DWORD height, DWORD bpp, DWORD refreshRate = 0, DWORD flags = 0);

@@ -36,7 +36,7 @@ namespace
 
 		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
 		auto dm = CompatDisplayMode::getDisplayMode(dd);
-		dd->SetDisplayMode(&dd, dm.width, dm.height, 32, dm.refreshRate, dm.flags);
+		dd->SetDisplayMode(&dd, dm.dwWidth, dm.dwHeight, 32, dm.dwRefreshRate, 0);
 
 		auto primary(CompatPrimarySurface::getPrimary());
 		if (primary && SUCCEEDED(primary->Restore(primary)))

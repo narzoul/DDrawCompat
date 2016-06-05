@@ -91,6 +91,7 @@ template <typename TDirectDraw>
 void CompatDirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 {
 	vtable.CreateSurface = &CreateSurface;
+	vtable.GetDisplayMode = &GetDisplayMode;
 	vtable.RestoreDisplayMode = &RestoreDisplayMode;
 	vtable.SetCooperativeLevel = &SetCooperativeLevel;
 	vtable.SetDisplayMode = &SetDisplayMode;
@@ -129,7 +130,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 			if (!(desc.dwFlags & DDSD_PIXELFORMAT))
 			{
 				desc.dwFlags |= DDSD_PIXELFORMAT;
-				desc.ddpfPixelFormat = dm.pixelFormat;
+				desc.ddpfPixelFormat = dm.ddpfPixelFormat;
 			}
 			if (!((desc.dwFlags & DDSD_CAPS) &&
 				(desc.ddsCaps.dwCaps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
@@ -152,6 +153,24 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	}
 
 	return result;
+}
+
+template <typename TDirectDraw>
+HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::GetDisplayMode(
+	TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc)
+{
+	const DWORD size = lpDDSurfaceDesc ? lpDDSurfaceDesc->dwSize : 0;
+	if (sizeof(DDSURFACEDESC) != size && sizeof(DDSURFACEDESC2) != size)
+	{
+		return DDERR_INVALIDPARAMS;
+	}
+
+	CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
+	const DDSURFACEDESC2 dm = CompatDisplayMode::getDisplayMode(*dd);
+	CopyMemory(lpDDSurfaceDesc, &dm, size);
+	lpDDSurfaceDesc->dwSize = size;
+
+	return DD_OK;
 }
 
 template <typename TDirectDraw>

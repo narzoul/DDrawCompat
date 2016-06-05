@@ -26,7 +26,7 @@ namespace
 		}
 	}
 
-	HBITMAP createDibSection(const CompatDisplayMode::DisplayMode& dm, void*& bits)
+	HBITMAP createDibSection(const DDSURFACEDESC2& dm, void*& bits)
 	{
 		struct PalettizedBitmapInfo
 		{
@@ -36,27 +36,27 @@ namespace
 
 		PalettizedBitmapInfo bmi = {};
 		bmi.header.biSize = sizeof(bmi.header);
-		bmi.header.biWidth = dm.width;
-		bmi.header.biHeight = -static_cast<LONG>(dm.height);
+		bmi.header.biWidth = dm.dwWidth;
+		bmi.header.biHeight = -static_cast<LONG>(dm.dwHeight);
 		bmi.header.biPlanes = 1;
-		bmi.header.biBitCount = static_cast<WORD>(dm.pixelFormat.dwRGBBitCount);
+		bmi.header.biBitCount = static_cast<WORD>(dm.ddpfPixelFormat.dwRGBBitCount);
 		bmi.header.biCompression = BI_RGB;
 
 		return CreateDIBSection(nullptr, reinterpret_cast<BITMAPINFO*>(&bmi),
 			DIB_RGB_COLORS, &bits, nullptr, 0);
 	}
 
-	CompatPtr<IDirectDrawSurface7> createSurface(const CompatDisplayMode::DisplayMode& dm, void* bits)
+	CompatPtr<IDirectDrawSurface7> createSurface(const DDSURFACEDESC2& dm, void* bits)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS |
 			DDSD_PITCH | DDSD_LPSURFACE;
-		desc.dwWidth = dm.width;
-		desc.dwHeight = dm.height;
-		desc.ddpfPixelFormat = dm.pixelFormat;
+		desc.dwWidth = dm.dwWidth;
+		desc.dwHeight = dm.dwHeight;
+		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-		desc.lPitch = (dm.width * dm.pixelFormat.dwRGBBitCount / 8 + 3) & ~3;
+		desc.lPitch = (dm.dwWidth * dm.ddpfPixelFormat.dwRGBBitCount / 8 + 3) & ~3;
 		desc.lpSurface = bits;
 
 		auto dd(DDrawRepository::getDirectDraw());
@@ -72,8 +72,11 @@ namespace CompatPaletteConverter
 	{
 		auto dd(DDrawRepository::getDirectDraw());
 		auto dm(CompatDisplayMode::getDisplayMode(*dd));
-		if (dm.pixelFormat.dwRGBBitCount > 8 &&
-			CompatDisplayMode::getRealDisplayMode(*dd).pixelFormat.dwRGBBitCount > 8)
+		DDSURFACEDESC2 realDm = {};
+		realDm.dwSize = sizeof(realDm);
+		dd->GetDisplayMode(dd, &realDm);
+		if (dm.ddpfPixelFormat.dwRGBBitCount > 8 &&
+			realDm.ddpfPixelFormat.dwRGBBitCount > 8)
 		{
 			return true;
 		}

@@ -21,6 +21,7 @@ public:
 		TSurface** lplpDDSurface,
 		IUnknown* pUnkOuter);
 
+	static HRESULT STDMETHODCALLTYPE GetDisplayMode(TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc);
 	static HRESULT STDMETHODCALLTYPE RestoreDisplayMode(TDirectDraw* This);
 	static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
 
