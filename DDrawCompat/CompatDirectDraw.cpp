@@ -220,11 +220,6 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::SetDisplayMode(
 	return CompatDisplayMode::setDisplayMode(*dd, dwWidth, dwHeight, dwBPP, params...);
 }
 
-template <> const IID& CompatDirectDraw<IDirectDraw>::s_iid = IID_IDirectDraw;
-template <> const IID& CompatDirectDraw<IDirectDraw2>::s_iid = IID_IDirectDraw2;
-template <> const IID& CompatDirectDraw<IDirectDraw4>::s_iid = IID_IDirectDraw4;
-template <> const IID& CompatDirectDraw<IDirectDraw7>::s_iid = IID_IDirectDraw7;
-
 template CompatDirectDraw<IDirectDraw>;
 template CompatDirectDraw<IDirectDraw2>;
 template CompatDirectDraw<IDirectDraw4>;

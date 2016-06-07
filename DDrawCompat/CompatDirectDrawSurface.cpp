@@ -531,12 +531,6 @@ void CompatDirectDrawSurface<TSurface>::restorePrimaryCaps(TDdsCaps& caps)
 	caps.dwCaps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE | DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
 }
 
-template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface>::s_iid = IID_IDirectDrawSurface;
-template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface2>::s_iid = IID_IDirectDrawSurface2;
-template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface3>::s_iid = IID_IDirectDrawSurface3;
-template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface4>::s_iid = IID_IDirectDrawSurface4;
-template <> const IID& CompatDirectDrawSurface<IDirectDrawSurface7>::s_iid = IID_IDirectDrawSurface7;
-
 template CompatDirectDrawSurface<IDirectDrawSurface>;
 template CompatDirectDrawSurface<IDirectDrawSurface2>;
 template CompatDirectDrawSurface<IDirectDrawSurface3>;

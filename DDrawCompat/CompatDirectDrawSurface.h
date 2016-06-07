@@ -1,7 +1,5 @@
 #pragma once
 
-#include <type_traits>
-
 #include "CompatRef.h"
 #include "CompatVtable.h"
 #include "DDrawTypes.h"
@@ -64,45 +62,6 @@ public:
 	static HRESULT STDMETHODCALLTYPE SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette);
 	static HRESULT STDMETHODCALLTYPE Unlock(TSurface* This, TUnlockParam lpRect);
 
-	static const IID& s_iid;
-
 private:
 	static void restorePrimaryCaps(TDdsCaps& caps);
 };
-
-namespace Compat
-{
-	template <typename Intf>
-	struct IsDirectDrawSurfaceIntf : std::false_type {};
-
-	template<> struct IsDirectDrawSurfaceIntf<IDirectDrawSurface> : std::true_type {};
-	template<> struct IsDirectDrawSurfaceIntf<IDirectDrawSurface2> : std::true_type {};
-	template<> struct IsDirectDrawSurfaceIntf<IDirectDrawSurface3> : std::true_type {};
-	template<> struct IsDirectDrawSurfaceIntf<IDirectDrawSurface4> : std::true_type {};
-	template<> struct IsDirectDrawSurfaceIntf<IDirectDrawSurface7> : std::true_type {};
-
-	template <typename NewIntf, typename OrigIntf>
-	std::enable_if_t<IsDirectDrawSurfaceIntf<NewIntf>::value && IsDirectDrawSurfaceIntf<OrigIntf>::value>
-		queryInterface(OrigIntf& origIntf, NewIntf*& newIntf)
-	{
-		CompatDirectDrawSurface<OrigIntf>::s_origVtable.QueryInterface(
-			&origIntf, CompatDirectDrawSurface<NewIntf>::s_iid, reinterpret_cast<void**>(&newIntf));
-	}
-
-	template <typename NewIntf>
-	std::enable_if_t<IsDirectDrawSurfaceIntf<NewIntf>::value>
-		queryInterface(IUnknown& origIntf, NewIntf*& newIntf)
-	{
-		CompatDirectDrawSurface<IDirectDrawSurface>::s_origVtable.QueryInterface(
-			reinterpret_cast<IDirectDrawSurface*>(&origIntf),
-			CompatDirectDrawSurface<NewIntf>::s_iid, reinterpret_cast<void**>(&newIntf));
-	}
-
-	template <typename OrigIntf>
-	std::enable_if_t<IsDirectDrawSurfaceIntf<OrigIntf>::value>
-		queryInterface(OrigIntf& origIntf, IUnknown*& newIntf)
-	{
-		CompatDirectDrawSurface<OrigIntf>::s_origVtable.QueryInterface(
-			&origIntf, IID_IUnknown, reinterpret_cast<void**>(&newIntf));
-	}
-}
