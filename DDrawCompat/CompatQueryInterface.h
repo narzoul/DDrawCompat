@@ -1,6 +1,10 @@
 #pragma once
 
+#define CINTERFACE
+
 #include <type_traits>
+
+#include <d3d.h>
 
 #include "CompatVtable.h"
 
@@ -12,6 +16,20 @@ namespace Compat
 		typedef Intf Type;
 	};
 
+	template <typename SrcIntf, typename DestIntf>
+	struct IsConvertible : std::integral_constant<bool,
+		std::is_same<typename GetBaseIntf<SrcIntf>::Type, typename GetBaseIntf<DestIntf>::Type>::value>
+	{
+	};
+
+	template<> struct IsConvertible<IDirect3D, IDirect3D7> : std::false_type {};
+	template<> struct IsConvertible<IDirect3D2, IDirect3D7> : std::false_type {};
+	template<> struct IsConvertible<IDirect3D3, IDirect3D7> : std::false_type {};
+
+	template<> struct IsConvertible<IDirect3D7, IDirect3D> : std::false_type {};
+	template<> struct IsConvertible<IDirect3D7, IDirect3D2> : std::false_type {};
+	template<> struct IsConvertible<IDirect3D7, IDirect3D3> : std::false_type {};
+
 #define DEFINE_BASE_INTF(Intf, BaseIntf) \
 	template<> struct GetBaseIntf<Intf> { typedef BaseIntf Type; }
 
@@ -22,6 +40,11 @@ namespace Compat
 	DEFINE_BASE_INTF(IDirectDrawSurface3, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirectDrawSurface4, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirectDrawSurface7, IDirectDrawSurface);
+
+	DEFINE_BASE_INTF(IDirect3D, IDirectDraw);
+	DEFINE_BASE_INTF(IDirect3D2, IDirectDraw);
+	DEFINE_BASE_INTF(IDirect3D3, IDirectDraw);
+	DEFINE_BASE_INTF(IDirect3D7, IDirectDraw);
 
 #undef DEFINE_BASE_INTF
 
@@ -44,6 +67,11 @@ namespace Compat
 	DEFINE_INTF_ID(IDirectDrawClipper);
 	DEFINE_INTF_ID(IDirectDrawColorControl);
 	DEFINE_INTF_ID(IDirectDrawGammaControl);
+
+	DEFINE_INTF_ID(IDirect3D);
+	DEFINE_INTF_ID(IDirect3D2);
+	DEFINE_INTF_ID(IDirect3D3);
+	DEFINE_INTF_ID(IDirect3D7);
 
 #undef DEFINE_INTF_ID
 
@@ -71,9 +99,7 @@ namespace Compat
 	}
 
 	template <typename NewIntf, typename OrigIntf>
-	std::enable_if_t<std::is_same<
-		typename GetBaseIntf<NewIntf>::Type,
-		typename GetBaseIntf<OrigIntf>::Type>::value>
+	std::enable_if_t<IsConvertible<OrigIntf, NewIntf>::value>
 	queryInterface(OrigIntf& origIntf, NewIntf*& newIntf)
 	{
 		CompatVtableBase<OrigIntf>::getOrigVtable(origIntf).QueryInterface(

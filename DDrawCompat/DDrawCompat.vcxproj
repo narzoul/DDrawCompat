@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CompatActivateAppHandler.h" />
+    <ClInclude Include="CompatDirect3d.h" />
     <ClInclude Include="CompatDirectDrawPalette.h" />
     <ClInclude Include="CompatDisplayMode.h" />
     <ClInclude Include="CompatFontSmoothing.h" />
@@ -166,6 +167,7 @@
     <ClInclude Include="CompatRegistry.h" />
     <ClInclude Include="CompatWeakPtr.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="DDrawHooks.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
     <ClInclude Include="CompatPrimarySurface.h" />
@@ -175,6 +177,7 @@
     <ClInclude Include="CompatDirectDrawSurface.h" />
     <ClInclude Include="DDrawVtableVisitor.h" />
     <ClInclude Include="CompatVtable.h" />
+    <ClInclude Include="Direct3dVtblVisitor.h" />
     <ClInclude Include="DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DirectDrawVtblVisitor.h" />
@@ -187,6 +190,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompatActivateAppHandler.cpp" />
+    <ClCompile Include="CompatDirect3d.cpp" />
     <ClCompile Include="CompatDirectDraw.cpp" />
     <ClCompile Include="CompatDirectDrawPalette.cpp" />
     <ClCompile Include="CompatDirectDrawSurface.cpp" />
@@ -204,6 +208,7 @@
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatPaletteConverter.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
+    <ClCompile Include="DDrawHooks.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="CompatPrimarySurface.cpp" />

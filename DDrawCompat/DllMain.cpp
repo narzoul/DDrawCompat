@@ -5,20 +5,13 @@
 #include <Windows.h>
 #include <Uxtheme.h>
 
-#include "CompatActivateAppHandler.h"
-#include "CompatDirectDraw.h"
-#include "CompatDirectDrawSurface.h"
-#include "CompatDirectDrawPalette.h"
 #include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
 #include "CompatGdi.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
-#include "CompatPtr.h"
-#include "CompatVtable.h"
+#include "DDrawHooks.h"
 #include "DDrawProcs.h"
-#include "DDrawRepository.h"
-#include "RealPrimarySurface.h"
 #include "Time.h"
 
 struct IDirectInput;
@@ -28,98 +21,18 @@ namespace
 	HMODULE g_origDDrawModule = nullptr;
 	HMODULE g_origDInputModule = nullptr;
 
-	template <typename CompatInterface>
-	void hookVtable(const GUID& guid, IUnknown& unk)
-	{
-		typename CompatInterface::Interface* intf = nullptr;
-		if (SUCCEEDED(unk.lpVtbl->QueryInterface(&unk, guid, reinterpret_cast<LPVOID*>(&intf))))
-		{
-			CompatInterface::hookVtable(*intf);
-			intf->lpVtbl->Release(intf);
-		}
-	}
-
-	template <typename CompatInterface>
-	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf)
-	{
-		CompatInterface::hookVtable(*intf);
-	}
-
-	void hookDirectDraw(CompatRef<IDirectDraw7> dd)
-	{
-		CompatDirectDraw<IDirectDraw7>::s_origVtable = *(&dd)->lpVtbl;
-		CompatPtr<IDirectDraw7> dd7(&dd);
-		hookVtable<CompatDirectDraw<IDirectDraw>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw2>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw4>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw7>>(dd7);
-		dd7.detach();
-	}
-
-	void hookDirectDrawSurface(CompatRef<IDirectDraw7> dd)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS;
-		desc.dwWidth = 1;
-		desc.dwHeight = 1;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN;
-
-		CompatPtr<IDirectDrawSurface7> surface;
-		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
-		if (SUCCEEDED(result))
-		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface2>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface3>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface4>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface7>>(surface);
-		}
-		else
-		{
-			Compat::Log() << "Failed to create a DirectDraw surface for hooking: " << result;
-		}
-	}
-
-	void hookDirectDrawPalette(CompatRef<IDirectDraw7> dd)
-	{
-		PALETTEENTRY paletteEntries[2] = {};
-		CompatPtr<IDirectDrawPalette> palette;
-		HRESULT result = dd->CreatePalette(&dd,
-			DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
-		if (SUCCEEDED(result))
-		{
-			CompatDirectDrawPalette::hookVtable(*palette);
-		}
-		else
-		{
-			Compat::Log() << "Failed to create a DirectDraw palette for hooking: " << result;
-		}
-	}
-
 	void installHooks()
 	{
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
 			Compat::Log() << "Installing DirectDraw hooks";
-			auto dd(DDrawRepository::getDirectDraw());
-			if (dd)
-			{
-				hookDirectDraw(*dd);
-				hookDirectDrawSurface(*dd);
-				hookDirectDrawPalette(*dd);
-				CompatActivateAppHandler::installHooks();
-
-				Compat::Log() << "Installing GDI hooks";
-				CompatGdi::installHooks();
-
-				Compat::Log() << "Installing registry hooks";
-				CompatRegistry::installHooks();
-
-				Compat::Log() << "Finished installing hooks";
-			}
+			DDrawHooks::installHooks();
+			Compat::Log() << "Installing GDI hooks";
+			CompatGdi::installHooks();
+			Compat::Log() << "Installing registry hooks";
+			CompatRegistry::installHooks();
+			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
 	}
@@ -219,8 +132,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
 		Compat::Log() << "Detaching DDrawCompat";
-		RealPrimarySurface::removeUpdateThread();
-		CompatActivateAppHandler::uninstallHooks();
+		DDrawHooks::uninstallHooks();
 		CompatGdi::uninstallHooks();
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);

@@ -135,6 +135,15 @@
     <ClInclude Include="CompatHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Direct3dVtblVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatDirect3d.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DDrawHooks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -222,6 +231,12 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatHooks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatDirect3d.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="DDrawHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
