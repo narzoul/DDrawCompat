@@ -144,6 +144,12 @@
     <ClInclude Include="DDrawHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Direct3dDeviceVtblVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatDirect3dDevice.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -237,6 +243,9 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DDrawHooks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatDirect3dDevice.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

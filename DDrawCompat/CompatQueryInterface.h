@@ -45,6 +45,8 @@ namespace Compat
 	DEFINE_BASE_INTF(IDirect3D2, IDirectDraw);
 	DEFINE_BASE_INTF(IDirect3D3, IDirectDraw);
 	DEFINE_BASE_INTF(IDirect3D7, IDirectDraw);
+	DEFINE_BASE_INTF(IDirect3DDevice2, IDirect3DDevice);
+	DEFINE_BASE_INTF(IDirect3DDevice3, IDirect3DDevice);
 
 #undef DEFINE_BASE_INTF
 
@@ -72,6 +74,10 @@ namespace Compat
 	DEFINE_INTF_ID(IDirect3D2);
 	DEFINE_INTF_ID(IDirect3D3);
 	DEFINE_INTF_ID(IDirect3D7);
+	DEFINE_INTF_ID(IDirect3DDevice);
+	DEFINE_INTF_ID(IDirect3DDevice2);
+	DEFINE_INTF_ID(IDirect3DDevice3);
+	DEFINE_INTF_ID(IDirect3DDevice7);
 
 #undef DEFINE_INTF_ID
 
