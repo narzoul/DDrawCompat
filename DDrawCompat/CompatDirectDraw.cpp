@@ -107,7 +107,6 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 	HRESULT result = DD_OK;
 
 	const bool isPrimary = lpDDSurfaceDesc &&
-		(lpDDSurfaceDesc->dwFlags & DDSD_CAPS) &&
 		(lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE);
 
 	if (isPrimary)
@@ -120,8 +119,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 		if (lpDDSurfaceDesc &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_WIDTH) &&
 			(lpDDSurfaceDesc->dwFlags & DDSD_HEIGHT) &&
-			!((lpDDSurfaceDesc->dwFlags & DDSD_CAPS) &&
-			(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER))))
+			!(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER)))
 		{
 			CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
 			auto dm = CompatDisplayMode::getDisplayMode(*dd);
@@ -132,9 +130,8 @@ HRESULT STDMETHODCALLTYPE CompatDirectDraw<TDirectDraw>::CreateSurface(
 				desc.dwFlags |= DDSD_PIXELFORMAT;
 				desc.ddpfPixelFormat = dm.ddpfPixelFormat;
 			}
-			if (!((desc.dwFlags & DDSD_CAPS) &&
-				(desc.ddsCaps.dwCaps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
-					DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER))))
+			if (!(desc.ddsCaps.dwCaps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
+					DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER)))
 			{
 				desc.dwFlags |= DDSD_CAPS;
 				desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
