@@ -145,6 +145,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CompatActivateAppHandler.h" />
+    <ClInclude Include="CompatDepthBuffer.h" />
     <ClInclude Include="CompatDirect3d.h" />
     <ClInclude Include="CompatDirect3dDevice.h" />
     <ClInclude Include="CompatDirectDrawPalette.h" />
@@ -179,6 +180,7 @@
     <ClInclude Include="DDrawVtableVisitor.h" />
     <ClInclude Include="CompatVtable.h" />
     <ClInclude Include="Direct3dDeviceVtblVisitor.h" />
+    <ClInclude Include="Direct3dTypes.h" />
     <ClInclude Include="Direct3dVtblVisitor.h" />
     <ClInclude Include="DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
@@ -192,6 +194,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompatActivateAppHandler.cpp" />
+    <ClCompile Include="CompatDepthBuffer.cpp" />
     <ClCompile Include="CompatDirect3d.cpp" />
     <ClCompile Include="CompatDirect3dDevice.cpp" />
     <ClCompile Include="CompatDirectDraw.cpp" />
