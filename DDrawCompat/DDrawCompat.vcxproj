@@ -148,6 +148,10 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="CompatActivateAppHandler.h" />
+    <ClInclude Include="CompatD3dDdiAdapterCallbacks.h" />
+    <ClInclude Include="CompatD3dDdiAdapterFuncs.h" />
+    <ClInclude Include="CompatD3dDdiDeviceCallbacks.h" />
+    <ClInclude Include="CompatD3dDdiDeviceFuncs.h" />
     <ClInclude Include="CompatDepthBuffer.h" />
     <ClInclude Include="CompatDirect3d.h" />
     <ClInclude Include="CompatDirect3dDevice.h" />
@@ -172,6 +176,11 @@
     <ClInclude Include="CompatRegistry.h" />
     <ClInclude Include="CompatWeakPtr.h" />
     <ClInclude Include="Config.h" />
+    <ClInclude Include="D3dDdiAdapterCallbacksVisitor.h" />
+    <ClInclude Include="D3dDdiAdapterFuncsVisitor.h" />
+    <ClInclude Include="D3dDdiDeviceCallbacksVisitor.h" />
+    <ClInclude Include="D3dDdiDeviceFuncsVisitor.h" />
+    <ClInclude Include="D3dDdiHooks.h" />
     <ClInclude Include="DDrawHooks.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="CompatDirectDraw.h" />
@@ -197,6 +206,10 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CompatActivateAppHandler.cpp" />
+    <ClCompile Include="CompatD3dDdiAdapterCallbacks.cpp" />
+    <ClCompile Include="CompatD3dDdiAdapterFuncs.cpp" />
+    <ClCompile Include="CompatD3dDdiDeviceCallbacks.cpp" />
+    <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp" />
     <ClCompile Include="CompatDepthBuffer.cpp" />
     <ClCompile Include="CompatDirect3d.cpp" />
     <ClCompile Include="CompatDirect3dDevice.cpp" />
@@ -217,6 +230,7 @@
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatPaletteConverter.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
+    <ClCompile Include="D3dDdiHooks.cpp" />
     <ClCompile Include="DDrawHooks.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DllMain.cpp" />

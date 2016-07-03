@@ -135,7 +135,7 @@ namespace
 			DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			CompatDirectDrawPalette::hookVtable(*palette);
+			CompatDirectDrawPalette::hookVtable(palette.get()->lpVtbl);
 		}
 		else
 		{
@@ -172,7 +172,7 @@ namespace
 	template <typename CompatInterface>
 	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf)
 	{
-		CompatInterface::hookVtable(*intf);
+		CompatInterface::hookVtable(intf.get()->lpVtbl);
 	}
 }
 

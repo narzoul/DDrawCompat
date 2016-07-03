@@ -156,6 +156,33 @@
     <ClInclude Include="CompatDepthBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdiAdapterCallbacksVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdiAdapterFuncsVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdiDeviceCallbacksVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdiDeviceFuncsVisitor.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatD3dDdiDeviceFuncs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatD3dDdiDeviceCallbacks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatD3dDdiAdapterFuncs.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="CompatD3dDdiAdapterCallbacks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdiHooks.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -255,6 +282,21 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatDepthBuffer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatD3dDdiDeviceCallbacks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatD3dDdiAdapterFuncs.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="CompatD3dDdiAdapterCallbacks.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdiHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

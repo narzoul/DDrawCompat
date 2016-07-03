@@ -10,6 +10,7 @@
 #include "CompatGdi.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
+#include "D3dDdiHooks.h"
 #include "DDrawHooks.h"
 #include "DDrawProcs.h"
 #include "Time.h"
@@ -26,6 +27,8 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
+			Compat::Log() << "Installing Direct3D driver hooks";
+			D3dDdiHooks::installHooks();
 			Compat::Log() << "Installing DirectDraw hooks";
 			DDrawHooks::installHooks();
 			Compat::Log() << "Installing GDI hooks";
@@ -133,6 +136,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	{
 		Compat::Log() << "Detaching DDrawCompat";
 		DDrawHooks::uninstallHooks();
+		D3dDdiHooks::uninstallHooks();
 		CompatGdi::uninstallHooks();
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);
