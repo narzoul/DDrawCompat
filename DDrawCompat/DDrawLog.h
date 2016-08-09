@@ -4,6 +4,7 @@
 
 #include <ddraw.h>
 #include <fstream>
+#include <ostream>
 #include <type_traits>
 
 #define LOG_ONCE(msg) \
@@ -52,6 +53,15 @@ std::ostream& operator<<(std::ostream& os, T** t)
 
 namespace Compat
 {
+	template <typename Num>
+	struct Hex
+	{
+		explicit Hex(Num val) : val(val) {}
+		Num val;
+	};
+
+	template <typename Num> Hex<Num> hex(Num val) { return Hex<Num>(val); }
+
 	class Log
 	{
 	public:
@@ -95,6 +105,37 @@ namespace Compat
 		static std::ofstream s_logFile;
 	};
 
+	class LogParams;
+
+	class LogFirstParam
+	{
+	public:
+		LogFirstParam(std::ostream& os) : m_os(os) {}
+		template <typename T> LogParams operator<<(const T& val) { m_os << val; return LogParams(m_os); }
+
+	protected:
+		std::ostream& m_os;
+	};
+
+	class LogParams
+	{
+	public:
+		LogParams(std::ostream& os) : m_os(os) {}
+		template <typename T> LogParams& operator<<(const T& val) { m_os << ',' << val; return *this; }
+
+		operator std::ostream&() { return m_os; }
+
+	private:
+		std::ostream& m_os;
+	};
+
+	class LogStruct : public LogFirstParam
+	{
+	public:
+		LogStruct(std::ostream& os) : LogFirstParam(os) { m_os << '{'; }
+		~LogStruct() { m_os << '}'; }
+	};
+
 #ifdef _DEBUG
 	typedef Log LogDebug;
 
@@ -122,19 +163,27 @@ namespace Compat
 		}
 	};
 #else
-	class LogDebug
+	class LogNull
 	{
 	public:
-		template <typename T> LogDebug& operator<<(const T&) { return *this;  }
+		template <typename T> LogNull& operator<<(const T&) { return *this;  }
 	};
 
-	class LogEnter
+	typedef LogNull LogDebug;
+
+	class LogEnter : public LogNull
 	{
 	public:
 		template <typename... Params> LogEnter(const char*, Params...) {}
-		template <typename Result> void operator<<(const Result&) {}
 	};
 
 	typedef LogEnter LogLeave;
 #endif
+}
+
+template <typename Num>
+std::ostream& operator<<(std::ostream& os, Compat::Hex<Num> hex)
+{
+	os << "0x" << std::hex << hex.val << std::dec;
+	return os;
 }
