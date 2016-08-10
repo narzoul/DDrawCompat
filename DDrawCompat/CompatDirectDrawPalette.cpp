@@ -19,11 +19,11 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawPalette::SetEntries(
 	DWORD dwCount,
 	LPPALETTEENTRY lpEntries)
 {
-	if (This == CompatPrimarySurface::palette)
+	if (This == CompatPrimarySurface::g_palette)
 	{
 		waitForNextUpdate();
 		if (lpEntries && dwStartingEntry + dwCount <= 256 &&
-			0 == std::memcmp(&CompatPrimarySurface::paletteEntries[dwStartingEntry],
+			0 == std::memcmp(&CompatPrimarySurface::g_paletteEntries[dwStartingEntry],
 				lpEntries, dwCount * sizeof(PALETTEENTRY)))
 		{
 			return DD_OK;
@@ -31,9 +31,9 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawPalette::SetEntries(
 	}
 
 	HRESULT result = s_origVtable.SetEntries(This, dwFlags, dwStartingEntry, dwCount, lpEntries);
-	if (This == CompatPrimarySurface::palette && SUCCEEDED(result))
+	if (This == CompatPrimarySurface::g_palette && SUCCEEDED(result))
 	{
-		std::memcpy(&CompatPrimarySurface::paletteEntries[dwStartingEntry], lpEntries,
+		std::memcpy(&CompatPrimarySurface::g_paletteEntries[dwStartingEntry], lpEntries,
 			dwCount * sizeof(PALETTEENTRY));
 		RealPrimarySurface::updatePalette(dwStartingEntry, dwCount);
 	}

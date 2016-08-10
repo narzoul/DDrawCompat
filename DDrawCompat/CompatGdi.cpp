@@ -239,7 +239,7 @@ namespace CompatGdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (isEmulationEnabled() && CompatPrimarySurface::palette)
+		if (isEmulationEnabled() && CompatPrimarySurface::g_palette)
 		{
 			CompatGdiDcCache::updatePalette(startingEntry, count);
 		}

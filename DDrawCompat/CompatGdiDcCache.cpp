@@ -200,15 +200,15 @@ namespace CompatGdiDcCache
 	{
 		PALETTEENTRY entries[256] = {};
 		std::memcpy(&entries[startingEntry],
-			&CompatPrimarySurface::paletteEntries[startingEntry],
+			&CompatPrimarySurface::g_paletteEntries[startingEntry],
 			count * sizeof(PALETTEENTRY));
 
 		for (DWORD i = startingEntry; i < startingEntry + count; ++i)
 		{
 			if (entries[i].peFlags & PC_RESERVED)
 			{
-				entries[i] = CompatPrimarySurface::paletteEntries[0];
-				entries[i].peFlags = CompatPrimarySurface::paletteEntries[i].peFlags;
+				entries[i] = CompatPrimarySurface::g_paletteEntries[0];
+				entries[i].peFlags = CompatPrimarySurface::g_paletteEntries[i].peFlags;
 			}
 		}
 

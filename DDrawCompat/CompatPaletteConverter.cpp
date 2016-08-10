@@ -149,10 +149,10 @@ namespace CompatPaletteConverter
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (g_dc && CompatPrimarySurface::palette)
+		if (g_dc && CompatPrimarySurface::g_palette)
 		{
 			RGBQUAD entries[256] = {};
-			std::memcpy(entries, &CompatPrimarySurface::paletteEntries[startingEntry],
+			std::memcpy(entries, &CompatPrimarySurface::g_paletteEntries[startingEntry],
 				count * sizeof(PALETTEENTRY));
 			convertPaletteEntriesToRgbQuad(entries, count);
 			SetDIBColorTable(g_dc, startingEntry, count, entries);

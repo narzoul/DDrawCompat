@@ -16,6 +16,6 @@ namespace CompatPrimarySurface
 	bool isPrimary(void* surface);
 	void setPrimary(CompatRef<IDirectDrawSurface7> surface);
 
-	extern CompatWeakPtr<IDirectDrawPalette> palette;
-	extern PALETTEENTRY paletteEntries[256];
+	extern CompatWeakPtr<IDirectDrawPalette> g_palette;
+	extern PALETTEENTRY g_paletteEntries[256];
 }

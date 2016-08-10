@@ -350,7 +350,7 @@ void RealPrimarySurface::setPalette()
 {
 	if (g_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 	{
-		g_frontBuffer->SetPalette(g_frontBuffer, CompatPrimarySurface::palette);
+		g_frontBuffer->SetPalette(g_frontBuffer, CompatPrimarySurface::g_palette);
 	}
 
 	updatePalette(0, 256);
@@ -376,7 +376,7 @@ void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
 	CompatPaletteConverter::updatePalette(startingEntry, count);
 	CompatGdi::updatePalette(startingEntry, count);
-	if (CompatPrimarySurface::palette)
+	if (CompatPrimarySurface::g_palette)
 	{
 		invalidate(nullptr);
 		update();

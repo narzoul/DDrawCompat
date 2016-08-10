@@ -22,8 +22,8 @@ namespace
 
 		g_primarySurfacePtrs.clear();
 		g_primarySurface = nullptr;
-		CompatPrimarySurface::palette = nullptr;
-		ZeroMemory(&CompatPrimarySurface::paletteEntries, sizeof(CompatPrimarySurface::paletteEntries));
+		CompatPrimarySurface::g_palette = nullptr;
+		ZeroMemory(&CompatPrimarySurface::g_paletteEntries, sizeof(CompatPrimarySurface::g_paletteEntries));
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
 		RealPrimarySurface::release();
@@ -76,6 +76,6 @@ namespace CompatPrimarySurface
 			releaseNotifierPtr, sizeof(releaseNotifierPtr), DDSPD_IUNKNOWNPOINTER);
 	}
 
-	CompatWeakPtr<IDirectDrawPalette> palette;
-	PALETTEENTRY paletteEntries[256] = {};
+	CompatWeakPtr<IDirectDrawPalette> g_palette;
+	PALETTEENTRY g_paletteEntries[256] = {};
 }
