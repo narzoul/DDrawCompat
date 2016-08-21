@@ -62,6 +62,20 @@ namespace Compat
 
 	template <typename Num> Hex<Num> hex(Num val) { return Hex<Num>(val); }
 
+	template <typename Elem>
+	struct Array
+	{
+		Array(const Elem* elem, const unsigned long size) : elem(elem), size(size) {}
+		const Elem* elem;
+		const unsigned long size;
+	};
+
+	template <typename Elem>
+	Array<Elem> array(const Elem* elem, const unsigned long size)
+	{
+		return Array<Elem>(elem, size);
+	}
+
 	class Log
 	{
 	public:
@@ -186,4 +200,19 @@ std::ostream& operator<<(std::ostream& os, Compat::Hex<Num> hex)
 {
 	os << "0x" << std::hex << hex.val << std::dec;
 	return os;
+}
+
+template <typename Elem>
+std::ostream& operator<<(std::ostream& os, Compat::Array<Elem> array)
+{
+	os << '[';
+	if (0 != array.size)
+	{
+		os << array.elem[0];
+	}
+	for (unsigned long i = 1; i < array.size; ++i)
+	{
+		os << ',' << array.elem[i];
+	}
+	return os << ']';
 }

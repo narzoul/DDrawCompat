@@ -12,6 +12,17 @@
 
 HRESULT APIENTRY OpenAdapter(D3DDDIARG_OPENADAPTER*) { return 0; }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
+{
+	return Compat::LogStruct(os)
+		<< data.hAdapter
+		<< data.Interface
+		<< data.Version
+		<< data.pAdapterCallbacks
+		<< data.pAdapterFuncs
+		<< data.DriverVersion;
+}
+
 namespace
 {
 	UINT g_ddiVersion = 0;
