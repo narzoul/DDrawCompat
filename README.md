@@ -49,4 +49,4 @@ If that doesn't help, advanced users can access additional compatibility options
 
 Compilation depends on [Detours Express 3.0](http://research.microsoft.com/en-us/projects/detours/). It needs to be built first before `DDrawCompat` can be built. Change the include and library paths as needed if you didn't install/build Detours in the default directory.
 
-You may also need the [Windows 8.1 SDK](https://dev.windows.com/en-us/downloads/windows-8-1-sdk) for a successful build (especially for the DirectDraw dependencies).
+The project initially used the Windows 8.1 SDK and WDK, but some commits after the v0.2.1 release it was updated to use the Windows 10 SDK and WDK instead. The exact version required can be checked in the project properties in Visual Studio (General tab / Target Platform Version). Commits using an older platform version can probably still be built with a newer version by retargeting the project to the appropriate SDK.
