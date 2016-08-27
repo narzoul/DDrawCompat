@@ -70,7 +70,7 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -78,7 +78,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -158,16 +158,6 @@
     <ClInclude Include="CompatDirectDrawPalette.h" />
     <ClInclude Include="CompatDisplayMode.h" />
     <ClInclude Include="CompatFontSmoothing.h" />
-    <ClInclude Include="CompatGdi.h" />
-    <ClInclude Include="CompatGdiCaret.h" />
-    <ClInclude Include="CompatGdiDc.h" />
-    <ClInclude Include="CompatGdiDcCache.h" />
-    <ClInclude Include="CompatGdiDcFunctions.h" />
-    <ClInclude Include="CompatGdiPaintHandlers.h" />
-    <ClInclude Include="CompatGdiScrollBar.h" />
-    <ClInclude Include="CompatGdiScrollFunctions.h" />
-    <ClInclude Include="CompatGdiTitleBar.h" />
-    <ClInclude Include="CompatGdiWinProc.h" />
     <ClInclude Include="CompatHooks.h" />
     <ClInclude Include="CompatPaletteConverter.h" />
     <ClInclude Include="CompatPtr.h" />
@@ -198,6 +188,16 @@
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DirectDrawVtblVisitor.h" />
     <ClInclude Include="DDrawLog.h" />
+    <ClInclude Include="Gdi\Gdi.h" />
+    <ClInclude Include="Gdi\Caret.h" />
+    <ClInclude Include="Gdi\Dc.h" />
+    <ClInclude Include="Gdi\DcCache.h" />
+    <ClInclude Include="Gdi\DcFunctions.h" />
+    <ClInclude Include="Gdi\PaintHandlers.h" />
+    <ClInclude Include="Gdi\ScrollBar.h" />
+    <ClInclude Include="Gdi\ScrollFunctions.h" />
+    <ClInclude Include="Gdi\TitleBar.h" />
+    <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Hook.h" />
     <ClInclude Include="IReleaseNotifier.h" />
     <ClInclude Include="RealPrimarySurface.h" />
@@ -218,15 +218,6 @@
     <ClCompile Include="CompatDirectDrawSurface.cpp" />
     <ClCompile Include="CompatDisplayMode.cpp" />
     <ClCompile Include="CompatFontSmoothing.cpp" />
-    <ClCompile Include="CompatGdi.cpp" />
-    <ClCompile Include="CompatGdiCaret.cpp" />
-    <ClCompile Include="CompatGdiDcCache.cpp" />
-    <ClCompile Include="CompatGdiDcFunctions.cpp" />
-    <ClCompile Include="CompatGdiPaintHandlers.cpp" />
-    <ClCompile Include="CompatGdiScrollBar.cpp" />
-    <ClCompile Include="CompatGdiScrollFunctions.cpp" />
-    <ClCompile Include="CompatGdiTitleBar.cpp" />
-    <ClCompile Include="CompatGdiWinProc.cpp" />
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatPaletteConverter.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
@@ -236,10 +227,19 @@
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="CompatPrimarySurface.cpp" />
     <ClCompile Include="DDrawProcs.cpp" />
+    <ClCompile Include="Gdi\Gdi.cpp" />
+    <ClCompile Include="Gdi\Caret.cpp" />
+    <ClCompile Include="Gdi\Dc.cpp" />
+    <ClCompile Include="Gdi\DcCache.cpp" />
+    <ClCompile Include="Gdi\DcFunctions.cpp" />
+    <ClCompile Include="Gdi\PaintHandlers.cpp" />
+    <ClCompile Include="Gdi\ScrollBar.cpp" />
+    <ClCompile Include="Gdi\ScrollFunctions.cpp" />
+    <ClCompile Include="Gdi\TitleBar.cpp" />
+    <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Hook.cpp" />
     <ClCompile Include="IReleaseNotifier.cpp" />
     <ClCompile Include="RealPrimarySurface.cpp" />
-    <ClCompile Include="CompatGdiDc.cpp" />
     <ClCompile Include="DDrawRepository.cpp" />
     <ClCompile Include="Time.cpp" />
     <ClCompile Include="UnmodifiedDDrawProcs.cpp" />

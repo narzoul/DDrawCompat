@@ -1,6 +1,6 @@
-#include "CompatGdi.h"
-#include "CompatGdiScrollFunctions.h"
 #include "DDrawLog.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/ScrollFunctions.h"
 #include "Hook.h"
 #include "RealPrimarySurface.h"
 
@@ -13,7 +13,7 @@ namespace
 		BOOL result = CALL_ORIG_FUNC(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		if (result)
 		{
-			CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+			Gdi::ScrollFunctions::updateScrolledWindow(hWnd);
 		}
 		Compat::LogLeave("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect) << result;
 		return result;
@@ -34,7 +34,7 @@ namespace
 			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 		if (ERROR != result)
 		{
-			CompatGdiScrollFunctions::updateScrolledWindow(hWnd);
+			Gdi::ScrollFunctions::updateScrolledWindow(hWnd);
 		}
 
 		Compat::LogLeave("scrollWindowEx",
@@ -43,22 +43,25 @@ namespace
 	}
 }
 
-namespace CompatGdiScrollFunctions
+namespace Gdi
 {
-	void installHooks()
+	namespace ScrollFunctions
 	{
-		HOOK_FUNCTION(user32, ScrollWindow, scrollWindow);
-		HOOK_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
-	}
-
-	void updateScrolledWindow(HWND hwnd)
-	{
-		if (CompatGdi::isEmulationEnabled())
+		void installHooks()
 		{
-			RealPrimarySurface::disableUpdates();
-			RedrawWindow(hwnd, nullptr, nullptr,
-				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
-			RealPrimarySurface::enableUpdates();
+			HOOK_FUNCTION(user32, ScrollWindow, scrollWindow);
+			HOOK_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
+		}
+
+		void updateScrolledWindow(HWND hwnd)
+		{
+			if (Gdi::isEmulationEnabled())
+			{
+				RealPrimarySurface::disableUpdates();
+				RedrawWindow(hwnd, nullptr, nullptr,
+					RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
+				RealPrimarySurface::enableUpdates();
+			}
 		}
 	}
 }

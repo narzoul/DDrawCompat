@@ -1,10 +1,10 @@
 #include <unordered_map>
 
 #include "CompatDisplayMode.h"
-#include "CompatGdi.h"
-#include "CompatGdiDc.h"
-#include "CompatGdiDcFunctions.h"
 #include "DDrawLog.h"
+#include "Gdi/Dc.h"
+#include "Gdi/DcFunctions.h"
+#include "Gdi/Gdi.h"
 #include "Hook.h"
 
 namespace
@@ -45,7 +45,7 @@ namespace
 
 	HDC replaceDc(HDC dc)
 	{
-		HDC compatDc = CompatGdiDc::getDc(dc);
+		HDC compatDc = Gdi::Dc::getDc(dc);
 		return compatDc ? compatDc : dc;
 	}
 
@@ -54,7 +54,7 @@ namespace
 
 	void releaseDc(HDC dc)
 	{
-		CompatGdiDc::releaseDc(dc);
+		Gdi::Dc::releaseDc(dc);
 	}
 
 	template <typename T, typename... Params>
@@ -72,7 +72,7 @@ namespace
 #endif
 
 		if (!hasDisplayDcArg(params...) ||
-			!CompatGdi::beginGdiRendering(getDdLockFlags<OrigFuncPtr, origFunc>(params...)))
+			!Gdi::beginGdiRendering(getDdLockFlags<OrigFuncPtr, origFunc>(params...)))
 		{
 			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
 
@@ -81,7 +81,7 @@ namespace
 			{
 				Compat::Log() << "Skipping redirection since there is no display DC argument";
 			}
-			else if (!CompatGdi::isEmulationEnabled())
+			else if (!Gdi::isEmulationEnabled())
 			{
 				Compat::Log() << "Skipping redirection since GDI emulation is disabled";
 			}
@@ -97,7 +97,7 @@ namespace
 
 		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
 		releaseDc(params...);
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 
 #ifdef _DEBUG
 		Compat::LogLeave(g_funcNames[origFunc], params...) << result;
@@ -205,7 +205,7 @@ namespace
 
 	HWND WINAPI windowFromDc(HDC dc)
 	{
-		return CALL_ORIG_FUNC(WindowFromDC)(CompatGdiDc::getOrigDc(dc));
+		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
 	}
 }
 
@@ -216,96 +216,99 @@ namespace
 	HOOK_GDI_DC_FUNCTION(module, func##A); \
 	HOOK_GDI_DC_FUNCTION(module, func##W)
 
-namespace CompatGdiDcFunctions
+namespace Gdi
 {
-	void installHooks()
+	namespace DcFunctions
 	{
-		// Bitmap functions
-		HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
-		HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
-		HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, CompatDisplayMode::createCompatibleBitmap);
-		HOOK_FUNCTION(gdi32, CreateDIBitmap, CompatDisplayMode::createDIBitmap);
-		HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, CompatDisplayMode::createDiscardableBitmap);
-		HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
-		HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
-		HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);
-		HOOK_GDI_DC_FUNCTION(gdi32, GdiTransparentBlt);
-		HOOK_GDI_DC_FUNCTION(gdi32, GetDIBits);
-		HOOK_GDI_DC_FUNCTION(gdi32, GetPixel);
-		HOOK_GDI_DC_FUNCTION(msimg32, GradientFill);
-		HOOK_GDI_DC_FUNCTION(gdi32, MaskBlt);
-		HOOK_GDI_DC_FUNCTION(gdi32, PlgBlt);
-		HOOK_GDI_DC_FUNCTION(gdi32, SetDIBits);
-		HOOK_GDI_DC_FUNCTION(gdi32, SetDIBitsToDevice);
-		HOOK_GDI_DC_FUNCTION(gdi32, SetPixel);
-		HOOK_GDI_DC_FUNCTION(gdi32, SetPixelV);
-		HOOK_GDI_DC_FUNCTION(gdi32, StretchBlt);
-		HOOK_GDI_DC_FUNCTION(gdi32, StretchDIBits);
-		HOOK_GDI_DC_FUNCTION(msimg32, TransparentBlt);
+		void installHooks()
+		{
+			// Bitmap functions
+			HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
+			HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
+			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, CompatDisplayMode::createCompatibleBitmap);
+			HOOK_FUNCTION(gdi32, CreateDIBitmap, CompatDisplayMode::createDIBitmap);
+			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, CompatDisplayMode::createDiscardableBitmap);
+			HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
+			HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
+			HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);
+			HOOK_GDI_DC_FUNCTION(gdi32, GdiTransparentBlt);
+			HOOK_GDI_DC_FUNCTION(gdi32, GetDIBits);
+			HOOK_GDI_DC_FUNCTION(gdi32, GetPixel);
+			HOOK_GDI_DC_FUNCTION(msimg32, GradientFill);
+			HOOK_GDI_DC_FUNCTION(gdi32, MaskBlt);
+			HOOK_GDI_DC_FUNCTION(gdi32, PlgBlt);
+			HOOK_GDI_DC_FUNCTION(gdi32, SetDIBits);
+			HOOK_GDI_DC_FUNCTION(gdi32, SetDIBitsToDevice);
+			HOOK_GDI_DC_FUNCTION(gdi32, SetPixel);
+			HOOK_GDI_DC_FUNCTION(gdi32, SetPixelV);
+			HOOK_GDI_DC_FUNCTION(gdi32, StretchBlt);
+			HOOK_GDI_DC_FUNCTION(gdi32, StretchDIBits);
+			HOOK_GDI_DC_FUNCTION(msimg32, TransparentBlt);
 
-		// Brush functions
-		HOOK_GDI_DC_FUNCTION(gdi32, PatBlt);
+			// Brush functions
+			HOOK_GDI_DC_FUNCTION(gdi32, PatBlt);
 
-		// Device context functions
-		HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
-		HOOK_FUNCTION(user32, WindowFromDC, windowFromDc);
+			// Device context functions
+			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
+			HOOK_FUNCTION(user32, WindowFromDC, windowFromDc);
 
-		// Filled shape functions
-		HOOK_GDI_DC_FUNCTION(gdi32, Chord);
-		HOOK_GDI_DC_FUNCTION(gdi32, Ellipse);
-		HOOK_GDI_DC_FUNCTION(user32, FillRect);
-		HOOK_GDI_DC_FUNCTION(user32, FrameRect);
-		HOOK_GDI_DC_FUNCTION(user32, InvertRect);
-		HOOK_GDI_DC_FUNCTION(gdi32, Pie);
-		HOOK_GDI_DC_FUNCTION(gdi32, Polygon);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyPolygon);
-		HOOK_GDI_DC_FUNCTION(gdi32, Rectangle);
-		HOOK_GDI_DC_FUNCTION(gdi32, RoundRect);
+			// Filled shape functions
+			HOOK_GDI_DC_FUNCTION(gdi32, Chord);
+			HOOK_GDI_DC_FUNCTION(gdi32, Ellipse);
+			HOOK_GDI_DC_FUNCTION(user32, FillRect);
+			HOOK_GDI_DC_FUNCTION(user32, FrameRect);
+			HOOK_GDI_DC_FUNCTION(user32, InvertRect);
+			HOOK_GDI_DC_FUNCTION(gdi32, Pie);
+			HOOK_GDI_DC_FUNCTION(gdi32, Polygon);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyPolygon);
+			HOOK_GDI_DC_FUNCTION(gdi32, Rectangle);
+			HOOK_GDI_DC_FUNCTION(gdi32, RoundRect);
 
-		// Font and text functions
-		HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawText);
-		HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawTextEx);
-		HOOK_GDI_TEXT_DC_FUNCTION(gdi32, ExtTextOut);
-		HOOK_GDI_TEXT_DC_FUNCTION(gdi32, PolyTextOut);
-		HOOK_GDI_TEXT_DC_FUNCTION(user32, TabbedTextOut);
-		HOOK_GDI_TEXT_DC_FUNCTION(gdi32, TextOut);
+			// Font and text functions
+			HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawText);
+			HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawTextEx);
+			HOOK_GDI_TEXT_DC_FUNCTION(gdi32, ExtTextOut);
+			HOOK_GDI_TEXT_DC_FUNCTION(gdi32, PolyTextOut);
+			HOOK_GDI_TEXT_DC_FUNCTION(user32, TabbedTextOut);
+			HOOK_GDI_TEXT_DC_FUNCTION(gdi32, TextOut);
 
-		// Icon functions
-		HOOK_GDI_DC_FUNCTION(user32, DrawIcon);
-		HOOK_GDI_DC_FUNCTION(user32, DrawIconEx);
+			// Icon functions
+			HOOK_GDI_DC_FUNCTION(user32, DrawIcon);
+			HOOK_GDI_DC_FUNCTION(user32, DrawIconEx);
 
-		// Line and curve functions
-		HOOK_GDI_DC_FUNCTION(gdi32, AngleArc);
-		HOOK_GDI_DC_FUNCTION(gdi32, Arc);
-		HOOK_GDI_DC_FUNCTION(gdi32, ArcTo);
-		HOOK_GDI_DC_FUNCTION(gdi32, LineTo);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyBezier);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyBezierTo);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyDraw);
-		HOOK_GDI_DC_FUNCTION(gdi32, Polyline);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolylineTo);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyPolyline);
+			// Line and curve functions
+			HOOK_GDI_DC_FUNCTION(gdi32, AngleArc);
+			HOOK_GDI_DC_FUNCTION(gdi32, Arc);
+			HOOK_GDI_DC_FUNCTION(gdi32, ArcTo);
+			HOOK_GDI_DC_FUNCTION(gdi32, LineTo);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyBezier);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyBezierTo);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyDraw);
+			HOOK_GDI_DC_FUNCTION(gdi32, Polyline);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolylineTo);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyPolyline);
 
-		// Painting and drawing functions
-		HOOK_GDI_DC_FUNCTION(user32, DrawCaption);
-		HOOK_GDI_DC_FUNCTION(user32, DrawEdge);
-		HOOK_GDI_DC_FUNCTION(user32, DrawFocusRect);
-		HOOK_GDI_DC_FUNCTION(user32, DrawFrameControl);
-		HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawState);
-		HOOK_GDI_TEXT_DC_FUNCTION(user32, GrayString);
-		HOOK_GDI_DC_FUNCTION(user32, PaintDesktop);
+			// Painting and drawing functions
+			HOOK_GDI_DC_FUNCTION(user32, DrawCaption);
+			HOOK_GDI_DC_FUNCTION(user32, DrawEdge);
+			HOOK_GDI_DC_FUNCTION(user32, DrawFocusRect);
+			HOOK_GDI_DC_FUNCTION(user32, DrawFrameControl);
+			HOOK_GDI_TEXT_DC_FUNCTION(user32, DrawState);
+			HOOK_GDI_TEXT_DC_FUNCTION(user32, GrayString);
+			HOOK_GDI_DC_FUNCTION(user32, PaintDesktop);
 
-		// Region functions
-		HOOK_GDI_DC_FUNCTION(gdi32, FillRgn);
-		HOOK_GDI_DC_FUNCTION(gdi32, FrameRgn);
-		HOOK_GDI_DC_FUNCTION(gdi32, InvertRgn);
-		HOOK_GDI_DC_FUNCTION(gdi32, PaintRgn);
+			// Region functions
+			HOOK_GDI_DC_FUNCTION(gdi32, FillRgn);
+			HOOK_GDI_DC_FUNCTION(gdi32, FrameRgn);
+			HOOK_GDI_DC_FUNCTION(gdi32, InvertRgn);
+			HOOK_GDI_DC_FUNCTION(gdi32, PaintRgn);
 
-		// Scroll bar functions
-		HOOK_GDI_DC_FUNCTION(user32, ScrollDC);
+			// Scroll bar functions
+			HOOK_GDI_DC_FUNCTION(user32, ScrollDC);
 
-		// Undocumented functions
-		HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
-		HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
+			// Undocumented functions
+			HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
+			HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
+		}
 	}
 }

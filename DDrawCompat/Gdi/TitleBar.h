@@ -6,7 +6,7 @@
 
 #include <Windows.h>
 
-namespace CompatGdi
+namespace Gdi
 {
 	class TitleBar
 	{

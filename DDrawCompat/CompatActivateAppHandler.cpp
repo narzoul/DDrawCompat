@@ -3,11 +3,11 @@
 #include "CompatDirectDrawSurface.h"
 #include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
-#include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
 #include "CompatRef.h"
 #include "DDrawLog.h"
+#include "Gdi/Gdi.h"
 
 extern HWND g_mainWindow;
 
@@ -42,7 +42,7 @@ namespace
 		if (primary && SUCCEEDED(primary->Restore(primary)))
 		{
 			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
-			CompatGdi::invalidate(nullptr);
+			Gdi::invalidate(nullptr);
 		}
 
 		CompatFontSmoothing::setSystemSettings(g_fontSmoothingSettings);
@@ -90,7 +90,7 @@ namespace
 
 		if (!isActivated)
 		{
-			CompatGdi::disableEmulation();
+			Gdi::disableEmulation();
 		}
 
 		if (g_fullScreenDirectDraw)
@@ -108,7 +108,7 @@ namespace
 
 		if (isActivated)
 		{
-			CompatGdi::enableEmulation();
+			Gdi::enableEmulation();
 		}
 
 		Compat::LogLeave("handleActivateApp", isActivated);

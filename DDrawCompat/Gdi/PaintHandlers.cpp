@@ -1,12 +1,12 @@
-#include "CompatGdi.h"
-#include "CompatGdiDc.h"
-#include "CompatGdiPaintHandlers.h"
-#include "CompatGdiScrollBar.h"
-#include "CompatGdiScrollFunctions.h"
-#include "CompatGdiTitleBar.h"
 #include "CompatPrimarySurface.h"
 #include "CompatRegistry.h"
 #include "DDrawLog.h"
+#include "Gdi/Dc.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/PaintHandlers.h"
+#include "Gdi/ScrollBar.h"
+#include "Gdi/ScrollFunctions.h"
+#include "Gdi/TitleBar.h"
 #include "Hook.h"
 #include "RealPrimarySurface.h"
 
@@ -117,7 +117,7 @@ namespace
 		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
 		if (0 == result && (WM_HSCROLL == msg || WM_VSCROLL == msg))
 		{
-			CompatGdiScrollFunctions::updateScrolledWindow(hwnd);
+			Gdi::ScrollFunctions::updateScrolledWindow(hwnd);
 		}
 		return result;
 	}
@@ -157,17 +157,17 @@ namespace
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
 	{
-		if (!hwnd || !CompatGdi::beginGdiRendering())
+		if (!hwnd || !Gdi::beginGdiRendering())
 		{
 			return origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 		}
 
 		LRESULT result = 0;
-		HDC compatDc = CompatGdiDc::getDc(dc);
+		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
 			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
-			CompatGdiDc::releaseDc(dc);
+			Gdi::Dc::releaseDc(dc);
 			if (result)
 			{
 				RealPrimarySurface::disableUpdates();
@@ -178,7 +178,7 @@ namespace
 			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 		}
 
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 
 		if (result && compatDc)
 		{
@@ -191,20 +191,20 @@ namespace
 
 	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
 	{
-		if (!hwnd || !CompatGdi::beginGdiRendering())
+		if (!hwnd || !Gdi::beginGdiRendering())
 		{
 			return origWndProc(hwnd, WM_PAINT, 0, 0);
 		}
 
 		HDC dc = GetWindowDC(hwnd);
 		const bool isMenuPaintDc = true;
-		HDC compatDc = CompatGdiDc::getDc(dc, isMenuPaintDc);
+		HDC compatDc = Gdi::Dc::getDc(dc, isMenuPaintDc);
 		if (compatDc)
 		{
 			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
 				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
 			ValidateRect(hwnd, nullptr);
-			CompatGdiDc::releaseDc(dc);
+			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
@@ -212,55 +212,55 @@ namespace
 		}
 
 		ReleaseDC(hwnd, dc);
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
 	{
-		if (!hwnd || !CompatGdi::beginGdiRendering())
+		if (!hwnd || !Gdi::beginGdiRendering())
 		{
 			return origWndProc(hwnd, WM_NCPAINT, wParam, 0);
 		}
 
 		HDC windowDc = GetWindowDC(hwnd);
-		HDC compatDc = CompatGdiDc::getDc(windowDc);
+		HDC compatDc = Gdi::Dc::getDc(windowDc);
 
 		if (compatDc)
 		{
-			CompatGdi::TitleBar titleBar(hwnd, compatDc);
+			Gdi::TitleBar titleBar(hwnd, compatDc);
 			titleBar.drawAll();
 			titleBar.excludeFromClipRegion();
 
-			CompatGdi::ScrollBar scrollBar(hwnd, compatDc);
+			Gdi::ScrollBar scrollBar(hwnd, compatDc);
 			scrollBar.drawAll();
 			scrollBar.excludeFromClipRegion();
 
 			SendMessage(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc), PRF_NONCLIENT);
 
-			CompatGdiDc::releaseDc(windowDc);
+			Gdi::Dc::releaseDc(windowDc);
 		}
 
 		ReleaseDC(hwnd, windowDc);
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc)
 	{
-		if (!hwnd || !CompatGdi::beginGdiRendering())
+		if (!hwnd || !Gdi::beginGdiRendering())
 		{
 			return origWndProc(hwnd, WM_PAINT, 0, 0);
 		}
 
 		PAINTSTRUCT paint = {};
 		HDC dc = BeginPaint(hwnd, &paint);
-		HDC compatDc = CompatGdiDc::getDc(dc);
+		HDC compatDc = Gdi::Dc::getDc(dc);
 
 		if (compatDc)
 		{
 			origWndProc(hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
-			CompatGdiDc::releaseDc(dc);
+			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
@@ -269,30 +269,30 @@ namespace
 
 		EndPaint(hwnd, &paint);
 
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc)
 	{
-		if (!CompatGdi::beginGdiRendering())
+		if (!Gdi::beginGdiRendering())
 		{
 			return origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
 
 		LRESULT result = 0;
-		HDC compatDc = CompatGdiDc::getDc(dc);
+		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
 			result = origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
-			CompatGdiDc::releaseDc(dc);
+			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
 			result = origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
 
-		CompatGdi::endGdiRendering();
+		Gdi::endGdiRendering();
 		return result;
 	}
 
@@ -325,30 +325,33 @@ namespace
 	}
 }
 
-namespace CompatGdiPaintHandlers
+namespace Gdi
 {
-	void installHooks()
+	namespace PaintHandlers
 	{
-		disableImmersiveContextMenus();
+		void installHooks()
+		{
+			disableImmersiveContextMenus();
 
-		CompatGdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
-		CompatGdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
-		CompatGdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
-		CompatGdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
-		CompatGdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
+			Gdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
+			Gdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
+			Gdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
+			Gdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
+			Gdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
 
-		HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
-		HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
-		HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
-		HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
-	}
+			HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
+			HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
+			HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
+			HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
+		}
 
-	void uninstallHooks()
-	{
-		CompatGdi::unhookWndProc("ComboLBox", g_origComboListBoxWndProc);
-		CompatGdi::unhookWndProc("Edit", g_origEditWndProc);
-		CompatGdi::unhookWndProc("ListBox", g_origListBoxWndProc);
-		CompatGdi::unhookWndProc("#32768", g_origMenuWndProc);
-		CompatGdi::unhookWndProc("ScrollBar", g_origScrollBarWndProc);
+		void uninstallHooks()
+		{
+			Gdi::unhookWndProc("ComboLBox", g_origComboListBoxWndProc);
+			Gdi::unhookWndProc("Edit", g_origEditWndProc);
+			Gdi::unhookWndProc("ListBox", g_origListBoxWndProc);
+			Gdi::unhookWndProc("#32768", g_origMenuWndProc);
+			Gdi::unhookWndProc("ScrollBar", g_origScrollBarWndProc);
+		}
 	}
 }

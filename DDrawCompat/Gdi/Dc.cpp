@@ -1,16 +1,16 @@
 #include <algorithm>
 #include <unordered_map>
 
-#include "CompatGdi.h"
-#include "CompatGdiDc.h"
-#include "CompatGdiDcCache.h"
 #include "DDrawLog.h"
+#include "Gdi/Dc.h"
+#include "Gdi/DcCache.h"
+#include "Gdi/Gdi.h"
 #include "Hook.h"
 #include "ScopedCriticalSection.h"
 
 namespace
 {
-	using CompatGdiDcCache::CachedDc;
+	using Gdi::DcCache::CachedDc;
 
 	struct CompatDc : CachedDc
 	{
@@ -154,75 +154,78 @@ namespace
 	}
 }
 
-namespace CompatGdiDc
+namespace Gdi
 {
-	HDC getDc(HDC origDc, bool isMenuPaintDc)
+	namespace Dc
 	{
-		if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
+		HDC getDc(HDC origDc, bool isMenuPaintDc)
 		{
-			return nullptr;
+			if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
+			{
+				return nullptr;
+			}
+
+			Compat::ScopedCriticalSection gdiLock(Gdi::g_gdiCriticalSection);
+
+			auto it = g_origDcToCompatDc.find(origDc);
+			if (it != g_origDcToCompatDc.end())
+			{
+				++it->second.refCount;
+				return it->second.dc;
+			}
+
+			const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+			const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
+			if (isMenuWindow && !isMenuPaintDc)
+			{
+				return nullptr;
+			}
+
+			CompatDc compatDc(Gdi::DcCache::getDc());
+			if (!compatDc.dc)
+			{
+				return nullptr;
+			}
+
+			POINT origin = {};
+			GetDCOrgEx(origDc, &origin);
+
+			compatDc.savedState = SaveDC(compatDc.dc);
+			copyDcAttributes(compatDc, origDc, origin);
+			setClippingRegion(compatDc.dc, origDc, hwnd, isMenuWindow, origin);
+
+			compatDc.refCount = 1;
+			compatDc.origDc = origDc;
+			g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
+
+			return compatDc.dc;
 		}
 
-		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
-
-		auto it = g_origDcToCompatDc.find(origDc);
-		if (it != g_origDcToCompatDc.end())
+		HDC getOrigDc(HDC dc)
 		{
-			++it->second.refCount;
-			return it->second.dc;
+			const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
+				[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
+			return it != g_origDcToCompatDc.end() ? it->first : dc;
 		}
 
-		const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-		const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
-		if (isMenuWindow && !isMenuPaintDc)
+		void releaseDc(HDC origDc)
 		{
-			return nullptr;
-		}
+			Compat::ScopedCriticalSection gdiLock(Gdi::g_gdiCriticalSection);
 
-		CompatDc compatDc(CompatGdiDcCache::getDc());
-		if (!compatDc.dc)
-		{
-			return nullptr;
-		}
+			auto it = g_origDcToCompatDc.find(origDc);
+			if (it == g_origDcToCompatDc.end())
+			{
+				return;
+			}
 
-		POINT origin = {};
-		GetDCOrgEx(origDc, &origin);
-
-		compatDc.savedState = SaveDC(compatDc.dc);
-		copyDcAttributes(compatDc, origDc, origin);
-		setClippingRegion(compatDc.dc, origDc, hwnd, isMenuWindow, origin);
-
-		compatDc.refCount = 1;
-		compatDc.origDc = origDc;
-		g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
-
-		return compatDc.dc;
-	}
-
-	HDC getOrigDc(HDC dc)
-	{
-		const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
-			[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
-		return it != g_origDcToCompatDc.end() ? it->first : dc;
-	}
-
-	void releaseDc(HDC origDc)
-	{
-		Compat::ScopedCriticalSection gdiLock(CompatGdi::g_gdiCriticalSection);
-
-		auto it = g_origDcToCompatDc.find(origDc);
-		if (it == g_origDcToCompatDc.end())
-		{
-			return;
-		}
-		
-		CompatDc& compatDc = it->second;
-		--compatDc.refCount;
-		if (0 == compatDc.refCount)
-		{
-			RestoreDC(compatDc.dc, compatDc.savedState);
-			CompatGdiDcCache::releaseDc(compatDc);
-			g_origDcToCompatDc.erase(origDc);
+			CompatDc& compatDc = it->second;
+			--compatDc.refCount;
+			if (0 == compatDc.refCount)
+			{
+				RestoreDC(compatDc.dc, compatDc.savedState);
+				Gdi::DcCache::releaseDc(compatDc);
+				g_origDcToCompatDc.erase(origDc);
+			}
 		}
 	}
 }

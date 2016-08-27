@@ -13,6 +13,12 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="Header Files\Gdi">
+      <UniqueIdentifier>{ed9adcfd-bf6f-4b69-b425-7a9252072e4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Gdi">
+      <UniqueIdentifier>{a8e1437a-7bec-4492-830a-9a0d844aa06b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
@@ -61,36 +67,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DDrawScopedThreadLock.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiDcCache.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiDc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdi.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiWinProc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiCaret.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiTitleBar.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiScrollBar.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiDcFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiScrollFunctions.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatGdiPaintHandlers.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Hook.h">
@@ -183,6 +159,36 @@
     <ClInclude Include="D3dDdiHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\Gdi.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\Caret.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\Dc.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\DcCache.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\DcFunctions.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\PaintHandlers.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\ScrollBar.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\ScrollFunctions.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\TitleBar.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\WinProc.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -213,36 +219,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatDirectDrawPalette.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiDcCache.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiDc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdi.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiWinProc.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiCaret.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiTitleBar.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiScrollBar.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiDcFunctions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiScrollFunctions.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatGdiPaintHandlers.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Hook.cpp">
@@ -298,6 +274,36 @@
     </ClCompile>
     <ClCompile Include="D3dDdiHooks.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Gdi.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Caret.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Dc.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\DcCache.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\DcFunctions.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\PaintHandlers.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\ScrollBar.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\ScrollFunctions.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\TitleBar.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\WinProc.cpp">
+      <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

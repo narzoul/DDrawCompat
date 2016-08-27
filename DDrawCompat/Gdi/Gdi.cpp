@@ -1,15 +1,15 @@
 #include <atomic>
 
-#include "CompatGdi.h"
-#include "CompatGdiCaret.h"
-#include "CompatGdiDcCache.h"
-#include "CompatGdiDcFunctions.h"
-#include "CompatGdiPaintHandlers.h"
-#include "CompatGdiScrollFunctions.h"
-#include "CompatGdiWinProc.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "DDrawProcs.h"
+#include "Gdi/Caret.h"
+#include "Gdi/DcCache.h"
+#include "Gdi/DcFunctions.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/PaintHandlers.h"
+#include "Gdi/ScrollFunctions.h"
+#include "Gdi/WinProc.h"
 #include "RealPrimarySurface.h"
 #include "ScopedCriticalSection.h"
 
@@ -67,12 +67,12 @@ namespace
 		g_ddLockFlags = lockFlags;
 		if (0 != lockFlags)
 		{
-			EnterCriticalSection(&CompatGdi::g_gdiCriticalSection);
+			EnterCriticalSection(&Gdi::g_gdiCriticalSection);
 		}
 
 		g_ddLockThreadId = GetCurrentThreadId();
-		CompatGdiDcCache::setDdLockThreadId(g_ddLockThreadId);
-		CompatGdiDcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
+		Gdi::DcCache::setDdLockThreadId(g_ddLockThreadId);
+		Gdi::DcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 		return true;
 	}
 
@@ -89,7 +89,7 @@ namespace
 
 		if (0 != g_ddLockFlags)
 		{
-			LeaveCriticalSection(&CompatGdi::g_gdiCriticalSection);
+			LeaveCriticalSection(&Gdi::g_gdiCriticalSection);
 		}
 		g_ddLockFlags = 0;
 
@@ -97,7 +97,7 @@ namespace
 	}
 }
 
-namespace CompatGdi
+namespace Gdi
 {
 	CRITICAL_SECTION g_gdiCriticalSection;
 
@@ -192,7 +192,7 @@ namespace CompatGdi
 	void installHooks()
 	{
 		InitializeCriticalSection(&g_gdiCriticalSection);
-		if (CompatGdiDcCache::init())
+		if (Gdi::DcCache::init())
 		{
 			g_ddUnlockBeginEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 			g_ddUnlockEndEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
@@ -202,11 +202,11 @@ namespace CompatGdi
 				return;
 			}
 
-			CompatGdiDcFunctions::installHooks();
-			CompatGdiPaintHandlers::installHooks();
-			CompatGdiScrollFunctions::installHooks();
-			CompatGdiWinProc::installHooks();
-			CompatGdiCaret::installHooks();
+			Gdi::DcFunctions::installHooks();
+			Gdi::PaintHandlers::installHooks();
+			Gdi::ScrollFunctions::installHooks();
+			Gdi::WinProc::installHooks();
+			Gdi::Caret::installHooks();
 		}
 	}
 
@@ -232,16 +232,16 @@ namespace CompatGdi
 
 	void uninstallHooks()
 	{
-		CompatGdiCaret::uninstallHooks();
-		CompatGdiWinProc::uninstallHooks();
-		CompatGdiPaintHandlers::uninstallHooks();
+		Gdi::Caret::uninstallHooks();
+		Gdi::WinProc::uninstallHooks();
+		Gdi::PaintHandlers::uninstallHooks();
 	}
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
 		if (isEmulationEnabled() && CompatPrimarySurface::g_palette)
 		{
-			CompatGdiDcCache::updatePalette(startingEntry, count);
+			Gdi::DcCache::updatePalette(startingEntry, count);
 		}
 	}
 }

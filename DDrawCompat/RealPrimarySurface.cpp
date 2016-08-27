@@ -1,7 +1,6 @@
 #include <atomic>
 
 #include "CompatDirectDrawSurface.h"
-#include "CompatGdi.h"
 #include "CompatPaletteConverter.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
@@ -9,6 +8,7 @@
 #include "DDrawScopedThreadLock.h"
 #include "DDrawProcs.h"
 #include "DDrawTypes.h"
+#include "Gdi/Gdi.h"
 #include "Hook.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
@@ -375,7 +375,7 @@ void RealPrimarySurface::update()
 void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
 {
 	CompatPaletteConverter::updatePalette(startingEntry, count);
-	CompatGdi::updatePalette(startingEntry, count);
+	Gdi::updatePalette(startingEntry, count);
 	if (CompatPrimarySurface::g_palette)
 	{
 		invalidate(nullptr);

@@ -1,6 +1,6 @@
-#include "CompatGdi.h"
-#include "CompatGdiTitleBar.h"
 #include "CompatPrimarySurface.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/TitleBar.h"
 #include "Hook.h"
 
 namespace
@@ -15,7 +15,7 @@ namespace
 	};
 }
 
-namespace CompatGdi
+namespace Gdi
 {
 	TitleBar::TitleBar(HWND hwnd, HDC compatDc) :
 		m_hwnd(hwnd), m_compatDc(compatDc), m_buttonWidth(0), m_buttonHeight(0), m_tbi(),

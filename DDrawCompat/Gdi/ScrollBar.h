@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-namespace CompatGdi
+namespace Gdi
 {
 	class ScrollBar
 	{

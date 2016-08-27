@@ -1,17 +1,17 @@
 #include <cstring>
 #include <vector>
 
-#include "CompatGdiDcCache.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
 #include "Config.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
+#include "Gdi/DcCache.h"
 
 namespace
 {
-	using CompatGdiDcCache::CachedDc;
+	using Gdi::DcCache::CachedDc;
 	
 	std::vector<CachedDc> g_cache;
 	DWORD g_cacheSize = 0;
@@ -117,108 +117,111 @@ namespace
 	}
 }
 
-namespace CompatGdiDcCache
+namespace Gdi
 {
-	void clear()
+	namespace DcCache
 	{
-		for (auto& cachedDc : g_cache)
+		void clear()
 		{
-			releaseCachedDc(cachedDc);
+			for (auto& cachedDc : g_cache)
+			{
+				releaseCachedDc(cachedDc);
+			}
+			g_cache.clear();
+			g_cacheSize = 0;
+			++g_cacheId;
 		}
-		g_cache.clear();
-		g_cacheSize = 0;
-		++g_cacheId;
-	}
 
-	CachedDc getDc()
-	{
-		CachedDc cachedDc = {};
-		if (!g_surfaceMemory)
+		CachedDc getDc()
 		{
+			CachedDc cachedDc = {};
+			if (!g_surfaceMemory)
+			{
+				return cachedDc;
+			}
+
+			if (g_cache.empty())
+			{
+				extendCache();
+			}
+
+			if (!g_cache.empty())
+			{
+				cachedDc = g_cache.back();
+				g_cache.pop_back();
+
+				const DWORD usedCacheSize = g_cacheSize - g_cache.size();
+				if (usedCacheSize > g_maxUsedCacheSize)
+				{
+					g_maxUsedCacheSize = usedCacheSize;
+					Compat::Log() << "GDI used DC cache size: " << g_maxUsedCacheSize;
+				}
+			}
+
 			return cachedDc;
 		}
 
-		if (g_cache.empty())
+		bool init()
 		{
-			extendCache();
+			auto dd(DDrawRepository::getDirectDraw());
+			dd->CreatePalette(dd,
+				DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette.getRef(), nullptr);
+			return nullptr != g_palette;
 		}
 
-		if (!g_cache.empty())
+		void releaseDc(const CachedDc& cachedDc)
 		{
-			cachedDc = g_cache.back();
-			g_cache.pop_back();
-
-			const DWORD usedCacheSize = g_cacheSize - g_cache.size();
-			if (usedCacheSize > g_maxUsedCacheSize)
+			if (cachedDc.cacheId == g_cacheId)
 			{
-				g_maxUsedCacheSize = usedCacheSize;
-				Compat::Log() << "GDI used DC cache size: " << g_maxUsedCacheSize;
+				g_cache.push_back(cachedDc);
+			}
+			else
+			{
+				releaseCachedDc(cachedDc);
 			}
 		}
 
-		return cachedDc;
-	}
-
-	bool init()
-	{
-		auto dd(DDrawRepository::getDirectDraw());
-		dd->CreatePalette(dd,
-			DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette.getRef(), nullptr);
-		return nullptr != g_palette;
-	}
-
-	void releaseDc(const CachedDc& cachedDc)
-	{
-		if (cachedDc.cacheId == g_cacheId)
+		void setDdLockThreadId(DWORD ddLockThreadId)
 		{
-			g_cache.push_back(cachedDc);
-		}
-		else
-		{
-			releaseCachedDc(cachedDc);
-		}
-	}
-
-	void setDdLockThreadId(DWORD ddLockThreadId)
-	{
-		g_ddLockThreadId = ddLockThreadId;
-	}
-
-	void setSurfaceMemory(void* surfaceMemory, LONG pitch)
-	{
-		if (g_surfaceMemory == surfaceMemory && g_pitch == pitch)
-		{
-			return;
+			g_ddLockThreadId = ddLockThreadId;
 		}
 
-		g_surfaceMemory = surfaceMemory;
-		g_pitch = pitch;
-		clear();
-	}
-
-	void updatePalette(DWORD startingEntry, DWORD count)
-	{
-		PALETTEENTRY entries[256] = {};
-		std::memcpy(&entries[startingEntry],
-			&CompatPrimarySurface::g_paletteEntries[startingEntry],
-			count * sizeof(PALETTEENTRY));
-
-		for (DWORD i = startingEntry; i < startingEntry + count; ++i)
+		void setSurfaceMemory(void* surfaceMemory, LONG pitch)
 		{
-			if (entries[i].peFlags & PC_RESERVED)
+			if (g_surfaceMemory == surfaceMemory && g_pitch == pitch)
 			{
-				entries[i] = CompatPrimarySurface::g_paletteEntries[0];
-				entries[i].peFlags = CompatPrimarySurface::g_paletteEntries[i].peFlags;
+				return;
 			}
-		}
 
-		if (0 != std::memcmp(&g_paletteEntries[startingEntry], &entries[startingEntry],
-			count * sizeof(PALETTEENTRY)))
-		{
-			std::memcpy(&g_paletteEntries[startingEntry], &entries[startingEntry],
-				count * sizeof(PALETTEENTRY));
-			g_palette->SetEntries(g_palette, 0, startingEntry, count, g_paletteEntries);
+			g_surfaceMemory = surfaceMemory;
+			g_pitch = pitch;
 			clear();
+		}
+
+		void updatePalette(DWORD startingEntry, DWORD count)
+		{
+			PALETTEENTRY entries[256] = {};
+			std::memcpy(&entries[startingEntry],
+				&CompatPrimarySurface::g_paletteEntries[startingEntry],
+				count * sizeof(PALETTEENTRY));
+
+			for (DWORD i = startingEntry; i < startingEntry + count; ++i)
+			{
+				if (entries[i].peFlags & PC_RESERVED)
+				{
+					entries[i] = CompatPrimarySurface::g_paletteEntries[0];
+					entries[i].peFlags = CompatPrimarySurface::g_paletteEntries[i].peFlags;
+				}
+			}
+
+			if (0 != std::memcmp(&g_paletteEntries[startingEntry], &entries[startingEntry],
+				count * sizeof(PALETTEENTRY)))
+			{
+				std::memcpy(&g_paletteEntries[startingEntry], &entries[startingEntry],
+					count * sizeof(PALETTEENTRY));
+				g_palette->SetEntries(g_palette, 0, startingEntry, count, g_paletteEntries);
+				clear();
+			}
 		}
 	}
 }

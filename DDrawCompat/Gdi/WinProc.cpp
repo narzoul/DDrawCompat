@@ -5,13 +5,13 @@
 #include <dwmapi.h>
 #include <Windows.h>
 
-#include "CompatGdi.h"
-#include "CompatGdiDc.h"
-#include "CompatGdiScrollBar.h"
-#include "CompatGdiScrollFunctions.h"
-#include "CompatGdiTitleBar.h"
-#include "CompatGdiWinProc.h"
 #include "DDrawLog.h"
+#include "Gdi/Dc.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/ScrollBar.h"
+#include "Gdi/ScrollFunctions.h"
+#include "Gdi/TitleBar.h"
+#include "Gdi/WinProc.h"
 #include "ScopedCriticalSection.h"
 
 namespace
@@ -40,7 +40,7 @@ namespace
 			}
 			else if (WM_DESTROY == ret->message)
 			{
-				Compat::ScopedCriticalSection lock(CompatGdi::g_gdiCriticalSection);
+				Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 				g_prevWindowRect.erase(ret->hwnd);
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
@@ -56,7 +56,7 @@ namespace
 				auto notifCode = HIWORD(ret->wParam);
 				if (ret->lParam && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
 				{
-					CompatGdiScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
+					Gdi::ScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
 			}
 			else if (WM_MENUSELECT == ret->message)
@@ -92,38 +92,38 @@ namespace
 	{
 		if (OBJID_TITLEBAR == idObject || OBJID_HSCROLL == idObject || OBJID_VSCROLL == idObject)
 		{
-			if (!hwnd || !CompatGdi::beginGdiRendering())
+			if (!hwnd || !Gdi::beginGdiRendering())
 			{
 				return;
 			}
 
 			HDC windowDc = GetWindowDC(hwnd);
-			HDC compatDc = CompatGdiDc::getDc(windowDc);
+			HDC compatDc = Gdi::Dc::getDc(windowDc);
 			if (compatDc)
 			{
 				if (OBJID_TITLEBAR == idObject)
 				{
-					CompatGdi::TitleBar(hwnd, compatDc).drawButtons();
+					Gdi::TitleBar(hwnd, compatDc).drawButtons();
 				}
 				else if (OBJID_HSCROLL == idObject)
 				{
-					CompatGdi::ScrollBar(hwnd, compatDc).drawHorizArrows();
+					Gdi::ScrollBar(hwnd, compatDc).drawHorizArrows();
 				}
 				else if (OBJID_VSCROLL == idObject)
 				{
-					CompatGdi::ScrollBar(hwnd, compatDc).drawVertArrows();
+					Gdi::ScrollBar(hwnd, compatDc).drawVertArrows();
 				}
-				CompatGdiDc::releaseDc(windowDc);
+				Gdi::Dc::releaseDc(windowDc);
 			}
 
 			ReleaseDC(hwnd, windowDc);
-			CompatGdi::endGdiRendering();
+			Gdi::endGdiRendering();
 		}
 	}
 
 	void onActivate(HWND hwnd)
 	{
-		if (!CompatGdi::isEmulationEnabled())
+		if (!Gdi::isEmulationEnabled())
 		{
 			return;
 		}
@@ -146,7 +146,7 @@ namespace
 
 	void onMenuSelect()
 	{
-		if (!CompatGdi::isEmulationEnabled())
+		if (!Gdi::isEmulationEnabled())
 		{
 			return;
 		}
@@ -161,17 +161,17 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd)
 	{
-		Compat::ScopedCriticalSection lock(CompatGdi::g_gdiCriticalSection);
+		Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 
 		const auto it = g_prevWindowRect.find(hwnd);
 		if (it != g_prevWindowRect.end())
 		{
-			CompatGdi::invalidate(&it->second);
+			Gdi::invalidate(&it->second);
 		}
 
 		if (IsWindowVisible(hwnd))
 		{
-			if (CompatGdi::isEmulationEnabled())
+			if (Gdi::isEmulationEnabled())
 			{
 				GetWindowRect(hwnd, it != g_prevWindowRect.end() ? &it->second : &g_prevWindowRect[hwnd]);
 				RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
@@ -193,19 +193,22 @@ namespace
 	}
 }
 
-namespace CompatGdiWinProc
+namespace Gdi
 {
-	void installHooks()
+	namespace WinProc
 	{
-		const DWORD threadId = GetCurrentThreadId();
-		g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
-		g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
-			nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
-	}
+		void installHooks()
+		{
+			const DWORD threadId = GetCurrentThreadId();
+			g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
+			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
+				nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		}
 
-	void uninstallHooks()
-	{
-		UnhookWinEvent(g_objectStateChangeEventHook);
-		UnhookWindowsHookEx(g_callWndRetProcHook);
+		void uninstallHooks()
+		{
+			UnhookWinEvent(g_objectStateChangeEventHook);
+			UnhookWindowsHookEx(g_callWndRetProcHook);
+		}
 	}
 }

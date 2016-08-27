@@ -1,5 +1,5 @@
-#include "CompatGdi.h"
-#include "CompatGdiScrollBar.h"
+#include "Gdi/Gdi.h"
+#include "Gdi/ScrollBar.h"
 #include "Hook.h"
 
 namespace
@@ -15,7 +15,7 @@ namespace
 	};
 }
 
-namespace CompatGdi
+namespace Gdi
 {
 	ScrollBar::ScrollBar(HWND hwnd, HDC compatDc) :
 		m_hwnd(hwnd), m_compatDc(compatDc), m_windowRect(),

@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-namespace CompatGdi
+namespace Gdi
 {
 	bool beginGdiRendering(DWORD lockFlags = 0);
 	void endGdiRendering();

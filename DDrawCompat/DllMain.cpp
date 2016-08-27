@@ -7,12 +7,12 @@
 
 #include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
-#include "CompatGdi.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
 #include "D3dDdiHooks.h"
 #include "DDrawHooks.h"
 #include "DDrawProcs.h"
+#include "Gdi/Gdi.h"
 #include "Time.h"
 
 struct IDirectInput;
@@ -32,7 +32,7 @@ namespace
 			Compat::Log() << "Installing DirectDraw hooks";
 			DDrawHooks::installHooks();
 			Compat::Log() << "Installing GDI hooks";
-			CompatGdi::installHooks();
+			Gdi::installHooks();
 			Compat::Log() << "Installing registry hooks";
 			CompatRegistry::installHooks();
 			Compat::Log() << "Finished installing hooks";
@@ -137,7 +137,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		Compat::Log() << "Detaching DDrawCompat";
 		DDrawHooks::uninstallHooks();
 		D3dDdiHooks::uninstallHooks();
-		CompatGdi::uninstallHooks();
+		Gdi::uninstallHooks();
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);
 		FreeLibrary(g_origDDrawModule);

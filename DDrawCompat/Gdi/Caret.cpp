@@ -2,9 +2,9 @@
 
 #include <Windows.h>
 
-#include "CompatGdi.h"
-#include "CompatGdiCaret.h"
-#include "CompatGdiDc.h"
+#include "Gdi/Caret.h"
+#include "Gdi/Dc.h"
+#include "Gdi/Gdi.h"
 #include "Hook.h"
 #include "ScopedCriticalSection.h"
 
@@ -63,10 +63,10 @@ namespace
 		if (caret.isVisible)
 		{
 			HDC dc = GetDC(caret.hwnd);
-			HDC compatDc = CompatGdiDc::getDc(dc);
+			HDC compatDc = Gdi::Dc::getDc(dc);
 			CALL_ORIG_FUNC(PatBlt)(
 				compatDc, caret.left, caret.top, caret.width, caret.height, PATINVERT);
-			CompatGdiDc::releaseDc(dc);
+			Gdi::Dc::releaseDc(dc);
 			ReleaseDC(caret.hwnd, dc);
 		}
 	}
@@ -103,11 +103,11 @@ namespace
 			return;
 		}
 
-		if ((g_caret.isVisible || newCaret.isVisible) && CompatGdi::beginGdiRendering())
+		if ((g_caret.isVisible || newCaret.isVisible) && Gdi::beginGdiRendering())
 		{
 			drawCaret(g_caret);
 			drawCaret(newCaret);
-			CompatGdi::endGdiRendering();
+			Gdi::endGdiRendering();
 		}
 
 		g_caret = newCaret;
@@ -118,29 +118,32 @@ namespace
 	Compat::hookFunction<decltype(&func), &func>( \
 		#module, #func, getCompatGdiCaretFuncPtr<decltype(&func), &func>(&func));
 
-namespace CompatGdiCaret
+namespace Gdi
 {
-	void installHooks()
+	namespace Caret
 	{
-		InitializeCriticalSection(&g_caretCriticalSection);
+		void installHooks()
+		{
+			InitializeCriticalSection(&g_caretCriticalSection);
 
-		HOOK_GDI_CARET_FUNCTION(user32, CreateCaret);
-		HOOK_GDI_CARET_FUNCTION(user32, DestroyCaret);
-		HOOK_GDI_CARET_FUNCTION(user32, HideCaret);
-		HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
-		HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
+			HOOK_GDI_CARET_FUNCTION(user32, CreateCaret);
+			HOOK_GDI_CARET_FUNCTION(user32, DestroyCaret);
+			HOOK_GDI_CARET_FUNCTION(user32, HideCaret);
+			HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
+			HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
 
-		const DWORD threadId = GetCurrentThreadId();
-		g_compatGdiCaretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
-			nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
-		g_compatGdiCaretLocationChangeEventHook = SetWinEventHook(
-			EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr, &compatGdiCaretEvent,
-			0, threadId, WINEVENT_OUTOFCONTEXT);
-	}
+			const DWORD threadId = GetCurrentThreadId();
+			g_compatGdiCaretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
+				nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+			g_compatGdiCaretLocationChangeEventHook = SetWinEventHook(
+				EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr, &compatGdiCaretEvent,
+				0, threadId, WINEVENT_OUTOFCONTEXT);
+		}
 
-	void uninstallHooks()
-	{
-		UnhookWinEvent(g_compatGdiCaretLocationChangeEventHook);
-		UnhookWinEvent(g_compatGdiCaretGeneralEventHook);
+		void uninstallHooks()
+		{
+			UnhookWinEvent(g_compatGdiCaretLocationChangeEventHook);
+			UnhookWinEvent(g_compatGdiCaretGeneralEventHook);
+		}
 	}
 }

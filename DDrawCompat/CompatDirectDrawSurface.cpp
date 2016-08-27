@@ -4,11 +4,11 @@
 #include "CompatDirectDrawPalette.h"
 #include "CompatDirectDrawSurface.h"
 #include "CompatDisplayMode.h"
-#include "CompatGdi.h"
 #include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
 #include "DDrawProcs.h"
 #include "DDrawRepository.h"
+#include "Gdi/Gdi.h"
 #include "IReleaseNotifier.h"
 #include "RealPrimarySurface.h"
 
@@ -465,7 +465,7 @@ HRESULT STDMETHODCALLTYPE CompatDirectDrawSurface<TSurface>::Restore(TSurface* T
 			result = RealPrimarySurface::restore();
 			if (wasLost)
 			{
-				CompatGdi::invalidate(nullptr);
+				Gdi::invalidate(nullptr);
 			}
 		}
 	}
