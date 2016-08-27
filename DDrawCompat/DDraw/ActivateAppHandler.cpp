@@ -1,11 +1,11 @@
-#include "CompatActivateAppHandler.h"
-#include "CompatDirectDraw.h"
-#include "CompatDirectDrawSurface.h"
-#include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
-#include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
 #include "CompatRef.h"
+#include "DDraw/ActivateAppHandler.h"
+#include "DDraw/CompatPrimarySurface.h"
+#include "DDraw/DirectDraw.h"
+#include "DDraw/DirectDrawSurface.h"
+#include "DDraw/DisplayMode.h"
 #include "DDrawLog.h"
 #include "Gdi/Gdi.h"
 
@@ -35,13 +35,13 @@ namespace
 		}
 
 		dd->SetCooperativeLevel(&dd, g_fullScreenCooperativeWindow, g_fullScreenCooperativeFlags);
-		auto dm = CompatDisplayMode::getDisplayMode(dd);
+		auto dm = DDraw::DisplayMode::getDisplayMode(dd);
 		dd->SetDisplayMode(&dd, dm.dwWidth, dm.dwHeight, 32, dm.dwRefreshRate, 0);
 
-		auto primary(CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::CompatPrimarySurface::getPrimary());
 		if (primary && SUCCEEDED(primary->Restore(primary)))
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
+			DDraw::DirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
 			Gdi::invalidate(nullptr);
 		}
 
@@ -115,28 +115,31 @@ namespace
 	}
 }
 
-namespace CompatActivateAppHandler
+namespace DDraw
 {
-	void installHooks()
+	namespace ActivateAppHandler
 	{
-		const DWORD threadId = GetCurrentThreadId();
-		g_callWndProcHook = SetWindowsHookEx(WH_CALLWNDPROC, callWndProc, nullptr, threadId);
-	}
+		void installHooks()
+		{
+			const DWORD threadId = GetCurrentThreadId();
+			g_callWndProcHook = SetWindowsHookEx(WH_CALLWNDPROC, callWndProc, nullptr, threadId);
+		}
 
-	bool isActive()
-	{
-		return g_isActive;
-	}
+		bool isActive()
+		{
+			return g_isActive;
+		}
 
-	void setFullScreenCooperativeLevel(CompatWeakPtr<IUnknown> dd, HWND hwnd, DWORD flags)
-	{
-		g_fullScreenDirectDraw = dd;
-		g_fullScreenCooperativeWindow = hwnd;
-		g_fullScreenCooperativeFlags = flags;
-	}
+		void setFullScreenCooperativeLevel(CompatWeakPtr<IUnknown> dd, HWND hwnd, DWORD flags)
+		{
+			g_fullScreenDirectDraw = dd;
+			g_fullScreenCooperativeWindow = hwnd;
+			g_fullScreenCooperativeFlags = flags;
+		}
 
-	void uninstallHooks()
-	{
-		UnhookWindowsHookEx(g_callWndProcHook);
+		void uninstallHooks()
+		{
+			UnhookWindowsHookEx(g_callWndProcHook);
+		}
 	}
 }

@@ -1,7 +1,7 @@
-#include "CompatDisplayMode.h"
 #include "CompatPtr.h"
+#include "DDraw/DisplayMode.h"
+#include "DDraw/Repository.h"
 #include "DDrawProcs.h"
-#include "DDrawRepository.h"
 #include "Hook.h"
 
 namespace
@@ -75,7 +75,7 @@ namespace
 		desc.ddpfPixelFormat = g_emulatedDisplayMode.ddpfPixelFormat;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
-		auto dd = DDrawRepository::getDirectDraw();
+		auto dd = DDraw::Repository::getDirectDraw();
 		CompatPtr<IDirectDrawSurface7> surface;
 		dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		return surface;
@@ -170,74 +170,77 @@ namespace
 	}
 }
 
-namespace CompatDisplayMode
+namespace DDraw
 {
-	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
+	namespace DisplayMode
 	{
-		replaceDc(hdc);
-		return CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy);
-	}
-
-	HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
-		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
-	{
-		replaceDc(hdc);
-		return CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
-	}
-
-	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
-	{
-		replaceDc(hdc);
-		return CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight);
-	}
-
-	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
-	{
-		if (0 == g_emulatedDisplayMode.dwSize)
+		HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 		{
-			g_emulatedDisplayMode = getRealDisplayMode(dd);
-		}
-		return g_emulatedDisplayMode;
-	}
-
-	void installHooks()
-	{
-		HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
-		HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
-	}
-
-	HRESULT restoreDisplayMode(CompatRef<IDirectDraw7> dd)
-	{
-		const HRESULT result = dd->RestoreDisplayMode(&dd);
-		if (SUCCEEDED(result))
-		{
-			ZeroMemory(&g_emulatedDisplayMode, sizeof(g_emulatedDisplayMode));
-			releaseCompatibleDc();
-		}
-		return result;
-	}
-
-	HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd,
-		DWORD width, DWORD height, DWORD bpp, DWORD refreshRate, DWORD flags)
-	{
-		DDPIXELFORMAT pf = getDisplayModePixelFormat(dd, width, height, bpp);
-		if (0 == pf.dwSize)
-		{
-			return DDERR_INVALIDMODE;
+			replaceDc(hdc);
+			return CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy);
 		}
 
-		const HRESULT result = dd->SetDisplayMode(&dd, width, height, 32, refreshRate, flags);
-		if (FAILED(result))
+		HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
+			const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
 		{
-			Compat::Log() << "Failed to set the display mode to " << width << "x" << height <<
-				"x" << bpp << " (" << std::hex << result << std::dec << ')';
+			replaceDc(hdc);
+			return CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
+		}
+
+		HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
+		{
+			replaceDc(hdc);
+			return CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight);
+		}
+
+		DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
+		{
+			if (0 == g_emulatedDisplayMode.dwSize)
+			{
+				g_emulatedDisplayMode = getRealDisplayMode(dd);
+			}
+			return g_emulatedDisplayMode;
+		}
+
+		void installHooks()
+		{
+			HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
+			HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
+		}
+
+		HRESULT restoreDisplayMode(CompatRef<IDirectDraw7> dd)
+		{
+			const HRESULT result = dd->RestoreDisplayMode(&dd);
+			if (SUCCEEDED(result))
+			{
+				ZeroMemory(&g_emulatedDisplayMode, sizeof(g_emulatedDisplayMode));
+				releaseCompatibleDc();
+			}
 			return result;
 		}
 
-		g_emulatedDisplayMode = getRealDisplayMode(dd);
-		g_emulatedDisplayMode.ddpfPixelFormat = pf;
-		updateCompatibleDc();
+		HRESULT setDisplayMode(CompatRef<IDirectDraw7> dd,
+			DWORD width, DWORD height, DWORD bpp, DWORD refreshRate, DWORD flags)
+		{
+			DDPIXELFORMAT pf = getDisplayModePixelFormat(dd, width, height, bpp);
+			if (0 == pf.dwSize)
+			{
+				return DDERR_INVALIDMODE;
+			}
 
-		return DD_OK;
+			const HRESULT result = dd->SetDisplayMode(&dd, width, height, 32, refreshRate, flags);
+			if (FAILED(result))
+			{
+				Compat::Log() << "Failed to set the display mode to " << width << "x" << height <<
+					"x" << bpp << " (" << std::hex << result << std::dec << ')';
+				return result;
+			}
+
+			g_emulatedDisplayMode = getRealDisplayMode(dd);
+			g_emulatedDisplayMode.ddpfPixelFormat = pf;
+			updateCompatibleDc();
+
+			return DD_OK;
+		}
 	}
 }

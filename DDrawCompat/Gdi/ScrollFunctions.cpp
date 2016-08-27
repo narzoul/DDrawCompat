@@ -1,8 +1,8 @@
+#include "DDraw/RealPrimarySurface.h"
 #include "DDrawLog.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Hook.h"
-#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -57,10 +57,10 @@ namespace Gdi
 		{
 			if (Gdi::isEmulationEnabled())
 			{
-				RealPrimarySurface::disableUpdates();
+				DDraw::RealPrimarySurface::disableUpdates();
 				RedrawWindow(hwnd, nullptr, nullptr,
 					RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
-				RealPrimarySurface::enableUpdates();
+				DDraw::RealPrimarySurface::enableUpdates();
 			}
 		}
 	}

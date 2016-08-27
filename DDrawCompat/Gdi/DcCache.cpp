@@ -1,12 +1,12 @@
 #include <cstring>
 #include <vector>
 
-#include "CompatPrimarySurface.h"
 #include "CompatPtr.h"
 #include "Config.h"
+#include "DDraw/CompatPrimarySurface.h"
+#include "DDraw/Repository.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
-#include "DDrawRepository.h"
 #include "Gdi/DcCache.h"
 
 namespace
@@ -55,13 +55,13 @@ namespace
 
 	CompatPtr<IDirectDrawSurface7> createGdiSurface()
 	{
-		DDSURFACEDESC2 desc = CompatPrimarySurface::getDesc();
+		DDSURFACEDESC2 desc = DDraw::CompatPrimarySurface::getDesc();
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 		desc.lPitch = g_pitch;
 		desc.lpSurface = g_surfaceMemory;
 
-		auto dd(DDrawRepository::getDirectDraw());
+		auto dd(DDraw::Repository::getDirectDraw());
 		CompatPtr<IDirectDrawSurface7> surface;
 		HRESULT result = dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		if (FAILED(result))
@@ -163,7 +163,7 @@ namespace Gdi
 
 		bool init()
 		{
-			auto dd(DDrawRepository::getDirectDraw());
+			auto dd(DDraw::Repository::getDirectDraw());
 			dd->CreatePalette(dd,
 				DDPCAPS_8BIT | DDPCAPS_ALLOW256, g_paletteEntries, &g_palette.getRef(), nullptr);
 			return nullptr != g_palette;
@@ -202,15 +202,15 @@ namespace Gdi
 		{
 			PALETTEENTRY entries[256] = {};
 			std::memcpy(&entries[startingEntry],
-				&CompatPrimarySurface::g_paletteEntries[startingEntry],
+				&DDraw::CompatPrimarySurface::g_paletteEntries[startingEntry],
 				count * sizeof(PALETTEENTRY));
 
 			for (DWORD i = startingEntry; i < startingEntry + count; ++i)
 			{
 				if (entries[i].peFlags & PC_RESERVED)
 				{
-					entries[i] = CompatPrimarySurface::g_paletteEntries[0];
-					entries[i].peFlags = CompatPrimarySurface::g_paletteEntries[i].peFlags;
+					entries[i] = DDraw::CompatPrimarySurface::g_paletteEntries[0];
+					entries[i].peFlags = DDraw::CompatPrimarySurface::g_paletteEntries[i].peFlags;
 				}
 			}
 

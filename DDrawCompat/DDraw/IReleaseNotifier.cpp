@@ -1,4 +1,4 @@
-#include "IReleaseNotifier.h"
+#include "DDraw/IReleaseNotifier.h"
 
 #include <initguid.h>
 

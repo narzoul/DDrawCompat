@@ -1,6 +1,6 @@
 #include <unordered_map>
 
-#include "CompatDisplayMode.h"
+#include "DDraw/DisplayMode.h"
 #include "DDrawLog.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
@@ -225,9 +225,9 @@ namespace Gdi
 			// Bitmap functions
 			HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
-			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, CompatDisplayMode::createCompatibleBitmap);
-			HOOK_FUNCTION(gdi32, CreateDIBitmap, CompatDisplayMode::createDIBitmap);
-			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, CompatDisplayMode::createDiscardableBitmap);
+			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, DDraw::DisplayMode::createCompatibleBitmap);
+			HOOK_FUNCTION(gdi32, CreateDIBitmap, DDraw::DisplayMode::createDIBitmap);
+			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, DDraw::DisplayMode::createDiscardableBitmap);
 			HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);

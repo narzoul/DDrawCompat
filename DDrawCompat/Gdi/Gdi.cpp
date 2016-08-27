@@ -1,7 +1,8 @@
 #include <atomic>
 
-#include "CompatPaletteConverter.h"
-#include "CompatPrimarySurface.h"
+#include "DDraw/CompatPrimarySurface.h"
+#include "DDraw/PaletteConverter.h"
+#include "DDraw/RealPrimarySurface.h"
 #include "DDrawProcs.h"
 #include "Gdi/Caret.h"
 #include "Gdi/DcCache.h"
@@ -10,7 +11,6 @@
 #include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/WinProc.h"
-#include "RealPrimarySurface.h"
 #include "ScopedCriticalSection.h"
 
 namespace
@@ -58,7 +58,7 @@ namespace
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		auto primary(CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::CompatPrimarySurface::getPrimary());
 		if (FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
 		{
 			return false;
@@ -79,12 +79,12 @@ namespace
 	void unlockPrimarySurface()
 	{
 		GdiFlush();
-		auto primary(CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::CompatPrimarySurface::getPrimary());
 		primary->Unlock(primary, nullptr);
 		if (DDLOCK_READONLY != g_ddLockFlags)
 		{
-			RealPrimarySurface::invalidate(nullptr);
-			RealPrimarySurface::update();
+			DDraw::RealPrimarySurface::invalidate(nullptr);
+			DDraw::RealPrimarySurface::update();
 		}
 
 		if (0 != g_ddLockFlags)
@@ -220,7 +220,7 @@ namespace Gdi
 
 	bool isEmulationEnabled()
 	{
-		return g_disableEmulationCount <= 0 && RealPrimarySurface::isFullScreen();
+		return g_disableEmulationCount <= 0 && DDraw::RealPrimarySurface::isFullScreen();
 	}
 
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)
@@ -239,7 +239,7 @@ namespace Gdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (isEmulationEnabled() && CompatPrimarySurface::g_palette)
+		if (isEmulationEnabled() && DDraw::CompatPrimarySurface::g_palette)
 		{
 			Gdi::DcCache::updatePalette(startingEntry, count);
 		}

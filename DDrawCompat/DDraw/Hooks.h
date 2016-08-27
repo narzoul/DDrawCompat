@@ -1,6 +1,6 @@
 #pragma once
 
-namespace DDrawHooks
+namespace DDraw
 {
 	void installHooks();
 	void uninstallHooks();

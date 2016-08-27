@@ -5,12 +5,12 @@
 #include <Windows.h>
 #include <Uxtheme.h>
 
-#include "CompatDisplayMode.h"
 #include "CompatFontSmoothing.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
 #include "D3dDdiHooks.h"
-#include "DDrawHooks.h"
+#include "DDraw/DisplayMode.h"
+#include "DDraw/Hooks.h"
 #include "DDrawProcs.h"
 #include "Gdi/Gdi.h"
 #include "Time.h"
@@ -30,7 +30,7 @@ namespace
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdiHooks::installHooks();
 			Compat::Log() << "Installing DirectDraw hooks";
-			DDrawHooks::installHooks();
+			DDraw::installHooks();
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::Log() << "Installing registry hooks";
@@ -117,7 +117,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
 
-		CompatDisplayMode::installHooks();
+		DDraw::DisplayMode::installHooks();
 		CompatFontSmoothing::g_origSystemSettings = CompatFontSmoothing::getSystemSettings();
 		CompatHooks::installHooks();
 		Time::init();
@@ -135,7 +135,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
 		Compat::Log() << "Detaching DDrawCompat";
-		DDrawHooks::uninstallHooks();
+		DDraw::uninstallHooks();
 		D3dDdiHooks::uninstallHooks();
 		Gdi::uninstallHooks();
 		Compat::unhookAllFunctions();

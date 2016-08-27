@@ -1,5 +1,6 @@
-#include "CompatPrimarySurface.h"
 #include "CompatRegistry.h"
+#include "DDraw/CompatPrimarySurface.h"
+#include "DDraw/RealPrimarySurface.h"
 #include "DDrawLog.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
@@ -8,7 +9,6 @@
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
 #include "Hook.h"
-#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -170,7 +170,7 @@ namespace
 			Gdi::Dc::releaseDc(dc);
 			if (result)
 			{
-				RealPrimarySurface::disableUpdates();
+				DDraw::RealPrimarySurface::disableUpdates();
 			}
 		}
 		else
@@ -183,7 +183,7 @@ namespace
 		if (result && compatDc)
 		{
 			UpdateWindow(hwnd);
-			RealPrimarySurface::enableUpdates();
+			DDraw::RealPrimarySurface::enableUpdates();
 		}
 
 		return result;

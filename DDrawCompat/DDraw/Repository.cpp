@@ -2,13 +2,13 @@
 #include <vector>
 
 #include "CompatPtr.h"
+#include "DDraw/Repository.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
-#include "DDrawRepository.h"
 
 namespace
 {
-	using DDrawRepository::Surface;
+	using DDraw::Repository::Surface;
 
 	static std::vector<Surface> g_sysMemSurfaces;
 	static std::vector<Surface> g_vidMemSurfaces;
@@ -55,7 +55,7 @@ namespace
 		surface.desc.ddpfPixelFormat = pf;
 		surface.desc.ddsCaps.dwCaps = caps;
 
-		auto dd(DDrawRepository::getDirectDraw());
+		auto dd(DDraw::Repository::getDirectDraw());
 		dd->CreateSurface(dd, &surface.desc, &surface.surface.getRef(), nullptr);
 		return surface;
 	}
@@ -158,21 +158,24 @@ namespace
 	}
 }
 
-namespace DDrawRepository
+namespace DDraw
 {
-	ScopedSurface::ScopedSurface(const DDSURFACEDESC2& desc)
-		: Surface(getSurface(desc))
+	namespace Repository
 	{
-	}
+		ScopedSurface::ScopedSurface(const DDSURFACEDESC2& desc)
+			: Surface(getSurface(desc))
+		{
+		}
 
-	ScopedSurface::~ScopedSurface()
-	{
-		returnSurface(*this);
-	}
+		ScopedSurface::~ScopedSurface()
+		{
+			returnSurface(*this);
+		}
 
-	CompatWeakPtr<IDirectDraw7> getDirectDraw()
-	{
-		static auto dd = new CompatPtr<IDirectDraw7>(createDirectDraw());
-		return *dd;
+		CompatWeakPtr<IDirectDraw7> getDirectDraw()
+		{
+			static auto dd = new CompatPtr<IDirectDraw7>(createDirectDraw());
+			return *dd;
+		}
 	}
 }

@@ -19,24 +19,18 @@
     <Filter Include="Source Files\Gdi">
       <UniqueIdentifier>{a8e1437a-7bec-4492-830a-9a0d844aa06b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\DDraw">
+      <UniqueIdentifier>{370ccd34-b783-421b-87fc-84ce703e851d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DDraw">
+      <UniqueIdentifier>{bcc85014-8548-43ff-902f-16bcb6a0e96b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompatDirectDraw.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDrawTypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatDirectDrawSurface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="DDrawVtableVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatVtable.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DDrawLog.h">
@@ -51,22 +45,7 @@
     <ClInclude Include="DirectDrawPaletteVtblVisitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompatDirectDrawPalette.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="RealPrimarySurface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatPrimarySurface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="IReleaseNotifier.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Config.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDrawScopedThreadLock.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Hook.h">
@@ -75,19 +54,10 @@
     <ClInclude Include="CompatRegistry.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="DDrawRepository.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatPaletteConverter.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="ScopedCriticalSection.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Time.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatActivateAppHandler.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompatPtr.h">
@@ -102,9 +72,6 @@
     <ClInclude Include="CompatRef.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompatDisplayMode.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="CompatFontSmoothing.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -115,9 +82,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompatDirect3d.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDrawHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Direct3dDeviceVtblVisitor.h">
@@ -189,6 +153,48 @@
     <ClInclude Include="Gdi\WinProc.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
+    <ClInclude Include="CompatVtable.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\CompatPrimarySurface.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\IReleaseNotifier.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\RealPrimarySurface.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\ActivateAppHandler.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DisplayMode.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\PaletteConverter.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Hooks.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Repository.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\ScopedThreadLock.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Types.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DirectDraw.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DirectDrawPalette.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DirectDrawSurface.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -203,43 +209,13 @@
     <ClCompile Include="DDrawLog.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="RealPrimarySurface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatPrimarySurface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="IReleaseNotifier.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDirectDraw.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDirectDrawSurface.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDirectDrawPalette.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Hook.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatRegistry.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DDrawRepository.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatPaletteConverter.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Time.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatActivateAppHandler.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDisplayMode.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatFontSmoothing.cpp">
@@ -249,9 +225,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatDirect3d.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DDrawHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatDirect3dDevice.cpp">
@@ -304,6 +277,39 @@
     </ClCompile>
     <ClCompile Include="Gdi\WinProc.cpp">
       <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\CompatPrimarySurface.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\IReleaseNotifier.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\RealPrimarySurface.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\ActivateAppHandler.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DisplayMode.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\PaletteConverter.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Hooks.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Repository.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DirectDraw.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DirectDrawPalette.cpp">
+      <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DirectDrawSurface.cpp">
+      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

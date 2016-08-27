@@ -2,19 +2,19 @@
 
 #include <d3d.h>
 
-#include "CompatActivateAppHandler.h"
 #include "CompatDirect3d.h"
 #include "CompatDirect3dDevice.h"
-#include "CompatDirectDraw.h"
-#include "CompatDirectDrawSurface.h"
-#include "CompatDirectDrawPalette.h"
 #include "CompatPtr.h"
 #include "CompatRef.h"
-#include "DDrawHooks.h"
+#include "DDraw/ActivateAppHandler.h"
+#include "DDraw/DirectDraw.h"
+#include "DDraw/DirectDrawSurface.h"
+#include "DDraw/DirectDrawPalette.h"
+#include "DDraw/Hooks.h"
+#include "DDraw/RealPrimarySurface.h"
+#include "DDraw/Repository.h"
 #include "DDrawLog.h"
 #include "DDrawProcs.h"
-#include "DDrawRepository.h"
-#include "RealPrimarySurface.h"
 
 namespace
 {
@@ -118,12 +118,12 @@ namespace
 
 	void hookDirectDraw(CompatRef<IDirectDraw7> dd)
 	{
-		CompatDirectDraw<IDirectDraw7>::s_origVtable = *(&dd)->lpVtbl;
+		DDraw::DirectDraw<IDirectDraw7>::s_origVtable = *(&dd)->lpVtbl;
 		CompatPtr<IDirectDraw7> dd7(&dd);
-		hookVtable<CompatDirectDraw<IDirectDraw>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw2>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw4>>(dd7);
-		hookVtable<CompatDirectDraw<IDirectDraw7>>(dd7);
+		hookVtable<DDraw::DirectDraw<IDirectDraw>>(dd7);
+		hookVtable<DDraw::DirectDraw<IDirectDraw2>>(dd7);
+		hookVtable<DDraw::DirectDraw<IDirectDraw4>>(dd7);
+		hookVtable<DDraw::DirectDraw<IDirectDraw7>>(dd7);
 		dd7.detach();
 	}
 
@@ -135,7 +135,7 @@ namespace
 			DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			CompatDirectDrawPalette::hookVtable(palette.get()->lpVtbl);
+			DDraw::DirectDrawPalette::hookVtable(palette.get()->lpVtbl);
 		}
 		else
 		{
@@ -156,12 +156,12 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			CompatDirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface2>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface3>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface4>>(surface);
-			hookVtable<CompatDirectDrawSurface<IDirectDrawSurface7>>(surface);
+			DDraw::DirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
+			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface>>(surface);
+			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface2>>(surface);
+			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface3>>(surface);
+			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface4>>(surface);
+			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface7>>(surface);
 		}
 		else
 		{
@@ -176,7 +176,7 @@ namespace
 	}
 }
 
-namespace DDrawHooks
+namespace DDraw
 {
 	void installHooks()
 	{
@@ -195,7 +195,7 @@ namespace DDrawHooks
 			return;
 		}
 
-		auto dd7(DDrawRepository::getDirectDraw());
+		auto dd7(Repository::getDirectDraw());
 		if (!dd7)
 		{
 			Compat::Log() << "Failed to create a DirectDraw7 object for hooking";
@@ -214,12 +214,12 @@ namespace DDrawHooks
 			hookDirect3d7(*dd7, *renderTarget7);
 		}
 
-		CompatActivateAppHandler::installHooks();
+		ActivateAppHandler::installHooks();
 	}
 
 	void uninstallHooks()
 	{
 		RealPrimarySurface::removeUpdateThread();
-		CompatActivateAppHandler::uninstallHooks();
+		ActivateAppHandler::uninstallHooks();
 	}
 }
