@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "CompatDepthBuffer.h"
+#include "Direct3d/DepthBuffer.h"
 
 namespace
 {
@@ -101,24 +101,27 @@ namespace
 	}
 }
 
-namespace CompatDepthBuffer
+namespace Direct3d
 {
-	template <typename TDirect3d, typename TD3dDeviceDesc>
-	void fixSupportedZBufferBitDepths(
-		CompatPtr<TDirect3d> d3d, TD3dDeviceDesc& desc)
+	namespace DepthBuffer
 	{
-		if (isHardwareZBufferSupported(desc))
+		template <typename TDirect3d, typename TD3dDeviceDesc>
+		void fixSupportedZBufferBitDepths(
+			CompatPtr<TDirect3d> d3d, TD3dDeviceDesc& desc)
 		{
-			const DWORD supportedBitDepths = getSupportedZBufferBitDepths(d3d, getDeviceGuid(desc));
-			if (0 != supportedBitDepths && supportedBitDepths != desc.dwDeviceZBufferBitDepth)
+			if (isHardwareZBufferSupported(desc))
 			{
-				logSupportedZBufferBitDepthsChanged(
-					d3d, getDeviceGuid(desc), desc.dwDeviceZBufferBitDepth, supportedBitDepths);
-				desc.dwDeviceZBufferBitDepth = supportedBitDepths;
+				const DWORD supportedBitDepths = getSupportedZBufferBitDepths(d3d, getDeviceGuid(desc));
+				if (0 != supportedBitDepths && supportedBitDepths != desc.dwDeviceZBufferBitDepth)
+				{
+					logSupportedZBufferBitDepthsChanged(
+						d3d, getDeviceGuid(desc), desc.dwDeviceZBufferBitDepth, supportedBitDepths);
+					desc.dwDeviceZBufferBitDepth = supportedBitDepths;
+				}
 			}
 		}
-	}
 
-	template void fixSupportedZBufferBitDepths(CompatPtr<IDirect3D3>, D3DDEVICEDESC&);
-	template void fixSupportedZBufferBitDepths(CompatPtr<IDirect3D7>, D3DDEVICEDESC7&);
+		template void fixSupportedZBufferBitDepths(CompatPtr<IDirect3D3>, D3DDEVICEDESC&);
+		template void fixSupportedZBufferBitDepths(CompatPtr<IDirect3D7>, D3DDEVICEDESC7&);
+	}
 }

@@ -25,6 +25,12 @@
     <Filter Include="Source Files\DDraw">
       <UniqueIdentifier>{bcc85014-8548-43ff-902f-16bcb6a0e96b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Direct3d">
+      <UniqueIdentifier>{1e5628f5-39bf-4080-ae94-938081671cf8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Direct3d">
+      <UniqueIdentifier>{08a23b36-cd96-4214-985b-0473ecf6ecab}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
@@ -81,19 +87,7 @@
     <ClInclude Include="Direct3dVtblVisitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="CompatDirect3d.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Direct3dDeviceVtblVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatDirect3dDevice.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Direct3dTypes.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatDepthBuffer.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D3dDdiAdapterCallbacksVisitor.h">
@@ -195,6 +189,21 @@
     <ClInclude Include="DDraw\DirectDrawSurface.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
+    <ClInclude Include="Direct3d\Direct3d.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Direct3dDevice.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\DepthBuffer.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Types.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Hooks.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -222,15 +231,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatHooks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDirect3d.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDirect3dDevice.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatDepthBuffer.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp">
@@ -310,6 +310,18 @@
     </ClCompile>
     <ClCompile Include="DDraw\DirectDrawSurface.cpp">
       <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\Direct3d.cpp">
+      <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\Direct3dDevice.cpp">
+      <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\DepthBuffer.cpp">
+      <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\Hooks.cpp">
+      <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

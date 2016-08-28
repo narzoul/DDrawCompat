@@ -1,21 +1,21 @@
-#include "CompatDepthBuffer.h"
-#include "CompatDirect3dDevice.h"
 #include "CompatPtr.h"
 #include "CompatRef.h"
-#include "Direct3dTypes.h"
+#include "Direct3d/DepthBuffer.h"
+#include "Direct3d/Direct3dDevice.h"
+#include "Direct3d/Types.h"
 
 namespace
 {
 	template <typename TDirect3dDevice, typename TD3dDeviceDesc>
 	void fixSupportedZBufferBitDepths(CompatRef<TDirect3dDevice> d3dDevice, TD3dDeviceDesc& desc)
 	{
-		typedef typename Types<TDirect3dDevice>::TDirect3d TDirect3d;
+		typedef typename Direct3d::Types<TDirect3dDevice>::TDirect3d TDirect3d;
 		CompatPtr<TDirect3d> d3d;
 		if (SUCCEEDED(CompatVtableBase<TDirect3dDevice>::s_origVtable.GetDirect3D(
 			&d3dDevice, &d3d.getRef())))
 		{
-			typedef typename Types<TDirect3dDevice>::TDirect3dHighest TDirect3dHighest;
-			CompatDepthBuffer::fixSupportedZBufferBitDepths<TDirect3dHighest>(d3d, desc);
+			typedef typename Direct3d::Types<TDirect3dDevice>::TDirect3dHighest TDirect3dHighest;
+			Direct3d::DepthBuffer::fixSupportedZBufferBitDepths<TDirect3dHighest>(d3d, desc);
 		}
 	}
 
@@ -35,13 +35,16 @@ namespace
 	}
 }
 
-template <typename TDirect3dDevice>
-void CompatDirect3dDevice<TDirect3dDevice>::setCompatVtable(Vtable<TDirect3dDevice>& vtable)
+namespace Direct3d
 {
-	vtable.GetCaps = &getCaps;
-}
+	template <typename TDirect3dDevice>
+	void Direct3dDevice<TDirect3dDevice>::setCompatVtable(Vtable<TDirect3dDevice>& vtable)
+	{
+		vtable.GetCaps = &getCaps;
+	}
 
-template CompatDirect3dDevice<IDirect3DDevice>;
-template CompatDirect3dDevice<IDirect3DDevice2>;
-template CompatDirect3dDevice<IDirect3DDevice3>;
-template CompatDirect3dDevice<IDirect3DDevice7>;
+	template Direct3dDevice<IDirect3DDevice>;
+	template Direct3dDevice<IDirect3DDevice2>;
+	template Direct3dDevice<IDirect3DDevice3>;
+	template Direct3dDevice<IDirect3DDevice7>;
+}

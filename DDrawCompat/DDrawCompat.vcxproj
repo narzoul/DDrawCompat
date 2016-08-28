@@ -93,6 +93,7 @@
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
@@ -121,6 +122,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
@@ -151,9 +153,6 @@
     <ClInclude Include="CompatD3dDdiAdapterFuncs.h" />
     <ClInclude Include="CompatD3dDdiDeviceCallbacks.h" />
     <ClInclude Include="CompatD3dDdiDeviceFuncs.h" />
-    <ClInclude Include="CompatDepthBuffer.h" />
-    <ClInclude Include="CompatDirect3d.h" />
-    <ClInclude Include="CompatDirect3dDevice.h" />
     <ClInclude Include="CompatFontSmoothing.h" />
     <ClInclude Include="CompatHooks.h" />
     <ClInclude Include="CompatPtr.h" />
@@ -184,8 +183,12 @@
     <ClInclude Include="DDraw\IReleaseNotifier.h" />
     <ClInclude Include="DDraw\RealPrimarySurface.h" />
     <ClInclude Include="Direct3dDeviceVtblVisitor.h" />
-    <ClInclude Include="Direct3dTypes.h" />
     <ClInclude Include="Direct3dVtblVisitor.h" />
+    <ClInclude Include="Direct3d\DepthBuffer.h" />
+    <ClInclude Include="Direct3d\Direct3d.h" />
+    <ClInclude Include="Direct3d\Direct3dDevice.h" />
+    <ClInclude Include="Direct3d\Hooks.h" />
+    <ClInclude Include="Direct3d\Types.h" />
     <ClInclude Include="DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DirectDrawVtblVisitor.h" />
@@ -209,9 +212,6 @@
     <ClCompile Include="CompatD3dDdiAdapterFuncs.cpp" />
     <ClCompile Include="CompatD3dDdiDeviceCallbacks.cpp" />
     <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp" />
-    <ClCompile Include="CompatDepthBuffer.cpp" />
-    <ClCompile Include="CompatDirect3d.cpp" />
-    <ClCompile Include="CompatDirect3dDevice.cpp" />
     <ClCompile Include="CompatFontSmoothing.cpp" />
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
@@ -228,6 +228,10 @@
     <ClCompile Include="DDraw\Repository.cpp" />
     <ClCompile Include="DDraw\IReleaseNotifier.cpp" />
     <ClCompile Include="DDraw\RealPrimarySurface.cpp" />
+    <ClCompile Include="Direct3d\DepthBuffer.cpp" />
+    <ClCompile Include="Direct3d\Direct3d.cpp" />
+    <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
+    <ClCompile Include="Direct3d\Hooks.cpp" />
     <ClCompile Include="DllMain.cpp" />
     <ClCompile Include="DDrawProcs.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />

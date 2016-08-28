@@ -12,6 +12,7 @@
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Hooks.h"
 #include "DDrawProcs.h"
+#include "Direct3d/Hooks.h"
 #include "Gdi/Gdi.h"
 #include "Time.h"
 
@@ -31,6 +32,8 @@ namespace
 			D3dDdiHooks::installHooks();
 			Compat::Log() << "Installing DirectDraw hooks";
 			DDraw::installHooks();
+			Compat::Log() << "Installing Direct3D hooks";
+			Direct3d::installHooks();
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::Log() << "Installing registry hooks";
