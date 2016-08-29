@@ -1,4 +1,4 @@
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
 #include "Direct3d/DepthBuffer.h"
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Types.h"

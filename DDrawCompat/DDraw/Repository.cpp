@@ -1,9 +1,9 @@
 #include <algorithm>
 #include <vector>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
+#include "Common/Log.h"
 #include "DDraw/Repository.h"
-#include "DDrawLog.h"
 #include "DDrawProcs.h"
 
 namespace

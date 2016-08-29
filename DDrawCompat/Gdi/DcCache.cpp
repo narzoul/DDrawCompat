@@ -1,11 +1,11 @@
 #include <cstring>
 #include <vector>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
+#include "Common/Log.h"
 #include "Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/Repository.h"
-#include "DDrawLog.h"
 #include "DDrawProcs.h"
 #include "Gdi/DcCache.h"
 

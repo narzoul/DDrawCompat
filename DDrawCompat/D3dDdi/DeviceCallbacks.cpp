@@ -3,9 +3,9 @@
 #include <Windows.h>
 #include <../km/d3dkmthk.h>
 
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "D3dDdi/DeviceCallbacks.h"
-#include "DDrawLog.h"
-#include "Hook.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONINFO& data)
 {

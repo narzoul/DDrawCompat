@@ -5,8 +5,8 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
+#include "Common/VtableVisitor.h"
 #include "D3dDdi/Hooks.h"
-#include "DDrawVtableVisitor.h"
 
 struct D3dDdiDeviceCallbacksIntf
 {
@@ -14,7 +14,7 @@ struct D3dDdiDeviceCallbacksIntf
 };
 
 template <>
-struct DDrawVtableForEach<D3DDDI_DEVICECALLBACKS>
+struct VtableForEach<D3DDDI_DEVICECALLBACKS>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)

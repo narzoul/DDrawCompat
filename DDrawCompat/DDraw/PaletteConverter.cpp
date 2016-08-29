@@ -1,15 +1,15 @@
 #include <algorithm>
 #include <cstring>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
+#include "Common/Hook.h"
+#include "Common/ScopedCriticalSection.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
 #include "DDraw/Types.h"
-#include "Hook.h"
-#include "ScopedCriticalSection.h"
 
 namespace
 {

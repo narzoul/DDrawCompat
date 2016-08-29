@@ -5,10 +5,10 @@
 #include <d3dumddi.h>
 #include <..\km\d3dkmthk.h>
 
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "D3dDdi/AdapterCallbacks.h"
 #include "D3dDdi/AdapterFuncs.h"
-#include "DDrawLog.h"
-#include "Hook.h"
 
 HRESULT APIENTRY OpenAdapter(D3DDDIARG_OPENADAPTER*) { return 0; }
 

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "CompatRef.h"
-#include "CompatVtable.h"
+#include "Common/CompatRef.h"
+#include "Common/CompatVtable.h"
 #include "DDraw/Types.h"
 #include "DirectDrawSurfaceVtblVisitor.h"
 

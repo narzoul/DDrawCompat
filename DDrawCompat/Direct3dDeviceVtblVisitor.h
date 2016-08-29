@@ -4,15 +4,15 @@
 
 #include <d3d.h>
 
-#include "DDrawVtableVisitor.h"
+#include "Common/VtableVisitor.h"
 
 template <>
-struct DDrawVtableForEach<IDirect3DDeviceVtbl>
+struct VtableForEach<IDirect3DDeviceVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(Initialize);
 		DD_VISIT(GetCaps);
@@ -37,12 +37,12 @@ struct DDrawVtableForEach<IDirect3DDeviceVtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3DDevice2Vtbl>
+struct VtableForEach<IDirect3DDevice2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(SwapTextureHandles);
@@ -78,12 +78,12 @@ struct DDrawVtableForEach<IDirect3DDevice2Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3DDevice3Vtbl>
+struct VtableForEach<IDirect3DDevice3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(GetStats);
@@ -128,12 +128,12 @@ struct DDrawVtableForEach<IDirect3DDevice3Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3DDevice7Vtbl>
+struct VtableForEach<IDirect3DDevice7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(EnumTextureFormats);

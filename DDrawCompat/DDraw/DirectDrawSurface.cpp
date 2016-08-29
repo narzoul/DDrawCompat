@@ -1,6 +1,6 @@
 #include <set>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawPalette.h"

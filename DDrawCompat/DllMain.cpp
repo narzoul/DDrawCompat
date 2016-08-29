@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <Uxtheme.h>
 
+#include "Common/Time.h"
 #include "CompatFontSmoothing.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
@@ -14,7 +15,6 @@
 #include "DDrawProcs.h"
 #include "Direct3d/Hooks.h"
 #include "Gdi/Gdi.h"
-#include "Time.h"
 
 struct IDirectInput;
 

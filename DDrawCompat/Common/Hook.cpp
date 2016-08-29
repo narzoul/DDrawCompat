@@ -6,8 +6,8 @@
 #include <Windows.h>
 #include <detours.h>
 
-#include "DDrawLog.h"
-#include "Hook.h"
+#include "Common/Hook.h"
+#include "Common/Log.h"
 
 namespace
 {

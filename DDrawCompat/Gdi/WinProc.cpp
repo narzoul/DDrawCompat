@@ -5,14 +5,14 @@
 #include <dwmapi.h>
 #include <Windows.h>
 
-#include "DDrawLog.h"
+#include "Common/Log.h"
+#include "Common/ScopedCriticalSection.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
 #include "Gdi/WinProc.h"
-#include "ScopedCriticalSection.h"
 
 namespace
 {

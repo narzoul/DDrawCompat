@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <vector>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/IReleaseNotifier.h"

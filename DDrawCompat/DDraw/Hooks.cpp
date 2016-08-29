@@ -2,8 +2,9 @@
 
 #include <d3d.h>
 
-#include "CompatPtr.h"
-#include "CompatRef.h"
+#include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
+#include "Common/Log.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
@@ -11,7 +12,6 @@
 #include "DDraw/Hooks.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
-#include "DDrawLog.h"
 
 namespace
 {

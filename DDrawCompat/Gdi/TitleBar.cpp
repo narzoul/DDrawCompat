@@ -1,7 +1,7 @@
+#include "Common/Hook.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/TitleBar.h"
-#include "Hook.h"
 
 namespace
 {

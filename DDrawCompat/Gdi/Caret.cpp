@@ -2,11 +2,11 @@
 
 #include <Windows.h>
 
+#include "Common/Hook.h"
+#include "Common/ScopedCriticalSection.h"
 #include "Gdi/Caret.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
-#include "Hook.h"
-#include "ScopedCriticalSection.h"
 
 namespace
 {

@@ -4,9 +4,9 @@
 
 #include <atlstr.h>
 
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "CompatRegistry.h"
-#include "DDrawLog.h"
-#include "Hook.h"
 
 namespace
 {

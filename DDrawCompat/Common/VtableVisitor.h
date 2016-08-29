@@ -6,12 +6,12 @@
 #include <typeinfo>
 
 template <typename Vtable>
-struct DDrawVtableForEach;
+struct VtableForEach;
 
 template <typename Vtable, typename Visitor>
 void forEach(Visitor& visitor)
 {
-	DDrawVtableForEach<Vtable>::forEach<Vtable>(visitor);
+	VtableForEach<Vtable>::forEach<Vtable>(visitor);
 }
 
 template <typename T>
@@ -34,7 +34,7 @@ std::string getTypeName()
 #endif
 
 template <>
-struct DDrawVtableForEach<IUnknownVtbl>
+struct VtableForEach<IUnknownVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)

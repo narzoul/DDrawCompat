@@ -1,8 +1,8 @@
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "DDrawLog.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/ScrollFunctions.h"
-#include "Hook.h"
 
 namespace
 {

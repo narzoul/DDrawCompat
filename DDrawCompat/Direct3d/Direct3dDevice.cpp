@@ -1,5 +1,5 @@
-#include "CompatPtr.h"
-#include "CompatRef.h"
+#include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
 #include "Direct3d/DepthBuffer.h"
 #include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Types.h"

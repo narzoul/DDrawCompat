@@ -2,7 +2,7 @@
 
 #include <guiddef.h>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
 
 namespace Direct3d
 {

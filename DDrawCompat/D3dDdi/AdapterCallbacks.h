@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CompatVtable.h"
+#include "Common/CompatVtable.h"
 #include "D3dDdiAdapterCallbacksVisitor.h"
 
 namespace D3dDdi

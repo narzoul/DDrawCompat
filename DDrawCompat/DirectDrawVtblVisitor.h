@@ -1,14 +1,14 @@
 #pragma once
 
-#include "DDrawVtableVisitor.h"
+#include "Common/VtableVisitor.h"
 
 template <>
-struct DDrawVtableForEach<IDirectDrawVtbl>
+struct VtableForEach<IDirectDrawVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(Compact);
 		DD_VISIT(CreateClipper);
@@ -34,24 +34,24 @@ struct DDrawVtableForEach<IDirectDrawVtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDraw2Vtbl>
+struct VtableForEach<IDirectDraw2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDrawVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetAvailableVidMem);
 	}
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDraw4Vtbl>
+struct VtableForEach<IDirectDraw4Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDraw2Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDraw2Vtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetSurfaceFromDC);
 		DD_VISIT(RestoreAllSurfaces);
@@ -61,12 +61,12 @@ struct DDrawVtableForEach<IDirectDraw4Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDraw7Vtbl>
+struct VtableForEach<IDirectDraw7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDraw4Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDraw4Vtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(StartModeTest);
 		DD_VISIT(EvaluateMode);

@@ -4,7 +4,7 @@
 
 #include <ddraw.h>
 
-#include "CompatRef.h"
+#include "Common/CompatRef.h"
 
 namespace DDraw
 {

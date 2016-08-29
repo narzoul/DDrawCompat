@@ -6,7 +6,7 @@
 
 #include <d3d.h>
 
-#include "CompatVtable.h"
+#include "Common/CompatVtable.h"
 
 namespace Compat
 {

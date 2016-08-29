@@ -1,11 +1,11 @@
 #include <cstring>
 #include <deque>
 
+#include "Common/Time.h"
 #include "Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawPalette.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "Time.h"
 
 namespace DDraw
 {

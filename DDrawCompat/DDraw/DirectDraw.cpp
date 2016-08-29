@@ -1,5 +1,5 @@
-#include "CompatPtr.h"
-#include "CompatRef.h"
+#include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"

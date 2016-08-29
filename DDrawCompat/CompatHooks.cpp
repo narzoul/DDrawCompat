@@ -2,8 +2,8 @@
 
 #include <Windows.h>
 
+#include "Common/Hook.h"
 #include "CompatHooks.h"
-#include "Hook.h"
 
 namespace
 {

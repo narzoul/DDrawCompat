@@ -4,15 +4,15 @@
 
 #include <d3d.h>
 
-#include "DDrawVtableVisitor.h"
+#include "Common/VtableVisitor.h"
 
 template <>
-struct DDrawVtableForEach<IDirect3DVtbl>
+struct VtableForEach<IDirect3DVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(Initialize);
 		DD_VISIT(EnumDevices);
@@ -24,12 +24,12 @@ struct DDrawVtableForEach<IDirect3DVtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3D2Vtbl>
+struct VtableForEach<IDirect3D2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateLight);
@@ -41,12 +41,12 @@ struct DDrawVtableForEach<IDirect3D2Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3D3Vtbl>
+struct VtableForEach<IDirect3D3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateLight);
@@ -61,12 +61,12 @@ struct DDrawVtableForEach<IDirect3D3Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirect3D7Vtbl>
+struct VtableForEach<IDirect3D7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateDevice);

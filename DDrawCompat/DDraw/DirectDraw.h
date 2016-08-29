@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CompatVtable.h"
+#include "Common/CompatVtable.h"
 #include "DDraw/Types.h"
 #include "DirectDrawVtblVisitor.h"
 

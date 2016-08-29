@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CompatVtable.h"
+#include "Common/CompatVtable.h"
 #include "D3dDdiDeviceCallbacksVisitor.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONINFO& data);

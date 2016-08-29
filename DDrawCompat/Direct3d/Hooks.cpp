@@ -2,10 +2,10 @@
 
 #include <d3d.h>
 
-#include "CompatPtr.h"
-#include "CompatRef.h"
+#include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
+#include "Common/Log.h"
 #include "DDraw/Repository.h"
-#include "DDrawLog.h"
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Hooks.h"

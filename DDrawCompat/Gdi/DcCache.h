@@ -6,7 +6,7 @@
 #include <ddraw.h>
 #include <Windows.h>
 
-#include "CompatWeakPtr.h"
+#include "Common/CompatWeakPtr.h"
 
 namespace Gdi
 {

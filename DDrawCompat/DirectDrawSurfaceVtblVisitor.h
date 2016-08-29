@@ -1,14 +1,14 @@
 #pragma once
 
-#include "DDrawVtableVisitor.h"
+#include "Common/VtableVisitor.h"
 
 template <>
-struct DDrawVtableForEach<IDirectDrawSurfaceVtbl>
+struct VtableForEach<IDirectDrawSurfaceVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(AddAttachedSurface);
 		DD_VISIT(AddOverlayDirtyRect);
@@ -47,12 +47,12 @@ struct DDrawVtableForEach<IDirectDrawSurfaceVtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDrawSurface2Vtbl>
+struct VtableForEach<IDirectDrawSurface2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDrawSurfaceVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurfaceVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetDDInterface);
 		DD_VISIT(PageLock);
@@ -61,24 +61,24 @@ struct DDrawVtableForEach<IDirectDrawSurface2Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDrawSurface3Vtbl>
+struct VtableForEach<IDirectDrawSurface3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDrawSurface2Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface2Vtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(SetSurfaceDesc);
 	}
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDrawSurface4Vtbl>
+struct VtableForEach<IDirectDrawSurface4Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDrawSurface3Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface3Vtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(SetPrivateData);
 		DD_VISIT(GetPrivateData);
@@ -89,12 +89,12 @@ struct DDrawVtableForEach<IDirectDrawSurface4Vtbl>
 };
 
 template <>
-struct DDrawVtableForEach<IDirectDrawSurface7Vtbl>
+struct VtableForEach<IDirectDrawSurface7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IDirectDrawSurface4Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface4Vtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(SetPriority);
 		DD_VISIT(GetPriority);

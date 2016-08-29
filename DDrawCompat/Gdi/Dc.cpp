@@ -1,12 +1,12 @@
 #include <algorithm>
 #include <unordered_map>
 
-#include "DDrawLog.h"
+#include "Common/Hook.h"
+#include "Common/Log.h"
+#include "Common/ScopedCriticalSection.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/Gdi.h"
-#include "Hook.h"
-#include "ScopedCriticalSection.h"
 
 namespace
 {

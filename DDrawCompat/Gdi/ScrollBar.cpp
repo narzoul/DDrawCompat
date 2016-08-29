@@ -1,6 +1,6 @@
+#include "Common/Hook.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/ScrollBar.h"
-#include "Hook.h"
 
 namespace
 {

@@ -149,14 +149,19 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Common\CompatPtr.h" />
+    <ClInclude Include="Common\CompatQueryInterface.h" />
+    <ClInclude Include="Common\CompatRef.h" />
+    <ClInclude Include="Common\CompatVtable.h" />
+    <ClInclude Include="Common\CompatWeakPtr.h" />
+    <ClInclude Include="Common\Log.h" />
+    <ClInclude Include="Common\VtableVisitor.h" />
+    <ClInclude Include="Common\Hook.h" />
+    <ClInclude Include="Common\ScopedCriticalSection.h" />
+    <ClInclude Include="Common\Time.h" />
     <ClInclude Include="CompatFontSmoothing.h" />
     <ClInclude Include="CompatHooks.h" />
-    <ClInclude Include="CompatPtr.h" />
-    <ClInclude Include="CompatQueryInterface.h" />
-    <ClInclude Include="CompatRef.h" />
     <ClInclude Include="CompatRegistry.h" />
-    <ClInclude Include="CompatVtable.h" />
-    <ClInclude Include="CompatWeakPtr.h" />
     <ClInclude Include="Config.h" />
     <ClInclude Include="D3dDdiAdapterCallbacksVisitor.h" />
     <ClInclude Include="D3dDdiAdapterFuncsVisitor.h" />
@@ -168,7 +173,6 @@
     <ClInclude Include="D3dDdi\DeviceFuncs.h" />
     <ClInclude Include="D3dDdi\Hooks.h" />
     <ClInclude Include="DDrawProcs.h" />
-    <ClInclude Include="DDrawVtableVisitor.h" />
     <ClInclude Include="DDraw\ActivateAppHandler.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
     <ClInclude Include="DDraw\DirectDrawPalette.h" />
@@ -192,7 +196,6 @@
     <ClInclude Include="DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DirectDrawVtblVisitor.h" />
-    <ClInclude Include="DDrawLog.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
     <ClInclude Include="Gdi\Dc.h" />
@@ -203,11 +206,11 @@
     <ClInclude Include="Gdi\ScrollFunctions.h" />
     <ClInclude Include="Gdi\TitleBar.h" />
     <ClInclude Include="Gdi\WinProc.h" />
-    <ClInclude Include="Hook.h" />
-    <ClInclude Include="ScopedCriticalSection.h" />
-    <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Common\Log.cpp" />
+    <ClCompile Include="Common\Hook.cpp" />
+    <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="CompatFontSmoothing.cpp" />
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
@@ -216,7 +219,6 @@
     <ClCompile Include="D3dDdi\DeviceCallbacks.cpp" />
     <ClCompile Include="D3dDdi\DeviceFuncs.cpp" />
     <ClCompile Include="D3dDdi\Hooks.cpp" />
-    <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
     <ClCompile Include="DDraw\DirectDrawPalette.cpp" />
@@ -244,8 +246,6 @@
     <ClCompile Include="Gdi\ScrollFunctions.cpp" />
     <ClCompile Include="Gdi\TitleBar.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
-    <ClCompile Include="Hook.cpp" />
-    <ClCompile Include="Time.cpp" />
     <ClCompile Include="UnmodifiedDDrawProcs.cpp" />
   </ItemGroup>
   <ItemGroup>

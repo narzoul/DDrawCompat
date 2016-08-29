@@ -1,6 +1,6 @@
 #pragma once
 
-#include "CompatVtable.h"
+#include "Common/CompatVtable.h"
 #include "Direct3dVtblVisitor.h"
 
 namespace Direct3d

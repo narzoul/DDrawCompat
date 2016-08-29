@@ -1,14 +1,14 @@
 #pragma once
 
-#include "DDrawVtableVisitor.h"
+#include "Common/VtableVisitor.h"
 
 template <>
-struct DDrawVtableForEach<IDirectDrawPaletteVtbl>
+struct VtableForEach<IDirectDrawPaletteVtbl>
 {
 	template <typename Vtable, typename Visitor>
 	static void forEach(Visitor& visitor)
 	{
-		DDrawVtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(GetEntries);

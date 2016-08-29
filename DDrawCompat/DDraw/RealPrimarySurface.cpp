@@ -1,6 +1,8 @@
 #include <atomic>
 
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
+#include "Common/Hook.h"
+#include "Common/Time.h"
 #include "Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawSurface.h"
@@ -11,8 +13,6 @@
 #include "DDraw/Types.h"
 #include "DDrawProcs.h"
 #include "Gdi/Gdi.h"
-#include "Hook.h"
-#include "Time.h"
 
 namespace
 {

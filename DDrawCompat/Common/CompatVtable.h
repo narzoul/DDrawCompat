@@ -4,10 +4,10 @@
 #include <string>
 #include <vector>
 
-#include "DDrawLog.h"
+#include "Common/Hook.h"
+#include "Common/Log.h"
+#include "Common/VtableVisitor.h"
 #include "DDrawProcs.h"
-#include "DDrawVtableVisitor.h"
-#include "Hook.h"
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;

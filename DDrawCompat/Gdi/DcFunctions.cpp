@@ -1,11 +1,11 @@
 #include <unordered_map>
 
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "DDraw/DisplayMode.h"
-#include "DDrawLog.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
-#include "Hook.h"
 
 namespace
 {

@@ -37,15 +37,15 @@
     <Filter Include="Source Files\D3dDdi">
       <UniqueIdentifier>{9c81f8c4-c564-49f2-b66f-c051d332d6a0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Common">
+      <UniqueIdentifier>{de451374-9c40-4244-8b26-b7d56f260f43}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Common">
+      <UniqueIdentifier>{012be7da-29a5-477e-90e8-8847222d87ce}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDrawVtableVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DDrawLog.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DirectDrawSurfaceVtblVisitor.h">
@@ -60,28 +60,7 @@
     <ClInclude Include="Config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Hook.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="CompatRegistry.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ScopedCriticalSection.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Time.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatPtr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatQueryInterface.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatWeakPtr.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatRef.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompatFontSmoothing.h">
@@ -137,9 +116,6 @@
     </ClInclude>
     <ClInclude Include="Gdi\WinProc.h">
       <Filter>Header Files\Gdi</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatVtable.h">
-      <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="DDraw\CompatPrimarySurface.h">
       <Filter>Header Files\DDraw</Filter>
@@ -210,6 +186,36 @@
     <ClInclude Include="D3dDdi\Hooks.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="Common\CompatPtr.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CompatQueryInterface.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CompatRef.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CompatVtable.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CompatWeakPtr.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Hook.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ScopedCriticalSection.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Time.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Log.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VtableVisitor.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -221,16 +227,7 @@
     <ClCompile Include="DDrawProcs.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="DDrawLog.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Hook.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="CompatRegistry.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Time.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatFontSmoothing.cpp">
@@ -328,6 +325,15 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\Hooks.cpp">
       <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Hook.cpp">
+      <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Time.cpp">
+      <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Log.cpp">
+      <Filter>Source Files\Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -1,8 +1,8 @@
-#include "CompatPtr.h"
+#include "Common/CompatPtr.h"
+#include "Common/Hook.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Repository.h"
 #include "DDrawProcs.h"
-#include "Hook.h"
 
 namespace
 {

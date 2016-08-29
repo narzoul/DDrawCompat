@@ -1,5 +1,6 @@
 #include <atomic>
 
+#include "Common/ScopedCriticalSection.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
@@ -11,7 +12,6 @@
 #include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/WinProc.h"
-#include "ScopedCriticalSection.h"
 
 namespace
 {

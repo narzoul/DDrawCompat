@@ -1,14 +1,14 @@
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "CompatRegistry.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "DDrawLog.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
-#include "Hook.h"
 
 namespace
 {
