@@ -5,7 +5,7 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "D3dDdiHooks.h"
+#include "D3dDdi/Hooks.h"
 #include "DDrawVtableVisitor.h"
 
 struct D3dDdiDeviceFuncsIntf
@@ -119,7 +119,7 @@ struct DDrawVtableForEach<D3DDDI_DEVICEFUNCS>
 		DD_VISIT(pfnUnlockAsync);
 		DD_VISIT(pfnRename);
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN7)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN7)
 		{
 			DD_VISIT(pfnCreateVideoProcessor);
 			DD_VISIT(pfnSetVideoProcessBltState);
@@ -145,7 +145,7 @@ struct DDrawVtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnResolveSharedResource);
 		}
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
 		{
 			DD_VISIT(pfnVolBlt1);
 			DD_VISIT(pfnBufBlt1);
@@ -159,7 +159,7 @@ struct DDrawVtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnPresentMultiPlaneOverlay);
 		}
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
 		{
 			// DD_VISIT(pfnReserved1);   -- unused
 			DD_VISIT(pfnFlush1);
@@ -173,7 +173,7 @@ struct DDrawVtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnSetMarkerMode);
 		}
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
 		{
 			DD_VISIT(pfnTrimResidencySet);
 		}

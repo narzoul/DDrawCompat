@@ -8,7 +8,7 @@
 #include "CompatFontSmoothing.h"
 #include "CompatHooks.h"
 #include "CompatRegistry.h"
-#include "D3dDdiHooks.h"
+#include "D3dDdi/Hooks.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Hooks.h"
 #include "DDrawProcs.h"
@@ -29,7 +29,7 @@ namespace
 		if (!isAlreadyInstalled)
 		{
 			Compat::Log() << "Installing Direct3D driver hooks";
-			D3dDdiHooks::installHooks();
+			D3dDdi::installHooks();
 			Compat::Log() << "Installing DirectDraw hooks";
 			DDraw::installHooks();
 			Compat::Log() << "Installing Direct3D hooks";
@@ -139,7 +139,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	{
 		Compat::Log() << "Detaching DDrawCompat";
 		DDraw::uninstallHooks();
-		D3dDdiHooks::uninstallHooks();
+		D3dDdi::uninstallHooks();
 		Gdi::uninstallHooks();
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);

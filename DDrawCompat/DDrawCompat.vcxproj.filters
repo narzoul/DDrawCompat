@@ -31,6 +31,12 @@
     <Filter Include="Source Files\Direct3d">
       <UniqueIdentifier>{08a23b36-cd96-4214-985b-0473ecf6ecab}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\D3dDdi">
+      <UniqueIdentifier>{10719dd2-f68b-4f6c-82b1-3e3bd8def099}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\D3dDdi">
+      <UniqueIdentifier>{9c81f8c4-c564-49f2-b66f-c051d332d6a0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
@@ -100,21 +106,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="D3dDdiDeviceFuncsVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatD3dDdiDeviceFuncs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatD3dDdiDeviceCallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatD3dDdiAdapterFuncs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatD3dDdiAdapterCallbacks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3dDdiHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Gdi\Gdi.h">
@@ -204,6 +195,21 @@
     <ClInclude Include="Direct3d\Hooks.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\AdapterCallbacks.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\AdapterFuncs.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\DeviceCallbacks.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\DeviceFuncs.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Hooks.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -231,21 +237,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="CompatHooks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatD3dDdiDeviceCallbacks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatD3dDdiAdapterFuncs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatD3dDdiAdapterCallbacks.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="D3dDdiHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -322,6 +313,21 @@
     </ClCompile>
     <ClCompile Include="Direct3d\Hooks.cpp">
       <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\AdapterCallbacks.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\AdapterFuncs.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\DeviceCallbacks.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\DeviceFuncs.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Hooks.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

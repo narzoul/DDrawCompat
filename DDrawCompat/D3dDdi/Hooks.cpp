@@ -5,8 +5,8 @@
 #include <d3dumddi.h>
 #include <..\km\d3dkmthk.h>
 
-#include "CompatD3dDdiAdapterCallbacks.h"
-#include "CompatD3dDdiAdapterFuncs.h"
+#include "D3dDdi/AdapterCallbacks.h"
+#include "D3dDdi/AdapterFuncs.h"
 #include "DDrawLog.h"
 #include "Hook.h"
 
@@ -114,12 +114,12 @@ namespace
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
 	{
 		Compat::LogEnter("openAdapter", pOpenData);
-		CompatD3dDdiAdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
+		D3dDdi::AdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
 		HRESULT result = CALL_ORIG_FUNC(OpenAdapter)(pOpenData);
 		if (SUCCEEDED(result))
 		{
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			CompatD3dDdiAdapterFuncs::hookVtable(pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::hookVtable(pOpenData->pAdapterFuncs);
 		}
 		Compat::LogLeave("openAdapter", pOpenData) << result;
 		return result;
@@ -139,7 +139,7 @@ namespace
 	}
 }
 
-namespace D3dDdiHooks
+namespace D3dDdi
 {
 	UINT getDdiVersion()
 	{
@@ -154,7 +154,7 @@ namespace D3dDdiHooks
 		{
 			Compat::Log() << "Failed to load the primary display driver library";
 		}
-		
+
 		char umdFileName[MAX_PATH] = {};
 		wcstombs_s(nullptr, umdFileName, primaryUmd.UmdFileName, _TRUNCATE);
 		Compat::hookFunction<decltype(&OpenAdapter), &OpenAdapter>(

@@ -12,8 +12,11 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENRESOURCE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& val);
 
-class CompatD3dDdiDeviceFuncs : public CompatVtable<CompatD3dDdiDeviceFuncs, D3dDdiDeviceFuncsIntf>
+namespace D3dDdi
 {
-public:
-	static void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable);
-};
+	class DeviceFuncs : public CompatVtable<DeviceFuncs, D3dDdiDeviceFuncsIntf>
+	{
+	public:
+		static void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable);
+	};
+}

@@ -3,7 +3,7 @@
 #include <Windows.h>
 #include <../km/d3dkmthk.h>
 
-#include "CompatD3dDdiDeviceCallbacks.h"
+#include "D3dDdi/DeviceCallbacks.h"
 #include "DDrawLog.h"
 #include "Hook.h"
 
@@ -95,6 +95,9 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK2& data)
 		<< Compat::hex(data.hAllocation);
 }
 
-void CompatD3dDdiDeviceCallbacks::setCompatVtable(D3DDDI_DEVICECALLBACKS& /*vtable*/)
+namespace D3dDdi
 {
+	void DeviceCallbacks::setCompatVtable(D3DDDI_DEVICECALLBACKS& /*vtable*/)
+	{
+	}
 }

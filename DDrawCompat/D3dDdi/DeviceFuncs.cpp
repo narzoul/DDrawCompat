@@ -1,4 +1,4 @@
-#include "CompatD3dDdiDeviceFuncs.h"
+#include "D3dDdi/DeviceFuncs.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val)
 {
@@ -99,6 +99,9 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& box)
 		<< box.Back;
 }
 
-void CompatD3dDdiDeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& /*vtable*/)
+namespace D3dDdi
 {
+	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& /*vtable*/)
+	{
+	}
 }

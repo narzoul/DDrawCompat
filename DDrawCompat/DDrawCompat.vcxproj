@@ -149,10 +149,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="CompatD3dDdiAdapterCallbacks.h" />
-    <ClInclude Include="CompatD3dDdiAdapterFuncs.h" />
-    <ClInclude Include="CompatD3dDdiDeviceCallbacks.h" />
-    <ClInclude Include="CompatD3dDdiDeviceFuncs.h" />
     <ClInclude Include="CompatFontSmoothing.h" />
     <ClInclude Include="CompatHooks.h" />
     <ClInclude Include="CompatPtr.h" />
@@ -166,7 +162,11 @@
     <ClInclude Include="D3dDdiAdapterFuncsVisitor.h" />
     <ClInclude Include="D3dDdiDeviceCallbacksVisitor.h" />
     <ClInclude Include="D3dDdiDeviceFuncsVisitor.h" />
-    <ClInclude Include="D3dDdiHooks.h" />
+    <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
+    <ClInclude Include="D3dDdi\AdapterFuncs.h" />
+    <ClInclude Include="D3dDdi\DeviceCallbacks.h" />
+    <ClInclude Include="D3dDdi\DeviceFuncs.h" />
+    <ClInclude Include="D3dDdi\Hooks.h" />
     <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="DDrawVtableVisitor.h" />
     <ClInclude Include="DDraw\ActivateAppHandler.h" />
@@ -208,14 +208,14 @@
     <ClInclude Include="Time.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CompatD3dDdiAdapterCallbacks.cpp" />
-    <ClCompile Include="CompatD3dDdiAdapterFuncs.cpp" />
-    <ClCompile Include="CompatD3dDdiDeviceCallbacks.cpp" />
-    <ClCompile Include="CompatD3dDdiDeviceFuncs.cpp" />
     <ClCompile Include="CompatFontSmoothing.cpp" />
     <ClCompile Include="CompatHooks.cpp" />
     <ClCompile Include="CompatRegistry.cpp" />
-    <ClCompile Include="D3dDdiHooks.cpp" />
+    <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
+    <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />
+    <ClCompile Include="D3dDdi\DeviceCallbacks.cpp" />
+    <ClCompile Include="D3dDdi\DeviceFuncs.cpp" />
+    <ClCompile Include="D3dDdi\Hooks.cpp" />
     <ClCompile Include="DDrawLog.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />

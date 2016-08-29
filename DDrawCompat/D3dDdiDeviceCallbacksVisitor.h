@@ -5,7 +5,7 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "D3dDdiHooks.h"
+#include "D3dDdi/Hooks.h"
 #include "DDrawVtableVisitor.h"
 
 struct D3dDdiDeviceCallbacksIntf
@@ -42,7 +42,7 @@ struct DDrawVtableForEach<D3DDDI_DEVICECALLBACKS>
 		// DD_VISIT(pfnSetAsyncCallbacksCb);   -- not set by ddraw
 		DD_VISIT(pfnSetDisplayPrivateDriverFormatCb);
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
 		{
 			DD_VISIT(pfnOfferAllocationsCb);
 			DD_VISIT(pfnReclaimAllocationsCb);
@@ -52,12 +52,12 @@ struct DDrawVtableForEach<D3DDDI_DEVICECALLBACKS>
 			// DD_VISIT(pfnPresentMultiPlaneOverlayCb);   -- not set by ddraw
 		}
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
 		{
 			// DD_VISIT(pfnLogUMDMarkerCb);   -- not set by ddraw
 		}
 
-		if (D3dDdiHooks::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
 		{
 			DD_VISIT(pfnMakeResidentCb);
 			DD_VISIT(pfnEvictCb);

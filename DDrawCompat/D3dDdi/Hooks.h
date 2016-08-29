@@ -1,6 +1,6 @@
 #pragma once
 
-namespace D3dDdiHooks
+namespace D3dDdi
 {
 	UINT getDdiVersion();
 	void installHooks();
