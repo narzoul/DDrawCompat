@@ -7,7 +7,7 @@
 
 #include "Common/VtableVisitor.h"
 
-struct D3dDdiAdapterCallbacksIntf
+struct AdapterCallbacksIntf
 {
 	D3DDDI_ADAPTERCALLBACKS* lpVtbl;
 };

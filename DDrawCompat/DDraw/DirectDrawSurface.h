@@ -2,8 +2,8 @@
 
 #include "Common/CompatRef.h"
 #include "Common/CompatVtable.h"
+#include "DDraw/Visitors/DirectDrawSurfaceVtblVisitor.h"
 #include "DDraw/Types.h"
-#include "DirectDrawSurfaceVtblVisitor.h"
 
 namespace DDraw
 {

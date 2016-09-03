@@ -7,7 +7,7 @@
 
 #include "Common/VtableVisitor.h"
 
-struct D3dDdiAdapterFuncsIntf
+struct AdapterFuncsIntf
 {
 	D3DDDI_ADAPTERFUNCS* lpVtbl;
 };

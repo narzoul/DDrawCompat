@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/CompatVtable.h"
-#include "D3dDdiDeviceCallbacksVisitor.h"
+#include "D3dDdi/Visitors/DeviceCallbacksVisitor.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONINFO& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_ALLOCATE& data);
@@ -14,7 +14,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK2& data);
 
 namespace D3dDdi
 {
-	class DeviceCallbacks : public CompatVtable<DeviceCallbacks, D3dDdiDeviceCallbacksIntf>
+	class DeviceCallbacks : public CompatVtable<DeviceCallbacks, DeviceCallbacksIntf>
 	{
 	public:
 		static void setCompatVtable(D3DDDI_DEVICECALLBACKS& vtable);

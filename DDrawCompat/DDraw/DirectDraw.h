@@ -1,8 +1,8 @@
 #pragma once
 
 #include "Common/CompatVtable.h"
+#include "DDraw/Visitors/DirectDrawVtblVisitor.h"
 #include "DDraw/Types.h"
-#include "DirectDrawVtblVisitor.h"
 
 namespace DDraw
 {

@@ -43,18 +43,18 @@
     <Filter Include="Source Files\Common">
       <UniqueIdentifier>{012be7da-29a5-477e-90e8-8847222d87ce}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\D3dDdi\Visitors">
+      <UniqueIdentifier>{9c09a432-31fd-442b-8b3f-18291e6ed327}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\DDraw\Visitors">
+      <UniqueIdentifier>{e2fa8c38-27b4-4156-b77e-3f515addc312}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Direct3d\Visitors">
+      <UniqueIdentifier>{be1190e0-8e87-4751-86d0-ff327c46637f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DirectDrawSurfaceVtblVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DirectDrawVtblVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DirectDrawPaletteVtblVisitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Config.h">
@@ -67,24 +67,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="CompatHooks.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Direct3dVtblVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Direct3dDeviceVtblVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3dDdiAdapterCallbacksVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3dDdiAdapterFuncsVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3dDdiDeviceCallbacksVisitor.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="D3dDdiDeviceFuncsVisitor.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Gdi\Gdi.h">
@@ -215,6 +197,33 @@
     </ClInclude>
     <ClInclude Include="Common\VtableVisitor.h">
       <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h">
+      <Filter>Header Files\D3dDdi\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h">
+      <Filter>Header Files\D3dDdi\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h">
+      <Filter>Header Files\D3dDdi\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h">
+      <Filter>Header Files\D3dDdi\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Visitors\DirectDrawPaletteVtblVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Visitors\DirectDrawSurfaceVtblVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Visitors\DirectDrawVtblVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h">
+      <Filter>Header Files\Direct3d\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h">
+      <Filter>Header Files\Direct3d\Visitors</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

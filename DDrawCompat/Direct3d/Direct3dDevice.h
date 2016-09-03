@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/CompatVtable.h"
-#include "Direct3dDeviceVtblVisitor.h"
+#include "Direct3d/Visitors/Direct3dDeviceVtblVisitor.h"
 
 namespace Direct3d
 {

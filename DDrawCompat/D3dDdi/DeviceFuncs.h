@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Common/CompatVtable.h"
-#include "D3dDdiDeviceFuncsVisitor.h"
+#include "D3dDdi/Visitors/DeviceFuncsVisitor.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val);
@@ -14,7 +14,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& val);
 
 namespace D3dDdi
 {
-	class DeviceFuncs : public CompatVtable<DeviceFuncs, D3dDdiDeviceFuncsIntf>
+	class DeviceFuncs : public CompatVtable<DeviceFuncs, DeviceFuncsIntf>
 	{
 	public:
 		static void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable);

@@ -8,7 +8,7 @@
 #include "Common/VtableVisitor.h"
 #include "D3dDdi/Hooks.h"
 
-struct D3dDdiDeviceCallbacksIntf
+struct DeviceCallbacksIntf
 {
 	D3DDDI_DEVICECALLBACKS* lpVtbl;
 };
