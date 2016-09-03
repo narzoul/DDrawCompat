@@ -1,13 +1,13 @@
 #include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "Common/Log.h"
-#include "CompatFontSmoothing.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
 #include "Gdi/Gdi.h"
+#include "Win32/FontSmoothing.h"
 
 extern HWND g_mainWindow;
 
@@ -17,7 +17,7 @@ namespace
 	CompatWeakPtr<IUnknown> g_fullScreenDirectDraw = nullptr;
 	HWND g_fullScreenCooperativeWindow = nullptr;
 	DWORD g_fullScreenCooperativeFlags = 0;
-	CompatFontSmoothing::SystemSettings g_fontSmoothingSettings = {};
+	Win32::FontSmoothing::SystemSettings g_fontSmoothingSettings = {};
 	HHOOK g_callWndProcHook = nullptr;
 
 	void handleActivateApp(bool isActivated);
@@ -45,7 +45,7 @@ namespace
 			Gdi::invalidate(nullptr);
 		}
 
-		CompatFontSmoothing::setSystemSettings(g_fontSmoothingSettings);
+		Win32::FontSmoothing::setSystemSettings(g_fontSmoothingSettings);
 	}
 
 	void deactivateApp(CompatRef<IDirectDraw7> dd)
@@ -58,8 +58,8 @@ namespace
 			ShowWindow(g_fullScreenCooperativeWindow, SW_SHOWMINNOACTIVE);
 		}
 
-		g_fontSmoothingSettings = CompatFontSmoothing::getSystemSettings();
-		CompatFontSmoothing::setSystemSettings(CompatFontSmoothing::g_origSystemSettings);
+		g_fontSmoothingSettings = Win32::FontSmoothing::getSystemSettings();
+		Win32::FontSmoothing::setSystemSettings(Win32::FontSmoothing::g_origSystemSettings);
 	}
 
 	LRESULT CALLBACK callWndProc(int nCode, WPARAM wParam, LPARAM lParam)

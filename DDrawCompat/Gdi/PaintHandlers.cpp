@@ -1,6 +1,5 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "CompatRegistry.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "Gdi/Dc.h"
@@ -9,6 +8,7 @@
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
+#include "Win32/Registry.h"
 
 namespace
 {
@@ -98,14 +98,14 @@ namespace
 	void disableImmersiveContextMenus()
 	{
 		// Immersive context menus don't display properly (empty items) when theming is disabled
-		CompatRegistry::setValue(
+		Win32::Registry::setValue(
 			HKEY_LOCAL_MACHINE,
 			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FlightedFeatures",
 			"ImmersiveContextMenu",
 			0);
 
 		// An update in Windows 10 seems to have moved the key from the above location
-		CompatRegistry::setValue(
+		Win32::Registry::setValue(
 			HKEY_LOCAL_MACHINE,
 			"Software\\Microsoft\\Windows\\CurrentVersion\\FlightedFeatures",
 			"ImmersiveContextMenu",

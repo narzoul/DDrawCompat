@@ -6,15 +6,15 @@
 #include <Uxtheme.h>
 
 #include "Common/Time.h"
-#include "CompatFontSmoothing.h"
-#include "CompatHooks.h"
-#include "CompatRegistry.h"
 #include "D3dDdi/Hooks.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Hooks.h"
 #include "DDrawProcs.h"
 #include "Direct3d/Hooks.h"
 #include "Gdi/Gdi.h"
+#include "Win32/FontSmoothing.h"
+#include "Win32/MsgHooks.h"
+#include "Win32/Registry.h"
 
 struct IDirectInput;
 
@@ -37,7 +37,7 @@ namespace
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::Log() << "Installing registry hooks";
-			CompatRegistry::installHooks();
+			Win32::Registry::installHooks();
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
@@ -121,8 +121,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetThemeAppProperties(0);
 
 		DDraw::DisplayMode::installHooks();
-		CompatFontSmoothing::g_origSystemSettings = CompatFontSmoothing::getSystemSettings();
-		CompatHooks::installHooks();
+		Win32::FontSmoothing::g_origSystemSettings = Win32::FontSmoothing::getSystemSettings();
+		Win32::MsgHooks::installHooks();
 		Time::init();
 
 		if (Compat::origProcs.SetAppCompatData)
@@ -144,7 +144,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		Compat::unhookAllFunctions();
 		FreeLibrary(g_origDInputModule);
 		FreeLibrary(g_origDDrawModule);
-		CompatFontSmoothing::setSystemSettingsForced(CompatFontSmoothing::g_origSystemSettings);
+		Win32::FontSmoothing::setSystemSettingsForced(Win32::FontSmoothing::g_origSystemSettings);
 		Compat::Log() << "DDrawCompat detached successfully";
 	}
 

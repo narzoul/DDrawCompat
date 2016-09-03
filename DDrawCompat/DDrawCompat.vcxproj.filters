@@ -52,21 +52,18 @@
     <Filter Include="Header Files\Direct3d\Visitors">
       <UniqueIdentifier>{be1190e0-8e87-4751-86d0-ff327c46637f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Win32">
+      <UniqueIdentifier>{81a1faf8-aa27-491f-9f99-29874569ed2c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Win32">
+      <UniqueIdentifier>{ad819a3d-f694-4a6f-8c56-ae43e95d1c2b}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Config.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatRegistry.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatFontSmoothing.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CompatHooks.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Gdi\Gdi.h">
@@ -225,6 +222,15 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h">
       <Filter>Header Files\Direct3d\Visitors</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\FontSmoothing.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32\MsgHooks.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32\Registry.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DllMain.cpp">
@@ -234,15 +240,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="DDrawProcs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatRegistry.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatFontSmoothing.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CompatHooks.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -343,6 +340,15 @@
     </ClCompile>
     <ClCompile Include="Common\Log.cpp">
       <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\FontSmoothing.cpp">
+      <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\MsgHooks.cpp">
+      <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\Registry.cpp">
+      <Filter>Source Files\Win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

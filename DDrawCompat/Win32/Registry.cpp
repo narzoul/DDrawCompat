@@ -6,7 +6,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "CompatRegistry.h"
+#include "Win32/Registry.h"
 
 namespace
 {
@@ -86,16 +86,19 @@ namespace
 	}
 }
 
-namespace CompatRegistry
+namespace Win32
 {
-	void installHooks()
+	namespace Registry
 	{
-		HOOK_FUNCTION(KernelBase, RegGetValueW, regGetValueW);
-	}
+		void installHooks()
+		{
+			HOOK_FUNCTION(KernelBase, RegGetValueW, regGetValueW);
+		}
 
-	void setValue(HKEY key, const char* subKey, const char* valueName, DWORD value)
-	{
-		assert(key && subKey && valueName);
-		g_registryOverride[RegistryKey(key, subKey, valueName)] = value;
+		void setValue(HKEY key, const char* subKey, const char* valueName, DWORD value)
+		{
+			assert(key && subKey && valueName);
+			g_registryOverride[RegistryKey(key, subKey, valueName)] = value;
+		}
 	}
 }
