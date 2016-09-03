@@ -58,12 +58,12 @@
     <Filter Include="Source Files\Win32">
       <UniqueIdentifier>{ad819a3d-f694-4a6f-8c56-ae43e95d1c2b}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Config">
+      <UniqueIdentifier>{5c6203cd-b703-4af0-a283-fa9eb72c2d07}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="DDrawProcs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Config.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Gdi\Gdi.h">
@@ -230,6 +230,9 @@
     </ClInclude>
     <ClInclude Include="Win32\Registry.h">
       <Filter>Header Files\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Config.h">
+      <Filter>Header Files\Config</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

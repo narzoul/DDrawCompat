@@ -159,7 +159,7 @@
     <ClInclude Include="Common\Hook.h" />
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
-    <ClInclude Include="Config.h" />
+    <ClInclude Include="Config\Config.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
     <ClInclude Include="D3dDdi\AdapterFuncs.h" />
     <ClInclude Include="D3dDdi\DeviceCallbacks.h" />

@@ -3,7 +3,7 @@
 
 #include "Common/CompatPtr.h"
 #include "Common/Log.h"
-#include "Config.h"
+#include "Config/Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/Repository.h"
 #include "DDrawProcs.h"

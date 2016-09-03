@@ -3,7 +3,7 @@
 #include "Common/CompatPtr.h"
 #include "Common/Hook.h"
 #include "Common/Time.h"
-#include "Config.h"
+#include "Config/Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/IReleaseNotifier.h"
