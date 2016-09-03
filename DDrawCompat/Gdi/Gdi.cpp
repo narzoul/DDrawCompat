@@ -4,7 +4,7 @@
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "DDrawProcs.h"
+#include "Dll/Procs.h"
 #include "Gdi/Caret.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/DcFunctions.h"
@@ -93,7 +93,7 @@ namespace
 		}
 		g_ddLockFlags = 0;
 
-		Compat::origProcs.ReleaseDDThreadLock();
+		Dll::g_origProcs.ReleaseDDThreadLock();
 	}
 }
 
@@ -113,11 +113,11 @@ namespace Gdi
 		if (0 == g_renderingRefCount)
 		{
 			LeaveCriticalSection(&g_gdiCriticalSection);
-			Compat::origProcs.AcquireDDThreadLock();
+			Dll::g_origProcs.AcquireDDThreadLock();
 			EnterCriticalSection(&g_gdiCriticalSection);
 			if (!lockPrimarySurface(lockFlags))
 			{
-				Compat::origProcs.ReleaseDDThreadLock();
+				Dll::g_origProcs.ReleaseDDThreadLock();
 				return false;
 			}
 		}

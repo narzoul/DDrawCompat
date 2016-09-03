@@ -9,7 +9,6 @@
 #include "DDraw/IReleaseNotifier.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
-#include "DDrawProcs.h"
 #include "Gdi/Gdi.h"
 
 namespace

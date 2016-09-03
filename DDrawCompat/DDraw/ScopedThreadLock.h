@@ -1,6 +1,6 @@
 #pragma once
 
-#include "DDrawProcs.h"
+#include "Dll/Procs.h"
 
 namespace DDraw
 {
@@ -9,12 +9,12 @@ namespace DDraw
 	public:
 		ScopedThreadLock()
 		{
-			Compat::origProcs.AcquireDDThreadLock();
+			Dll::g_origProcs.AcquireDDThreadLock();
 		}
 
 		~ScopedThreadLock()
 		{
-			Compat::origProcs.ReleaseDDThreadLock();
+			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
 	};
 }

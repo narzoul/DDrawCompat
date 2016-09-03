@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-#define VISIT_UNMODIFIED_DDRAW_PROCS(visit) \
+#define VISIT_UNMODIFIED_PROCS(visit) \
 	visit(AcquireDDThreadLock) \
 	visit(CompleteCreateSysmemSurface) \
 	visit(D3DParseUnknownCommand) \
@@ -26,30 +26,30 @@
 	visit(ReleaseDDThreadLock) \
 	visit(SetAppCompatData)
 
-#define VISIT_MODIFIED_DDRAW_PROCS(visit) \
+#define VISIT_MODIFIED_PROCS(visit) \
 	visit(DirectDrawCreate) \
 	visit(DirectDrawCreateEx)
 
-#define VISIT_ALL_DDRAW_PROCS(visit) \
-	VISIT_UNMODIFIED_DDRAW_PROCS(visit) \
-	VISIT_MODIFIED_DDRAW_PROCS(visit)
+#define VISIT_ALL_PROCS(visit) \
+	VISIT_UNMODIFIED_PROCS(visit) \
+	VISIT_MODIFIED_PROCS(visit)
 
 #define ADD_FARPROC_MEMBER(memberName) FARPROC memberName;
 
-namespace Compat
+namespace Dll
 {
-	struct DDrawProcs
+	struct Procs
 	{
-		VISIT_ALL_DDRAW_PROCS(ADD_FARPROC_MEMBER);
+		VISIT_ALL_PROCS(ADD_FARPROC_MEMBER);
 		FARPROC DirectInputCreateA;
 	};
 
-	extern DDrawProcs origProcs;
+	extern Procs g_origProcs;
 }
 
 #undef  ADD_FARPROC_MEMBER
 
-#define CALL_ORIG_DDRAW(procName, ...) \
-	(Compat::origProcs.procName ? \
-		reinterpret_cast<decltype(procName)*>(Compat::origProcs.procName)(__VA_ARGS__) : \
+#define CALL_ORIG_PROC(procName, ...) \
+	(Dll::g_origProcs.procName ? \
+		reinterpret_cast<decltype(procName)*>(Dll::g_origProcs.procName)(__VA_ARGS__) : \
 		E_FAIL)

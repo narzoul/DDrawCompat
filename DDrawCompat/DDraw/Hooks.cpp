@@ -12,6 +12,7 @@
 #include "DDraw/Hooks.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
+#include "Dll/Procs.h"
 
 namespace
 {
@@ -83,7 +84,7 @@ namespace DDraw
 	void installHooks()
 	{
 		CompatPtr<IDirectDraw> dd;
-		CALL_ORIG_DDRAW(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
+		CALL_ORIG_PROC(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
 		if (!dd)
 		{
 			Compat::Log() << "Failed to create a DirectDraw object for hooking";

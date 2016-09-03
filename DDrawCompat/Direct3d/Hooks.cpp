@@ -9,6 +9,7 @@
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Hooks.h"
+#include "Dll/Procs.h"
 
 namespace
 {
@@ -123,7 +124,7 @@ namespace Direct3d
 	{
 		auto dd7(DDraw::Repository::getDirectDraw());
 		CompatPtr<IDirectDraw> dd;
-		CALL_ORIG_DDRAW(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
+		CALL_ORIG_PROC(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
 		if (!dd || !dd7 || FAILED(dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
 		{
 			Compat::Log() << "Failed to hook Direct3d interfaces";

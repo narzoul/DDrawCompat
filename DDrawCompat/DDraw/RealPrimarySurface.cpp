@@ -11,7 +11,6 @@
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Types.h"
-#include "DDrawProcs.h"
 #include "Gdi/Gdi.h"
 
 namespace

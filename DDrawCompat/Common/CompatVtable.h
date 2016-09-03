@@ -7,7 +7,7 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "Common/VtableVisitor.h"
-#include "DDrawProcs.h"
+#include "DDraw/ScopedThreadLock.h"
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
@@ -109,7 +109,7 @@ private:
 		template <typename MemberDataPtr, MemberDataPtr ptr, typename Result, typename... Params>
 		static Result STDMETHODCALLTYPE threadSafeFunc(Params... params)
 		{
-			Compat::origProcs.AcquireDDThreadLock();
+			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
 			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
 #endif
@@ -119,14 +119,13 @@ private:
 #ifdef _DEBUG
 			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...) << result;
 #endif
-			Compat::origProcs.ReleaseDDThreadLock();
 			return result;
 		}
 
 		template <typename MemberDataPtr, MemberDataPtr ptr, typename... Params>
 		static void STDMETHODCALLTYPE threadSafeFunc(Params... params)
 		{
-			Compat::origProcs.AcquireDDThreadLock();
+			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
 			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
 #endif
@@ -136,7 +135,6 @@ private:
 #ifdef _DEBUG
 			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
 #endif
-			Compat::origProcs.ReleaseDDThreadLock();
 		}
 
 		const Vtable<Interface>& m_origVtable;

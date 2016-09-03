@@ -96,7 +96,7 @@
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
-      <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
@@ -125,7 +125,7 @@
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
-      <ModuleDefinitionFile>DDrawCompat.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>No</GenerateDebugInformation>
     </Link>
@@ -169,7 +169,6 @@
     <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h" />
-    <ClInclude Include="DDrawProcs.h" />
     <ClInclude Include="DDraw\ActivateAppHandler.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
     <ClInclude Include="DDraw\DirectDrawPalette.h" />
@@ -193,6 +192,7 @@
     <ClInclude Include="Direct3d\Types.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
+    <ClInclude Include="Dll\Procs.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
     <ClInclude Include="Gdi\Dc.h" />
@@ -231,8 +231,9 @@
     <ClCompile Include="Direct3d\Direct3d.cpp" />
     <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
     <ClCompile Include="Direct3d\Hooks.cpp" />
-    <ClCompile Include="DllMain.cpp" />
-    <ClCompile Include="DDrawProcs.cpp" />
+    <ClCompile Include="Dll\Procs.cpp" />
+    <ClCompile Include="Dll\DllMain.cpp" />
+    <ClCompile Include="Dll\UnmodifiedProcs.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />
     <ClCompile Include="Gdi\Dc.cpp" />
@@ -243,13 +244,12 @@
     <ClCompile Include="Gdi\ScrollFunctions.cpp" />
     <ClCompile Include="Gdi\TitleBar.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
-    <ClCompile Include="UnmodifiedDDrawProcs.cpp" />
     <ClCompile Include="Win32\FontSmoothing.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="DDrawCompat.def" />
+    <None Include="Dll\DDrawCompat.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

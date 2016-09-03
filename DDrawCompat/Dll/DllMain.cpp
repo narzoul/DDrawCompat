@@ -9,14 +9,16 @@
 #include "D3dDdi/Hooks.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Hooks.h"
-#include "DDrawProcs.h"
 #include "Direct3d/Hooks.h"
+#include "Dll/Procs.h"
 #include "Gdi/Gdi.h"
 #include "Win32/FontSmoothing.h"
 #include "Win32/MsgHooks.h"
 #include "Win32/Registry.h"
 
 struct IDirectInput;
+
+HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
 namespace
 {
@@ -79,8 +81,8 @@ namespace
 	}
 }
 
-#define	LOAD_ORIGINAL_DDRAW_PROC(procName) \
-	Compat::origProcs.procName = GetProcAddress(g_origDDrawModule, #procName);
+#define	LOAD_ORIGINAL_PROC(procName) \
+	Dll::g_origProcs.procName = GetProcAddress(g_origDDrawModule, #procName);
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 {
@@ -112,8 +114,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 			return FALSE;
 		}
 
-		VISIT_ALL_DDRAW_PROCS(LOAD_ORIGINAL_DDRAW_PROC);
-		Compat::origProcs.DirectInputCreateA = GetProcAddress(g_origDInputModule, "DirectInputCreateA");
+		VISIT_ALL_PROCS(LOAD_ORIGINAL_PROC);
+		Dll::g_origProcs.DirectInputCreateA = GetProcAddress(g_origDInputModule, "DirectInputCreateA");
 
 		const BOOL disablePriorityBoost = TRUE;
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
@@ -125,13 +127,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		Win32::MsgHooks::installHooks();
 		Time::init();
 
-		if (Compat::origProcs.SetAppCompatData)
-		{
-			typedef HRESULT WINAPI SetAppCompatDataFunc(DWORD, DWORD);
-			auto setAppCompatData = reinterpret_cast<SetAppCompatDataFunc*>(Compat::origProcs.SetAppCompatData);
-			const DWORD disableMaxWindowedMode = 12;
-			setAppCompatData(disableMaxWindowedMode, 0);
-		}
+		const DWORD disableMaxWindowedMode = 12;
+		CALL_ORIG_PROC(SetAppCompatData, disableMaxWindowedMode, 0);
 
 		Compat::Log() << "DDrawCompat loaded successfully";
 	}
@@ -159,7 +156,7 @@ extern "C" HRESULT WINAPI DirectDrawCreate(
 	Compat::LogEnter(__func__, lpGUID, lplpDD, pUnkOuter);
 	installHooks();
 	suppressEmulatedDirectDraw(lpGUID);
-	HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter);
+	HRESULT result = CALL_ORIG_PROC(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter);
 	Compat::LogLeave(__func__, lpGUID, lplpDD, pUnkOuter) << result;
 	return result;
 }
@@ -173,7 +170,7 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(
 	Compat::LogEnter(__func__, lpGUID, lplpDD, iid, pUnkOuter);
 	installHooks();
 	suppressEmulatedDirectDraw(lpGUID);
-	HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter);
+	HRESULT result = CALL_ORIG_PROC(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter);
 	Compat::LogLeave(__func__, lpGUID, lplpDD, iid, pUnkOuter) << result;
 	return result;
 }
@@ -185,7 +182,7 @@ extern "C" HRESULT WINAPI DirectInputCreateA(
 	LPUNKNOWN punkOuter)
 {
 	Compat::LogEnter(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
-	HRESULT result = CALL_ORIG_DDRAW(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter);
+	HRESULT result = CALL_ORIG_PROC(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter);
 	Compat::LogLeave(__func__, hinst, dwVersion, lplpDirectInput, punkOuter) << result;
 	return result;
 }

@@ -2,7 +2,7 @@
 #include "Common/Hook.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Repository.h"
-#include "DDrawProcs.h"
+#include "Dll/Procs.h"
 
 namespace
 {
@@ -142,7 +142,7 @@ namespace
 	{
 		if (g_compatibleDc)
 		{
-			Compat::origProcs.AcquireDDThreadLock();
+			Dll::g_origProcs.AcquireDDThreadLock();
 			g_compatibleSurface->ReleaseDC(g_compatibleSurface, g_compatibleDc);
 			g_compatibleDc = nullptr;
 			g_compatibleSurface.release();
@@ -165,7 +165,7 @@ namespace
 		if (g_compatibleSurface &&
 			SUCCEEDED(g_compatibleSurface->GetDC(g_compatibleSurface, &g_compatibleDc)))
 		{
-			Compat::origProcs.ReleaseDDThreadLock();
+			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
 	}
 }

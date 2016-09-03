@@ -61,11 +61,14 @@
     <Filter Include="Header Files\Config">
       <UniqueIdentifier>{5c6203cd-b703-4af0-a283-fa9eb72c2d07}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Dll">
+      <UniqueIdentifier>{8a50d66d-8372-4dde-bbd1-302a52d7a385}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Dll">
+      <UniqueIdentifier>{41544d1c-712a-4bef-8913-a40155a33ba0}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="DDrawProcs.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Gdi\Gdi.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
@@ -234,17 +237,11 @@
     <ClInclude Include="Config\Config.h">
       <Filter>Header Files\Config</Filter>
     </ClInclude>
+    <ClInclude Include="Dll\Procs.h">
+      <Filter>Header Files\Dll</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="DllMain.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="UnmodifiedDDrawProcs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DDrawProcs.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Gdi\Gdi.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
@@ -353,10 +350,19 @@
     <ClCompile Include="Win32\Registry.cpp">
       <Filter>Source Files\Win32</Filter>
     </ClCompile>
+    <ClCompile Include="Dll\DllMain.cpp">
+      <Filter>Source Files\Dll</Filter>
+    </ClCompile>
+    <ClCompile Include="Dll\Procs.cpp">
+      <Filter>Source Files\Dll</Filter>
+    </ClCompile>
+    <ClCompile Include="Dll\UnmodifiedProcs.cpp">
+      <Filter>Source Files\Dll</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="DDrawCompat.def">
-      <Filter>Source Files</Filter>
+    <None Include="Dll\DDrawCompat.def">
+      <Filter>Source Files\Dll</Filter>
     </None>
   </ItemGroup>
 </Project>

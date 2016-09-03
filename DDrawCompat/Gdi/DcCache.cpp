@@ -6,7 +6,7 @@
 #include "Config/Config.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/Repository.h"
-#include "DDrawProcs.h"
+#include "Dll/Procs.h"
 #include "Gdi/DcCache.h"
 
 namespace
@@ -45,7 +45,7 @@ namespace
 		}
 
 		// Release DD critical section acquired by IDirectDrawSurface7::GetDC to avoid deadlocks
-		Compat::origProcs.ReleaseDDThreadLock();
+		Dll::g_origProcs.ReleaseDDThreadLock();
 
 		cachedDc.surface = surface.detach();
 		cachedDc.dc = dc;
@@ -105,7 +105,7 @@ namespace
 	void releaseCachedDc(CachedDc cachedDc)
 	{
 		// Reacquire DD critical section that was temporarily released after IDirectDrawSurface7::GetDC
-		Compat::origProcs.AcquireDDThreadLock();
+		Dll::g_origProcs.AcquireDDThreadLock();
 
 		HRESULT result = cachedDc.surface->ReleaseDC(cachedDc.surface, cachedDc.dc);
 		if (FAILED(result))

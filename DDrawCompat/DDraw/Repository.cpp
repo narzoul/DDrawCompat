@@ -4,7 +4,7 @@
 #include "Common/CompatPtr.h"
 #include "Common/Log.h"
 #include "DDraw/Repository.h"
-#include "DDrawProcs.h"
+#include "Dll/Procs.h"
 
 namespace
 {
@@ -26,7 +26,7 @@ namespace
 	CompatPtr<IDirectDraw7> createDirectDraw()
 	{
 		CompatPtr<IDirectDraw7> dd;
-		HRESULT result = CALL_ORIG_DDRAW(DirectDrawCreateEx, nullptr,
+		HRESULT result = CALL_ORIG_PROC(DirectDrawCreateEx, nullptr,
 			reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr);
 		if (FAILED(result))
 		{
