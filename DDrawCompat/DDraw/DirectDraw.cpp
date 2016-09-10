@@ -5,6 +5,8 @@
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/IReleaseNotifier.h"
+#include "DDraw/Surfaces/Surface.h"
+#include "DDraw/Surfaces/SurfaceImpl.h"
 
 namespace
 {
@@ -106,49 +108,23 @@ namespace DDraw
 		TSurface** lplpDDSurface,
 		IUnknown* pUnkOuter)
 	{
+		if (!This || !lpDDSurfaceDesc || !lplpDDSurface)
+		{
+			return s_origVtable.CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
+		}
+
 		HRESULT result = DD_OK;
 
-		const bool isPrimary = lpDDSurfaceDesc &&
-			(lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE);
+		const bool isPrimary = 0 != (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE);
 
 		if (isPrimary)
 		{
-			result = DirectDrawSurface<TSurface>::createCompatPrimarySurface<TDirectDraw>(
+			result = SurfaceImpl<TSurface>::createCompatPrimarySurface<TDirectDraw>(
 				*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 		else
 		{
-			if (lpDDSurfaceDesc &&
-				(lpDDSurfaceDesc->dwFlags & DDSD_WIDTH) &&
-				(lpDDSurfaceDesc->dwFlags & DDSD_HEIGHT) &&
-				!(lpDDSurfaceDesc->ddsCaps.dwCaps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER)))
-			{
-				CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-				auto dm = DisplayMode::getDisplayMode(*dd);
-
-				TSurfaceDesc desc = *lpDDSurfaceDesc;
-				if (!(desc.dwFlags & DDSD_PIXELFORMAT))
-				{
-					desc.dwFlags |= DDSD_PIXELFORMAT;
-					desc.ddpfPixelFormat = dm.ddpfPixelFormat;
-				}
-				if (!(desc.ddsCaps.dwCaps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
-					DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER)))
-				{
-					desc.dwFlags |= DDSD_CAPS;
-					desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
-				}
-				result = s_origVtable.CreateSurface(This, &desc, lplpDDSurface, pUnkOuter);
-			}
-			else
-			{
-				result = s_origVtable.CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
-			}
-		}
-
-		if (SUCCEEDED(result))
-		{
-			DirectDrawSurface<TSurface>::fixSurfacePtrs(**lplpDDSurface);
+			result = Surface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 
 		return result;

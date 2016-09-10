@@ -4,8 +4,8 @@
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
+#include "DDraw/Surfaces/SurfaceImpl.h"
 #include "Gdi/Gdi.h"
 #include "Win32/FontSmoothing.h"
 
@@ -41,7 +41,7 @@ namespace
 		auto primary(DDraw::CompatPrimarySurface::getPrimary());
 		if (primary && SUCCEEDED(primary->Restore(primary)))
 		{
-			DDraw::DirectDrawSurface<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
+			DDraw::SurfaceImpl<IDirectDrawSurface7>::fixSurfacePtrs(*primary);
 			Gdi::invalidate(nullptr);
 		}
 

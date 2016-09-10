@@ -67,6 +67,12 @@
     <Filter Include="Source Files\Dll">
       <UniqueIdentifier>{41544d1c-712a-4bef-8913-a40155a33ba0}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\DDraw\Surfaces">
+      <UniqueIdentifier>{0550f0bd-b66f-4c6a-9072-e83bdfc52e4d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\DDraw\Surfaces">
+      <UniqueIdentifier>{c60f8247-4d67-4dcf-9f97-f1c5b1acc469}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Gdi\Gdi.h">
@@ -240,6 +246,12 @@
     <ClInclude Include="Dll\Procs.h">
       <Filter>Header Files\Dll</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Surfaces\Surface.h">
+      <Filter>Header Files\DDraw\Surfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Surfaces\SurfaceImpl.h">
+      <Filter>Header Files\DDraw\Surfaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -358,6 +370,12 @@
     </ClCompile>
     <ClCompile Include="Dll\UnmodifiedProcs.cpp">
       <Filter>Source Files\Dll</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Surfaces\Surface.cpp">
+      <Filter>Source Files\DDraw\Surfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Surfaces\SurfaceImpl.cpp">
+      <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
