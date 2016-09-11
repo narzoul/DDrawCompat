@@ -4,7 +4,7 @@
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
-#include "DDraw/IReleaseNotifier.h"
+#include "DDraw/Surfaces/FullScreenTagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
 
@@ -23,32 +23,6 @@ namespace
 	DirectDrawInterface* g_fullScreenDirectDraw = nullptr;
 	CompatWeakPtr<IDirectDrawSurface> g_fullScreenTagSurface;
 
-	void onReleaseFullScreenTagSurface();
-
-	DDraw::IReleaseNotifier g_fullScreenTagSurfaceReleaseNotifier(&onReleaseFullScreenTagSurface);
-
-	CompatPtr<IDirectDrawSurface> createFullScreenTagSurface(CompatRef<IDirectDraw> dd)
-	{
-		DDSURFACEDESC desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS;
-		desc.dwWidth = 1;
-		desc.dwHeight = 1;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-
-		CompatPtr<IDirectDrawSurface> tagSurface;
-		dd->CreateSurface(&dd, &desc, &tagSurface.getRef(), nullptr);
-		if (tagSurface)
-		{
-			CompatPtr<IDirectDrawSurface7> tagSurface7(tagSurface);
-			tagSurface7->SetPrivateData(
-				tagSurface7, IID_IReleaseNotifier, &g_fullScreenTagSurfaceReleaseNotifier,
-				sizeof(&g_fullScreenTagSurfaceReleaseNotifier), DDSPD_IUNKNOWNPOINTER);
-		}
-
-		return tagSurface;
-	}
-
 	bool isFullScreenDirectDraw(void* dd)
 	{
 		return dd && g_fullScreenDirectDraw &&
@@ -65,7 +39,8 @@ namespace
 	void setFullScreenDirectDraw(CompatRef<IDirectDraw> dd)
 	{
 		g_fullScreenTagSurface.release();
-		g_fullScreenTagSurface = createFullScreenTagSurface(dd).detach();
+		DDraw::FullScreenTagSurface::create(
+			dd, g_fullScreenTagSurface.getRef(), &onReleaseFullScreenTagSurface);
 
 		/*
 		IDirectDraw interfaces don't conform to the COM rule about object identity:
