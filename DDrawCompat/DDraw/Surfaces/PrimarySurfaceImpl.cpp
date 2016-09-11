@@ -16,6 +16,11 @@ namespace
 namespace DDraw
 {
 	template <typename TSurface>
+	PrimarySurfaceImpl<TSurface>::PrimarySurfaceImpl(SurfaceImpl& impl) : m_impl(impl)
+	{
+	}
+
+	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
@@ -25,7 +30,7 @@ namespace DDraw
 			return DDERR_SURFACELOST;
 		}
 
-		HRESULT result = SurfaceImpl::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		HRESULT result = m_impl.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::invalidate(lpDestRect);
@@ -43,7 +48,7 @@ namespace DDraw
 			return DDERR_SURFACELOST;
 		}
 
-		HRESULT result = SurfaceImpl::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
+		HRESULT result = m_impl.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
 		{
 			const LONG x = dwX;
@@ -76,7 +81,7 @@ namespace DDraw
 			return DDERR_SURFACELOST;
 		}
 
-		HRESULT result = SurfaceImpl::Flip(This, lpDDSurfaceTargetOverride, dwFlags);
+		HRESULT result = m_impl.Flip(This, lpDDSurfaceTargetOverride, dwFlags);
 		if (SUCCEEDED(result))
 		{
 			result = RealPrimarySurface::flip(dwFlags);
@@ -87,7 +92,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
-		HRESULT result = SurfaceImpl::GetCaps(This, lpDDSCaps);
+		HRESULT result = m_impl.GetCaps(This, lpDDSCaps);
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSCaps->dwCaps);
@@ -98,7 +103,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
-		HRESULT result = SurfaceImpl::GetSurfaceDesc(This, lpDDSurfaceDesc);
+		HRESULT result = m_impl.GetSurfaceDesc(This, lpDDSurfaceDesc);
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
@@ -109,7 +114,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::IsLost(TSurface* This)
 	{
-		HRESULT result = SurfaceImpl::IsLost(This);
+		HRESULT result = m_impl.IsLost(This);
 		if (SUCCEEDED(result))
 		{
 			result = RealPrimarySurface::isLost() ? DDERR_SURFACELOST : DD_OK;
@@ -127,7 +132,7 @@ namespace DDraw
 			return DDERR_SURFACELOST;
 		}
 
-		HRESULT result = SurfaceImpl::Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
+		HRESULT result = m_impl.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::invalidate(lpDestRect);
@@ -144,13 +149,13 @@ namespace DDraw
 			auto realPrimary(RealPrimarySurface::getSurface());
 			return realPrimary->QueryInterface(realPrimary, riid, obp);
 		}
-		return SurfaceImpl::QueryInterface(This, riid, obp);
+		return m_impl.QueryInterface(This, riid, obp);
 	}
 
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
-		HRESULT result = SurfaceImpl::ReleaseDC(This, hDC);
+		HRESULT result = m_impl.ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::invalidate(nullptr);
@@ -168,7 +173,7 @@ namespace DDraw
 			result = RealPrimarySurface::restore();
 			if (SUCCEEDED(result))
 			{
-				result = SurfaceImpl::Restore(This);
+				result = m_impl.Restore(This);
 				if (SUCCEEDED(result))
 				{
 					fixSurfacePtrs(*This);
@@ -182,7 +187,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper)
 	{
-		HRESULT result = SurfaceImpl::SetClipper(This, lpDDClipper);
+		HRESULT result = m_impl.SetClipper(This, lpDDClipper);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::setClipper(lpDDClipper);
@@ -202,7 +207,7 @@ namespace DDraw
 			return DD_OK;
 		}
 
-		HRESULT result = SurfaceImpl::SetPalette(This, lpDDPalette);
+		HRESULT result = m_impl.SetPalette(This, lpDDPalette);
 		if (SUCCEEDED(result))
 		{
 			PrimarySurface::s_palette = lpDDPalette;
@@ -214,7 +219,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 	{
-		HRESULT result = SurfaceImpl::Unlock(This, lpRect);
+		HRESULT result = m_impl.Unlock(This, lpRect);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::update();

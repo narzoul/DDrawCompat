@@ -26,12 +26,14 @@ namespace DDraw
 		static HRESULT create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface);
 
 		template <typename TSurface>
-		static SurfaceImpl<TSurface>* getImpl(CompatRef<TSurface> dds);
+		static Surface* getSurface(TSurface& dds);
 
 		template <typename TSurface>
 		SurfaceImpl<TSurface>* getImpl() const;
 
 	protected:
+		Surface();
+
 		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface>& privateData);
 
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
@@ -44,5 +46,7 @@ namespace DDraw
 		static HRESULT WINAPI attachToLinkedSurfaces(
 			IDirectDrawSurface7* surface, DDSURFACEDESC2* desc, void* rootSurface);
 		virtual void createImpl();
+
+		DWORD m_refCount;
 	};
 }

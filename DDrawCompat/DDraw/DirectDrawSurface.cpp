@@ -11,13 +11,12 @@ namespace
 		typename TSurface, typename... Params>
 	HRESULT STDMETHODCALLTYPE callImpl(TSurface* This, Params... params)
 	{
-		DDraw::SurfaceImpl<TSurface>* surfaceImpl =
-			This ? DDraw::Surface::getImpl<TSurface>(*This) : nullptr;
-		if (!surfaceImpl)
+		DDraw::Surface* surface = This ? DDraw::Surface::getSurface(*This) : nullptr;
+		if (!surface)
 		{
 			return (CompatVtableBase<TSurface>::s_origVtable.*origMethod)(This, params...);
 		}
-		return (surfaceImpl->*compatMethod)(This, params...);
+		return (surface->getImpl<TSurface>()->*compatMethod)(This, params...);
 	}
 }
 

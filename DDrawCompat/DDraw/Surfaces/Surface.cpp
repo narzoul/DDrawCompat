@@ -43,13 +43,21 @@ namespace DDraw
 
 	ULONG STDMETHODCALLTYPE Surface::AddRef()
 	{
-		return 0;
+		return ++m_refCount;
 	}
 
 	ULONG STDMETHODCALLTYPE Surface::Release()
 	{
-		delete this;
-		return 0;
+		DWORD refCount = --m_refCount;
+		if (0 == refCount)
+		{
+			delete this;
+		}
+		return refCount;
+	}
+
+	Surface::Surface() : m_refCount(0)
+	{
 	}
 
 	Surface::~Surface()
@@ -124,28 +132,6 @@ namespace DDraw
 		m_impl7.reset(new SurfaceImpl<IDirectDrawSurface7>());
 	}
 
-	template <typename TSurface>
-	SurfaceImpl<TSurface>* Surface::getImpl(CompatRef<TSurface> dds)
-	{
-		Surface* surface = nullptr;
-		DWORD surfacePtrSize = sizeof(surface);
-		CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetPrivateData(
-			reinterpret_cast<IDirectDrawSurface7*>(&dds),
-			IID_CompatSurfacePrivateData, &surface, &surfacePtrSize);
-		if (!surface)
-		{
-			return nullptr;
-		}
-
-		return surface->getImpl<TSurface>();
-	}
-
-	template SurfaceImpl<IDirectDrawSurface>* Surface::getImpl(CompatRef<IDirectDrawSurface> dds);
-	template SurfaceImpl<IDirectDrawSurface2>* Surface::getImpl(CompatRef<IDirectDrawSurface2> dds);
-	template SurfaceImpl<IDirectDrawSurface3>* Surface::getImpl(CompatRef<IDirectDrawSurface3> dds);
-	template SurfaceImpl<IDirectDrawSurface4>* Surface::getImpl(CompatRef<IDirectDrawSurface4> dds);
-	template SurfaceImpl<IDirectDrawSurface7>* Surface::getImpl(CompatRef<IDirectDrawSurface7> dds);
-
 	template <>
 	SurfaceImpl<IDirectDrawSurface>* Surface::getImpl<IDirectDrawSurface>() const { return m_impl.get(); }
 	template <>
@@ -156,4 +142,24 @@ namespace DDraw
 	SurfaceImpl<IDirectDrawSurface4>* Surface::getImpl<IDirectDrawSurface4>() const { return m_impl4.get(); }
 	template <>
 	SurfaceImpl<IDirectDrawSurface7>* Surface::getImpl<IDirectDrawSurface7>() const { return m_impl7.get(); }
+
+	template <typename TSurface>
+	Surface* Surface::getSurface(TSurface& dds)
+	{
+		Surface* surface = nullptr;
+		DWORD surfacePtrSize = sizeof(surface);
+
+		// This can get called during surface release so a proper QueryInterface would be dangerous
+		CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetPrivateData(
+			reinterpret_cast<IDirectDrawSurface7*>(&dds),
+			IID_CompatSurfacePrivateData, &surface, &surfacePtrSize);
+
+		return surface;
+	}
+
+	template Surface* Surface::getSurface(IDirectDrawSurface& dds);
+	template Surface* Surface::getSurface(IDirectDrawSurface2& dds);
+	template Surface* Surface::getSurface(IDirectDrawSurface3& dds);
+	template Surface* Surface::getSurface(IDirectDrawSurface4& dds);
+	template Surface* Surface::getSurface(IDirectDrawSurface7& dds);
 }

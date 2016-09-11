@@ -15,6 +15,8 @@ namespace DDraw
 	class PrimarySurfaceImpl : public SurfaceImpl<TSurface>
 	{
 	public:
+		PrimarySurfaceImpl(SurfaceImpl& impl);
+
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 			DWORD dwFlags, LPDDBLTFX lpDDBltFx) override;
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,
@@ -31,5 +33,8 @@ namespace DDraw
 		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper) override;
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette) override;
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect) override;
+
+	private:
+		SurfaceImpl& m_impl;
 	};
 }

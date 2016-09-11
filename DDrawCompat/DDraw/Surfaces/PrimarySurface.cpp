@@ -12,6 +12,11 @@ namespace
 
 namespace DDraw
 {
+	PrimarySurface::PrimarySurface(Surface* surface) : m_surface(surface)
+	{
+		surface->AddRef();
+	}
+
 	PrimarySurface::~PrimarySurface()
 	{
 		Compat::LogEnter("PrimarySurface::~PrimarySurface");
@@ -53,7 +58,7 @@ namespace DDraw
 		}
 
 		CompatPtr<IDirectDrawSurface7> surface7(Compat::queryInterface<IDirectDrawSurface7>(surface));
-		std::unique_ptr<Surface> privateData(new PrimarySurface());
+		std::unique_ptr<Surface> privateData(new PrimarySurface(Surface::getSurface(*surface)));
 		attach(*surface7, privateData);
 
 		CompatPtr<IDirectDrawSurface> surface1(Compat::queryInterface<IDirectDrawSurface>(surface));
@@ -77,11 +82,11 @@ namespace DDraw
 
 	void PrimarySurface::createImpl()
 	{
-		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>());
-		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>());
-		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>());
-		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>());
-		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>());
+		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>(*m_surface->getImpl<IDirectDrawSurface>()));
+		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>(*m_surface->getImpl<IDirectDrawSurface2>()));
+		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>(*m_surface->getImpl<IDirectDrawSurface3>()));
+		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>(*m_surface->getImpl<IDirectDrawSurface4>()));
+		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>(*m_surface->getImpl<IDirectDrawSurface7>()));
 	}
 
 	const DDSURFACEDESC2& PrimarySurface::getDesc()
