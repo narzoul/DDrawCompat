@@ -1,6 +1,5 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"

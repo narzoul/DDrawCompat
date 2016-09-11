@@ -1,9 +1,9 @@
 #include <atomic>
 
 #include "Common/ScopedCriticalSection.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Dll/Procs.h"
 #include "Gdi/Caret.h"
 #include "Gdi/DcCache.h"
@@ -58,7 +58,7 @@ namespace
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		auto primary(DDraw::CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::PrimarySurface::getPrimary());
 		if (FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
 		{
 			return false;
@@ -79,7 +79,7 @@ namespace
 	void unlockPrimarySurface()
 	{
 		GdiFlush();
-		auto primary(DDraw::CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::PrimarySurface::getPrimary());
 		primary->Unlock(primary, nullptr);
 		if (DDLOCK_READONLY != g_ddLockFlags)
 		{
@@ -239,7 +239,7 @@ namespace Gdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (isEmulationEnabled() && DDraw::CompatPrimarySurface::g_palette)
+		if (isEmulationEnabled() && DDraw::PrimarySurface::s_palette)
 		{
 			Gdi::DcCache::updatePalette(startingEntry, count);
 		}

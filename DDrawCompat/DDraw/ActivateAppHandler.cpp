@@ -2,9 +2,9 @@
 #include "Common/CompatRef.h"
 #include "Common/Log.h"
 #include "DDraw/ActivateAppHandler.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DisplayMode.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 #include "Gdi/Gdi.h"
 #include "Win32/FontSmoothing.h"
@@ -38,7 +38,7 @@ namespace
 		auto dm = DDraw::DisplayMode::getDisplayMode(dd);
 		dd->SetDisplayMode(&dd, dm.dwWidth, dm.dwHeight, 32, dm.dwRefreshRate, 0);
 
-		auto primary(DDraw::CompatPrimarySurface::getPrimary());
+		auto primary(DDraw::PrimarySurface::getPrimary());
 		if (primary && SUCCEEDED(primary->Restore(primary)))
 		{
 			DDraw::SurfaceImpl<IDirectDrawSurface7>::fixSurfacePtrs(*primary);

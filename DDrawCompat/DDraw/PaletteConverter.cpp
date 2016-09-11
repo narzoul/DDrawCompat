@@ -4,11 +4,11 @@
 #include "Common/CompatPtr.h"
 #include "Common/Hook.h"
 #include "Common/ScopedCriticalSection.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Types.h"
 
 namespace
@@ -151,10 +151,10 @@ namespace DDraw
 
 		void updatePalette(DWORD startingEntry, DWORD count)
 		{
-			if (g_dc && CompatPrimarySurface::g_palette)
+			if (g_dc && PrimarySurface::s_palette)
 			{
 				RGBQUAD entries[256] = {};
-				std::memcpy(entries, &CompatPrimarySurface::g_paletteEntries[startingEntry],
+				std::memcpy(entries, &PrimarySurface::s_paletteEntries[startingEntry],
 					count * sizeof(PALETTEENTRY));
 				convertPaletteEntriesToRgbQuad(entries, count);
 				SetDIBColorTable(g_dc, startingEntry, count, entries);

@@ -20,9 +20,6 @@ namespace DDraw
 
 		virtual ~SurfaceImpl();
 
-		template <typename TDirectDraw>
-		static HRESULT createCompatPrimarySurface(
-			CompatRef<TDirectDraw> dd, TSurfaceDesc compatDesc, TSurface*& compatSurface);
 		static void fixSurfacePtrs(CompatRef<TSurface> surface);
 
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
@@ -43,8 +40,6 @@ namespace DDraw
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
 	private:
-		static void restorePrimaryCaps(TDdsCaps& caps);
-
 		static const Vtable<TSurface>& s_origVtable;
 	};
 }

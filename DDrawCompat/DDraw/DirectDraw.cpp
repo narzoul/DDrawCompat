@@ -5,8 +5,8 @@
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/IReleaseNotifier.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
-#include "DDraw/Surfaces/SurfaceImpl.h"
 
 namespace
 {
@@ -119,8 +119,7 @@ namespace DDraw
 
 		if (isPrimary)
 		{
-			result = SurfaceImpl<TSurface>::createCompatPrimarySurface<TDirectDraw>(
-				*This, *lpDDSurfaceDesc, *lplpDDSurface);
+			result = PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 		else
 		{

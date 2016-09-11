@@ -4,8 +4,8 @@
 #include "Common/CompatPtr.h"
 #include "Common/Log.h"
 #include "Config/Config.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/Repository.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Dll/Procs.h"
 #include "Gdi/DcCache.h"
 
@@ -55,7 +55,7 @@ namespace
 
 	CompatPtr<IDirectDrawSurface7> createGdiSurface()
 	{
-		DDSURFACEDESC2 desc = DDraw::CompatPrimarySurface::getDesc();
+		DDSURFACEDESC2 desc = DDraw::PrimarySurface::getDesc();
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 		desc.lPitch = g_pitch;
@@ -202,15 +202,15 @@ namespace Gdi
 		{
 			PALETTEENTRY entries[256] = {};
 			std::memcpy(&entries[startingEntry],
-				&DDraw::CompatPrimarySurface::g_paletteEntries[startingEntry],
+				&DDraw::PrimarySurface::s_paletteEntries[startingEntry],
 				count * sizeof(PALETTEENTRY));
 
 			for (DWORD i = startingEntry; i < startingEntry + count; ++i)
 			{
 				if (entries[i].peFlags & PC_RESERVED)
 				{
-					entries[i] = DDraw::CompatPrimarySurface::g_paletteEntries[0];
-					entries[i].peFlags = DDraw::CompatPrimarySurface::g_paletteEntries[i].peFlags;
+					entries[i] = DDraw::PrimarySurface::s_paletteEntries[0];
+					entries[i].peFlags = DDraw::PrimarySurface::s_paletteEntries[i].peFlags;
 				}
 			}
 

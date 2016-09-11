@@ -1,5 +1,5 @@
 #include "Common/Hook.h"
-#include "DDraw/CompatPrimarySurface.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/TitleBar.h"
 
@@ -96,7 +96,7 @@ namespace Gdi
 		{
 			flags |= DC_ACTIVE;
 		}
-		if (DDraw::CompatPrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount > 8)
+		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount > 8)
 		{
 			flags |= DC_GRADIENT;
 		}

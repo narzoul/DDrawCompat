@@ -105,9 +105,6 @@
     <ClInclude Include="Gdi\WinProc.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
-    <ClInclude Include="DDraw\CompatPrimarySurface.h">
-      <Filter>Header Files\DDraw</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\IReleaseNotifier.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
@@ -252,6 +249,12 @@
     <ClInclude Include="DDraw\Surfaces\SurfaceImpl.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Surfaces\PrimarySurface.h">
+      <Filter>Header Files\DDraw\Surfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Surfaces\PrimarySurfaceImpl.h">
+      <Filter>Header Files\DDraw\Surfaces</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -283,9 +286,6 @@
     </ClCompile>
     <ClCompile Include="Gdi\WinProc.cpp">
       <Filter>Source Files\Gdi</Filter>
-    </ClCompile>
-    <ClCompile Include="DDraw\CompatPrimarySurface.cpp">
-      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\IReleaseNotifier.cpp">
       <Filter>Source Files\DDraw</Filter>
@@ -375,6 +375,12 @@
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\Surfaces\SurfaceImpl.cpp">
+      <Filter>Source Files\DDraw\Surfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Surfaces\PrimarySurface.cpp">
+      <Filter>Source Files\DDraw\Surfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
   </ItemGroup>

@@ -4,12 +4,12 @@
 #include "Common/Hook.h"
 #include "Common/Time.h"
 #include "Config/Config.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/IReleaseNotifier.h"
 #include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/ScopedThreadLock.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Types.h"
 #include "Gdi/Gdi.h"
 
@@ -46,8 +46,8 @@ namespace
 
 		bool result = false;
 
-		auto primary(DDraw::CompatPrimarySurface::getPrimary());
-		if (DDraw::CompatPrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)
+		auto primary(DDraw::PrimarySurface::getPrimary());
+		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
 			auto paletteConverter(DDraw::PaletteConverter::getSurface());
 			paletteConverter->Blt(paletteConverter, &g_updateRect,
@@ -291,7 +291,7 @@ namespace DDraw
 		}
 		else
 		{
-			auto primaryDesc = CompatPrimarySurface::getDesc();
+			auto primaryDesc = PrimarySurface::getDesc();
 			SetRect(&g_updateRect, 0, 0, primaryDesc.dwWidth, primaryDesc.dwHeight);
 		}
 	}
@@ -351,7 +351,7 @@ namespace DDraw
 	{
 		if (g_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
-			g_frontBuffer->SetPalette(g_frontBuffer, CompatPrimarySurface::g_palette);
+			g_frontBuffer->SetPalette(g_frontBuffer, PrimarySurface::s_palette);
 		}
 
 		updatePalette(0, 256);
@@ -377,7 +377,7 @@ namespace DDraw
 	{
 		PaletteConverter::updatePalette(startingEntry, count);
 		Gdi::updatePalette(startingEntry, count);
-		if (CompatPrimarySurface::g_palette)
+		if (PrimarySurface::s_palette)
 		{
 			invalidate(nullptr);
 			update();

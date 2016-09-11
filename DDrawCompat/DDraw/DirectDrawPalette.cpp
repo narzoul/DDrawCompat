@@ -3,9 +3,9 @@
 
 #include "Common/Time.h"
 #include "Config/Config.h"
-#include "DDraw/CompatPrimarySurface.h"
 #include "DDraw/DirectDrawPalette.h"
 #include "DDraw/RealPrimarySurface.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 
 namespace DDraw
 {
@@ -21,11 +21,11 @@ namespace DDraw
 		DWORD dwCount,
 		LPPALETTEENTRY lpEntries)
 	{
-		if (This == CompatPrimarySurface::g_palette)
+		if (This == PrimarySurface::s_palette)
 		{
 			waitForNextUpdate();
 			if (lpEntries && dwStartingEntry + dwCount <= 256 &&
-				0 == std::memcmp(&CompatPrimarySurface::g_paletteEntries[dwStartingEntry],
+				0 == std::memcmp(&PrimarySurface::s_paletteEntries[dwStartingEntry],
 					lpEntries, dwCount * sizeof(PALETTEENTRY)))
 			{
 				return DD_OK;
@@ -33,9 +33,9 @@ namespace DDraw
 		}
 
 		HRESULT result = s_origVtable.SetEntries(This, dwFlags, dwStartingEntry, dwCount, lpEntries);
-		if (This == CompatPrimarySurface::g_palette && SUCCEEDED(result))
+		if (This == PrimarySurface::s_palette && SUCCEEDED(result))
 		{
-			std::memcpy(&CompatPrimarySurface::g_paletteEntries[dwStartingEntry], lpEntries,
+			std::memcpy(&PrimarySurface::s_paletteEntries[dwStartingEntry], lpEntries,
 				dwCount * sizeof(PALETTEENTRY));
 			RealPrimarySurface::updatePalette(dwStartingEntry, dwCount);
 		}
