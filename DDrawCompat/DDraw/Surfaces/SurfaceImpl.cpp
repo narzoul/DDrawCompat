@@ -7,6 +7,16 @@
 
 namespace
 {
+	struct DirectDrawInterface
+	{
+		const void* vtable;
+		void* ddObject;
+		DirectDrawInterface* next;
+		DWORD refCount;
+		DWORD unknown1;
+		DWORD unknown2;
+	};
+
 	bool mirrorBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 		RECT srcRect, DWORD mirrorFx);
 
@@ -231,6 +241,18 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
 		return s_origVtable.GetCaps(This, lpDDSCaps);
+	}
+	
+	template <typename TSurface>
+	HRESULT SurfaceImpl2<TSurface>::GetDDInterface(TSurface* /*This*/, LPVOID* lplpDD)
+	{
+		DirectDrawInterface dd = {};
+		dd.vtable = IID_IDirectDraw7 == m_data->m_ddId
+			? static_cast<const void*>(CompatVtableBase<IDirectDraw>::s_origVtablePtr)
+			: static_cast<const void*>(CompatVtableBase<IDirectDraw7>::s_origVtablePtr);
+		dd.ddObject = m_data->m_ddObject;
+		return CompatVtableBase<IDirectDraw>::s_origVtable.QueryInterface(
+			reinterpret_cast<IDirectDraw*>(&dd), m_data->m_ddId, lplpDD);
 	}
 
 	template <typename TSurface>

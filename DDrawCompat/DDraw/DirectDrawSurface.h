@@ -15,5 +15,7 @@ namespace DDraw
 
 		static void setCompatVtable(Vtable<TSurface>& vtable);
 
+	private:
+		static void setCompatVtable2(Vtable<TSurface>& vtable);
 	};
 }

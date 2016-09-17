@@ -6,12 +6,13 @@
 
 #include <ddraw.h>
 
+#include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 
 namespace DDraw
 {
-	template <typename TSurface>
-	class SurfaceImpl;
+	template <typename TSurface> class SurfaceImpl;
+	template <typename TSurface> class SurfaceImpl2;
 
 	class Surface
 	{
@@ -43,10 +44,15 @@ namespace DDraw
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface7>> m_impl7;
 
 	private:
+		template <typename TDirectDrawSurface>
+		friend class SurfaceImpl2;
+
 		static HRESULT WINAPI attachToLinkedSurfaces(
 			IDirectDrawSurface7* surface, DDSURFACEDESC2* desc, void* rootSurface);
 		virtual void createImpl();
 
+		IID m_ddId;
+		void* m_ddObject;
 		DWORD m_refCount;
 	};
 }

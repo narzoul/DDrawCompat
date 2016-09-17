@@ -24,6 +24,7 @@ public:
 	}
 
 	static Vtable<Interface> s_origVtable;
+	static const Vtable<Interface>* s_origVtablePtr;
 };
 
 template <typename CompatInterface, typename Interface>
@@ -32,10 +33,9 @@ class CompatVtable : public CompatVtableBase<Interface>
 public:
 	static void hookVtable(const Vtable<Interface>* vtable)
 	{
-		static bool isInitialized = false;
-		if (!isInitialized && vtable)
+		if (vtable && !s_origVtablePtr)
 		{
-			isInitialized = true;
+			s_origVtablePtr = vtable;
 
 			InitVisitor visitor(*vtable);
 			forEach<Vtable<Interface>>(visitor);
@@ -160,6 +160,9 @@ private:
 
 template <typename Interface>
 Vtable<Interface> CompatVtableBase<Interface>::s_origVtable = {};
+
+template <typename Interface>
+const Vtable<Interface>* CompatVtableBase<Interface>::s_origVtablePtr = nullptr;
 
 template <typename CompatInterface, typename Interface>
 Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_compatVtable(getCompatVtable());

@@ -8,62 +8,6 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
 
-namespace
-{
-	struct DirectDrawInterface
-	{
-		void* vtable;
-		void* ddObject;
-		DirectDrawInterface* next;
-		DWORD refCount;
-		DWORD unknown1;
-		DWORD unknown2;
-	};
-
-	DirectDrawInterface* g_fullScreenDirectDraw = nullptr;
-	CompatWeakPtr<IDirectDrawSurface> g_fullScreenTagSurface;
-
-	bool isFullScreenDirectDraw(void* dd)
-	{
-		return dd && g_fullScreenDirectDraw &&
-			static_cast<DirectDrawInterface*>(dd)->ddObject == g_fullScreenDirectDraw->ddObject;
-	}
-
-	void onReleaseFullScreenTagSurface()
-	{
-		DDraw::ActivateAppHandler::setFullScreenCooperativeLevel(nullptr, nullptr, 0);
-		g_fullScreenDirectDraw = nullptr;
-		g_fullScreenTagSurface = nullptr;
-	}
-
-	void setFullScreenDirectDraw(CompatRef<IDirectDraw> dd)
-	{
-		g_fullScreenTagSurface.release();
-		DDraw::FullScreenTagSurface::create(
-			dd, g_fullScreenTagSurface.getRef(), &onReleaseFullScreenTagSurface);
-
-		/*
-		IDirectDraw interfaces don't conform to the COM rule about object identity:
-		QueryInterface with IID_IUnknown does not always return the same pointer for the same object.
-		The IUnknown (== IDirectDraw v1) interface may even be freed, making the interface invalid,
-		while the DirectDraw object itself can still be kept alive by its other interfaces.
-		Unfortunately, the IDirectDrawSurface GetDDInterface method inherits this problem and may
-		also return an invalid (already freed) interface pointer.
-		To work around this problem, a copy of the necessary interface data is passed
-		to CompatActivateAppHandler, which is sufficient for it to use QueryInterface to "safely"
-		obtain a valid interface pointer (other than IUnknown/IDirectDraw v1) to the full-screen
-		DirectDraw object.
-		*/
-
-		static DirectDrawInterface fullScreenDirectDraw = {};
-		ZeroMemory(&fullScreenDirectDraw, sizeof(fullScreenDirectDraw));
-		DirectDrawInterface& ddIntf = reinterpret_cast<DirectDrawInterface&>(dd.get());
-		fullScreenDirectDraw.vtable = ddIntf.vtable;
-		fullScreenDirectDraw.ddObject = ddIntf.ddObject;
-		g_fullScreenDirectDraw = &fullScreenDirectDraw;
-	}
-}
-
 namespace DDraw
 {
 	template <typename TDirectDraw>
@@ -144,13 +88,13 @@ namespace DDraw
 			if (dwFlags & DDSCL_FULLSCREEN)
 			{
 				CompatPtr<IDirectDraw> dd(Compat::queryInterface<IDirectDraw>(This));
-				setFullScreenDirectDraw(*dd);
-				ActivateAppHandler::setFullScreenCooperativeLevel(
-					reinterpret_cast<IUnknown*>(g_fullScreenDirectDraw), hWnd, dwFlags);
+				DDraw::FullScreenTagSurface::create(*dd);
+				ActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
 			}
-			else if (isFullScreenDirectDraw(This) && g_fullScreenTagSurface)
+			else if (CompatPtr<IDirectDraw7>(Compat::queryInterface<IDirectDraw7>(This)).get() ==
+				DDraw::FullScreenTagSurface::getFullScreenDirectDraw().get())
 			{
-				g_fullScreenTagSurface.release();
+				DDraw::FullScreenTagSurface::destroy();
 			}
 		}
 		return result;

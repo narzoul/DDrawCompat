@@ -72,6 +72,7 @@
     <TargetName>ddraw</TargetName>
     <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
     <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
@@ -94,10 +95,12 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -128,6 +131,7 @@
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>No</GenerateDebugInformation>
+      <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">

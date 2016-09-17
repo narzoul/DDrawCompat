@@ -32,6 +32,27 @@ namespace
 			}
 		}
 	}
+
+	IID getDdIidFromVtablePtr(const void* vtablePtr)
+	{
+		if (CompatVtableBase<IDirectDraw>::s_origVtablePtr == vtablePtr)
+		{
+			return IID_IDirectDraw;
+		}
+		if (CompatVtableBase<IDirectDraw2>::s_origVtablePtr == vtablePtr)
+		{
+			return IID_IDirectDraw2;
+		}
+		if (CompatVtableBase<IDirectDraw4>::s_origVtablePtr == vtablePtr)
+		{
+			return IID_IDirectDraw4;
+		}
+		if (CompatVtableBase<IDirectDraw7>::s_origVtablePtr == vtablePtr)
+		{
+			return IID_IDirectDraw7;
+		}
+		return IID_IUnknown;
+	}
 }
 
 namespace DDraw
@@ -56,7 +77,10 @@ namespace DDraw
 		return refCount;
 	}
 
-	Surface::Surface() : m_refCount(0)
+	Surface::Surface()
+		: m_ddId()
+		, m_ddObject(nullptr)
+		, m_refCount(0)
 	{
 	}
 
@@ -69,6 +93,20 @@ namespace DDraw
 		if (SUCCEEDED(dds->SetPrivateData(&dds, IID_CompatSurfacePrivateData,
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
+			CompatPtr<IUnknown> dd;
+			CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetDDInterface(
+				&dds, reinterpret_cast<void**>(&dd.getRef()));
+
+			privateData->createImpl();
+			privateData->m_impl->m_data = privateData.get();
+			privateData->m_impl2->m_data = privateData.get();
+			privateData->m_impl3->m_data = privateData.get();
+			privateData->m_impl4->m_data = privateData.get();
+			privateData->m_impl7->m_data = privateData.get();
+
+			privateData->m_ddId = getDdIidFromVtablePtr(reinterpret_cast<void**>(dd.get())[0]);
+			privateData->m_ddObject = reinterpret_cast<void**>(dd.get())[1];
+
 			privateData.release();
 		}
 	}

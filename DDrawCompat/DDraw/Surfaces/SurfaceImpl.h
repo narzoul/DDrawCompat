@@ -10,8 +10,24 @@
 
 namespace DDraw
 {
+	class Surface;
+
 	template <typename TSurface>
-	class SurfaceImpl
+	class SurfaceImpl2
+	{
+	public:
+		SurfaceImpl2() : m_data(nullptr) {}
+
+		virtual HRESULT GetDDInterface(TSurface* This, LPVOID* lplpDD);
+
+	protected:
+		friend class Surface;
+
+		Surface* m_data;
+	};
+
+	template <typename TSurface>
+	class SurfaceImpl : public SurfaceImpl2<TSurface>
 	{
 	public:
 		typedef typename Types<TSurface>::TSurfaceDesc TSurfaceDesc;

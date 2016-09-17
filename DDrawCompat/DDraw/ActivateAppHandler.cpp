@@ -4,6 +4,7 @@
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DisplayMode.h"
+#include "DDraw/Surfaces/FullScreenTagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 #include "Gdi/Gdi.h"
@@ -14,7 +15,6 @@ extern HWND g_mainWindow;
 namespace
 {
 	bool g_isActive = true;
-	CompatWeakPtr<IUnknown> g_fullScreenDirectDraw = nullptr;
 	HWND g_fullScreenCooperativeWindow = nullptr;
 	DWORD g_fullScreenCooperativeFlags = 0;
 	Win32::FontSmoothing::SystemSettings g_fontSmoothingSettings = {};
@@ -93,9 +93,9 @@ namespace
 			Gdi::disableEmulation();
 		}
 
-		if (g_fullScreenDirectDraw)
+		auto dd(DDraw::FullScreenTagSurface::getFullScreenDirectDraw());
+		if (dd)
 		{
-			CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(g_fullScreenDirectDraw.get()));
 			if (isActivated)
 			{
 				activateApp(*dd);
@@ -130,9 +130,8 @@ namespace DDraw
 			return g_isActive;
 		}
 
-		void setFullScreenCooperativeLevel(CompatWeakPtr<IUnknown> dd, HWND hwnd, DWORD flags)
+		void setFullScreenCooperativeLevel(HWND hwnd, DWORD flags)
 		{
-			g_fullScreenDirectDraw = dd;
 			g_fullScreenCooperativeWindow = hwnd;
 			g_fullScreenCooperativeFlags = flags;
 		}
