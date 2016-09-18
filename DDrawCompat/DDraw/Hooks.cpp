@@ -16,17 +16,17 @@
 
 namespace
 {
-	template <typename CompatInterface>
-	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf);
+	template <typename Interface>
+	void hookVtable(const CompatPtr<Interface>& intf);
 
 	void hookDirectDraw(CompatRef<IDirectDraw7> dd)
 	{
 		DDraw::DirectDraw<IDirectDraw7>::s_origVtable = *(&dd)->lpVtbl;
 		CompatPtr<IDirectDraw7> dd7(&dd);
-		hookVtable<DDraw::DirectDraw<IDirectDraw>>(dd7);
-		hookVtable<DDraw::DirectDraw<IDirectDraw2>>(dd7);
-		hookVtable<DDraw::DirectDraw<IDirectDraw4>>(dd7);
-		hookVtable<DDraw::DirectDraw<IDirectDraw7>>(dd7);
+		hookVtable<IDirectDraw>(dd7);
+		hookVtable<IDirectDraw2>(dd7);
+		hookVtable<IDirectDraw4>(dd7);
+		hookVtable<IDirectDraw7>(dd7);
 		dd7.detach();
 	}
 
@@ -60,11 +60,11 @@ namespace
 		if (SUCCEEDED(result))
 		{
 			DDraw::DirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
-			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface>>(surface);
-			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface2>>(surface);
-			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface3>>(surface);
-			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface4>>(surface);
-			hookVtable<DDraw::DirectDrawSurface<IDirectDrawSurface7>>(surface);
+			hookVtable<IDirectDrawSurface>(surface);
+			hookVtable<IDirectDrawSurface2>(surface);
+			hookVtable<IDirectDrawSurface3>(surface);
+			hookVtable<IDirectDrawSurface4>(surface);
+			hookVtable<IDirectDrawSurface7>(surface);
 		}
 		else
 		{
@@ -72,10 +72,10 @@ namespace
 		}
 	}
 
-	template <typename CompatInterface>
-	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf)
+	template <typename Interface>
+	void hookVtable(const CompatPtr<Interface>& intf)
 	{
-		CompatInterface::hookVtable(intf.get()->lpVtbl);
+		CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
 	}
 }
 

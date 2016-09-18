@@ -66,7 +66,7 @@ namespace DDraw
 
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
-		CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetSurfaceDesc(surface7, &g_primarySurfaceDesc);
+		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetSurfaceDesc(surface7, &g_primarySurfaceDesc);
 
 		return DD_OK;
 	}

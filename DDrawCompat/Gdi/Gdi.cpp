@@ -59,7 +59,7 @@ namespace
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		auto primary(DDraw::PrimarySurface::getPrimary());
-		if (FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
+		if (!primary || FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
 		{
 			return false;
 		}
@@ -80,11 +80,14 @@ namespace
 	{
 		GdiFlush();
 		auto primary(DDraw::PrimarySurface::getPrimary());
-		primary->Unlock(primary, nullptr);
-		if (DDLOCK_READONLY != g_ddLockFlags)
+		if (primary)
 		{
-			DDraw::RealPrimarySurface::invalidate(nullptr);
-			DDraw::RealPrimarySurface::update();
+			primary->Unlock(primary, nullptr);
+			if (DDLOCK_READONLY != g_ddLockFlags)
+			{
+				DDraw::RealPrimarySurface::invalidate(nullptr);
+				DDraw::RealPrimarySurface::update();
+			}
 		}
 
 		if (0 != g_ddLockFlags)

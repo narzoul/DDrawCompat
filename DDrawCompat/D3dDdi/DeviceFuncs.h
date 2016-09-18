@@ -14,9 +14,11 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& val);
 
 namespace D3dDdi
 {
-	class DeviceFuncs : public CompatVtable<DeviceFuncs, DeviceFuncsIntf>
+	class DeviceFuncs : public CompatVtable<D3DDDI_DEVICEFUNCS>
 	{
 	public:
 		static void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable);
 	};
 }
+
+SET_COMPAT_VTABLE(D3DDDI_DEVICEFUNCS, D3dDdi::DeviceFuncs);

@@ -5,7 +5,7 @@
 
 namespace DDraw
 {
-	class DirectDrawPalette : public CompatVtable<DirectDrawPalette, IDirectDrawPalette>
+	class DirectDrawPalette : public CompatVtable<IDirectDrawPaletteVtbl>
 	{
 	public:
 		static void setCompatVtable(IDirectDrawPaletteVtbl& vtable);
@@ -20,3 +20,5 @@ namespace DDraw
 		static void waitForNextUpdate();
 	};
 }
+
+SET_COMPAT_VTABLE(IDirectDrawPaletteVtbl, DDraw::DirectDrawPalette);

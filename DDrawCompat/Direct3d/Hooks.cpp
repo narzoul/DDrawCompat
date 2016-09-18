@@ -16,8 +16,8 @@ namespace
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
 	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget);
 
-	template <typename CompatInterface>
-	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf);
+	template <typename Interface>
+	void hookVtable(const CompatPtr<Interface>& intf);
 
 	template <typename TDirect3d, typename TDirectDraw>
 	CompatPtr<TDirect3d> createDirect3d(CompatRef<TDirectDraw> dd)
@@ -76,9 +76,9 @@ namespace
 		CompatPtr<IDirect3D3> d3d(createDirect3d<IDirect3D3>(dd));
 		if (d3d)
 		{
-			hookVtable<Direct3d::Direct3d<IDirect3D>>(d3d);
-			hookVtable<Direct3d::Direct3d<IDirect3D2>>(d3d);
-			hookVtable<Direct3d::Direct3d<IDirect3D3>>(d3d);
+			hookVtable<IDirect3D>(d3d);
+			hookVtable<IDirect3D2>(d3d);
+			hookVtable<IDirect3D3>(d3d);
 			hookDirect3dDevice(*d3d, renderTarget);
 		}
 	}
@@ -88,7 +88,7 @@ namespace
 		CompatPtr<IDirect3D7> d3d(createDirect3d<IDirect3D7>(dd));
 		if (d3d)
 		{
-			hookVtable<Direct3d::Direct3d<IDirect3D7>>(d3d);
+			hookVtable<IDirect3D7>(d3d);
 			hookDirect3dDevice7(*d3d, renderTarget);
 		}
 	}
@@ -98,9 +98,9 @@ namespace
 		CompatPtr<IDirect3DDevice3> d3dDevice(
 			createDirect3dDevice<IDirect3DDevice3>(d3d, renderTarget, nullptr));
 
-		hookVtable<Direct3d::Direct3dDevice<IDirect3DDevice>>(d3dDevice);
-		hookVtable<Direct3d::Direct3dDevice<IDirect3DDevice2>>(d3dDevice);
-		hookVtable<Direct3d::Direct3dDevice<IDirect3DDevice3>>(d3dDevice);
+		hookVtable<IDirect3DDevice>(d3dDevice);
+		hookVtable<IDirect3DDevice2>(d3dDevice);
+		hookVtable<IDirect3DDevice3>(d3dDevice);
 	}
 
 	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget)
@@ -108,13 +108,13 @@ namespace
 		CompatPtr<IDirect3DDevice7> d3dDevice(
 			createDirect3dDevice<IDirect3DDevice7>(d3d, renderTarget));
 
-		hookVtable<Direct3d::Direct3dDevice<IDirect3DDevice7>>(d3dDevice);
+		hookVtable<IDirect3DDevice7>(d3dDevice);
 	}
 
-	template <typename CompatInterface>
-	void hookVtable(const CompatPtr<typename CompatInterface::Interface>& intf)
+	template <typename Interface>
+	void hookVtable(const CompatPtr<Interface>& intf)
 	{
-		CompatInterface::hookVtable(intf.get()->lpVtbl);
+		CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
 	}
 }
 

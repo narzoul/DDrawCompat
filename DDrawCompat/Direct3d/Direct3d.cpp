@@ -45,7 +45,7 @@ namespace
 	{
 		if (!lpEnumDevicesCallback)
 		{
-			return CompatVtableBase<TDirect3d>::s_origVtable.EnumDevices(
+			return CompatVtable<Vtable<TDirect3d>>::s_origVtable.EnumDevices(
 				This, lpEnumDevicesCallback, lpUserArg);
 		}
 
@@ -53,7 +53,7 @@ namespace
 		CompatPtr<TDirect3dHighest> d3d(Compat::queryInterface<TDirect3dHighest>(This));
 
 		EnumDevicesParams<TDirect3dHighest> params = { d3d, lpEnumDevicesCallback, lpUserArg };
-		return CompatVtableBase<TDirect3d>::s_origVtable.EnumDevices(
+		return CompatVtable<Vtable<TDirect3d>>::s_origVtable.EnumDevices(
 			This, &d3dEnumDevicesCallback, &params);
 	}
 }

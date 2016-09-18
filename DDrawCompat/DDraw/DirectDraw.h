@@ -7,7 +7,7 @@
 namespace DDraw
 {
 	template <typename TDirectDraw>
-	class DirectDraw: public CompatVtable<DirectDraw<TDirectDraw>, TDirectDraw>
+	class DirectDraw: public CompatVtable<Vtable<TDirectDraw>>
 	{
 	public:
 		typedef typename Types<TDirectDraw>::TCreatedSurface TSurface;
@@ -34,3 +34,8 @@ namespace DDraw
 			Params... params);
 	};
 }
+
+SET_COMPAT_VTABLE(IDirectDrawVtbl, DDraw::DirectDraw<IDirectDraw>);
+SET_COMPAT_VTABLE(IDirectDraw2Vtbl, DDraw::DirectDraw<IDirectDraw2>);
+SET_COMPAT_VTABLE(IDirectDraw4Vtbl, DDraw::DirectDraw<IDirectDraw4>);
+SET_COMPAT_VTABLE(IDirectDraw7Vtbl, DDraw::DirectDraw<IDirectDraw7>);

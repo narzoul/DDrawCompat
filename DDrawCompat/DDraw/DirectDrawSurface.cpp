@@ -14,7 +14,7 @@ namespace
 		DDraw::Surface* surface = This ? DDraw::Surface::getSurface(*This) : nullptr;
 		if (!surface)
 		{
-			return (CompatVtableBase<TSurface>::s_origVtable.*origMethod)(This, params...);
+			return (CompatVtable<Vtable<TSurface>>::s_origVtable.*origMethod)(This, params...);
 		}
 		return (surface->getImpl<TSurface>()->*compatMethod)(This, params...);
 	}

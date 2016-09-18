@@ -9,44 +9,46 @@
 #include "Common/VtableVisitor.h"
 #include "DDraw/ScopedThreadLock.h"
 
+#define SET_COMPAT_VTABLE(Vtable, CompatInterface) \
+	namespace Compat \
+	{ \
+		inline void setCompatVtable(Vtable& vtable) \
+		{ \
+			CompatInterface::setCompatVtable(vtable); \
+		} \
+	}
+
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
-template <typename Interface>
-class CompatVtableBase
+template <typename Vtable>
+class CompatVtable
 {
 public:
-	typedef Interface Interface;
-
-	static const Vtable<Interface>& getOrigVtable(Interface& intf)
+	static const Vtable& getOrigVtable(const Vtable& vtable)
 	{
-		return s_origVtable.AddRef ? s_origVtable : *intf.lpVtbl;
+		return s_origVtable.AddRef ? s_origVtable : vtable;
 	}
 
-	static Vtable<Interface> s_origVtable;
-	static const Vtable<Interface>* s_origVtablePtr;
-};
-
-template <typename CompatInterface, typename Interface>
-class CompatVtable : public CompatVtableBase<Interface>
-{
-public:
-	static void hookVtable(const Vtable<Interface>* vtable)
+	static void hookVtable(const Vtable* vtable)
 	{
 		if (vtable && !s_origVtablePtr)
 		{
 			s_origVtablePtr = vtable;
 
 			InitVisitor visitor(*vtable);
-			forEach<Vtable<Interface>>(visitor);
+			forEach<Vtable>(visitor);
 		}
 	}
+
+	static Vtable s_origVtable;
+	static const Vtable* s_origVtablePtr;
 
 private:
 	class InitVisitor
 	{
 	public:
-		InitVisitor(const Vtable<Interface>& origVtable) : m_origVtable(origVtable) {}
+		InitVisitor(const Vtable& origVtable) : m_origVtable(origVtable) {}
 
 		template <typename MemberDataPtr, MemberDataPtr ptr>
 		void visit()
@@ -137,38 +139,38 @@ private:
 #endif
 		}
 
-		const Vtable<Interface>& m_origVtable;
+		const Vtable& m_origVtable;
 	};
 
-	static Vtable<Interface> createCompatVtable()
+	static Vtable createCompatVtable()
 	{
-		Vtable<Interface> vtable = {};
-		CompatInterface::setCompatVtable(vtable);
+		Vtable vtable = {};
+		Compat::setCompatVtable(vtable);
 		return vtable;
 	}
 
-	static Vtable<Interface>& getCompatVtable()
+	static Vtable& getCompatVtable()
 	{
-		static Vtable<Interface> vtable(createCompatVtable());
+		static Vtable vtable(createCompatVtable());
 		return vtable;
 	}
 
-	static Vtable<Interface> s_compatVtable;
-	static Vtable<Interface> s_threadSafeVtable;
+	static Vtable s_compatVtable;
+	static Vtable s_threadSafeVtable;
 	static std::map<std::vector<unsigned char>, std::string> s_funcNames;
 };
 
-template <typename Interface>
-Vtable<Interface> CompatVtableBase<Interface>::s_origVtable = {};
+template <typename Vtable>
+Vtable CompatVtable<Vtable>::s_origVtable = {};
 
-template <typename Interface>
-const Vtable<Interface>* CompatVtableBase<Interface>::s_origVtablePtr = nullptr;
+template <typename Vtable>
+const Vtable* CompatVtable<Vtable>::s_origVtablePtr = nullptr;
 
-template <typename CompatInterface, typename Interface>
-Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_compatVtable(getCompatVtable());
+template <typename Vtable>
+Vtable CompatVtable<Vtable>::s_compatVtable(getCompatVtable());
 
-template <typename CompatInterface, typename Interface>
-Vtable<Interface> CompatVtable<CompatInterface, Interface>::s_threadSafeVtable = {};
+template <typename Vtable>
+Vtable CompatVtable<Vtable>::s_threadSafeVtable = {};
 
-template <typename CompatInterface, typename Interface>
-std::map<std::vector<unsigned char>, std::string> CompatVtable<CompatInterface, Interface>::s_funcNames;
+template <typename Vtable>
+std::map<std::vector<unsigned char>, std::string> CompatVtable<Vtable>::s_funcNames;

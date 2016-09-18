@@ -248,10 +248,10 @@ namespace DDraw
 	{
 		DirectDrawInterface dd = {};
 		dd.vtable = IID_IDirectDraw7 == m_data->m_ddId
-			? static_cast<const void*>(CompatVtableBase<IDirectDraw>::s_origVtablePtr)
-			: static_cast<const void*>(CompatVtableBase<IDirectDraw7>::s_origVtablePtr);
+			? static_cast<const void*>(CompatVtable<IDirectDrawVtbl>::s_origVtablePtr)
+			: static_cast<const void*>(CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr);
 		dd.ddObject = m_data->m_ddObject;
-		return CompatVtableBase<IDirectDraw>::s_origVtable.QueryInterface(
+		return CompatVtable<IDirectDrawVtbl>::s_origVtable.QueryInterface(
 			reinterpret_cast<IDirectDraw*>(&dd), m_data->m_ddId, lplpDD);
 	}
 
@@ -325,7 +325,8 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	const Vtable<TSurface>& SurfaceImpl<TSurface>::s_origVtable = CompatVtableBase<TSurface>::s_origVtable;
+	const Vtable<TSurface>& SurfaceImpl<TSurface>::s_origVtable =
+		CompatVtable<Vtable<TSurface>>::s_origVtable;
 
 	template SurfaceImpl<IDirectDrawSurface>;
 	template SurfaceImpl<IDirectDrawSurface2>;

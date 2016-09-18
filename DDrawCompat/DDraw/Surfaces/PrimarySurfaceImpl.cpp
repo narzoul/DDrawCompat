@@ -63,7 +63,7 @@ namespace DDraw
 			{
 				TSurfaceDesc desc = {};
 				desc.dwSize = sizeof(desc);
-				CompatVtableBase<TSurface>::s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
+				CompatVtable<Vtable<TSurface>>::s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
 				destRect.right += desc.dwWidth;
 				destRect.bottom += desc.dwHeight;
 			}

@@ -11,7 +11,7 @@ namespace
 	{
 		typedef typename Direct3d::Types<TDirect3dDevice>::TDirect3d TDirect3d;
 		CompatPtr<TDirect3d> d3d;
-		if (SUCCEEDED(CompatVtableBase<TDirect3dDevice>::s_origVtable.GetDirect3D(
+		if (SUCCEEDED(CompatVtable<Vtable<TDirect3dDevice>>::s_origVtable.GetDirect3D(
 			&d3dDevice, &d3d.getRef())))
 		{
 			typedef typename Direct3d::Types<TDirect3dDevice>::TDirect3dHighest TDirect3dHighest;
@@ -25,7 +25,7 @@ namespace
 		TD3dDeviceDesc* lpD3DHWDevDesc,
 		Params... params)
 	{
-		HRESULT result = CompatVtableBase<TDirect3dDevice>::s_origVtable.GetCaps(
+		HRESULT result = CompatVtable<Vtable<TDirect3dDevice>>::s_origVtable.GetCaps(
 			This, lpD3DHWDevDesc, params...);
 		if (SUCCEEDED(result))
 		{

@@ -35,19 +35,19 @@ namespace
 
 	IID getDdIidFromVtablePtr(const void* vtablePtr)
 	{
-		if (CompatVtableBase<IDirectDraw>::s_origVtablePtr == vtablePtr)
+		if (CompatVtable<IDirectDrawVtbl>::s_origVtablePtr == vtablePtr)
 		{
 			return IID_IDirectDraw;
 		}
-		if (CompatVtableBase<IDirectDraw2>::s_origVtablePtr == vtablePtr)
+		if (CompatVtable<IDirectDraw2Vtbl>::s_origVtablePtr == vtablePtr)
 		{
 			return IID_IDirectDraw2;
 		}
-		if (CompatVtableBase<IDirectDraw4>::s_origVtablePtr == vtablePtr)
+		if (CompatVtable<IDirectDraw4Vtbl>::s_origVtablePtr == vtablePtr)
 		{
 			return IID_IDirectDraw4;
 		}
-		if (CompatVtableBase<IDirectDraw7>::s_origVtablePtr == vtablePtr)
+		if (CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr == vtablePtr)
 		{
 			return IID_IDirectDraw7;
 		}
@@ -94,7 +94,7 @@ namespace DDraw
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
 			CompatPtr<IUnknown> dd;
-			CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetDDInterface(
+			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetDDInterface(
 				&dds, reinterpret_cast<void**>(&dd.getRef()));
 
 			privateData->createImpl();
@@ -122,7 +122,7 @@ namespace DDraw
 
 		std::unique_ptr<DDraw::Surface> privateData(new Surface());
 		attach(*surface, privateData);
-		CompatVtableBase<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
+		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.EnumAttachedSurfaces(
 			surface, rootSurface, &attachToLinkedSurfaces);
 		return DDENUMRET_OK;
 	}
@@ -144,7 +144,7 @@ namespace DDraw
 			attach(*surface7, privateData);
 			if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
 			{
-				CompatVtableBase<IDirectDrawSurface7>::s_origVtable.EnumAttachedSurfaces(
+				CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.EnumAttachedSurfaces(
 					surface7, surface7, &attachToLinkedSurfaces);
 			}
 		}
@@ -188,7 +188,7 @@ namespace DDraw
 		DWORD surfacePtrSize = sizeof(surface);
 
 		// This can get called during surface release so a proper QueryInterface would be dangerous
-		CompatVtableBase<IDirectDrawSurface7>::s_origVtable.GetPrivateData(
+		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetPrivateData(
 			reinterpret_cast<IDirectDrawSurface7*>(&dds),
 			IID_CompatSurfacePrivateData, &surface, &surfacePtrSize);
 

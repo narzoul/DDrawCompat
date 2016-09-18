@@ -14,9 +14,11 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK2& data);
 
 namespace D3dDdi
 {
-	class DeviceCallbacks : public CompatVtable<DeviceCallbacks, DeviceCallbacksIntf>
+	class DeviceCallbacks : public CompatVtable<D3DDDI_DEVICECALLBACKS>
 	{
 	public:
 		static void setCompatVtable(D3DDDI_DEVICECALLBACKS& vtable);
 	};
 }
+
+SET_COMPAT_VTABLE(D3DDDI_DEVICECALLBACKS, D3dDdi::DeviceCallbacks);
