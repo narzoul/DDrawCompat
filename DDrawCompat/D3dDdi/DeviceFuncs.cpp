@@ -99,9 +99,23 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& box)
 		<< box.Back;
 }
 
+namespace
+{
+	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
+	{
+		HRESULT result = D3dDdi::DeviceFuncs::s_origVtables.at(hDevice).pfnDestroyDevice(hDevice);
+		if (SUCCEEDED(result))
+		{
+			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
+		}
+		return result;
+	}
+}
+
 namespace D3dDdi
 {
-	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& /*vtable*/)
+	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
+		vtable.pfnDestroyDevice = &destroyDevice;
 	}
 }

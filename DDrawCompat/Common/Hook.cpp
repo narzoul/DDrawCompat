@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <algorithm>
 #include <map>
 #include <utility>
 
@@ -13,11 +14,18 @@ namespace
 {
 	struct HookedFunctionInfo
 	{
+		HMODULE module;
 		void* trampoline;
 		void* newFunction;
 	};
 
 	std::map<void*, HookedFunctionInfo> g_hookedFunctions;
+
+	std::map<void*, HookedFunctionInfo>::iterator findOrigFunc(void* origFunc)
+	{
+		return std::find_if(g_hookedFunctions.begin(), g_hookedFunctions.end(),
+			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.trampoline; });
+	}
 
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
@@ -59,7 +67,7 @@ namespace
 
 	void hookFunction(const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
-		const auto it = g_hookedFunctions.find(origFuncPtr);
+		const auto it = findOrigFunc(origFuncPtr);
 		if (it != g_hookedFunctions.end())
 		{
 			origFuncPtr = it->second.trampoline;
@@ -84,7 +92,23 @@ namespace
 			return;
 		}
 
-		g_hookedFunctions[hookedFuncPtr] = { origFuncPtr, newFuncPtr };
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+			reinterpret_cast<char*>(hookedFuncPtr), &module);
+		g_hookedFunctions[hookedFuncPtr] = { module, origFuncPtr, newFuncPtr };
+	}
+
+	void unhookFunction(const std::map<void*, HookedFunctionInfo>::iterator& hookedFunc)
+	{
+		DetourTransactionBegin();
+		DetourDetach(&hookedFunc->second.trampoline, hookedFunc->second.newFunction);
+		DetourTransactionCommit();
+
+		if (hookedFunc->second.module)
+		{
+			FreeLibrary(hookedFunc->second.module);
+		}
+		g_hookedFunctions.erase(hookedFunc);
 	}
 }
 
@@ -95,9 +119,9 @@ namespace Compat
 		::hookFunction(nullptr, origFuncPtr, newFuncPtr);
 	}
 
-	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
+	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
-		FARPROC procAddr = getProcAddress(GetModuleHandle(moduleName), funcName);
+		FARPROC procAddr = getProcAddress(module, funcName);
 		if (!procAddr)
 		{
 			Compat::LogDebug() << "Failed to load the address of a function: " << funcName;
@@ -108,13 +132,31 @@ namespace Compat
 		::hookFunction(funcName, origFuncPtr, newFuncPtr);
 	}
 
+	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
+	{
+		HMODULE module = LoadLibrary(moduleName);
+		if (!module)
+		{
+			return;
+		}
+		hookFunction(module, funcName, origFuncPtr, newFuncPtr);
+		FreeLibrary(module);
+	}
+
 	void unhookAllFunctions()
 	{
-		for (auto& hookedFunc : g_hookedFunctions)
+		while (!g_hookedFunctions.empty())
 		{
-			DetourTransactionBegin();
-			DetourDetach(&hookedFunc.second.trampoline, hookedFunc.second.newFunction);
-			DetourTransactionCommit();
+			::unhookFunction(g_hookedFunctions.begin());
+		}
+	}
+
+	void unhookFunction(void* origFunc)
+	{
+		auto it = findOrigFunc(origFunc);
+		if (it != g_hookedFunctions.end())
+		{
+			::unhookFunction(it);
 		}
 	}
 }

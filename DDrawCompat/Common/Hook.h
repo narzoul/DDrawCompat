@@ -1,5 +1,9 @@
 #pragma once
 
+#define WIN32_LEAN_AND_MEAN
+
+#include <Windows.h>
+
 #define CALL_ORIG_FUNC(func) Compat::getOrigFuncPtr<decltype(&func), &func>()
 
 #define HOOK_FUNCTION(module, func, newFunc) \
@@ -15,6 +19,7 @@ namespace Compat
 	}
 
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr);
+	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
@@ -25,4 +30,5 @@ namespace Compat
 	}
 
 	void unhookAllFunctions();
+	void unhookFunction(void* origFunc);
 }

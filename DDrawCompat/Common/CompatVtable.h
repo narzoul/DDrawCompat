@@ -36,34 +36,63 @@ public:
 		{
 			s_origVtablePtr = vtable;
 
-			InitVisitor visitor(*vtable);
+			HookVisitor<DDrawHook> visitor(*vtable, s_origVtable);
+			forEach<Vtable>(visitor);
+		}
+	}
+
+	static void hookDriverVtable(HANDLE context, const Vtable* vtable)
+	{
+		if (vtable && s_origVtables.find(context) == s_origVtables.end())
+		{
+			HookVisitor<DriverHook> visitor(*vtable, s_origVtables[context]);
 			forEach<Vtable>(visitor);
 		}
 	}
 
 	static Vtable s_origVtable;
+	static std::map<HANDLE, Vtable> s_origVtables;
 	static const Vtable* s_origVtablePtr;
 
 private:
-	class InitVisitor
+	class DDrawHook
 	{
 	public:
-		InitVisitor(const Vtable& origVtable) : m_origVtable(origVtable) {}
+		template <typename MemberDataPtr, MemberDataPtr ptr, typename FirstParam>
+		static decltype(s_compatVtable.*ptr) getCompatFunc(FirstParam)
+		{
+			return s_compatVtable.*ptr ? s_compatVtable.*ptr : s_origVtable.*ptr;
+		}
+	};
+
+	class DriverHook
+	{
+	public:
+		template <typename MemberDataPtr, MemberDataPtr ptr>
+		static decltype(s_compatVtable.*ptr) getCompatFunc(HANDLE context)
+		{
+			return s_compatVtable.*ptr ? s_compatVtable.*ptr : s_origVtables.at(context).*ptr;
+		}
+	};
+
+	template <typename Hook>
+	class HookVisitor
+	{
+	public:
+		HookVisitor(const Vtable& srcVtable, Vtable& origVtable)
+			: m_srcVtable(srcVtable)
+			, m_origVtable(origVtable)
+		{
+		}
 
 		template <typename MemberDataPtr, MemberDataPtr ptr>
 		void visit()
 		{
-			s_origVtable.*ptr = m_origVtable.*ptr;
-
-			if (!(s_compatVtable.*ptr))
+			m_origVtable.*ptr = m_srcVtable.*ptr;
+			if (s_compatVtable.*ptr)
 			{
-				s_threadSafeVtable.*ptr = s_origVtable.*ptr;
-				s_compatVtable.*ptr = s_origVtable.*ptr;
-			}
-			else
-			{
-				s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
-				Compat::hookFunction(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
+				Compat::hookFunction(reinterpret_cast<void*&>(m_origVtable.*ptr),
+					getThreadSafeFuncPtr<MemberDataPtr, ptr>(m_origVtable.*ptr));
 			}
 		}
 
@@ -73,15 +102,9 @@ private:
 			Compat::Log() << "Hooking function: " << vtableTypeName << "::" << funcName;
 			s_funcNames[getKey<MemberDataPtr, ptr>()] = vtableTypeName + "::" + funcName;
 
-			s_origVtable.*ptr = m_origVtable.*ptr;
-
-			s_threadSafeVtable.*ptr = getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr);
-			Compat::hookFunction(reinterpret_cast<void*&>(s_origVtable.*ptr), s_threadSafeVtable.*ptr);
-
-			if (!(s_compatVtable.*ptr))
-			{
-				s_compatVtable.*ptr = s_origVtable.*ptr;
-			}
+			m_origVtable.*ptr = m_srcVtable.*ptr;
+			Compat::hookFunction(reinterpret_cast<void*&>(m_origVtable.*ptr),
+				getThreadSafeFuncPtr<MemberDataPtr, ptr>(m_origVtable.*ptr));
 		}
 
 	private:
@@ -108,38 +131,38 @@ private:
 			return &threadSafeFunc<MemberDataPtr, ptr, Params...>;
 		}
 
-		template <typename MemberDataPtr, MemberDataPtr ptr, typename Result, typename... Params>
-		static Result STDMETHODCALLTYPE threadSafeFunc(Params... params)
+		template <typename MemberDataPtr, MemberDataPtr ptr,
+			typename Result, typename FirstParam, typename... Params>
+		static Result STDMETHODCALLTYPE threadSafeFunc(FirstParam firstParam, Params... params)
 		{
 			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
-			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
-#endif
-
-			Result result = (s_compatVtable.*ptr)(params...);
-
-#ifdef _DEBUG
-			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...) << result;
-#endif
+			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
+			Compat::LogEnter(funcName, firstParam, params...);
+			Result result = Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...);
+			Compat::LogLeave(funcName, firstParam, params...) << result;
 			return result;
+#else
+			return (s_compatVtable.*ptr)(firstParam, params...);
+#endif
 		}
 
-		template <typename MemberDataPtr, MemberDataPtr ptr, typename... Params>
-		static void STDMETHODCALLTYPE threadSafeFunc(Params... params)
+		template <typename MemberDataPtr, MemberDataPtr ptr, typename FirstParam, typename... Params>
+		static void STDMETHODCALLTYPE threadSafeFunc(FirstParam firstParam, Params... params)
 		{
 			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
-			Compat::LogEnter(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
-#endif
-
-			(s_compatVtable.*ptr)(params...);
-
-#ifdef _DEBUG
-			Compat::LogLeave(s_funcNames[getKey<MemberDataPtr, ptr>()].c_str(), params...);
+			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
+			Compat::LogEnter(funcName, firstParam, params...);
+			Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...);
+			Compat::LogLeave(funcName, firstParam, params...);
+#else
+			(s_compatVtable.*ptr)(firstParam, params...);
 #endif
 		}
 
-		const Vtable& m_origVtable;
+		const Vtable& m_srcVtable;
+		Vtable& m_origVtable;
 	};
 
 	static Vtable createCompatVtable()
@@ -156,7 +179,6 @@ private:
 	}
 
 	static Vtable s_compatVtable;
-	static Vtable s_threadSafeVtable;
 	static std::map<std::vector<unsigned char>, std::string> s_funcNames;
 };
 
@@ -164,13 +186,13 @@ template <typename Vtable>
 Vtable CompatVtable<Vtable>::s_origVtable = {};
 
 template <typename Vtable>
+std::map<HANDLE, Vtable> CompatVtable<Vtable>::s_origVtables;
+
+template <typename Vtable>
 const Vtable* CompatVtable<Vtable>::s_origVtablePtr = nullptr;
 
 template <typename Vtable>
 Vtable CompatVtable<Vtable>::s_compatVtable(getCompatVtable());
-
-template <typename Vtable>
-Vtable CompatVtable<Vtable>::s_threadSafeVtable = {};
 
 template <typename Vtable>
 std::map<std::vector<unsigned char>, std::string> CompatVtable<Vtable>::s_funcNames;

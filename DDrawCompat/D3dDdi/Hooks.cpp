@@ -1,5 +1,7 @@
 #define CINTERFACE
 
+#include <set>
+
 #include <Windows.h>
 #include <d3d.h>
 #include <d3dumddi.h>
@@ -9,8 +11,6 @@
 #include "Common/Log.h"
 #include "D3dDdi/AdapterCallbacks.h"
 #include "D3dDdi/AdapterFuncs.h"
-
-HRESULT APIENTRY OpenAdapter(D3DDDIARG_OPENADAPTER*) { return 0; }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 {
@@ -26,116 +26,67 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 namespace
 {
 	UINT g_ddiVersion = 0;
-	HMODULE g_umd = nullptr;
-	
-	D3DKMT_HANDLE openAdapterFromHdc(HDC hdc);
+	std::wstring g_hookedUmdFileName;
+	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
 
-	void closeAdapter(D3DKMT_HANDLE adapter)
+	void hookOpenAdapter(const std::wstring& umdFileName);
+	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData);
+	void unhookOpenAdapter();
+
+	NTSTATUS APIENTRY d3dKmtQueryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
 	{
-		D3DKMT_CLOSEADAPTER closeAdapterData = {};
-		closeAdapterData.hAdapter = adapter;
-		D3DKMTCloseAdapter(&closeAdapterData);
+		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTQueryAdapterInfo)(pData);
+		if (SUCCEEDED(result) && KMTQAITYPE_UMDRIVERNAME == pData->Type)
+		{
+			auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
+			if (g_hookedUmdFileName != info->UmdFileName)
+			{
+				unhookOpenAdapter();
+				hookOpenAdapter(info->UmdFileName);
+			}
+		}
+		return result;
 	}
 
-	DISPLAY_DEVICE getPrimaryDisplayDevice()
+	void hookOpenAdapter(const std::wstring& umdFileName)
 	{
-		DISPLAY_DEVICE dd = {};
-		dd.cb = sizeof(dd);
-		for (DWORD i = 0;
-			EnumDisplayDevices(nullptr, i, &dd, 0) && !(dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE);
-			++i)
+		g_hookedUmdFileName = umdFileName;
+		HMODULE module = LoadLibraryW(umdFileName.c_str());
+		if (module)
 		{
+			Compat::hookFunction(module, "OpenAdapter",
+				reinterpret_cast<void*&>(g_origOpenAdapter), &openAdapter);
+			FreeLibrary(module);
 		}
-
-		if (!(dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE))
-		{
-			Compat::Log() << "Failed to find the primary display device";
-			ZeroMemory(&dd, sizeof(dd));
-		}
-
-		return dd;
-	}
-
-	D3DKMT_UMDFILENAMEINFO getUmdDriverName(D3DKMT_HANDLE adapter)
-	{
-		D3DKMT_UMDFILENAMEINFO umdFileNameInfo = {};
-		umdFileNameInfo.Version = KMTUMDVERSION_DX9;
-
-		D3DKMT_QUERYADAPTERINFO queryAdapterInfo = {};
-		queryAdapterInfo.hAdapter = adapter;
-		queryAdapterInfo.Type = KMTQAITYPE_UMDRIVERNAME;
-		queryAdapterInfo.pPrivateDriverData = &umdFileNameInfo;
-		queryAdapterInfo.PrivateDriverDataSize = sizeof(umdFileNameInfo);
-		NTSTATUS result = D3DKMTQueryAdapterInfo(&queryAdapterInfo);
-		if (FAILED(result))
-		{
-			Compat::Log() << "Failed to query the display driver name: " << result;
-			ZeroMemory(&umdFileNameInfo, sizeof(umdFileNameInfo));
-		}
-
-		return umdFileNameInfo;
-	}
-
-	D3DKMT_UMDFILENAMEINFO getPrimaryUmdDriverName()
-	{
-		D3DKMT_UMDFILENAMEINFO umdFileNameInfo = {};
-
-		DISPLAY_DEVICE dd = getPrimaryDisplayDevice();
-		if (!dd.DeviceName)
-		{
-			return umdFileNameInfo;
-		}
-
-		HDC dc = CreateDC(nullptr, dd.DeviceName, nullptr, nullptr);
-		if (!dc)
-		{
-			Compat::Log() << "Failed to create a DC for the primary display device";
-			return umdFileNameInfo;
-		}
-
-		D3DKMT_HANDLE adapter = openAdapterFromHdc(dc);
-		DeleteDC(dc);
-		if (!adapter)
-		{
-			return umdFileNameInfo;
-		}
-
-		umdFileNameInfo = getUmdDriverName(adapter);
-		closeAdapter(adapter);
-		if (0 == umdFileNameInfo.UmdFileName[0])
-		{
-			return umdFileNameInfo;
-		}
-
-		Compat::Log() << "Primary display adapter driver: " << umdFileNameInfo.UmdFileName;
-		return umdFileNameInfo;
 	}
 
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
 	{
 		Compat::LogEnter("openAdapter", pOpenData);
 		D3dDdi::AdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
-		HRESULT result = CALL_ORIG_FUNC(OpenAdapter)(pOpenData);
+		HRESULT result = g_origOpenAdapter(pOpenData);
 		if (SUCCEEDED(result))
 		{
+			static std::set<std::wstring> hookedUmdFileNames;
+			if (hookedUmdFileNames.find(g_hookedUmdFileName) == hookedUmdFileNames.end())
+			{
+				Compat::Log() << "Hooking user mode display driver: " << g_hookedUmdFileName.c_str();
+				hookedUmdFileNames.insert(g_hookedUmdFileName);
+			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			D3dDdi::AdapterFuncs::hookVtable(pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::hookDriverVtable(pOpenData->hAdapter, pOpenData->pAdapterFuncs);
 		}
 		Compat::LogLeave("openAdapter", pOpenData) << result;
 		return result;
 	}
 
-	D3DKMT_HANDLE openAdapterFromHdc(HDC hdc)
+	void unhookOpenAdapter()
 	{
-		D3DKMT_OPENADAPTERFROMHDC openAdapterData = {};
-		openAdapterData.hDc = hdc;
-		NTSTATUS result = D3DKMTOpenAdapterFromHdc(&openAdapterData);
-		if (FAILED(result))
+		if (g_origOpenAdapter)
 		{
-			Compat::Log() << "Failed to open the primary display adapter: " << result;
-			return 0;
+			Compat::unhookFunction(g_origOpenAdapter);
+			g_hookedUmdFileName.clear();
 		}
-		return openAdapterData.hAdapter;
 	}
 }
 
@@ -148,24 +99,11 @@ namespace D3dDdi
 
 	void installHooks()
 	{
-		D3DKMT_UMDFILENAMEINFO primaryUmd = getPrimaryUmdDriverName();
-		g_umd = LoadLibraryW(primaryUmd.UmdFileName);
-		if (!g_umd)
-		{
-			Compat::Log() << "Failed to load the primary display driver library";
-		}
-
-		char umdFileName[MAX_PATH] = {};
-		wcstombs_s(nullptr, umdFileName, primaryUmd.UmdFileName, _TRUNCATE);
-		Compat::hookFunction<decltype(&OpenAdapter), &OpenAdapter>(
-			umdFileName, "OpenAdapter", &openAdapter);
+		HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, d3dKmtQueryAdapterInfo);
 	}
 
 	void uninstallHooks()
 	{
-		if (g_umd)
-		{
-			FreeLibrary(g_umd);
-		}
+		unhookOpenAdapter();
 	}
 }
