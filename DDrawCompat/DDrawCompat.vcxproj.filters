@@ -255,7 +255,7 @@
     <ClInclude Include="DDraw\Surfaces\PrimarySurfaceImpl.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>
-    <ClInclude Include="DDraw\Surfaces\FullScreenTagSurface.h">
+    <ClInclude Include="DDraw\Surfaces\TagSurface.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>
   </ItemGroup>
@@ -386,7 +386,7 @@
     <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
-    <ClCompile Include="DDraw\Surfaces\FullScreenTagSurface.cpp">
+    <ClCompile Include="DDraw\Surfaces\TagSurface.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
   </ItemGroup>

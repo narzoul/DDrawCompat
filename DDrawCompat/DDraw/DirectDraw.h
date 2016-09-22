@@ -1,11 +1,20 @@
 #pragma once
 
+#include "Common/CompatPtr.h"
 #include "Common/CompatVtable.h"
 #include "DDraw/Visitors/DirectDrawVtblVisitor.h"
 #include "DDraw/Types.h"
 
 namespace DDraw
 {
+	class TagSurface;
+
+	template <typename TDirectDraw>
+	void* getDdObject(TDirectDraw& dd);
+
+	CompatPtr<IDirectDraw7> getFullScreenDirectDraw();
+	void onRelease(TagSurface& dd);
+
 	template <typename TDirectDraw>
 	class DirectDraw: public CompatVtable<Vtable<TDirectDraw>>
 	{

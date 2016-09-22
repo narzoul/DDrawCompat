@@ -4,7 +4,6 @@
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DisplayMode.h"
-#include "DDraw/Surfaces/FullScreenTagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 #include "Gdi/Gdi.h"
@@ -93,7 +92,7 @@ namespace
 			Gdi::disableEmulation();
 		}
 
-		auto dd(DDraw::FullScreenTagSurface::getFullScreenDirectDraw());
+		auto dd(DDraw::getFullScreenDirectDraw());
 		if (dd)
 		{
 			if (isActivated)

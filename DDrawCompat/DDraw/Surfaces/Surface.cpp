@@ -1,6 +1,7 @@
 #include <initguid.h>
 
 #include "Common/CompatPtr.h"
+#include "DDraw/DirectDraw.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
@@ -78,7 +79,8 @@ namespace DDraw
 	}
 
 	Surface::Surface()
-		: m_ddId()
+		: m_dds(nullptr)
+		, m_ddId()
 		, m_ddObject(nullptr)
 		, m_refCount(0)
 	{
@@ -104,8 +106,10 @@ namespace DDraw
 			privateData->m_impl4->m_data = privateData.get();
 			privateData->m_impl7->m_data = privateData.get();
 
+			privateData->m_dds = CompatPtr<IDirectDrawSurface>(
+				Compat::queryInterface<IDirectDrawSurface>(&dds));
 			privateData->m_ddId = getDdIidFromVtablePtr(reinterpret_cast<void**>(dd.get())[0]);
-			privateData->m_ddObject = reinterpret_cast<void**>(dd.get())[1];
+			privateData->m_ddObject = DDraw::getDdObject(*CompatPtr<IDirectDraw>(dd));
 
 			privateData.release();
 		}
@@ -180,6 +184,19 @@ namespace DDraw
 	SurfaceImpl<IDirectDrawSurface4>* Surface::getImpl<IDirectDrawSurface4>() const { return m_impl4.get(); }
 	template <>
 	SurfaceImpl<IDirectDrawSurface7>* Surface::getImpl<IDirectDrawSurface7>() const { return m_impl7.get(); }
+
+	CompatPtr<IDirectDraw7> Surface::getDirectDraw() const
+	{
+		auto dds(getDirectDrawSurface());
+		CompatPtr<IUnknown> dd;
+		m_impl7->GetDDInterface(dds, reinterpret_cast<void**>(&dd.getRef()));
+		return CompatPtr<IDirectDraw7>(dd);
+	}
+
+	CompatPtr<IDirectDrawSurface7> Surface::getDirectDrawSurface() const
+	{
+		return CompatPtr<IDirectDrawSurface7>(Compat::queryInterface<IDirectDrawSurface7>(m_dds));
+	}
 
 	template <typename TSurface>
 	Surface* Surface::getSurface(TSurface& dds)

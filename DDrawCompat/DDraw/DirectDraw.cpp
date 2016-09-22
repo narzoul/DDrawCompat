@@ -4,12 +4,38 @@
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
-#include "DDraw/Surfaces/FullScreenTagSurface.h"
+#include "DDraw/Surfaces/TagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
 
 namespace DDraw
 {
+	TagSurface* g_fullScreenTagSurface = nullptr;
+
+	template <typename TDirectDraw>
+	void* getDdObject(TDirectDraw& dd)
+	{
+		return reinterpret_cast<void**>(&dd)[1];
+	}
+
+	template void* getDdObject(IDirectDraw&);
+	template void* getDdObject(IDirectDraw2&);
+	template void* getDdObject(IDirectDraw4&);
+	template void* getDdObject(IDirectDraw7&);
+
+	CompatPtr<IDirectDraw7> getFullScreenDirectDraw()
+	{
+		return g_fullScreenTagSurface ? g_fullScreenTagSurface->getDirectDraw() : nullptr;
+	}
+
+	void onRelease(TagSurface& dd)
+	{
+		if (&dd == g_fullScreenTagSurface)
+		{
+			g_fullScreenTagSurface = nullptr;
+		}
+	}
+
 	template <typename TDirectDraw>
 	void DirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 	{
@@ -85,16 +111,26 @@ namespace DDraw
 		HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
 		if (SUCCEEDED(result))
 		{
-			if (dwFlags & DDSCL_FULLSCREEN)
+			void* ddObject = getDdObject(*This);
+			TagSurface* tagSurface = TagSurface::get(ddObject);
+			if (!tagSurface)
 			{
 				CompatPtr<IDirectDraw> dd(Compat::queryInterface<IDirectDraw>(This));
-				DDraw::FullScreenTagSurface::create(*dd);
-				ActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
+				TagSurface::create(*dd);
+				tagSurface = TagSurface::get(ddObject);
 			}
-			else if (CompatPtr<IDirectDraw7>(Compat::queryInterface<IDirectDraw7>(This)).get() ==
-				DDraw::FullScreenTagSurface::getFullScreenDirectDraw().get())
+
+			if (tagSurface)
 			{
-				DDraw::FullScreenTagSurface::destroy();
+				if (dwFlags & DDSCL_FULLSCREEN)
+				{
+					g_fullScreenTagSurface = tagSurface;
+					ActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
+				}
+				else if ((dwFlags & DDSCL_NORMAL) && tagSurface == g_fullScreenTagSurface)
+				{
+					g_fullScreenTagSurface = nullptr;
+				}
 			}
 		}
 		return result;
