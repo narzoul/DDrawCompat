@@ -1,8 +1,10 @@
 #include <algorithm>
+#include <map>
 #include <vector>
 
 #include "Common/CompatPtr.h"
 #include "Common/Log.h"
+#include "DDraw/DirectDraw.h"
 #include "DDraw/Repository.h"
 #include "Dll/Procs.h"
 
@@ -10,16 +12,23 @@ namespace
 {
 	using DDraw::Repository::Surface;
 
-	static std::vector<Surface> g_sysMemSurfaces;
-	static std::vector<Surface> g_vidMemSurfaces;
+	struct Repository
+	{
+		CompatWeakPtr<IDirectDraw7> dd;
+		std::vector<Surface> surfaces;
+	};
+
+	Repository g_sysMemRepo;
+	std::map<void*, Repository> g_vidMemRepos;
 
 	CompatPtr<IDirectDraw7> createDirectDraw();
-	Surface createSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
+	Surface createSurface(CompatRef<IDirectDraw7> dd,
+		DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
 	std::vector<Surface>::iterator findSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf,
 		std::vector<Surface>& cachedSurfaces);
 	void destroySmallerSurfaces(DWORD width, DWORD height, const DDPIXELFORMAT& pf,
 		std::vector<Surface>& cachedSurfaces);
-	Surface getSurface(const DDSURFACEDESC2& desc);
+	Surface getSurface(CompatRef<IDirectDraw7> dd, const DDSURFACEDESC2& desc);
 	void normalizePixelFormat(DDPIXELFORMAT& pf);
 	void returnSurface(const Surface& surface);
 
@@ -30,21 +39,22 @@ namespace
 			reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a DirectDraw object in the repository: " << result;
+			LOG_ONCE("Failed to create a DirectDraw object in the repository: " << result);
 			return nullptr;
 		}
 
-		result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
+		result = dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to set the cooperative level in the repository: " << result;
+			LOG_ONCE("Failed to set the cooperative level in the repository: " << result);
 			return nullptr;
 		}
 
 		return dd;
 	}
 
-	Surface createSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
+	Surface createSurface(CompatRef<IDirectDraw7> dd,
+		DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
 	{
 		Surface surface = {};
 
@@ -55,8 +65,7 @@ namespace
 		surface.desc.ddpfPixelFormat = pf;
 		surface.desc.ddsCaps.dwCaps = caps;
 
-		auto dd(DDraw::Repository::getDirectDraw());
-		dd->CreateSurface(dd, &surface.desc, &surface.surface.getRef(), nullptr);
+		dd.get().lpVtbl->CreateSurface(&dd, &surface.desc, &surface.surface.getRef(), nullptr);
 		return surface;
 	}
 
@@ -103,27 +112,52 @@ namespace
 		return cachedSurfaces.end();
 	}
 
-	Surface getSurface(const DDSURFACEDESC2& desc)
+	Repository& getRepository(CompatRef<IDirectDraw7> dd, DWORD caps)
 	{
-		std::vector<Surface>& cachedSurfaces =
-			(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) ? g_sysMemSurfaces : g_vidMemSurfaces;
+		if (caps & DDSCAPS_SYSTEMMEMORY)
+		{
+			g_sysMemRepo.dd = DDraw::Repository::getDirectDraw();
+			return g_sysMemRepo;
+		}
+
+		void* ddObject = DDraw::getDdObject(dd.get());
+		auto it = g_vidMemRepos.find(ddObject);
+		if (it == g_vidMemRepos.end())
+		{
+			Repository repo = {};
+			repo.dd = createDirectDraw().detach();
+			return g_vidMemRepos[ddObject] = repo;
+		}
+		return it->second;
+	}
+
+	Surface getSurface(CompatRef<IDirectDraw7> dd, const DDSURFACEDESC2& desc)
+	{
+		Repository& repo = getRepository(dd, desc.ddsCaps.dwCaps);
+		if (!repo.dd)
+		{
+			return Surface();
+		}
 
 		DDPIXELFORMAT pf = desc.ddpfPixelFormat;
 		normalizePixelFormat(pf);
 
-		auto it = findSurface(desc.dwWidth, desc.dwHeight, pf, cachedSurfaces);
-		if (it != cachedSurfaces.end())
+		auto it = findSurface(desc.dwWidth, desc.dwHeight, pf, repo.surfaces);
+		if (it != repo.surfaces.end())
 		{
 			Surface cachedSurface = *it;
-			cachedSurfaces.erase(it);
+			repo.surfaces.erase(it);
 			return cachedSurface;
 		}
 
-		Surface newSurface = createSurface(desc.dwWidth, desc.dwHeight, pf,
-			DDSCAPS_OFFSCREENPLAIN | (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY));
+		const DWORD memFlag = (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
+			? DDSCAPS_SYSTEMMEMORY : DDSCAPS_VIDEOMEMORY;
+		Surface newSurface = createSurface(*repo.dd, desc.dwWidth, desc.dwHeight, pf,
+			DDSCAPS_OFFSCREENPLAIN | memFlag);
 		if (newSurface.surface)
 		{
-			destroySmallerSurfaces(desc.dwWidth, desc.dwHeight, pf, cachedSurfaces);
+			newSurface.ddObject = DDraw::getDdObject(dd.get());
+			destroySmallerSurfaces(desc.dwWidth, desc.dwHeight, pf, repo.surfaces);
 		}
 		return newSurface;
 	}
@@ -149,11 +183,11 @@ namespace
 
 		if (surface.desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
 		{
-			g_sysMemSurfaces.push_back(surface);
+			g_sysMemRepo.surfaces.push_back(surface);
 		}
 		else
 		{
-			g_vidMemSurfaces.push_back(surface);
+			g_vidMemRepos[surface.ddObject].surfaces.push_back(surface);
 		}
 	}
 }
@@ -162,8 +196,8 @@ namespace DDraw
 {
 	namespace Repository
 	{
-		ScopedSurface::ScopedSurface(const DDSURFACEDESC2& desc)
-			: Surface(getSurface(desc))
+		ScopedSurface::ScopedSurface(CompatRef<IDirectDraw7> dd, const DDSURFACEDESC2& desc)
+			: Surface(getSurface(dd, desc))
 		{
 		}
 
@@ -176,6 +210,19 @@ namespace DDraw
 		{
 			static auto dd = new CompatPtr<IDirectDraw7>(createDirectDraw());
 			return *dd;
+		}
+
+		void onRelease(void* ddObject)
+		{
+			auto it = g_vidMemRepos.find(ddObject);
+			if (it != g_vidMemRepos.end())
+			{
+				for (auto& surface : it->second.surfaces)
+				{
+					surface.surface->Release(surface.surface);
+				}
+				g_vidMemRepos.erase(it);
+			}
 		}
 	}
 }

@@ -1,6 +1,7 @@
 #include <set>
 
 #include "Common/CompatPtr.h"
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Repository.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
@@ -27,17 +28,8 @@ namespace
 			return;
 		}
 
-		DDSURFACEDESC2 tempSurfaceDesc = desc;
-		tempSurfaceDesc.dwWidth = 1;
-		tempSurfaceDesc.dwHeight = 1;
-		DDraw::Repository::ScopedSurface tempSurface(desc);
-		if (!tempSurface.surface)
-		{
-			return;
-		}
-
 		RECT r = { 0, 0, 1, 1 };
-		surface->Blt(&surface, &r, tempSurface.surface, &r, DDBLT_WAIT, nullptr);
+		surface->Blt(&surface, &r, &surface, &r, DDBLT_WAIT, nullptr);
 	}
 
 	HRESULT WINAPI fixSurfacePtrEnumCallback(
@@ -87,7 +79,8 @@ namespace
 			desc.dwHeight = srcRect->bottom - srcRect->top;
 		}
 
-		DDraw::Repository::ScopedSurface mirroredSurface(desc);
+		auto dd(DDraw::getDirectDraw(surface));
+		DDraw::Repository::ScopedSurface mirroredSurface(*dd, desc);
 		if (!mirroredSurface.surface)
 		{
 			return nullptr;
@@ -96,7 +89,7 @@ namespace
 		RECT rect = { 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
 		if ((mirrorFx & DDBLTFX_MIRRORLEFTRIGHT) && (mirrorFx & DDBLTFX_MIRRORUPDOWN))
 		{
-			DDraw::Repository::Surface tempMirroredSurface = DDraw::Repository::ScopedSurface(desc);
+			DDraw::Repository::Surface tempMirroredSurface = DDraw::Repository::ScopedSurface(*dd, desc);
 			if (!tempMirroredSurface.surface ||
 				!mirrorBlt(*tempMirroredSurface.surface, surface, srcRect ? *srcRect : rect,
 					DDBLTFX_MIRRORLEFTRIGHT) ||

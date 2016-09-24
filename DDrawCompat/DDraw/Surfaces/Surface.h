@@ -40,6 +40,7 @@ namespace DDraw
 
 		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface>& privateData);
 
+		void* m_ddObject;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface2>> m_impl2;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface3>> m_impl3;
@@ -56,7 +57,6 @@ namespace DDraw
 
 		IDirectDrawSurface* m_dds;
 		IID m_ddId;
-		void* m_ddObject;
 		DWORD m_refCount;
 	};
 }

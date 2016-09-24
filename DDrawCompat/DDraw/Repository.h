@@ -4,6 +4,7 @@
 
 #include <ddraw.h>
 
+#include "Common/CompatRef.h"
 #include "Common/CompatWeakPtr.h"
 
 namespace DDraw
@@ -12,6 +13,7 @@ namespace DDraw
 	{
 		struct Surface
 		{
+			void* ddObject;
 			DDSURFACEDESC2 desc;
 			CompatWeakPtr<IDirectDrawSurface7> surface;
 		};
@@ -19,10 +21,11 @@ namespace DDraw
 		class ScopedSurface : public Surface
 		{
 		public:
-			ScopedSurface(const DDSURFACEDESC2& desc);
+			ScopedSurface(CompatRef<IDirectDraw7> dd, const DDSURFACEDESC2& desc);
 			~ScopedSurface();
 		};
 
 		CompatWeakPtr<IDirectDraw7> getDirectDraw();
+		void onRelease(void* ddObject);
 	}
 }

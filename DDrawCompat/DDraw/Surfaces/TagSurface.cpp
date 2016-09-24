@@ -2,6 +2,7 @@
 #include <map>
 
 #include "DDraw/DirectDraw.h"
+#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 #include "DDraw/Surfaces/TagSurface.h"
 
@@ -16,7 +17,8 @@ namespace DDraw
 	{
 		std::find_if(g_tagSurfaces.begin(), g_tagSurfaces.end(),
 			[=](auto& i) { return i.second == this; })->second;
-		DDraw::onRelease(*this);
+		onRelease(*this);
+		Repository::onRelease(m_ddObject);
 		g_tagSurfaces.erase(std::find_if(g_tagSurfaces.begin(), g_tagSurfaces.end(),
 			[=](auto& i) { return i.second == this; }));
 	}

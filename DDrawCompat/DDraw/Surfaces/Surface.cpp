@@ -2,6 +2,7 @@
 
 #include "Common/CompatPtr.h"
 #include "DDraw/DirectDraw.h"
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
@@ -79,9 +80,9 @@ namespace DDraw
 	}
 
 	Surface::Surface()
-		: m_dds(nullptr)
+		: m_ddObject(nullptr)
+		, m_dds(nullptr)
 		, m_ddId()
-		, m_ddObject(nullptr)
 		, m_refCount(0)
 	{
 	}
@@ -96,8 +97,7 @@ namespace DDraw
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
 			CompatPtr<IUnknown> dd;
-			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetDDInterface(
-				&dds, reinterpret_cast<void**>(&dd.getRef()));
+			dds->GetDDInterface(&dds, reinterpret_cast<void**>(&dd.getRef()));
 
 			privateData->createImpl();
 			privateData->m_impl->m_data = privateData.get();
@@ -187,10 +187,7 @@ namespace DDraw
 
 	CompatPtr<IDirectDraw7> Surface::getDirectDraw() const
 	{
-		auto dds(getDirectDrawSurface());
-		CompatPtr<IUnknown> dd;
-		m_impl7->GetDDInterface(dds, reinterpret_cast<void**>(&dd.getRef()));
-		return CompatPtr<IDirectDraw7>(dd);
+		return DDraw::getDirectDraw(*getDirectDrawSurface());
 	}
 
 	CompatPtr<IDirectDrawSurface7> Surface::getDirectDrawSurface() const
