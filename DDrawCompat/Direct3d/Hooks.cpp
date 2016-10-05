@@ -8,6 +8,7 @@
 #include "DDraw/Repository.h"
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
+#include "Direct3d/Direct3dViewport.h"
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
 
@@ -15,6 +16,7 @@ namespace
 {
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
 	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget);
+	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d);
 
 	template <typename Interface>
 	void hookVtable(const CompatPtr<Interface>& intf);
@@ -80,6 +82,7 @@ namespace
 			hookVtable<IDirect3D2>(d3d);
 			hookVtable<IDirect3D3>(d3d);
 			hookDirect3dDevice(*d3d, renderTarget);
+			hookDirect3dViewport(*d3d);
 		}
 	}
 
@@ -109,6 +112,21 @@ namespace
 			createDirect3dDevice<IDirect3DDevice7>(d3d, renderTarget));
 
 		hookVtable<IDirect3DDevice7>(d3dDevice);
+	}
+
+	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d)
+	{
+		CompatPtr<IDirect3DViewport3> viewport;
+		HRESULT result = d3d->CreateViewport(&d3d, &viewport.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			Compat::Log() << "Failed to create a Direct3D viewport for hooking: " << result;
+			return;
+		}
+
+		hookVtable<IDirect3DViewport>(viewport);
+		hookVtable<IDirect3DViewport2>(viewport);
+		hookVtable<IDirect3DViewport3>(viewport);
 	}
 
 	template <typename Interface>
