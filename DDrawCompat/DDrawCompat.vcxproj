@@ -196,10 +196,12 @@
     <ClInclude Include="Direct3d\DepthBuffer.h" />
     <ClInclude Include="Direct3d\Direct3d.h" />
     <ClInclude Include="Direct3d\Direct3dDevice.h" />
+    <ClInclude Include="Direct3d\Direct3dTexture.h" />
     <ClInclude Include="Direct3d\Direct3dViewport.h" />
     <ClInclude Include="Direct3d\Hooks.h" />
     <ClInclude Include="Direct3d\Types.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h" />
+    <ClInclude Include="Direct3d\Visitors\Direct3dTextureVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
     <ClInclude Include="Dll\Procs.h" />
@@ -244,6 +246,7 @@
     <ClCompile Include="Direct3d\DepthBuffer.cpp" />
     <ClCompile Include="Direct3d\Direct3d.cpp" />
     <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
+    <ClCompile Include="Direct3d\Direct3dTexture.cpp" />
     <ClCompile Include="Direct3d\Direct3dViewport.cpp" />
     <ClCompile Include="Direct3d\Hooks.cpp" />
     <ClCompile Include="Dll\Procs.cpp" />

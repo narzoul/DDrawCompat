@@ -8,6 +8,7 @@
 #include "DDraw/Repository.h"
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
+#include "Direct3d/Direct3dTexture.h"
 #include "Direct3d/Direct3dViewport.h"
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
@@ -16,6 +17,7 @@ namespace
 {
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
 	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget);
+	void hookDirect3dTexture(CompatRef<IDirectDraw> dd);
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d);
 
 	template <typename Interface>
@@ -82,6 +84,7 @@ namespace
 			hookVtable<IDirect3D2>(d3d);
 			hookVtable<IDirect3D3>(d3d);
 			hookDirect3dDevice(*d3d, renderTarget);
+			hookDirect3dTexture(dd);
 			hookDirect3dViewport(*d3d);
 		}
 	}
@@ -112,6 +115,27 @@ namespace
 			createDirect3dDevice<IDirect3DDevice7>(d3d, renderTarget));
 
 		hookVtable<IDirect3DDevice7>(d3dDevice);
+	}
+
+	void hookDirect3dTexture(CompatRef<IDirectDraw> dd)
+	{
+		DDSURFACEDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS;
+		desc.dwWidth = 1;
+		desc.dwHeight = 1;
+		desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_SYSTEMMEMORY;
+
+		CompatPtr<IDirectDrawSurface> texture;
+		HRESULT result = dd->CreateSurface(&dd, &desc, &texture.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			Compat::Log() << "Failed to create a texture for hooking: " << result;
+			return;
+		}
+
+		hookVtable<IDirect3DTexture>(texture);
+		hookVtable<IDirect3DTexture2>(texture);
 	}
 
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d)
