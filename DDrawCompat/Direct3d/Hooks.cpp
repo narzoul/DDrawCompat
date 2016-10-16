@@ -1,5 +1,7 @@
 #define CINTERFACE
 
+#include <functional>
+
 #include <d3d.h>
 
 #include "Common/CompatPtr.h"
@@ -9,6 +11,7 @@
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Direct3dTexture.h"
+#include "Direct3d/Direct3dVertexBuffer.h"
 #include "Direct3d/Direct3dViewport.h"
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
@@ -18,7 +21,13 @@ namespace
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
 	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget);
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd);
+	void hookDirect3dVertexBuffer(CompatRef<IDirect3D3> d3d);
+	void hookDirect3dVertexBuffer7(CompatRef<IDirect3D7> d3d);
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d);
+
+	template <typename TDirect3dVertexBuffer>
+	void hookVertexBuffer(
+		const std::function<HRESULT(D3DVERTEXBUFFERDESC&, TDirect3dVertexBuffer*&)> createVertexBuffer);
 
 	template <typename Interface>
 	void hookVtable(const CompatPtr<Interface>& intf);
@@ -64,7 +73,7 @@ namespace
 		desc.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
 		desc.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
 		desc.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE;
+		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE | DDSCAPS_SYSTEMMEMORY;
 
 		CompatPtr<IDirectDrawSurface7> renderTarget;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &renderTarget.getRef(), nullptr);
@@ -85,6 +94,7 @@ namespace
 			hookVtable<IDirect3D3>(d3d);
 			hookDirect3dDevice(*d3d, renderTarget);
 			hookDirect3dTexture(dd);
+			hookDirect3dVertexBuffer(*d3d);
 			hookDirect3dViewport(*d3d);
 		}
 	}
@@ -96,6 +106,7 @@ namespace
 		{
 			hookVtable<IDirect3D7>(d3d);
 			hookDirect3dDevice7(*d3d, renderTarget);
+			hookDirect3dVertexBuffer7(*d3d);
 		}
 	}
 
@@ -138,6 +149,20 @@ namespace
 		hookVtable<IDirect3DTexture2>(texture);
 	}
 
+	void hookDirect3dVertexBuffer(CompatRef<IDirect3D3> d3d)
+	{
+		hookVertexBuffer<IDirect3DVertexBuffer>(
+			[&](D3DVERTEXBUFFERDESC& desc, IDirect3DVertexBuffer*& vb) {
+			return d3d->CreateVertexBuffer(&d3d, &desc, &vb, 0, nullptr); });
+	}
+
+	void hookDirect3dVertexBuffer7(CompatRef<IDirect3D7> d3d)
+	{
+		hookVertexBuffer<IDirect3DVertexBuffer7>(
+			[&](D3DVERTEXBUFFERDESC& desc, IDirect3DVertexBuffer7*& vb) {
+			return d3d->CreateVertexBuffer(&d3d, &desc, &vb, 0); });
+	}
+
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d)
 	{
 		CompatPtr<IDirect3DViewport3> viewport;
@@ -151,6 +176,26 @@ namespace
 		hookVtable<IDirect3DViewport>(viewport);
 		hookVtable<IDirect3DViewport2>(viewport);
 		hookVtable<IDirect3DViewport3>(viewport);
+	}
+
+	template <typename TDirect3dVertexBuffer>
+	void hookVertexBuffer(
+		const std::function<HRESULT(D3DVERTEXBUFFERDESC&, TDirect3dVertexBuffer*&)> createVertexBuffer)
+	{
+		D3DVERTEXBUFFERDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwCaps = D3DVBCAPS_SYSTEMMEMORY;
+		desc.dwFVF = D3DFVF_VERTEX;
+		desc.dwNumVertices = 1;
+
+		CompatPtr<TDirect3dVertexBuffer> vertexBuffer = nullptr;
+		HRESULT result = createVertexBuffer(desc, vertexBuffer.getRef());
+		if (FAILED(result))
+		{
+			Compat::Log() << "Failed to create a vertex buffer for hooking: " << result;
+		}
+
+		hookVtable<TDirect3dVertexBuffer>(vertexBuffer);
 	}
 
 	template <typename Interface>

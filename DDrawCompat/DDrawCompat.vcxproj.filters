@@ -270,6 +270,12 @@
     <ClInclude Include="Direct3d\Direct3dTexture.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="Direct3d\Visitors\Direct3dVertexBufferVtblVisitor.h">
+      <Filter>Header Files\Direct3d\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Direct3dVertexBuffer.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -405,6 +411,9 @@
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dTexture.cpp">
+      <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\Direct3dVertexBuffer.cpp">
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
   </ItemGroup>
