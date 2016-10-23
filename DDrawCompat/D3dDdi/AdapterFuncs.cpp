@@ -25,6 +25,16 @@ namespace
 		}
 		return result;
 	}
+
+	HRESULT APIENTRY getCaps(HANDLE hAdapter, const D3DDDIARG_GETCAPS* pData)
+	{
+		HRESULT result = D3dDdi::AdapterFuncs::s_origVtables.at(hAdapter).pfnGetCaps(hAdapter, pData);
+		if (SUCCEEDED(result) && D3DDDICAPS_DDRAW == pData->Type)
+		{
+			static_cast<DDRAW_CAPS*>(pData->pData)->FxCaps = 0;
+		}
+		return result;
+	}
 }
 
 namespace D3dDdi
@@ -33,5 +43,6 @@ namespace D3dDdi
 	{
 		vtable.pfnCloseAdapter = &closeAdapter;
 		vtable.pfnCreateDevice = &createDevice;
+		vtable.pfnGetCaps = &getCaps;
 	}
 }

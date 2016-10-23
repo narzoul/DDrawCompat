@@ -1,8 +1,5 @@
 #include <set>
 
-#include "Common/CompatPtr.h"
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 
@@ -17,9 +14,6 @@ namespace
 		DWORD unknown1;
 		DWORD unknown2;
 	};
-
-	bool mirrorBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
-		RECT srcRect, DWORD mirrorFx);
 
 	void fixSurfacePtr(CompatRef<IDirectDrawSurface7> surface, const DDSURFACEDESC2& desc)
 	{
@@ -60,91 +54,6 @@ namespace
 		std::set<IDirectDrawSurface7*> visitedSurfaces{ &surface };
 		surface->EnumAttachedSurfaces(&surface, &visitedSurfaces, &fixSurfacePtrEnumCallback);
 	}
-
-	CompatWeakPtr<IDirectDrawSurface7> getMirroredSurface(
-		CompatRef<IDirectDrawSurface7> surface, RECT* srcRect, DWORD mirrorFx)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		HRESULT result = surface->GetSurfaceDesc(&surface, &desc);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to get surface description for mirroring: " << result);
-			return nullptr;
-		}
-
-		if (srcRect)
-		{
-			desc.dwWidth = srcRect->right - srcRect->left;
-			desc.dwHeight = srcRect->bottom - srcRect->top;
-		}
-
-		auto dd(DDraw::getDirectDraw(surface));
-		DDraw::Repository::ScopedSurface mirroredSurface(*dd, desc);
-		if (!mirroredSurface.surface)
-		{
-			return nullptr;
-		}
-
-		RECT rect = { 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
-		if ((mirrorFx & DDBLTFX_MIRRORLEFTRIGHT) && (mirrorFx & DDBLTFX_MIRRORUPDOWN))
-		{
-			DDraw::Repository::Surface tempMirroredSurface = DDraw::Repository::ScopedSurface(*dd, desc);
-			if (!tempMirroredSurface.surface ||
-				!mirrorBlt(*tempMirroredSurface.surface, surface, srcRect ? *srcRect : rect,
-					DDBLTFX_MIRRORLEFTRIGHT) ||
-				!mirrorBlt(*mirroredSurface.surface, *tempMirroredSurface.surface, rect,
-					DDBLTFX_MIRRORUPDOWN))
-			{
-				return nullptr;
-			}
-		}
-		else if (!mirrorBlt(*mirroredSurface.surface, surface, srcRect ? *srcRect : rect, mirrorFx))
-		{
-			return nullptr;
-		}
-
-		return mirroredSurface.surface;
-	}
-
-	bool mirrorBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
-		RECT srcRect, DWORD mirrorFx)
-	{
-		if (DDBLTFX_MIRRORLEFTRIGHT == mirrorFx)
-		{
-			LONG width = srcRect.right - srcRect.left;
-			srcRect.left = srcRect.right - 1;
-			for (LONG x = 0; x < width; ++x)
-			{
-				HRESULT result = dst->BltFast(&dst, x, 0, &src, &srcRect, DDBLTFAST_WAIT);
-				if (FAILED(result))
-				{
-					LOG_ONCE("Failed BltFast for mirroring: " << result);
-					return false;
-				}
-				--srcRect.left;
-				--srcRect.right;
-			}
-		}
-		else
-		{
-			LONG height = srcRect.bottom - srcRect.top;
-			srcRect.top = srcRect.bottom - 1;
-			for (LONG y = 0; y < height; ++y)
-			{
-				HRESULT result = dst->BltFast(&dst, 0, y, &src, &srcRect, DDBLTFAST_WAIT);
-				if (FAILED(result))
-				{
-					LOG_ONCE("Failed BltFast for mirroring: " << result);
-					return false;
-				}
-				--srcRect.top;
-				--srcRect.bottom;
-			}
-		}
-
-		return true;
-	}
 }
 
 namespace DDraw
@@ -166,55 +75,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
-		HRESULT result = DD_OK;
-		CompatPtr<TSurface> mirroredSrcSurface;
-
-		if (lpDDSrcSurface && (dwFlags & DDBLT_DDFX) && lpDDBltFx &&
-			(lpDDBltFx->dwDDFX & (DDBLTFX_MIRRORLEFTRIGHT | DDBLTFX_MIRRORUPDOWN)))
-		{
-			CompatPtr<IDirectDrawSurface7> srcSurface(
-				Compat::queryInterface<IDirectDrawSurface7>(lpDDSrcSurface));
-			mirroredSrcSurface.reset(Compat::queryInterface<TSurface>(
-				getMirroredSurface(*srcSurface, lpSrcRect, lpDDBltFx->dwDDFX).get()));
-			if (!mirroredSrcSurface)
-			{
-				LOG_ONCE("Failed to emulate a mirrored Blt");
-			}
-		}
-
-		if (mirroredSrcSurface)
-		{
-			DWORD flags = dwFlags;
-			DDBLTFX fx = *lpDDBltFx;
-			fx.dwDDFX &= ~(DDBLTFX_MIRRORLEFTRIGHT | DDBLTFX_MIRRORUPDOWN);
-			if (0 == fx.dwDDFX)
-			{
-				flags ^= DDBLT_DDFX;
-			}
-			if (flags & DDBLT_KEYSRC)
-			{
-				DDCOLORKEY srcColorKey = {};
-				s_origVtable.GetColorKey(lpDDSrcSurface, DDCKEY_SRCBLT, &srcColorKey);
-				s_origVtable.SetColorKey(mirroredSrcSurface, DDCKEY_SRCBLT, &srcColorKey);
-			}
-
-			if (lpSrcRect)
-			{
-				RECT srcRect = {
-					0, 0, lpSrcRect->right - lpSrcRect->left, lpSrcRect->bottom - lpSrcRect->top };
-				result = s_origVtable.Blt(This, lpDestRect, mirroredSrcSurface, &srcRect, flags, &fx);
-			}
-			else
-			{
-				result = s_origVtable.Blt(This, lpDestRect, mirroredSrcSurface, nullptr, flags, &fx);
-			}
-		}
-		else
-		{
-			result = s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
-		}
-
-		return result;
+		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 
 	template <typename TSurface>
