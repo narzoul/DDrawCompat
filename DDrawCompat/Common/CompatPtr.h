@@ -9,6 +9,12 @@ template <typename Intf>
 class CompatPtr : public CompatWeakPtr<Intf>
 {
 public:
+	template <typename OtherIntf>
+	static CompatPtr from(OtherIntf* other)
+	{
+		return CompatPtr(Compat::queryInterface<Intf>(other));
+	}
+
 	CompatPtr(std::nullptr_t = nullptr)
 	{
 	}

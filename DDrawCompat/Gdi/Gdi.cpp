@@ -54,12 +54,13 @@ namespace
 		return TRUE;
 	}
 
-	bool lockPrimarySurface(DWORD lockFlags)
+	bool lockGdiSurface(DWORD lockFlags)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
-		auto primary(DDraw::PrimarySurface::getPrimary());
-		if (!primary || FAILED(primary->Lock(primary, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
+		auto gdiSurface(DDraw::PrimarySurface::getGdiSurface());
+		if (!gdiSurface || FAILED(gdiSurface.get()->lpVtbl->Lock(
+			gdiSurface, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
 		{
 			return false;
 		}
@@ -76,13 +77,13 @@ namespace
 		return true;
 	}
 
-	void unlockPrimarySurface()
+	void unlockGdiSurface()
 	{
 		GdiFlush();
-		auto primary(DDraw::PrimarySurface::getPrimary());
-		if (primary)
+		auto gdiSurface(DDraw::PrimarySurface::getGdiSurface());
+		if (gdiSurface)
 		{
-			primary->Unlock(primary, nullptr);
+			gdiSurface.get()->lpVtbl->Unlock(gdiSurface, nullptr);
 			if (DDLOCK_READONLY != g_ddLockFlags)
 			{
 				DDraw::RealPrimarySurface::invalidate(nullptr);
@@ -118,7 +119,7 @@ namespace Gdi
 			LeaveCriticalSection(&g_gdiCriticalSection);
 			Dll::g_origProcs.AcquireDDThreadLock();
 			EnterCriticalSection(&g_gdiCriticalSection);
-			if (!lockPrimarySurface(lockFlags))
+			if (!lockGdiSurface(lockFlags))
 			{
 				Dll::g_origProcs.ReleaseDDThreadLock();
 				return false;
@@ -142,7 +143,7 @@ namespace Gdi
 		{
 			if (1 == g_renderingRefCount)
 			{
-				unlockPrimarySurface();
+				unlockGdiSurface();
 				g_ddLockThreadRenderingRefCount = 0;
 				g_renderingRefCount = 0;
 			}
@@ -151,7 +152,7 @@ namespace Gdi
 				g_isDelayedUnlockPending = true;
 				gdiLock.unlock();
 				WaitForSingleObject(g_ddUnlockBeginEvent, INFINITE);
-				unlockPrimarySurface();
+				unlockGdiSurface();
 				g_ddLockThreadRenderingRefCount = 0;
 				g_renderingRefCount = 0;
 				SetEvent(g_ddUnlockEndEvent);

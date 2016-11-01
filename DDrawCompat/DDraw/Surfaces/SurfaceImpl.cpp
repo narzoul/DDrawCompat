@@ -71,6 +71,26 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	void SurfaceImpl<TSurface>::undoFlip(TSurface* This, TSurface* targetOverride)
+	{
+		if (targetOverride)
+		{
+			SurfaceImpl::Flip(This, targetOverride, DDFLIP_WAIT);
+		}
+		else
+		{
+			TSurfaceDesc desc = {};
+			desc.dwSize = sizeof(desc);
+			s_origVtable.GetSurfaceDesc(This, &desc);
+
+			for (DWORD i = 0; i < desc.dwBackBufferCount; ++i)
+			{
+				SurfaceImpl::Flip(This, nullptr, DDFLIP_WAIT);
+			}
+		}
+	}
+
+	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)

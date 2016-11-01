@@ -85,6 +85,15 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			result = RealPrimarySurface::flip(dwFlags);
+			if (SUCCEEDED(result))
+			{
+				static_cast<PrimarySurface*>(m_data)->updateGdiSurfacePtr(
+					CompatPtr<IDirectDrawSurface>::from(lpDDSurfaceTargetOverride));
+			}
+			else
+			{
+				undoFlip(This, lpDDSurfaceTargetOverride);
+			}
 		}
 		return result;
 	}

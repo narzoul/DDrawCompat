@@ -30,7 +30,9 @@ namespace DDraw
 			TSurface** lplpDDSurface,
 			IUnknown* pUnkOuter);
 
+		static HRESULT STDMETHODCALLTYPE FlipToGDISurface(TDirectDraw* This);
 		static HRESULT STDMETHODCALLTYPE GetDisplayMode(TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc);
+		static HRESULT STDMETHODCALLTYPE GetGDISurface(TDirectDraw* This, TSurface** lplpGDIDDSSurface);
 		static HRESULT STDMETHODCALLTYPE RestoreDisplayMode(TDirectDraw* This);
 		static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
 

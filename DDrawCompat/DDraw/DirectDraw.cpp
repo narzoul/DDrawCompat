@@ -40,7 +40,9 @@ namespace DDraw
 	void DirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 	{
 		vtable.CreateSurface = &CreateSurface;
+		vtable.FlipToGDISurface = &FlipToGDISurface;
 		vtable.GetDisplayMode = &GetDisplayMode;
+		vtable.GetGDISurface = &GetGDISurface;
 		vtable.RestoreDisplayMode = &RestoreDisplayMode;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.SetDisplayMode = &SetDisplayMode;
@@ -75,6 +77,12 @@ namespace DDraw
 	}
 
 	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::FlipToGDISurface(TDirectDraw* /*This*/)
+	{
+		return PrimarySurface::flipToGdiSurface();
+	}
+
+	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetDisplayMode(
 		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
@@ -89,6 +97,25 @@ namespace DDraw
 		CopyMemory(lpDDSurfaceDesc, &dm, size);
 		lpDDSurfaceDesc->dwSize = size;
 
+		return DD_OK;
+	}
+
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetGDISurface(
+		TDirectDraw* /*This*/, TSurface** lplpGDIDDSSurface)
+	{
+		if (!lplpGDIDDSSurface)
+		{
+			return DDERR_INVALIDPARAMS;
+		}
+
+		auto gdiSurface(PrimarySurface::getGdiSurface());
+		if (!gdiSurface)
+		{
+			return DDERR_NOTFOUND;
+		}
+
+		*lplpGDIDDSSurface = CompatPtr<TSurface>::from(gdiSurface.get()).detach();
 		return DD_OK;
 	}
 

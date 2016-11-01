@@ -55,6 +55,9 @@ namespace DDraw
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette);
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
+	protected:
+		void undoFlip(TSurface* This, TSurface* targetOverride);
+
 	private:
 		static const Vtable<TSurface>& s_origVtable;
 	};

@@ -7,6 +7,7 @@
 namespace
 {
 	DDSURFACEDESC2 g_primarySurfaceDesc = {};
+	CompatWeakPtr<IDirectDrawSurface> g_gdiSurface = nullptr;
 	CompatWeakPtr<IDirectDrawSurface> g_primarySurface = nullptr;
 }
 
@@ -21,6 +22,7 @@ namespace DDraw
 	{
 		Compat::LogEnter("PrimarySurface::~PrimarySurface");
 
+		g_gdiSurface = nullptr;
 		g_primarySurface = nullptr;
 		s_palette = nullptr;
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
@@ -62,6 +64,7 @@ namespace DDraw
 		attach(*surface7, privateData);
 
 		CompatPtr<IDirectDrawSurface> surface1(Compat::queryInterface<IDirectDrawSurface>(surface));
+		g_gdiSurface = surface1;
 		g_primarySurface = surface1;
 
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
@@ -89,9 +92,23 @@ namespace DDraw
 		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>(*m_surface->getImpl<IDirectDrawSurface7>()));
 	}
 
+	HRESULT PrimarySurface::flipToGdiSurface()
+	{
+		if (!g_primarySurface)
+		{
+			return DDERR_NOTFOUND;
+		}
+		return g_primarySurface.get()->lpVtbl->Flip(g_primarySurface, g_gdiSurface, DDFLIP_WAIT);
+	}
+
 	const DDSURFACEDESC2& PrimarySurface::getDesc()
 	{
 		return g_primarySurfaceDesc;
+	}
+
+	CompatPtr<IDirectDrawSurface7> PrimarySurface::getGdiSurface()
+	{
+		return CompatPtr<IDirectDrawSurface7>::from(g_gdiSurface.get());
 	}
 
 	CompatPtr<IDirectDrawSurface7> PrimarySurface::getPrimary()
@@ -102,6 +119,36 @@ namespace DDraw
 		}
 		return CompatPtr<IDirectDrawSurface7>(
 			Compat::queryInterface<IDirectDrawSurface7>(g_primarySurface.get()));
+	}
+
+	void PrimarySurface::updateGdiSurfacePtr(IDirectDrawSurface* flipTargetOverride)
+	{
+		auto primary(CompatPtr<IDirectDrawSurface>::from(m_surface->getDirectDrawSurface().get()));
+		if (flipTargetOverride)
+		{
+			if (g_gdiSurface.get() == flipTargetOverride)
+			{
+				g_gdiSurface = primary;
+			}
+			else if (g_gdiSurface.get() == primary)
+			{
+				g_gdiSurface = flipTargetOverride;
+			}
+			return;
+		}
+
+		DDSCAPS caps = {};
+		caps.dwCaps = DDSCAPS_FLIP;
+		CompatPtr<IDirectDrawSurface> current(primary);
+		CompatPtr<IDirectDrawSurface> next;
+		HRESULT result = current->GetAttachedSurface(current, &caps, &next.getRef());
+		while (SUCCEEDED(result) && next.get() != g_gdiSurface.get() && next.get() != primary)
+		{
+			current = next;
+			result = current->GetAttachedSurface(current, &caps, &next.getRef());
+		}
+
+		g_gdiSurface = current;
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
