@@ -1,16 +1,13 @@
 #pragma once
 
-#include "Common/CompatVtable.h"
-#include "D3dDdi/Visitors/DeviceFuncsVisitor.h"
+#define CINTERFACE
 
-std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE2& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIARG_LOCK& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENRESOURCE& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val);
-std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& val);
+#include <d3d.h>
+#include <d3dumddi.h>
+
+#include "Common/CompatVtable.h"
+#include "D3dDdi/Log/DeviceFuncsLog.h"
+#include "D3dDdi/Visitors/DeviceFuncsVisitor.h"
 
 namespace D3dDdi
 {

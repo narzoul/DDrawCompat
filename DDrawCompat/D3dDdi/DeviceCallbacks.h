@@ -1,16 +1,13 @@
 #pragma once
 
-#include "Common/CompatVtable.h"
-#include "D3dDdi/Visitors/DeviceCallbacksVisitor.h"
+#define CINTERFACE
 
-std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONINFO& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_ALLOCATE& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_DEALLOCATE& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_DEALLOCATE2& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK2& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK& data);
-std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK2& data);
+#include <d3d.h>
+#include <d3dumddi.h>
+
+#include "Common/CompatVtable.h"
+#include "D3dDdi/Log/DeviceCallbacksLog.h"
+#include "D3dDdi/Visitors/DeviceCallbacksVisitor.h"
 
 namespace D3dDdi
 {

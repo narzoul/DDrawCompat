@@ -73,6 +73,12 @@
     <Filter Include="Source Files\DDraw\Surfaces">
       <UniqueIdentifier>{c60f8247-4d67-4dcf-9f97-f1c5b1acc469}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\D3dDdi\Log">
+      <UniqueIdentifier>{c682b098-a0f4-405e-b39e-1b1bc484cdf9}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\D3dDdi\Log">
+      <UniqueIdentifier>{c4d03748-2333-40af-90c7-ae875b07434f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Gdi\Gdi.h">
@@ -276,6 +282,12 @@
     <ClInclude Include="Direct3d\Direct3dVertexBuffer.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Log\DeviceCallbacksLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -415,6 +427,12 @@
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dVertexBuffer.cpp">
       <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\DeviceFuncsLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\DeviceCallbacksLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

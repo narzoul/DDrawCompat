@@ -1,5 +1,10 @@
 #pragma once
 
+#define CINTERFACE
+
+#include <d3d.h>
+#include <d3dumddi.h>
+
 #include "Common/CompatVtable.h"
 #include "D3dDdi/Visitors/AdapterFuncsVisitor.h"
 
