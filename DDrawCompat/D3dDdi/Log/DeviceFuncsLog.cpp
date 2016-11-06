@@ -19,6 +19,25 @@ std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val)
 		<< val.SysMemSlicePitch;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CLEAR& val)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(val.Flags)
+		<< Compat::hex(val.FillColor)
+		<< val.FillDepth
+		<< Compat::hex(val.FillStencil);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_COLORFILL& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hResource
+		<< val.SubResourceIndex
+		<< val.DstRect
+		<< Compat::hex(val.Color)
+		<< Compat::hex(val.Flags.Value);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE& val)
 {
 	return Compat::LogStruct(os)
@@ -79,6 +98,38 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENRESOURCE& val)
 		<< val.hResource
 		<< val.Rotation
 		<< Compat::hex(val.Flags.Value);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hSrcResource
+		<< val.SrcSubResourceIndex
+		<< val.hDstResource
+		<< val.DstSubResourceIndex
+		<< Compat::hex(val.Flags.Value)
+		<< val.FlipInterval;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT1& val)
+{
+	return Compat::LogStruct(os)
+		<< Compat::array(val.phSrcResources, val.SrcResources)
+		<< val.SrcResources
+		<< val.hDstResource
+		<< val.DstSubResourceIndex
+		<< Compat::hex(val.Flags.Value)
+		<< val.FlipInterval
+		<< val.Reserved
+		<< Compat::array(val.pDirtyRects, val.DirtyRects)
+		<< val.DirtyRects;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENTSURFACE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hResource
+		<< val.SubResourceIndex;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val)

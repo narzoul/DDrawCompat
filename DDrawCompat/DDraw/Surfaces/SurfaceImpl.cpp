@@ -17,7 +17,7 @@ namespace
 
 	void fixSurfacePtr(CompatRef<IDirectDrawSurface7> surface, const DDSURFACEDESC2& desc)
 	{
-		if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) || 0 == desc.dwWidth || 0 == desc.dwHeight)
+		if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) || !(desc.ddpfPixelFormat.dwFlags & DDPF_RGB))
 		{
 			return;
 		}

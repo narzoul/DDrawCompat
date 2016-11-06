@@ -169,6 +169,7 @@
     <ClInclude Include="D3dDdi\DeviceCallbacks.h" />
     <ClInclude Include="D3dDdi\DeviceFuncs.h" />
     <ClInclude Include="D3dDdi\Hooks.h" />
+    <ClInclude Include="D3dDdi\LockResource.h" />
     <ClInclude Include="D3dDdi\Log\DeviceCallbacksLog.h" />
     <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
@@ -232,6 +233,7 @@
     <ClCompile Include="D3dDdi\DeviceCallbacks.cpp" />
     <ClCompile Include="D3dDdi\DeviceFuncs.cpp" />
     <ClCompile Include="D3dDdi\Hooks.cpp" />
+    <ClCompile Include="D3dDdi\LockResource.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceCallbacksLog.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceFuncsLog.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />

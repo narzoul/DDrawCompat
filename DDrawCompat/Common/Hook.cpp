@@ -83,11 +83,11 @@ namespace
 		{
 			if (funcName)
 			{
-				Compat::Log() << "Failed to hook a function: " << funcName;
+				Compat::LogDebug() << "Failed to hook a function: " << funcName;
 			}
 			else
 			{
-				Compat::Log() << "Failed to hook a function: " << origFuncPtr;
+				Compat::LogDebug() << "Failed to hook a function: " << origFuncPtr;
 			}
 			return;
 		}

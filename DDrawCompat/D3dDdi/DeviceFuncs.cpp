@@ -1,32 +1,92 @@
+#include <functional>
+#include <map>
+
 #include "D3dDdi/DeviceFuncs.h"
+#include "D3dDdi/LockResource.h"
 
 namespace
 {
+	struct Resource
+	{
+		HANDLE device;
+		HANDLE resource;
+
+		Resource(HANDLE device, HANDLE resource) : device(device), resource(resource) {}
+
+		bool operator<(const Resource& rhs) const
+		{
+			return device < rhs.device || (device == rhs.device && resource < rhs.resource);
+		}
+	};
+
+	class ResourceReplacer
+	{
+	public:
+		ResourceReplacer(HANDLE device, const HANDLE& resource, UINT subResourceIndex);
+		~ResourceReplacer();
+		
+		D3dDdi::LockResource::SubResource* getSubResource() const { return m_subResource; }
+
+	private:
+		HANDLE& m_resource;
+		HANDLE m_origResource;
+		D3dDdi::LockResource::SubResource* m_subResource;
+	};
+
 	D3DDDI_DEVICEFUNCS& getOrigVtable(HANDLE device);
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
-	void modifyCreateResourceFlags(D3DDDI_RESOURCEFLAGS& flags);
+	bool isVidMemPool(D3DDDI_POOL pool);
+	D3dDdi::LockResource::SubResource* replaceWithActiveResource(
+		HANDLE device, HANDLE& resource, UINT subResourceIndex);
 
+	std::map<Resource, D3dDdi::LockResource> g_lockResources;
+	std::map<HANDLE, D3dDdi::LockResource::SubResource*> g_renderTargets;
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 
-	HRESULT APIENTRY createResource(HANDLE hDevice, D3DDDIARG_CREATERESOURCE* pResource)
+	ResourceReplacer::ResourceReplacer(HANDLE device, const HANDLE& resource, UINT subResourceIndex)
+		: m_resource(const_cast<HANDLE&>(resource))
+		, m_origResource(resource)
 	{
-		modifyCreateResourceFlags(pResource->Flags);
-		return getOrigVtable(hDevice).pfnCreateResource(hDevice, pResource);
+		m_subResource = replaceWithActiveResource(device, m_resource, subResourceIndex);
 	}
 
-	HRESULT APIENTRY createResource2(HANDLE hDevice, D3DDDIARG_CREATERESOURCE2* pResource2)
+	ResourceReplacer::~ResourceReplacer()
 	{
-		modifyCreateResourceFlags(pResource2->Flags);
-		return getOrigVtable(hDevice).pfnCreateResource2(hDevice, pResource2);
+		m_resource = m_origResource;
 	}
 
-	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
+	template <typename CreateResourceArg, typename CreateResourceFunc>
+	HRESULT createResource(HANDLE device, CreateResourceArg* resourceData,
+		CreateResourceFunc origCreateResource)
 	{
-		HRESULT result = getOrigVtable(hDevice).pfnDestroyDevice(hDevice);
-		if (SUCCEEDED(result))
+		const bool isOffScreenPlain = 0 == (resourceData->Flags.Value & g_resourceTypeFlags);
+		if (isOffScreenPlain)
 		{
-			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
+			resourceData->Flags.CpuOptimized = 1;
 		}
+
+		HANDLE origResourceHandle = resourceData->hResource;
+		HRESULT result = origCreateResource(device, resourceData);
+		if (SUCCEEDED(result) && resourceData->Flags.RenderTarget && !resourceData->Flags.Primary &&
+			isVidMemPool(resourceData->Pool))
+		{
+			CreateResourceArg lockResourceData = {};
+			lockResourceData.Format = resourceData->Format;
+			lockResourceData.Pool = resourceData->Pool;
+			lockResourceData.pSurfList = resourceData->pSurfList;
+			lockResourceData.SurfCount = resourceData->SurfCount;
+			lockResourceData.hResource = origResourceHandle;
+			lockResourceData.Flags.CpuOptimized = 1;
+
+			if (SUCCEEDED(origCreateResource(device, &lockResourceData)))
+			{
+				g_lockResources.emplace(std::piecewise_construct,
+					std::forward_as_tuple(device, resourceData->hResource),
+					std::forward_as_tuple(device, resourceData->hResource, lockResourceData.hResource,
+						lockResourceData.pSurfList, lockResourceData.SurfCount));
+			}
+		}
+
 		return result;
 	}
 
@@ -59,22 +119,224 @@ namespace
 		return flags;
 	}
 
-	void modifyCreateResourceFlags(D3DDDI_RESOURCEFLAGS& flags)
+	bool isVidMemPool(D3DDDI_POOL pool)
 	{
-		const bool isOffScreenPlain = 0 == (flags.Value & g_resourceTypeFlags);
-		if (isOffScreenPlain)
+		return D3DDDIPOOL_VIDEOMEMORY == pool ||
+			D3DDDIPOOL_LOCALVIDMEM == pool ||
+			D3DDDIPOOL_NONLOCALVIDMEM == pool;
+	}
+
+	HRESULT renderFunc(HANDLE device, std::function<HRESULT()> origFunc)
+	{
+		auto it = g_renderTargets.find(device);
+		if (it != g_renderTargets.end())
 		{
-			flags.CpuOptimized = 1;
+			it->second->updateOrig();
 		}
+
+		HRESULT result = origFunc();
+		if (SUCCEEDED(result) && it != g_renderTargets.end())
+		{
+			it->second->m_isLockUpToDate = false;
+		}
+		return result;
+	}
+
+	D3dDdi::LockResource::SubResource* replaceWithActiveResource(
+		HANDLE device, HANDLE& resource, UINT subResourceIndex)
+	{
+		auto it = g_lockResources.find(Resource(device, resource));
+		if (it == g_lockResources.end())
+		{
+			return nullptr;
+		}
+
+		auto& subResource = it->second.getSubResource(subResourceIndex);
+		if (subResource.m_isLockUpToDate)
+		{
+			resource = it->second.getHandle();
+		}
+		return &subResource;
+	}
+
+	HRESULT APIENTRY blt(HANDLE hDevice, const D3DDDIARG_BLT* pData)
+	{
+		ResourceReplacer srcReplacer(hDevice, pData->hSrcResource, pData->SrcSubResourceIndex);
+		ResourceReplacer dstReplacer(hDevice, pData->hDstResource, pData->DstSubResourceIndex);
+		auto dstSubResource = dstReplacer.getSubResource();
+
+		HRESULT result = getOrigVtable(hDevice).pfnBlt(hDevice, pData);
+		if (SUCCEEDED(result) && dstSubResource && dstSubResource->m_isLockUpToDate)
+		{
+			dstSubResource->m_isOrigUpToDate = false;
+		}
+		return result;
+	}
+
+	HRESULT APIENTRY colorFill(HANDLE hDevice, const D3DDDIARG_COLORFILL* pData)
+	{
+		ResourceReplacer replacer(hDevice, pData->hResource, pData->SubResourceIndex);
+		auto subResource = replacer.getSubResource();
+			
+		HRESULT result = getOrigVtable(hDevice).pfnColorFill(hDevice, pData);
+		if (SUCCEEDED(result) && subResource && subResource->m_isLockUpToDate)
+		{
+			subResource->m_isOrigUpToDate = false;
+		}
+		return result;
+	}
+
+	HRESULT APIENTRY createResource(HANDLE hDevice, D3DDDIARG_CREATERESOURCE* pResource)
+	{
+		return createResource(hDevice, pResource, getOrigVtable(hDevice).pfnCreateResource);
+	}
+
+	HRESULT APIENTRY createResource2(HANDLE hDevice, D3DDDIARG_CREATERESOURCE2* pResource2)
+	{
+		return createResource(hDevice, pResource2, getOrigVtable(hDevice).pfnCreateResource2);
+	}
+
+	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
+	{
+		HRESULT result = getOrigVtable(hDevice).pfnDestroyDevice(hDevice);
+		if (SUCCEEDED(result))
+		{
+			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
+		}
+		return result;
+	}
+
+	HRESULT APIENTRY destroyResource(HANDLE hDevice, HANDLE hResource)
+	{
+		HRESULT result = getOrigVtable(hDevice).pfnDestroyResource(hDevice, hResource);
+		if (SUCCEEDED(result))
+		{
+			auto it = g_lockResources.find(Resource(hDevice, hResource));
+			if (it != g_lockResources.end())
+			{
+				auto renderTarget = g_renderTargets.find(hDevice);
+				if (renderTarget != g_renderTargets.end() &&
+					&renderTarget->second->getParent() == &it->second)
+				{
+					g_renderTargets.erase(hDevice);
+				}
+
+				getOrigVtable(hDevice).pfnDestroyResource(hDevice, it->second.getHandle());
+				g_lockResources.erase(it);
+			}
+		}
+		return result;
+	}
+
+	HRESULT APIENTRY lock(HANDLE hDevice, D3DDDIARG_LOCK* pData)
+	{
+		auto it = g_lockResources.find(Resource(hDevice, pData->hResource));
+		if (it != g_lockResources.end())
+		{
+			auto& subResource = it->second.getSubResource(pData->SubResourceIndex);
+			subResource.updateLock();
+
+			HANDLE origResourceHandle = pData->hResource;
+			pData->hResource = it->second.getHandle();
+			HRESULT result = getOrigVtable(hDevice).pfnLock(hDevice, pData);
+			pData->hResource = origResourceHandle;
+
+			if (SUCCEEDED(result) && !pData->Flags.ReadOnly)
+			{
+				subResource.m_isOrigUpToDate = false;
+			}
+
+			return result;
+		}
+		return getOrigVtable(hDevice).pfnLock(hDevice, pData);
+	}
+
+	HRESULT APIENTRY present(HANDLE hDevice, const D3DDDIARG_PRESENT* pData)
+	{
+		auto it = g_lockResources.find(Resource(hDevice, pData->hSrcResource));
+		if (it != g_lockResources.end())
+		{
+			it->second.getSubResource(pData->SrcSubResourceIndex).updateOrig();
+		}
+		return getOrigVtable(hDevice).pfnPresent(hDevice, pData);
+	}
+
+	HRESULT APIENTRY present1(HANDLE hDevice, D3DDDIARG_PRESENT1* pPresentData)
+	{
+		for (UINT i = 0; i < pPresentData->SrcResources; ++i)
+		{
+			auto it = g_lockResources.find(Resource(hDevice, pPresentData->phSrcResources[i].hResource));
+			if (it != g_lockResources.end())
+			{
+				it->second.getSubResource(pPresentData->phSrcResources[i].SubResourceIndex).updateOrig();
+			}
+		}
+		return getOrigVtable(hDevice).pfnPresent1(hDevice, pPresentData);
+	}
+
+	template <typename DeviceFuncMemberPtr, DeviceFuncMemberPtr origFunc, typename... Params>
+	HRESULT WINAPI renderFunc(HANDLE device, Params... params)
+	{
+		return renderFunc(device,
+			[=]() { return (getOrigVtable(device).*origFunc)(device, params...); });
+	}
+
+	HRESULT APIENTRY setRenderTarget(HANDLE hDevice, const D3DDDIARG_SETRENDERTARGET* pData)
+	{
+		HRESULT result = getOrigVtable(hDevice).pfnSetRenderTarget(hDevice, pData);
+		if (SUCCEEDED(result))
+		{
+			auto it = g_lockResources.find(Resource(hDevice, pData->hRenderTarget));
+			if (it != g_lockResources.end())
+			{
+				g_renderTargets[hDevice] = &it->second.getSubResource(pData->SubResourceIndex);
+			}
+			else
+			{
+				g_renderTargets.erase(hDevice);
+			}
+		}
+		return result;
+	}
+
+	HRESULT APIENTRY unlock(HANDLE hDevice, const D3DDDIARG_UNLOCK* pData)
+	{
+		auto it = g_lockResources.find(Resource(hDevice, pData->hResource));
+		if (it != g_lockResources.end())
+		{
+			HANDLE origResource = pData->hResource;
+			const_cast<HANDLE&>(pData->hResource) = it->second.getHandle();
+			HRESULT result = getOrigVtable(hDevice).pfnUnlock(hDevice, pData);
+			const_cast<HANDLE&>(pData->hResource) = origResource;
+			return result;
+		}
+		return getOrigVtable(hDevice).pfnUnlock(hDevice, pData);
 	}
 }
+
+#define RENDER_FUNC(func) renderFunc<decltype(&D3DDDI_DEVICEFUNCS::func), &D3DDDI_DEVICEFUNCS::func>
 
 namespace D3dDdi
 {
 	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
+		vtable.pfnBlt = &blt;
+		vtable.pfnClear = &RENDER_FUNC(pfnClear);
+		vtable.pfnColorFill = &colorFill;
 		vtable.pfnCreateResource = &createResource;
 		vtable.pfnCreateResource2 = &createResource2;
 		vtable.pfnDestroyDevice = &destroyDevice;
+		vtable.pfnDestroyResource = &destroyResource;
+		vtable.pfnDrawIndexedPrimitive = &RENDER_FUNC(pfnDrawIndexedPrimitive);
+		vtable.pfnDrawIndexedPrimitive2 = &RENDER_FUNC(pfnDrawIndexedPrimitive2);
+		vtable.pfnDrawPrimitive = &RENDER_FUNC(pfnDrawPrimitive);
+		vtable.pfnDrawPrimitive2 = &RENDER_FUNC(pfnDrawPrimitive2);
+		vtable.pfnDrawRectPatch = &RENDER_FUNC(pfnDrawRectPatch);
+		vtable.pfnDrawTriPatch = &RENDER_FUNC(pfnDrawTriPatch);
+		vtable.pfnLock = &lock;
+		vtable.pfnPresent = &present;
+		vtable.pfnPresent1 = &present1;
+		vtable.pfnSetRenderTarget = &setRenderTarget;
+		vtable.pfnUnlock = &unlock;
 	}
 }
