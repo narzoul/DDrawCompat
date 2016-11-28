@@ -213,7 +213,7 @@ namespace DDraw
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
-		desc.dwBackBufferCount = 2;
+		desc.dwBackBufferCount = 1;
 
 		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);

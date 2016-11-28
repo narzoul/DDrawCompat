@@ -11,6 +11,7 @@
 #include "Common/Log.h"
 #include "D3dDdi/AdapterCallbacks.h"
 #include "D3dDdi/AdapterFuncs.h"
+#include "D3dDdi/KernelModeThunks.h"
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 {
@@ -32,21 +33,6 @@ namespace
 	void hookOpenAdapter(const std::wstring& umdFileName);
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData);
 	void unhookOpenAdapter();
-
-	NTSTATUS APIENTRY d3dKmtQueryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
-	{
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTQueryAdapterInfo)(pData);
-		if (SUCCEEDED(result) && KMTQAITYPE_UMDRIVERNAME == pData->Type)
-		{
-			auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
-			if (g_hookedUmdFileName != info->UmdFileName)
-			{
-				unhookOpenAdapter();
-				hookOpenAdapter(info->UmdFileName);
-			}
-		}
-		return result;
-	}
 
 	void hookOpenAdapter(const std::wstring& umdFileName)
 	{
@@ -99,7 +85,16 @@ namespace D3dDdi
 
 	void installHooks()
 	{
-		HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, d3dKmtQueryAdapterInfo);
+		KernelModeThunks::installHooks();
+	}
+
+	void onUmdFileNameQueried(const std::wstring& umdFileName)
+	{
+		if (g_hookedUmdFileName != umdFileName)
+		{
+			unhookOpenAdapter();
+			hookOpenAdapter(umdFileName);
+		}
 	}
 
 	void uninstallHooks()

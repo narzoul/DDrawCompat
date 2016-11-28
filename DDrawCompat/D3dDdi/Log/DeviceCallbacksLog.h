@@ -14,5 +14,6 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_DEALLOCATE& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_DEALLOCATE2& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK2& data);
+std::ostream& operator<<(std::ostream& os, const D3DDDICB_PRESENT& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK2& data);

@@ -76,6 +76,21 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK2& data)
 		<< data.pData;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDICB_PRESENT& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.hSrcAllocation)
+		<< Compat::hex(data.hDstAllocation)
+		<< data.hContext
+		<< data.BroadcastContextCount
+		<< Compat::array(data.BroadcastContext, data.BroadcastContextCount)
+		<< Compat::hex(data.BroadcastSrcAllocation)
+		<< Compat::hex(data.BroadcastDstAllocation)
+		<< data.PrivateDriverDataSize
+		<< data.pPrivateDriverData
+		<< static_cast<UINT>(data.bOptimizeForComposition);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK& data)
 {
 	return Compat::LogStruct(os)

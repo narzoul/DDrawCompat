@@ -291,6 +291,15 @@
     <ClInclude Include="D3dDdi\LockResource.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\Log\AdapterFuncsLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\KernelModeThunks.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -439,6 +448,15 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\LockResource.cpp">
       <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\AdapterFuncsLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\KernelModeThunks.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

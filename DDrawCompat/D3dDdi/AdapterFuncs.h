@@ -6,6 +6,7 @@
 #include <d3dumddi.h>
 
 #include "Common/CompatVtable.h"
+#include "D3dDdi/Log/AdapterFuncsLog.h"
 #include "D3dDdi/Visitors/AdapterFuncsVisitor.h"
 
 namespace D3dDdi
