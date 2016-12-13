@@ -230,5 +230,18 @@ namespace D3dDdi
 			HOOK_FUNCTION(gdi32, D3DKMTSetVidPnSourceOwner, setVidPnSourceOwner);
 			HOOK_FUNCTION(gdi32, D3DKMTSetVidPnSourceOwner1, setVidPnSourceOwner1);
 		}
+
+		void releaseVidPnSources()
+		{
+			for (auto it : g_devices)
+			{
+				if (D3DDDI_ID_UNINITIALIZED != it.second.vidPnSourceId)
+				{
+					D3DKMT_SETVIDPNSOURCEOWNER vidPnSourceOwner = {};
+					vidPnSourceOwner.hDevice = it.first;
+					D3DKMTSetVidPnSourceOwner(&vidPnSourceOwner);
+				}
+			}
+		}
 	}
 }

@@ -3,7 +3,6 @@
 
 #include "DDraw/DirectDraw.h"
 #include "DDraw/Repository.h"
-#include "DDraw/Surfaces/SurfaceImpl.h"
 #include "DDraw/Surfaces/TagSurface.h"
 
 namespace
@@ -15,9 +14,6 @@ namespace DDraw
 {
 	TagSurface::~TagSurface()
 	{
-		std::find_if(g_tagSurfaces.begin(), g_tagSurfaces.end(),
-			[=](auto& i) { return i.second == this; })->second;
-		onRelease(*this);
 		Repository::onRelease(m_ddObject);
 		g_tagSurfaces.erase(std::find_if(g_tagSurfaces.begin(), g_tagSurfaces.end(),
 			[=](auto& i) { return i.second == this; }));

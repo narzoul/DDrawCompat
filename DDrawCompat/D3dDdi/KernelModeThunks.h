@@ -7,5 +7,6 @@ namespace D3dDdi
 	namespace KernelModeThunks
 	{
 		void installHooks();
+		void releaseVidPnSources();
 	}
 }

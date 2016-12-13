@@ -145,6 +145,7 @@ namespace DDraw
 		while (SUCCEEDED(result) && next.get() != g_gdiSurface.get() && next.get() != primary)
 		{
 			current = next;
+			next.reset();
 			result = current->GetAttachedSurface(current, &caps, &next.getRef());
 		}
 

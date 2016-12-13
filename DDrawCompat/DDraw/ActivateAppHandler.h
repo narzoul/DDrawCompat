@@ -8,9 +8,6 @@ namespace DDraw
 {
 	namespace ActivateAppHandler
 	{
-		void installHooks();
-		bool isActive();
-		void setFullScreenCooperativeLevel(HWND hwnd, DWORD flags);
-		void uninstallHooks();
+		void setCooperativeLevel(HWND hwnd, DWORD flags);
 	}
 }

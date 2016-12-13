@@ -40,11 +40,16 @@ namespace
 				targetDevMode.dmDisplayFrequency == currentDevMode.dmDisplayFrequency &&
 				targetDevMode.dmDisplayFlags == currentDevMode.dmDisplayFlags)
 			{
-				HANDLE dwmDxFullScreenTransitionEvent = OpenEventW(
-					EVENT_MODIFY_STATE, FALSE, L"DWM_DX_FULLSCREEN_TRANSITION_EVENT");
-				SetEvent(dwmDxFullScreenTransitionEvent);
-				CloseHandle(dwmDxFullScreenTransitionEvent);
-				return DISP_CHANGE_SUCCESSFUL;
+				LONG result = origChangeDisplaySettings(
+					lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+				if (SUCCEEDED(result))
+				{
+					HANDLE dwmDxFullScreenTransitionEvent = OpenEventW(
+						EVENT_MODIFY_STATE, FALSE, L"DWM_DX_FULLSCREEN_TRANSITION_EVENT");
+					SetEvent(dwmDxFullScreenTransitionEvent);
+					CloseHandle(dwmDxFullScreenTransitionEvent);
+				}
+				return result;
 			}
 		}
 

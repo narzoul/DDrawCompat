@@ -108,13 +108,10 @@ namespace DDraw
 		hookDirectDraw(*dd7);
 		hookDirectDrawSurface(*dd7);
 		hookDirectDrawPalette(*dd7);
-
-		ActivateAppHandler::installHooks();
 	}
 
 	void uninstallHooks()
 	{
 		RealPrimarySurface::removeUpdateThread();
-		ActivateAppHandler::uninstallHooks();
 	}
 }

@@ -1,17 +1,12 @@
 #include "Common/CompatPtr.h"
-#include "Common/CompatRef.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/DisplayMode.h"
 #include "DDraw/Surfaces/TagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
-#include "DDraw/Surfaces/Surface.h"
 
 namespace DDraw
 {
-	TagSurface* g_fullScreenTagSurface = nullptr;
-
 	template <typename TDirectDraw>
 	void* getDdObject(TDirectDraw& dd)
 	{
@@ -22,19 +17,6 @@ namespace DDraw
 	template void* getDdObject(IDirectDraw2&);
 	template void* getDdObject(IDirectDraw4&);
 	template void* getDdObject(IDirectDraw7&);
-
-	CompatPtr<IDirectDraw7> getFullScreenDirectDraw()
-	{
-		return g_fullScreenTagSurface ? g_fullScreenTagSurface->getDirectDraw() : nullptr;
-	}
-
-	void onRelease(TagSurface& dd)
-	{
-		if (&dd == g_fullScreenTagSurface)
-		{
-			g_fullScreenTagSurface = nullptr;
-		}
-	}
 
 	template <typename TDirectDraw>
 	void DirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
@@ -130,11 +112,6 @@ namespace DDraw
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::SetCooperativeLevel(
 		TDirectDraw* This, HWND hWnd, DWORD dwFlags)
 	{
-		if ((dwFlags & DDSCL_FULLSCREEN) && !ActivateAppHandler::isActive())
-		{
-			return DDERR_EXCLUSIVEMODEALREADYSET;
-		}
-
 		HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
 		if (SUCCEEDED(result))
 		{
@@ -147,18 +124,7 @@ namespace DDraw
 				tagSurface = TagSurface::get(ddObject);
 			}
 
-			if (tagSurface)
-			{
-				if (dwFlags & DDSCL_FULLSCREEN)
-				{
-					g_fullScreenTagSurface = tagSurface;
-					ActivateAppHandler::setFullScreenCooperativeLevel(hWnd, dwFlags);
-				}
-				else if ((dwFlags & DDSCL_NORMAL) && tagSurface == g_fullScreenTagSurface)
-				{
-					g_fullScreenTagSurface = nullptr;
-				}
-			}
+			ActivateAppHandler::setCooperativeLevel(hWnd, dwFlags);
 		}
 		return result;
 	}

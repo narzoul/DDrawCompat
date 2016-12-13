@@ -129,7 +129,7 @@ namespace
 		timeBeginPeriod(1);
 
 		g_frontBuffer = surface.detach();
-		g_backBuffer = backBuffer.detach();
+		g_backBuffer = backBuffer;
 		g_surfaceDesc = desc;
 		g_isFullScreen = isFlippable;
 
@@ -149,7 +149,7 @@ namespace
 		ResetEvent(g_updateEvent);
 		timeEndPeriod(1);
 		g_frontBuffer = nullptr;
-		g_backBuffer.release();
+		g_backBuffer = nullptr;
 		g_clipper = nullptr;
 		g_isFullScreen = false;
 		DDraw::PaletteConverter::release();

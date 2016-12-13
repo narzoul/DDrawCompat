@@ -3,6 +3,7 @@
 
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/LockResource.h"
+#include "D3dDdi/KernelModeThunks.h"
 
 namespace
 {
@@ -11,6 +12,7 @@ namespace
 		HANDLE device;
 		HANDLE resource;
 
+		Resource() : device(nullptr), resource(nullptr) {}
 		Resource(HANDLE device, HANDLE resource) : device(device), resource(resource) {}
 
 		bool operator<(const Resource& rhs) const
@@ -41,6 +43,7 @@ namespace
 
 	std::map<Resource, D3dDdi::LockResource> g_lockResources;
 	std::map<HANDLE, D3dDdi::LockResource::SubResource*> g_renderTargets;
+	Resource g_sharedPrimary;
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 
 	ResourceReplacer::ResourceReplacer(HANDLE device, const HANDLE& resource, UINT subResourceIndex)
@@ -208,6 +211,13 @@ namespace
 
 	HRESULT APIENTRY destroyResource(HANDLE hDevice, HANDLE hResource)
 	{
+		const bool isSharedPrimary =
+			hDevice == g_sharedPrimary.device && hResource == g_sharedPrimary.resource;
+		if (isSharedPrimary)
+		{
+			D3dDdi::KernelModeThunks::releaseVidPnSources();
+		}
+
 		HRESULT result = getOrigVtable(hDevice).pfnDestroyResource(hDevice, hResource);
 		if (SUCCEEDED(result))
 		{
@@ -223,6 +233,11 @@ namespace
 
 				getOrigVtable(hDevice).pfnDestroyResource(hDevice, it->second.getHandle());
 				g_lockResources.erase(it);
+			}
+
+			if (isSharedPrimary)
+			{
+				g_sharedPrimary = {};
 			}
 		}
 		return result;
@@ -249,6 +264,16 @@ namespace
 			return result;
 		}
 		return getOrigVtable(hDevice).pfnLock(hDevice, pData);
+	}
+
+	HRESULT APIENTRY openResource(HANDLE hDevice, D3DDDIARG_OPENRESOURCE* pResource)
+	{
+		HRESULT result = getOrigVtable(hDevice).pfnOpenResource(hDevice, pResource);
+		if (SUCCEEDED(result) && pResource->Flags.Fullscreen)
+		{
+			g_sharedPrimary = Resource(hDevice, pResource->hResource);
+		}
+		return result;
 	}
 
 	HRESULT APIENTRY present(HANDLE hDevice, const D3DDDIARG_PRESENT* pData)
@@ -334,6 +359,7 @@ namespace D3dDdi
 		vtable.pfnDrawRectPatch = &RENDER_FUNC(pfnDrawRectPatch);
 		vtable.pfnDrawTriPatch = &RENDER_FUNC(pfnDrawTriPatch);
 		vtable.pfnLock = &lock;
+		vtable.pfnOpenResource = &openResource;
 		vtable.pfnPresent = &present;
 		vtable.pfnPresent1 = &present1;
 		vtable.pfnSetRenderTarget = &setRenderTarget;
