@@ -28,11 +28,11 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEDEVICE& data)
 		<< data.pCallbacks
 		<< data.pCommandBuffer
 		<< data.CommandBufferSize
-		<< data.pAllocationList
+		<< Compat::out(Compat::array(data.pAllocationList, data.AllocationListSize))
 		<< data.AllocationListSize
-		<< data.pPatchLocationList
+		<< Compat::out(Compat::array(data.pPatchLocationList, data.PatchLocationListSize))
 		<< data.PatchLocationListSize
-		<< data.pDeviceFuncs
+		<< Compat::out(data.pDeviceFuncs)
 		<< Compat::hex(data.Flags.Value)
 		<< Compat::hex(data.CommandBuffer);
 }

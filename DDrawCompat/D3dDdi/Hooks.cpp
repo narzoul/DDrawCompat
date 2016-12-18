@@ -20,7 +20,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 		<< data.Interface
 		<< data.Version
 		<< data.pAdapterCallbacks
-		<< data.pAdapterFuncs
+		<< Compat::out(data.pAdapterFuncs)
 		<< data.DriverVersion;
 }
 

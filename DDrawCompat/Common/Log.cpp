@@ -26,6 +26,11 @@ std::ostream& operator<<(std::ostream& os, const char* str)
 		return os << "null";
 	}
 
+	if (!Compat::Log::isPointerDereferencingAllowed())
+	{
+		return os << static_cast<const void*>(str);
+	}
+
 	return os.write(str, strlen(str));
 }
 
@@ -39,6 +44,11 @@ std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 	if (!wstr)
 	{
 		return os << "null";
+	}
+
+	if (!Compat::Log::isPointerDereferencingAllowed())
+	{
+		return os << static_cast<const void*>(wstr);
 	}
 
 	CStringA str(wstr);
@@ -167,4 +177,6 @@ namespace Compat
 	}
 
 	std::ofstream Log::s_logFile("ddraw.log");
+	DWORD Log::s_outParamDepth = 0;
+	bool Log::s_isLeaveLog = false;
 }

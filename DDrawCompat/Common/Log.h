@@ -31,28 +31,10 @@ std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd);
 std::ostream& operator<<(std::ostream& os, const CWPSTRUCT& cwrp);
 std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp);
 
-template <typename T>
-typename std::enable_if<std::is_class<T>::value && !std::is_same<T, std::string>::value, std::ostream&>::type
-operator<<(std::ostream& os, const T& t)
-{
-	return os << static_cast<const void*>(&t);
-}
-
-template <typename T>
-typename std::enable_if<std::is_class<T>::value, std::ostream&>::type
-operator<<(std::ostream& os, T* t)
-{
-	return t ? (os << *t) : (os << "null");
-}
-
-template <typename T>
-std::ostream& operator<<(std::ostream& os, T** t)
-{
-	return t ? (os << reinterpret_cast<void*>(t) << '=' << *t) : (os << "null");
-}
-
 namespace Compat
 {
+	using ::operator<<;
+
 	template <typename Num>
 	struct Hex
 	{
@@ -76,6 +58,15 @@ namespace Compat
 		return Array<Elem>(elem, size);
 	}
 
+	template <typename T>
+	struct Out
+	{
+		explicit Out(const T& val) : val(val) {}
+		const T& val;
+	};
+
+	template <typename T> Out<T> out(const T& val) { return Out<T>(val); }
+
 	class Log
 	{
 	public:
@@ -89,6 +80,8 @@ namespace Compat
 			return *this;
 		}
 
+		static bool isPointerDereferencingAllowed() { return s_isLeaveLog || 0 == s_outParamDepth; }
+
 	protected:
 		template <typename... Params>
 		Log(const char* prefix, const char* funcName, Params... params) : Log()
@@ -99,6 +92,9 @@ namespace Compat
 		}
 
 	private:
+		friend class LogLeaveGuard;
+		template <typename T> friend std::ostream& operator<<(std::ostream& os, Out<T> out);
+
 		void toList()
 		{
 		}
@@ -117,6 +113,8 @@ namespace Compat
 		}
 
 		static std::ofstream s_logFile;
+		static DWORD s_outParamDepth;
+		static bool s_isLeaveLog;
 	};
 
 	class LogParams;
@@ -162,7 +160,14 @@ namespace Compat
 		}
 	};
 
-	class LogLeave : private Log
+	class LogLeaveGuard
+	{
+	public:
+		LogLeaveGuard() { Log::s_isLeaveLog = true; }
+		~LogLeaveGuard() { Log::s_isLeaveLog = false; }
+	};
+
+	class LogLeave : private LogLeaveGuard, private Log
 	{
 	public:
 		template <typename... Params>
@@ -193,26 +198,80 @@ namespace Compat
 
 	typedef LogEnter LogLeave;
 #endif
+
+	template <typename Num>
+	std::ostream& operator<<(std::ostream& os, Hex<Num> hex)
+	{
+		os << "0x" << std::hex << hex.val << std::dec;
+		return os;
+	}
+
+	template <typename Elem>
+	std::ostream& operator<<(std::ostream& os, Array<Elem> array)
+	{
+		os << '[';
+		if (Log::isPointerDereferencingAllowed())
+		{
+			if (0 != array.size)
+			{
+				os << array.elem[0];
+			}
+			for (unsigned long i = 1; i < array.size; ++i)
+			{
+				os << ',' << array.elem[i];
+			}
+		}
+		return os << ']';
+	}
+
+	template <typename T>
+	std::ostream& operator<<(std::ostream& os, Out<T> out)
+	{
+		++Log::s_outParamDepth;
+		os << out.val;
+		--Log::s_outParamDepth;
+		return os;
+	}
 }
 
-template <typename Num>
-std::ostream& operator<<(std::ostream& os, Compat::Hex<Num> hex)
+template <typename T>
+typename std::enable_if<std::is_class<T>::value && !std::is_same<T, std::string>::value, std::ostream&>::type
+operator<<(std::ostream& os, const T& t)
 {
-	os << "0x" << std::hex << hex.val << std::dec;
+	return os << static_cast<const void*>(&t);
+}
+
+template <typename T>
+typename std::enable_if<std::is_class<T>::value, std::ostream&>::type
+operator<<(std::ostream& os, T* t)
+{
+	if (!t)
+	{
+		return os << "null";
+	}
+
+	if (!Compat::Log::isPointerDereferencingAllowed())
+	{
+		return os << static_cast<const void*>(t);
+	}
+
+	return os << *t;
+}
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, T** t)
+{
+	if (!t)
+	{
+		return os << "null";
+	}
+
+	os << static_cast<const void*>(t);
+
+	if (Compat::Log::isPointerDereferencingAllowed())
+	{
+		os << '=' << *t;
+	}
+
 	return os;
-}
-
-template <typename Elem>
-std::ostream& operator<<(std::ostream& os, Compat::Array<Elem> array)
-{
-	os << '[';
-	if (0 != array.size)
-	{
-		os << array.elem[0];
-	}
-	for (unsigned long i = 1; i < array.size; ++i)
-	{
-		os << ',' << array.elem[i];
-	}
-	return os << ']';
 }

@@ -14,9 +14,9 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXT& data)
 		<< Compat::hex(data.hContext)
 		<< data.pCommandBuffer
 		<< data.CommandBufferSize
-		<< Compat::array(data.pAllocationList, data.AllocationListSize)
+		<< Compat::out(Compat::array(data.pAllocationList, data.AllocationListSize))
 		<< data.AllocationListSize
-		<< Compat::array(data.pPatchLocationList, data.PatchLocationListSize)
+		<< Compat::out(Compat::array(data.pPatchLocationList, data.PatchLocationListSize))
 		<< data.PatchLocationListSize
 		<< Compat::hex(data.CommandBuffer);
 }
@@ -42,9 +42,9 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDEVICE& data)
 		<< Compat::hex(data.hDevice)
 		<< data.pCommandBuffer
 		<< data.CommandBufferSize
-		<< Compat::array(data.pAllocationList, data.AllocationListSize)
+		<< Compat::out(Compat::array(data.pAllocationList, data.AllocationListSize))
 		<< data.AllocationListSize
-		<< Compat::array(data.pPatchLocationList, data.PatchLocationListSize)
+		<< Compat::out(Compat::array(data.pPatchLocationList, data.PatchLocationListSize))
 		<< data.PatchLocationListSize;
 }
 
