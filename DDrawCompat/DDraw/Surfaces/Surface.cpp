@@ -26,10 +26,15 @@ namespace
 				pf = dm.ddpfPixelFormat;
 			}
 
+			if ((pf.dwFlags & DDPF_RGB) && pf.dwRGBBitCount <= 8)
+			{
+				caps &= ~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
+				caps |= DDSCAPS_SYSTEMMEMORY;
+			}
+
 			if (!(caps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
 				DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER)))
 			{
-				flags |= DDSD_CAPS;
 				caps |= DDSCAPS_OFFSCREENPLAIN;
 			}
 		}

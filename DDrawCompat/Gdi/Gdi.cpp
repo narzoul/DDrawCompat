@@ -1,7 +1,6 @@
 #include <atomic>
 
 #include "Common/ScopedCriticalSection.h"
-#include "DDraw/PaletteConverter.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Dll/Procs.h"
