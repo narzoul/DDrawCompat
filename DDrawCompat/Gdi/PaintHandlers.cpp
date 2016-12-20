@@ -67,7 +67,7 @@ namespace
 			break;
 
 		default:
-			result = origWndProc(hwnd, msg, wParam, lParam);
+			result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			break;
 		}
 
@@ -146,7 +146,7 @@ namespace
 			// fall through to default
 
 		default:
-			result = g_origMenuWndProc(hwnd, msg, wParam, lParam);
+			result = CallWindowProc(g_origMenuWndProc, hwnd, msg, wParam, lParam);
 			break;
 		}
 
@@ -158,14 +158,14 @@ namespace
 	{
 		if (!hwnd || !Gdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
+			return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 		}
 
 		LRESULT result = 0;
 		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
-			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
+			result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
 			Gdi::Dc::releaseDc(dc);
 			if (result)
 			{
@@ -174,7 +174,7 @@ namespace
 		}
 		else
 		{
-			result = origWndProc(hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
+			result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 		}
 
 		Gdi::endGdiRendering();
@@ -192,7 +192,7 @@ namespace
 	{
 		if (!hwnd || !Gdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, WM_PAINT, 0, 0);
+			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
 
 		HDC dc = GetWindowDC(hwnd);
@@ -200,14 +200,14 @@ namespace
 		HDC compatDc = Gdi::Dc::getDc(dc, isMenuPaintDc);
 		if (compatDc)
 		{
-			origWndProc(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
+			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
 				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
 			ValidateRect(hwnd, nullptr);
 			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
-			origWndProc(hwnd, WM_PAINT, 0, 0);
+			CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
 
 		ReleaseDC(hwnd, dc);
@@ -219,7 +219,7 @@ namespace
 	{
 		if (!hwnd || !Gdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, WM_NCPAINT, wParam, 0);
+			return CallWindowProc(origWndProc, hwnd, WM_NCPAINT, wParam, 0);
 		}
 
 		HDC windowDc = GetWindowDC(hwnd);
@@ -249,7 +249,7 @@ namespace
 	{
 		if (!hwnd || !Gdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, WM_PAINT, 0, 0);
+			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
 
 		PAINTSTRUCT paint = {};
@@ -258,12 +258,13 @@ namespace
 
 		if (compatDc)
 		{
-			origWndProc(hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
+			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
+				reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
 			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
-			origWndProc(hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
+			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
 		}
 
 		EndPaint(hwnd, &paint);
@@ -276,19 +277,19 @@ namespace
 	{
 		if (!Gdi::beginGdiRendering())
 		{
-			return origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
+			return CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
 
 		LRESULT result = 0;
 		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
-			result = origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
+			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
 			Gdi::Dc::releaseDc(dc);
 		}
 		else
 		{
-			result = origWndProc(hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
+			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
 
 		Gdi::endGdiRendering();
@@ -315,7 +316,7 @@ namespace
 			break;
 
 		default:
-			result = g_origScrollBarWndProc(hwnd, msg, wParam, lParam);
+			result = CallWindowProc(g_origScrollBarWndProc, hwnd, msg, wParam, lParam);
 			break;
 		}
 
