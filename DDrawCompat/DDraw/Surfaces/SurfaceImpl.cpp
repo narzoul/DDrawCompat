@@ -1,5 +1,7 @@
 #include <set>
 
+#include "Common/CompatRef.h"
+#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 
@@ -15,44 +17,14 @@ namespace
 		DWORD unknown2;
 	};
 
-	void fixSurfacePtr(CompatRef<IDirectDrawSurface7> surface, const DDSURFACEDESC2& desc)
+	template <typename TSurface>
+	void copyColorKey(CompatRef<TSurface> dst, CompatRef<TSurface> src, DWORD ckFlag)
 	{
-		if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) || !(desc.ddpfPixelFormat.dwFlags & DDPF_RGB))
+		DDCOLORKEY ck = {};
+		if (SUCCEEDED(src->GetColorKey(&src, ckFlag, &ck)))
 		{
-			return;
+			dst->SetColorKey(&dst, ckFlag, &ck);
 		}
-
-		RECT r = { 0, 0, 1, 1 };
-		surface->Blt(&surface, &r, &surface, &r, DDBLT_WAIT, nullptr);
-	}
-
-	HRESULT WINAPI fixSurfacePtrEnumCallback(
-		LPDIRECTDRAWSURFACE7 lpDDSurface,
-		LPDDSURFACEDESC2 lpDDSurfaceDesc,
-		LPVOID lpContext)
-	{
-		auto& visitedSurfaces = *static_cast<std::set<IDirectDrawSurface7*>*>(lpContext);
-
-		CompatPtr<IDirectDrawSurface7> surface(lpDDSurface);
-		if (visitedSurfaces.find(surface) == visitedSurfaces.end())
-		{
-			visitedSurfaces.insert(surface);
-			fixSurfacePtr(*surface, *lpDDSurfaceDesc);
-			surface->EnumAttachedSurfaces(surface, lpContext, &fixSurfacePtrEnumCallback);
-		}
-
-		return DDENUMRET_OK;
-	}
-
-	void fixSurfacePtrs(CompatRef<IDirectDrawSurface7> surface)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		surface->GetSurfaceDesc(&surface, &desc);
-
-		fixSurfacePtr(surface, desc);
-		std::set<IDirectDrawSurface7*> visitedSurfaces{ &surface };
-		surface->EnumAttachedSurfaces(&surface, &visitedSurfaces, &fixSurfacePtrEnumCallback);
 	}
 }
 
@@ -64,10 +36,97 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	void SurfaceImpl<TSurface>::fixSurfacePtrs(CompatRef<TSurface> surface)
+	bool SurfaceImpl<TSurface>::bltRetry(TSurface*& dstSurface, RECT*& dstRect,
+		TSurface*& srcSurface, RECT*& srcRect, bool isTransparentBlt,
+		const std::function<HRESULT()>& blt)
 	{
-		CompatPtr<IDirectDrawSurface7> surface7(Compat::queryInterface<IDirectDrawSurface7>(&surface));
-		::fixSurfacePtrs(*surface7);
+		if (!dstSurface || !srcSurface)
+		{
+			return false;
+		}
+
+		TSurfaceDesc dstDesc = {};
+		dstDesc.dwSize = sizeof(dstDesc);
+		s_origVtable.GetSurfaceDesc(dstSurface, &dstDesc);
+
+		TSurfaceDesc srcDesc = {};
+		srcDesc.dwSize = sizeof(srcDesc);
+		s_origVtable.GetSurfaceDesc(srcSurface, &srcDesc);
+
+		if ((dstDesc.ddpfPixelFormat.dwFlags & DDPF_FOURCC) &&
+			(dstDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) &&
+			(srcDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
+		{
+			const bool isCopyNeeded = true;
+			return prepareBltRetrySurface(srcSurface, srcRect, srcDesc, isTransparentBlt, isCopyNeeded) &&
+				SUCCEEDED(blt());
+		}
+		else if ((srcDesc.ddpfPixelFormat.dwFlags & DDPF_FOURCC) &&
+			(srcDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) &&
+			(dstDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
+		{
+			TSurface* origDstSurface = dstSurface;
+			RECT* origDstRect = dstRect;
+			const bool isCopyNeeded = isTransparentBlt;
+			return prepareBltRetrySurface(dstSurface, dstRect, dstDesc, isTransparentBlt, isCopyNeeded) &&
+				SUCCEEDED(blt()) &&
+				SUCCEEDED(s_origVtable.Blt(
+					origDstSurface, origDstRect, dstSurface, dstRect, DDBLT_WAIT, nullptr));
+		}
+
+		return false;
+	}
+
+	template <typename TSurface>
+	bool SurfaceImpl<TSurface>::prepareBltRetrySurface(TSurface*& surface, RECT*& rect,
+		const TSurfaceDesc& desc, bool isTransparentBlt, bool isCopyNeeded)
+	{
+		TSurface* replSurface = surface;
+		RECT* replRect = rect;
+		replaceWithVidMemSurface(replSurface, replRect, desc);
+		if (replSurface == surface)
+		{
+			return false;
+		}
+
+		if (isCopyNeeded && FAILED(s_origVtable.Blt(
+			replSurface, replRect, surface, rect, DDBLT_WAIT, nullptr)))
+		{
+			return false;
+		}
+
+		if (isTransparentBlt)
+		{
+			copyColorKey<TSurface>(*replSurface, *surface, DDCKEY_SRCBLT);
+			copyColorKey<TSurface>(*replSurface, *surface, DDCKEY_DESTBLT);
+		}
+		surface = replSurface;
+		rect = replRect;
+		return true;
+	}
+
+	template <typename TSurface>
+	void SurfaceImpl<TSurface>::replaceWithVidMemSurface(TSurface*& surface, RECT*& rect,
+		const TSurfaceDesc& desc)
+	{
+		static RECT replRect = {};
+		replRect = rect ? RECT{ 0, 0, rect->right - rect->left, rect->bottom - rect->top } :
+			RECT{ 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
+			
+		DDSURFACEDESC2 replDesc = {};
+		replDesc.dwSize = sizeof(replDesc);
+		replDesc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
+		replDesc.dwWidth = replRect.right;
+		replDesc.dwHeight = replRect.bottom;
+		replDesc.ddpfPixelFormat = desc.ddpfPixelFormat;
+		replDesc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
+
+		DDraw::Repository::ScopedSurface replacementSurface(*m_data->getDirectDraw(), replDesc);
+		if (replacementSurface.surface)
+		{
+			surface = CompatPtr<TSurface>::from(replacementSurface.surface.get());
+			rect = &replRect;
+		}
 	}
 
 	template <typename TSurface>
@@ -95,14 +154,54 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
-		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		HRESULT result = s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		if (DDERR_UNSUPPORTED == result || DDERR_GENERIC == result)
+		{
+			const bool isTransparentBlt = 0 !=
+				(dwFlags & (DDBLT_KEYDEST | DDBLT_KEYSRC | DDBLT_KEYDESTOVERRIDE | DDBLT_KEYSRCOVERRIDE));
+			if (bltRetry(This, lpDestRect, lpDDSrcSurface, lpSrcRect, isTransparentBlt,
+				[&]() { return s_origVtable.Blt(
+					This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx); }))
+			{
+				return DD_OK;
+			}
+		}
+		return result;
 	}
 
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
-		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
+		HRESULT result = s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
+		if (DDERR_UNSUPPORTED == result || DDERR_GENERIC == result)
+		{
+			RECT dstRect = { static_cast<LONG>(dwX), static_cast<LONG>(dwY) };
+			if (lpSrcRect)
+			{
+				dstRect.right = dwX + lpSrcRect->right - lpSrcRect->left;
+				dstRect.bottom = dwY + lpSrcRect->bottom - lpSrcRect->top;
+			}
+			else
+			{
+				TSurfaceDesc desc = {};
+				desc.dwSize = sizeof(desc);
+				s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
+
+				dstRect.right = dwX + desc.dwWidth;
+				dstRect.bottom = dwY + desc.dwHeight;
+			}
+
+			RECT* dstRectPtr = &dstRect;
+			const bool isTransparentBlt = 0 != (dwTrans & (DDBLTFAST_DESTCOLORKEY | DDBLTFAST_SRCCOLORKEY));
+			if (bltRetry(This, dstRectPtr, lpDDSrcSurface, lpSrcRect, isTransparentBlt,
+				[&]() { return s_origVtable.BltFast(
+					This, dstRectPtr->left, dstRectPtr->top, lpDDSrcSurface, lpSrcRect, dwTrans); }))
+			{
+				return DD_OK;
+			}
+		}
+		return result;
 	}
 
 	template <typename TSurface>

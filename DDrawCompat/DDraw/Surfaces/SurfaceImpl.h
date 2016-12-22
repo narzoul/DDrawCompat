@@ -2,9 +2,10 @@
 
 #define CINTERFACE
 
+#include <functional>
+
 #include <ddraw.h>
 
-#include "Common/CompatRef.h"
 #include "Common/CompatVtable.h"
 #include "DDraw/Types.h"
 
@@ -36,8 +37,6 @@ namespace DDraw
 
 		virtual ~SurfaceImpl();
 
-		static void fixSurfacePtrs(CompatRef<TSurface> surface);
-
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 			DWORD dwFlags, LPDDBLTFX lpDDBltFx);
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,
@@ -59,6 +58,13 @@ namespace DDraw
 		void undoFlip(TSurface* This, TSurface* targetOverride);
 
 	private:
+		bool bltRetry(TSurface*& dstSurface, RECT*& dstRect,
+			TSurface*& srcSurface, RECT*& srcRect, bool isTransparentBlt,
+			const std::function<HRESULT()>& blt);
+		bool prepareBltRetrySurface(TSurface*& surface, RECT*& rect,
+			const TSurfaceDesc& desc, bool isTransparentBlt, bool isCopyNeeded);
+		void replaceWithVidMemSurface(TSurface*& surface, RECT*& rect, const TSurfaceDesc& desc);
+
 		static const Vtable<TSurface>& s_origVtable;
 	};
 }

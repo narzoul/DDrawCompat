@@ -185,7 +185,6 @@ namespace DDraw
 				result = m_impl.Restore(This);
 				if (SUCCEEDED(result))
 				{
-					fixSurfacePtrs(*This);
 					Gdi::invalidate(nullptr);
 				}
 			}

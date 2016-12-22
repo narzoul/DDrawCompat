@@ -13,6 +13,29 @@ DEFINE_GUID(IID_CompatSurfacePrivateData,
 
 namespace
 {
+	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
+	HRESULT createSurface(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
+	{
+		auto dd7(CompatPtr<IDirectDraw7>::from(&dd));
+		fixSurfaceDesc(*dd7, desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
+
+		if ((desc.ddsCaps.dwCaps & DDSCAPS_OFFSCREENPLAIN) &&
+			!(desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_3DDEVICE)))
+		{
+			TSurfaceDesc sysMemDesc = desc;
+			sysMemDesc.ddsCaps.dwCaps &=
+				~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
+			sysMemDesc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
+
+			if (SUCCEEDED(dd->CreateSurface(&dd, &sysMemDesc, &surface, nullptr)))
+			{
+				return DD_OK;
+			}
+		}
+
+		return dd->CreateSurface(&dd, &desc, &surface, nullptr);
+	}
+
 	void fixSurfaceDesc(CompatRef<IDirectDraw7> dd, DWORD& flags, DWORD& caps, DDPIXELFORMAT& pf)
 	{
 		if ((flags & DDSD_WIDTH) &&
@@ -139,14 +162,9 @@ namespace DDraw
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT Surface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
-		CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
-		fixSurfaceDesc(*dd7, desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
-
-		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
+		HRESULT result = createSurface(dd, desc, surface);
 		if (SUCCEEDED(result))
 		{
-			SurfaceImpl<TSurface>::fixSurfacePtrs(*surface);
-
 			CompatPtr<IDirectDrawSurface7> surface7(
 				Compat::queryInterface<IDirectDrawSurface7>(surface));
 			std::unique_ptr<Surface> privateData(new Surface());

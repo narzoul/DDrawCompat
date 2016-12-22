@@ -65,7 +65,7 @@ namespace
 		surface.desc.ddpfPixelFormat = pf;
 		surface.desc.ddsCaps.dwCaps = caps;
 
-		dd.get().lpVtbl->CreateSurface(&dd, &surface.desc, &surface.surface.getRef(), nullptr);
+		dd->CreateSurface(&dd, &surface.desc, &surface.surface.getRef(), nullptr);
 		return surface;
 	}
 
@@ -199,6 +199,11 @@ namespace DDraw
 		ScopedSurface::ScopedSurface(CompatRef<IDirectDraw7> dd, const DDSURFACEDESC2& desc)
 			: Surface(getSurface(dd, desc))
 		{
+			if (surface)
+			{
+				surface->SetColorKey(surface, DDCKEY_SRCBLT, nullptr);
+				surface->SetColorKey(surface, DDCKEY_DESTBLT, nullptr);
+			}
 		}
 
 		ScopedSurface::~ScopedSurface()
