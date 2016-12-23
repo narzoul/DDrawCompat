@@ -32,6 +32,9 @@ namespace
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
 	std::map<D3DKMT_HANDLE, DeviceInfo> g_devices;
 
+	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
+	decltype(D3DKMTSetVidPnSourceOwner1)* g_origD3dKmtSetVidPnSourceOwner1 = nullptr;
+
 	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
 	{
 		Compat::LogEnter("D3DKMTCreateDevice", pData);
@@ -65,7 +68,7 @@ namespace
 	NTSTATUS APIENTRY createContextVirtual(D3DKMT_CREATECONTEXTVIRTUAL* pData)
 	{
 		Compat::LogEnter("D3DKMTCreateContextVirtual", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateContextVirtual)(pData);
+		NTSTATUS result = g_origD3dKmtCreateContextVirtual(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts[pData->hContext].device = pData->hDevice;
@@ -203,7 +206,7 @@ namespace
 	NTSTATUS APIENTRY setVidPnSourceOwner1(const D3DKMT_SETVIDPNSOURCEOWNER1* pData)
 	{
 		Compat::LogEnter("D3DKMTSetVidPnSourceOwner1", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetVidPnSourceOwner1)(pData);
+		NTSTATUS result = g_origD3dKmtSetVidPnSourceOwner1(pData);
 		if (SUCCEEDED(result))
 		{
 			processSetVidPnSourceOwner(&pData->Version0);
@@ -220,7 +223,6 @@ namespace D3dDdi
 		void installHooks()
 		{
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
-			HOOK_FUNCTION(gdi32, D3DKMTCreateContextVirtual, createContextVirtual);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDevice, createDevice);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyContext, destroyContext);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyDevice, destroyDevice);
@@ -228,7 +230,12 @@ namespace D3dDdi
 			HOOK_FUNCTION(gdi32, D3DKMTPresent, present);
 			HOOK_FUNCTION(gdi32, D3DKMTSetQueuedLimit, setQueuedLimit);
 			HOOK_FUNCTION(gdi32, D3DKMTSetVidPnSourceOwner, setVidPnSourceOwner);
-			HOOK_FUNCTION(gdi32, D3DKMTSetVidPnSourceOwner1, setVidPnSourceOwner1);
+
+			// Functions not available in Windows Vista
+			Compat::hookFunction("gdi32", "D3DKMTCreateContextVirtual",
+				reinterpret_cast<void*&>(g_origD3dKmtCreateContextVirtual), createContextVirtual);
+			Compat::hookFunction("gdi32", "D3DKMTSetVidPnSourceOwner1",
+				reinterpret_cast<void*&>(g_origD3dKmtSetVidPnSourceOwner1), setVidPnSourceOwner1);
 		}
 
 		void releaseVidPnSources()
