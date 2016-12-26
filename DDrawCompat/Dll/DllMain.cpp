@@ -30,6 +30,8 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
+			Compat::Log() << "Installing registry hooks";
+			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks();
 			Compat::Log() << "Installing DirectDraw hooks";
@@ -38,8 +40,6 @@ namespace
 			Direct3d::installHooks();
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
-			Compat::Log() << "Installing registry hooks";
-			Win32::Registry::installHooks();
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}

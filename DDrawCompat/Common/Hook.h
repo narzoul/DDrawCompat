@@ -8,6 +8,10 @@
 
 #define HOOK_FUNCTION(module, func, newFunc) \
 	Compat::hookFunction<decltype(&func), &func>(#module, #func, &newFunc)
+#define HOOK_SHIM_FUNCTION(func, newFunc) \
+	Compat::hookFunction( \
+		reinterpret_cast<void*&>(Compat::getOrigFuncPtr<decltype(&func), &func>()), newFunc);
+
 
 namespace Compat
 {
