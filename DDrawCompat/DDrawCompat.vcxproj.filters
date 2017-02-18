@@ -297,6 +297,9 @@
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h">
       <Filter>Header Files\D3dDdi\Log</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\OversizedResource.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -451,6 +454,9 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp">
       <Filter>Source Files\D3dDdi\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\OversizedResource.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

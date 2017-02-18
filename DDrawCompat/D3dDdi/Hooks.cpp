@@ -61,6 +61,7 @@ namespace
 			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
 			D3dDdi::AdapterFuncs::hookDriverVtable(pOpenData->hAdapter, pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter);
 		}
 		Compat::LogLeave("openAdapter", pOpenData) << result;
 		return result;

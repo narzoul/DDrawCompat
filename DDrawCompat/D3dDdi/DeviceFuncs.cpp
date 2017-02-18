@@ -1,9 +1,11 @@
 #include <functional>
 #include <map>
 
+#include "D3dDdi/AdapterFuncs.h"
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/LockResource.h"
 #include "D3dDdi/KernelModeThunks.h"
+#include "D3dDdi/OversizedResource.h"
 
 namespace
 {
@@ -41,7 +43,9 @@ namespace
 	D3dDdi::LockResource::SubResource* replaceWithActiveResource(
 		HANDLE device, HANDLE& resource, UINT subResourceIndex);
 
+	std::map<HANDLE, HANDLE> g_deviceToAdapter;
 	std::map<Resource, D3dDdi::LockResource> g_lockResources;
+	std::map<Resource, D3dDdi::OversizedResource> g_oversizedResources;
 	std::map<HANDLE, D3dDdi::LockResource::SubResource*> g_renderTargets;
 	Resource g_sharedPrimary;
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
@@ -59,6 +63,39 @@ namespace
 	}
 
 	template <typename CreateResourceArg, typename CreateResourceFunc>
+	HRESULT createOversizedResource(HANDLE device, CreateResourceArg& resourceData,
+		CreateResourceFunc origCreateResource, const D3DNTHAL_D3DEXTENDEDCAPS& caps)
+	{
+		D3DDDI_SURFACEINFO compatSurfaceInfo = resourceData.pSurfList[0];
+		if (0 != caps.dwMaxTextureWidth && compatSurfaceInfo.Width > caps.dwMaxTextureWidth)
+		{
+			compatSurfaceInfo.Width = caps.dwMaxTextureWidth;
+		}
+		if (0 != caps.dwMaxTextureHeight && compatSurfaceInfo.Height > caps.dwMaxTextureHeight)
+		{
+			compatSurfaceInfo.Height = caps.dwMaxTextureHeight;
+		}
+
+		const D3DDDI_SURFACEINFO* origSurfList = resourceData.pSurfList;
+		resourceData.pSurfList = &compatSurfaceInfo;
+		HRESULT result = origCreateResource(device, &resourceData);
+		resourceData.pSurfList = origSurfList;
+		
+		if (SUCCEEDED(result))
+		{
+			auto it = g_deviceToAdapter.find(device);
+			if (it != g_deviceToAdapter.end())
+			{
+				D3dDdi::OversizedResource oversizedResource(
+					it->second, device, resourceData.Format, origSurfList[0]);
+				g_oversizedResources[Resource(device, resourceData.hResource)] = oversizedResource;
+			}
+		}
+
+		return result;
+	}
+
+	template <typename CreateResourceArg, typename CreateResourceFunc>
 	HRESULT createResource(HANDLE device, CreateResourceArg* resourceData,
 		CreateResourceFunc origCreateResource)
 	{
@@ -66,6 +103,24 @@ namespace
 		if (isOffScreenPlain)
 		{
 			resourceData->Flags.CpuOptimized = 1;
+		}
+
+		if (D3DDDIPOOL_SYSTEMMEM == resourceData->Pool &&
+			(isOffScreenPlain || resourceData->Flags.Texture) &&
+			D3dDdi::OversizedResource::isSupportedFormat(resourceData->Format) &&
+			1 == resourceData->SurfCount)
+		{
+			auto it = g_deviceToAdapter.find(device);
+			if (it != g_deviceToAdapter.end())
+			{
+				const auto& caps = D3dDdi::AdapterFuncs::getD3dExtendedCaps(it->second);
+				const auto& surfaceInfo = resourceData->pSurfList[0];
+				if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
+					0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
+				{
+					return createOversizedResource(device, *resourceData, origCreateResource, caps);
+				}
+			}
 		}
 
 		HANDLE origResourceHandle = resourceData->hResource;
@@ -168,7 +223,25 @@ namespace
 		ResourceReplacer dstReplacer(hDevice, pData->hDstResource, pData->DstSubResourceIndex);
 		auto dstSubResource = dstReplacer.getSubResource();
 
-		HRESULT result = getOrigVtable(hDevice).pfnBlt(hDevice, pData);
+		HRESULT result = S_OK;
+		auto it = g_oversizedResources.find(Resource(hDevice, pData->hSrcResource));
+		if (it != g_oversizedResources.end())
+		{
+			result = it->second.bltFrom(*pData);
+		}
+		else
+		{
+			it = g_oversizedResources.find(Resource(hDevice, pData->hDstResource));
+			if (it != g_oversizedResources.end())
+			{
+				result = it->second.bltTo(*pData);
+			}
+			else
+			{
+				result = getOrigVtable(hDevice).pfnBlt(hDevice, pData);
+			}
+		}
+		
 		if (SUCCEEDED(result) && dstSubResource && dstSubResource->m_isLockUpToDate)
 		{
 			dstSubResource->m_isOrigUpToDate = false;
@@ -205,6 +278,7 @@ namespace
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
+			g_deviceToAdapter.erase(hDevice);
 		}
 		return result;
 	}
@@ -221,18 +295,24 @@ namespace
 		HRESULT result = getOrigVtable(hDevice).pfnDestroyResource(hDevice, hResource);
 		if (SUCCEEDED(result))
 		{
-			auto it = g_lockResources.find(Resource(hDevice, hResource));
-			if (it != g_lockResources.end())
+			auto lockResourceIt = g_lockResources.find(Resource(hDevice, hResource));
+			if (lockResourceIt != g_lockResources.end())
 			{
 				auto renderTarget = g_renderTargets.find(hDevice);
 				if (renderTarget != g_renderTargets.end() &&
-					&renderTarget->second->getParent() == &it->second)
+					&renderTarget->second->getParent() == &lockResourceIt->second)
 				{
 					g_renderTargets.erase(hDevice);
 				}
 
-				getOrigVtable(hDevice).pfnDestroyResource(hDevice, it->second.getHandle());
-				g_lockResources.erase(it);
+				getOrigVtable(hDevice).pfnDestroyResource(hDevice, lockResourceIt->second.getHandle());
+				g_lockResources.erase(lockResourceIt);
+			}
+
+			auto oversizedResourceIt = g_oversizedResources.find(Resource(hDevice, hResource));
+			if (oversizedResourceIt != g_oversizedResources.end())
+			{
+				g_oversizedResources.erase(oversizedResourceIt);
 			}
 
 			if (isSharedPrimary)
@@ -343,6 +423,11 @@ namespace
 
 namespace D3dDdi
 {
+	void DeviceFuncs::onCreateDevice(HANDLE adapter, HANDLE device)
+	{
+		g_deviceToAdapter[device] = adapter;
+	}
+
 	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
 		vtable.pfnBlt = &blt;
