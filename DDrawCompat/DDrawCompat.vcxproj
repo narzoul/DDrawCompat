@@ -182,6 +182,7 @@
     <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h" />
     <ClInclude Include="DDraw\ActivateAppHandler.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
+    <ClInclude Include="DDraw\DirectDrawClipper.h" />
     <ClInclude Include="DDraw\DirectDrawPalette.h" />
     <ClInclude Include="DDraw\DirectDrawSurface.h" />
     <ClInclude Include="DDraw\DisplayMode.h" />
@@ -196,6 +197,7 @@
     <ClInclude Include="DDraw\Types.h" />
     <ClInclude Include="DDraw\IReleaseNotifier.h" />
     <ClInclude Include="DDraw\RealPrimarySurface.h" />
+    <ClInclude Include="DDraw\Visitors\DirectDrawClipperVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawVtblVisitor.h" />
@@ -245,6 +247,7 @@
     <ClCompile Include="D3dDdi\OversizedResource.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
+    <ClCompile Include="DDraw\DirectDrawClipper.cpp" />
     <ClCompile Include="DDraw\DirectDrawPalette.cpp" />
     <ClCompile Include="DDraw\DirectDrawSurface.cpp" />
     <ClCompile Include="DDraw\DisplayMode.cpp" />

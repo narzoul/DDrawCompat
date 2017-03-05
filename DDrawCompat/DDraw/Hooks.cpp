@@ -7,8 +7,9 @@
 #include "Common/Log.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/DirectDrawSurface.h"
+#include "DDraw/DirectDrawClipper.h"
 #include "DDraw/DirectDrawPalette.h"
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Hooks.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
@@ -29,6 +30,20 @@ namespace
 		hookVtable<IDirectDraw4>(dd7);
 		hookVtable<IDirectDraw7>(dd7);
 		dd7.detach();
+	}
+
+	void hookDirectDrawClipper(CompatRef<IDirectDraw7> dd)
+	{
+		CompatPtr<IDirectDrawClipper> clipper;
+		HRESULT result = dd->CreateClipper(&dd, 0, &clipper.getRef(), nullptr);
+		if (SUCCEEDED(result))
+		{
+			DDraw::DirectDrawClipper::hookVtable(clipper.get()->lpVtbl);
+		}
+		else
+		{
+			Compat::Log() << "Failed to create a DirectDraw clipper for hooking: " << result;
+		}
 	}
 
 	void hookDirectDrawPalette(CompatRef<IDirectDraw7> dd)
@@ -112,8 +127,9 @@ namespace DDraw
 		}
 
 		hookDirectDraw(*dd7);
-		hookDirectDrawSurface(*dd7);
+		hookDirectDrawClipper(*dd7);
 		hookDirectDrawPalette(*dd7);
+		hookDirectDrawSurface(*dd7);
 	}
 
 	void uninstallHooks()

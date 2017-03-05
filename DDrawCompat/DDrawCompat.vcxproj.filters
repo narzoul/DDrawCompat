@@ -300,6 +300,12 @@
     <ClInclude Include="D3dDdi\OversizedResource.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Visitors\DirectDrawClipperVtblVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DirectDrawClipper.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -457,6 +463,9 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\OversizedResource.cpp">
       <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DirectDrawClipper.cpp">
+      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
