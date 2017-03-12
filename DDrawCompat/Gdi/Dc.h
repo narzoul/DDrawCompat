@@ -8,7 +8,7 @@ namespace Gdi
 {
 	namespace Dc
 	{
-		HDC getDc(HDC origDc, bool isMenuPaintDc = false);
+		HDC getDc(HDC origDc);
 		HDC getOrigDc(HDC dc);
 		void releaseDc(HDC origDc);
 	}

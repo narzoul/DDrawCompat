@@ -23,12 +23,6 @@ namespace
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
 	CompatDcMap g_origDcToCompatDc;
 
-	struct ExcludeClipRectsData
-	{
-		HDC compatDc;
-		HWND rootWnd;
-	};
-
 	void copyDcAttributes(CompatDc& compatDc, HDC origDc, POINT& origin)
 	{
 		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
@@ -81,52 +75,17 @@ namespace
 		MoveToEx(compatDc.dc, currentPos.x, currentPos.y, nullptr);
 	}
 
-	BOOL CALLBACK excludeClipRectForOverlappingWindow(HWND hwnd, LPARAM lParam)
+	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, const POINT& origin)
 	{
-		auto excludeClipRectsData = reinterpret_cast<ExcludeClipRectsData*>(lParam);
-		if (hwnd == excludeClipRectsData->rootWnd)
+		if (hwnd)
 		{
-			return FALSE;
-		}
-
-		if (!IsWindowVisible(hwnd))
-		{
-			return TRUE;
-		}
-
-		RECT windowRect = {};
-		GetWindowRect(hwnd, &windowRect);
-
-		HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
-		ExtSelectClipRgn(excludeClipRectsData->compatDc, windowRgn, RGN_DIFF);
-		DeleteObject(windowRgn);
-
-		return TRUE;
-	}
-
-	void excludeClipRectsForOverlappingWindows(HWND hwnd, bool isMenuWindow, HDC compatDc)
-	{
-		ExcludeClipRectsData excludeClipRectsData = { compatDc, GetAncestor(hwnd, GA_ROOT) };
-		if (!isMenuWindow)
-		{
-			EnumWindows(&excludeClipRectForOverlappingWindow,
-				reinterpret_cast<LPARAM>(&excludeClipRectsData));
-		}
-
-		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
-		while (menuWindow && menuWindow != hwnd)
-		{
-			excludeClipRectForOverlappingWindow(
-				menuWindow, reinterpret_cast<LPARAM>(&excludeClipRectsData));
-			menuWindow = FindWindowEx(nullptr, menuWindow, reinterpret_cast<LPCSTR>(0x8000), nullptr);
-		}
-	}
-
-	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, bool isMenuWindow, const POINT& origin)
-	{
-		if (GetDesktopWindow() == hwnd)
-		{
-			return;
+			HRGN sysRgn = CreateRectRgn(0, 0, 0, 0);
+			if (1 == GetRandomRgn(origDc, sysRgn, SYSRGN))
+			{
+				SelectClipRgn(compatDc, sysRgn);
+				SetMetaRgn(compatDc);
+			}
+			DeleteObject(sysRgn);
 		}
 
 		HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
@@ -135,22 +94,8 @@ namespace
 			OffsetRgn(clipRgn, origin.x, origin.y);
 			SelectClipRgn(compatDc, clipRgn);
 		}
-
-		if (hwnd)
-		{
-			if (isMenuWindow || 1 != GetRandomRgn(origDc, clipRgn, SYSRGN))
-			{
-				RECT rect = {};
-				GetWindowRect(hwnd, &rect);
-				SetRectRgn(clipRgn, rect.left, rect.top, rect.right, rect.bottom);
-			}
-
-			excludeClipRectsForOverlappingWindows(hwnd, isMenuWindow, compatDc);
-			ExtSelectClipRgn(compatDc, clipRgn, RGN_AND);
-		}
-
 		DeleteObject(clipRgn);
-		SetMetaRgn(compatDc);
+
 	}
 }
 
@@ -158,7 +103,7 @@ namespace Gdi
 {
 	namespace Dc
 	{
-		HDC getDc(HDC origDc, bool isMenuPaintDc)
+		HDC getDc(HDC origDc)
 		{
 			if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
 			{
@@ -174,13 +119,6 @@ namespace Gdi
 				return it->second.dc;
 			}
 
-			const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-			const bool isMenuWindow = hwnd && 0x8000 == GetClassLongPtr(hwnd, GCW_ATOM);
-			if (isMenuWindow && !isMenuPaintDc)
-			{
-				return nullptr;
-			}
-
 			CompatDc compatDc(Gdi::DcCache::getDc());
 			if (!compatDc.dc)
 			{
@@ -192,7 +130,7 @@ namespace Gdi
 
 			compatDc.savedState = SaveDC(compatDc.dc);
 			copyDcAttributes(compatDc, origDc, origin);
-			setClippingRegion(compatDc.dc, origDc, hwnd, isMenuWindow, origin);
+			setClippingRegion(compatDc.dc, origDc, CALL_ORIG_FUNC(WindowFromDC)(origDc), origin);
 
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;

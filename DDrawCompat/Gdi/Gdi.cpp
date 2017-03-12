@@ -23,36 +23,6 @@ namespace
 	HANDLE g_ddUnlockEndEvent = nullptr;
 	bool g_isDelayedUnlockPending = false;
 
-	BOOL CALLBACK invalidateWindow(HWND hwnd, LPARAM lParam)
-	{
-		if (!IsWindowVisible(hwnd))
-		{
-			return TRUE;
-		}
-
-		DWORD processId = 0;
-		GetWindowThreadProcessId(hwnd, &processId);
-		if (processId != GetCurrentProcessId())
-		{
-			return TRUE;
-		}
-
-		if (lParam)
-		{
-			POINT origin = {};
-			ClientToScreen(hwnd, &origin);
-			RECT rect = *reinterpret_cast<const RECT*>(lParam);
-			OffsetRect(&rect, -origin.x, -origin.y);
-			RedrawWindow(hwnd, &rect, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-		}
-		else
-		{
-			RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-		}
-
-		return TRUE;
-	}
-
 	bool lockGdiSurface(DWORD lockFlags)
 	{
 		DDSURFACEDESC2 desc = {};
@@ -74,6 +44,12 @@ namespace
 		Gdi::DcCache::setDdLockThreadId(g_ddLockThreadId);
 		Gdi::DcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
 		return true;
+	}
+
+	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
+	{
+		Gdi::redrawWindow(hwnd, reinterpret_cast<HRGN>(lParam));
+		return TRUE;
 	}
 
 	void unlockGdiSurface()
@@ -213,12 +189,34 @@ namespace Gdi
 		}
 	}
 
-	void invalidate(const RECT* rect)
+	void redraw(HRGN rgn)
 	{
 		if (isEmulationEnabled())
 		{
-			EnumWindows(&invalidateWindow, reinterpret_cast<LPARAM>(rect));
+			EnumThreadWindows(GetCurrentThreadId(), &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
 		}
+	}
+
+	void redrawWindow(HWND hwnd, HRGN rgn)
+	{
+		if (!IsWindowVisible(hwnd))
+		{
+			return;
+		}
+
+		if (!rgn)
+		{
+			RedrawWindow(hwnd, nullptr, nullptr,
+				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+			return;
+		}
+
+		POINT origin = {};
+		ClientToScreen(hwnd, &origin);
+		OffsetRgn(rgn, -origin.x, -origin.y);
+		RedrawWindow(hwnd, nullptr, rgn,
+			RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
+		OffsetRgn(rgn, origin.x, origin.y);
 	}
 
 	bool isEmulationEnabled()

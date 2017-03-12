@@ -185,7 +185,7 @@ namespace DDraw
 				result = m_impl.Restore(This);
 				if (SUCCEEDED(result))
 				{
-					Gdi::invalidate(nullptr);
+					Gdi::redraw(nullptr);
 				}
 			}
 		}

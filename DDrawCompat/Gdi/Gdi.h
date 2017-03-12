@@ -14,8 +14,9 @@ namespace Gdi
 
 	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc);
 	void installHooks();
-	void invalidate(const RECT* rect);
 	bool isEmulationEnabled();
+	void redraw(HRGN rgn);
+	void redrawWindow(HWND hwnd, HRGN rgn);
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
 	void uninstallHooks();
 	void updatePalette(DWORD startingEntry, DWORD count);

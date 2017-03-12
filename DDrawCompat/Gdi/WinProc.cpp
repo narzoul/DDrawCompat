@@ -1,5 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <memory>
 #include <unordered_map>
 
 #include <dwmapi.h>
@@ -16,14 +17,22 @@
 
 namespace
 {
+	struct WindowData
+	{
+		RECT wndRect;
+		std::shared_ptr<HRGN__> sysClipRgn;
+	};
+
 	HHOOK g_callWndRetProcHook = nullptr;
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
-	std::unordered_map<HWND, RECT> g_prevWindowRect;
+	std::unordered_map<HWND, WindowData> g_windowData;
 
 	void disableDwmAttributes(HWND hwnd);
 	void onActivate(HWND hwnd);
 	void onMenuSelect();
 	void onWindowPosChanged(HWND hwnd);
+	void redrawChangedWindowRegion(HWND hwnd, const WindowData& prevData, const WindowData& data);
+	void redrawUncoveredRegion(const WindowData& prevData, const WindowData& data);
 	void removeDropShadow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -41,7 +50,7 @@ namespace
 			else if (WM_DESTROY == ret->message)
 			{
 				Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
-				g_prevWindowRect.erase(ret->hwnd);
+				g_windowData.erase(ret->hwnd);
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
 			{
@@ -79,6 +88,21 @@ namespace
 		BOOL disableTransitions = TRUE;
 		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
 			&disableTransitions, sizeof(disableTransitions));
+	}
+
+	WindowData getWindowData(HWND hwnd)
+	{
+		WindowData data;
+		if (IsWindowVisible(hwnd))
+		{
+			GetWindowRect(hwnd, &data.wndRect);
+			data.sysClipRgn.reset(CreateRectRgnIndirect(&data.wndRect), DeleteObject);
+
+			HDC dc = GetWindowDC(hwnd);
+			GetRandomRgn(dc, data.sysClipRgn.get(), SYSRGN);
+			ReleaseDC(hwnd, dc);
+		}
+		return data;
 	}
 
 	void CALLBACK objectStateChangeEvent(
@@ -161,26 +185,69 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd)
 	{
+		if (GetAncestor(hwnd, GA_ROOT) != hwnd)
+		{
+			return;
+		}
+
 		Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 
-		const auto it = g_prevWindowRect.find(hwnd);
-		if (it != g_prevWindowRect.end())
+		WindowData prevData = g_windowData[hwnd];
+		WindowData data = getWindowData(hwnd);
+		g_windowData[hwnd] = data;
+
+		if (!prevData.sysClipRgn && !data.sysClipRgn || !Gdi::isEmulationEnabled())
 		{
-			Gdi::invalidate(&it->second);
+			return;
 		}
 
-		if (IsWindowVisible(hwnd))
+		redrawUncoveredRegion(prevData, data);
+		redrawChangedWindowRegion(hwnd, prevData, data);
+	}
+
+	void redrawChangedWindowRegion(HWND hwnd, const WindowData& prevData, const WindowData& data)
+	{
+		if (!data.sysClipRgn)
 		{
-			if (Gdi::isEmulationEnabled())
-			{
-				GetWindowRect(hwnd, it != g_prevWindowRect.end() ? &it->second : &g_prevWindowRect[hwnd]);
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-			}
+			return;
 		}
-		else if (it != g_prevWindowRect.end())
+
+		if (!prevData.sysClipRgn)
 		{
-			g_prevWindowRect.erase(it);
+			Gdi::redrawWindow(hwnd, data.sysClipRgn.get());
+			return;
 		}
+
+		if (EqualRect(&prevData.wndRect, &data.wndRect))
+		{
+			HRGN rgn = CreateRectRgn(0, 0, 0, 0);
+			CombineRgn(rgn, data.sysClipRgn.get(), prevData.sysClipRgn.get(), RGN_DIFF);
+			Gdi::redrawWindow(hwnd, rgn);
+			DeleteObject(rgn);
+		}
+		else
+		{
+			Gdi::redrawWindow(hwnd, data.sysClipRgn.get());
+		}
+	}
+
+	void redrawUncoveredRegion(const WindowData& prevData, const WindowData& data)
+	{
+		if (!prevData.sysClipRgn)
+		{
+			return;
+		}
+
+		if (!data.sysClipRgn)
+		{
+			Gdi::redraw(prevData.sysClipRgn.get());
+			return;
+		}
+
+		HRGN rgn = CreateRectRgn(0, 0, 0, 0);
+		CombineRgn(rgn, prevData.sysClipRgn.get(), data.sysClipRgn.get(), RGN_DIFF);
+		Gdi::redraw(rgn);
+		DeleteObject(rgn);
 	}
 
 	void removeDropShadow(HWND hwnd)

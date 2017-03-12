@@ -196,8 +196,7 @@ namespace
 		}
 
 		HDC dc = GetWindowDC(hwnd);
-		const bool isMenuPaintDc = true;
-		HDC compatDc = Gdi::Dc::getDc(dc, isMenuPaintDc);
+		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
 			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),

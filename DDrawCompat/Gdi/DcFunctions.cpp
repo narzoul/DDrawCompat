@@ -9,6 +9,12 @@
 
 namespace
 {
+	struct ExcludeRectContext
+	{
+		HRGN rgn;
+		HWND rootWnd;
+	};
+
 	std::unordered_map<void*, const char*> g_funcNames;
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
@@ -104,6 +110,53 @@ namespace
 #endif
 
 		return result;
+	}
+
+	void enumTopLevelThreadWindows(WNDENUMPROC enumFunc, LPARAM lParam)
+	{
+		const DWORD currentThreadId = GetCurrentThreadId();
+		const char* MENU_ATOM = reinterpret_cast<LPCSTR>(0x8000);
+		HWND menuWindow = FindWindow(MENU_ATOM, nullptr);
+		BOOL cont = TRUE;
+		while (menuWindow && cont)
+		{
+			if (currentThreadId == GetWindowThreadProcessId(menuWindow, nullptr))
+			{
+				cont = enumFunc(menuWindow, lParam);
+			}
+			if (cont)
+			{
+				menuWindow = FindWindowEx(nullptr, menuWindow, MENU_ATOM, nullptr);
+			}
+		}
+
+		if (cont)
+		{
+			EnumThreadWindows(currentThreadId, enumFunc, lParam);
+		}
+	}
+
+	BOOL CALLBACK excludeRectForOverlappingWindow(HWND hwnd, LPARAM lParam)
+	{
+		auto excludeRectContext = reinterpret_cast<ExcludeRectContext*>(lParam);
+		if (hwnd == excludeRectContext->rootWnd)
+		{
+			return FALSE;
+		}
+
+		if (!IsWindowVisible(hwnd) || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT))
+		{
+			return TRUE;
+		}
+
+		RECT windowRect = {};
+		GetWindowRect(hwnd, &windowRect);
+
+		HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
+		CombineRgn(excludeRectContext->rgn, excludeRectContext->rgn, windowRgn, RGN_DIFF);
+		DeleteObject(windowRgn);
+
+		return TRUE;
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
@@ -203,6 +256,35 @@ namespace
 			moduleName, funcName, getCompatGdiDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
 	}
 
+	int WINAPI getRandomRgn(HDC hdc, HRGN hrgn, INT iNum)
+	{
+		int result = CALL_ORIG_FUNC(GetRandomRgn)(hdc, hrgn, iNum);
+		if (1 != result)
+		{
+			return result;
+		}
+
+		HWND hwnd = WindowFromDC(hdc);
+		if (!hwnd)
+		{
+			return 1;
+		}
+
+		if ((GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+			!GetLayeredWindowAttributes(hwnd, nullptr, nullptr, nullptr))
+		{
+			RECT rect = {};
+			GetWindowRect(hwnd, &rect);
+			SetRectRgn(hrgn, rect.left, rect.top, rect.right, rect.bottom);
+		}
+
+		ExcludeRectContext excludeRectContext = { hrgn, GetAncestor(hwnd, GA_ROOT) };
+		enumTopLevelThreadWindows(excludeRectForOverlappingWindow,
+			reinterpret_cast<LPARAM>(&excludeRectContext));
+
+		return 1;
+	}
+
 	HWND WINAPI windowFromDc(HDC dc)
 	{
 		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
@@ -247,6 +329,9 @@ namespace Gdi
 
 			// Brush functions
 			HOOK_GDI_DC_FUNCTION(gdi32, PatBlt);
+
+			// Clipping functions
+			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
 
 			// Device context functions
 			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
