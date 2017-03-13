@@ -378,6 +378,11 @@ namespace DDraw
 
 	void RealPrimarySurface::setClipper(CompatWeakPtr<IDirectDrawClipper> clipper)
 	{
+		if (g_backBuffer)
+		{
+			return;
+		}
+
 		HRESULT result = g_frontBuffer->SetClipper(g_frontBuffer, clipper);
 		if (FAILED(result))
 		{

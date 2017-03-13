@@ -6,6 +6,8 @@
 
 namespace Gdi
 {
+	typedef void(*WindowPosChangeNotifyFunc)(HWND, const RECT&, const RECT&);
+
 	bool beginGdiRendering(DWORD lockFlags = 0);
 	void endGdiRendering();
 
@@ -20,6 +22,7 @@ namespace Gdi
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
 	void uninstallHooks();
 	void updatePalette(DWORD startingEntry, DWORD count);
+	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 
 	extern CRITICAL_SECTION g_gdiCriticalSection;
 };

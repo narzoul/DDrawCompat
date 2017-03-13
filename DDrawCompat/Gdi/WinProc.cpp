@@ -1,6 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <memory>
+#include <set>
 #include <unordered_map>
 
 #include <dwmapi.h>
@@ -9,7 +10,6 @@
 #include "Common/Log.h"
 #include "Common/ScopedCriticalSection.h"
 #include "Gdi/Dc.h"
-#include "Gdi/Gdi.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
@@ -26,6 +26,7 @@ namespace
 	HHOOK g_callWndRetProcHook = nullptr;
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
 	std::unordered_map<HWND, WindowData> g_windowData;
+	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	void disableDwmAttributes(HWND hwnd);
 	void onActivate(HWND hwnd);
@@ -196,6 +197,11 @@ namespace
 		WindowData data = getWindowData(hwnd);
 		g_windowData[hwnd] = data;
 
+		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
+		{
+			notifyFunc(hwnd, prevData.wndRect, data.wndRect);
+		}
+
 		if (!prevData.sysClipRgn && !data.sysClipRgn || !Gdi::isEmulationEnabled())
 		{
 			return;
@@ -270,6 +276,11 @@ namespace Gdi
 			g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 				nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+		}
+
+		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
+		{
+			g_windowPosChangeNotifyFuncs.insert(notifyFunc);
 		}
 
 		void uninstallHooks()

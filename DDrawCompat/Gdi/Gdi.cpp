@@ -245,4 +245,9 @@ namespace Gdi
 			Gdi::DcCache::updatePalette(startingEntry, count);
 		}
 	}
+
+	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
+	{
+		WinProc::watchWindowPosChanges(notifyFunc);
+	}
 }
