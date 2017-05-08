@@ -5,6 +5,7 @@
 #include "Common/Hook.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "Gdi/Gdi.h"
+#include "Win32/DisplayMode.h"
 #include "Win32/FontSmoothing.h"
 
 namespace

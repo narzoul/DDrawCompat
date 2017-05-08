@@ -4,14 +4,15 @@
 #include "Common/Hook.h"
 #include "Common/Time.h"
 #include "Config/Config.h"
+#include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
-#include "DDraw/DisplayMode.h"
 #include "DDraw/IReleaseNotifier.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Types.h"
 #include "Gdi/Gdi.h"
+#include "Win32/DisplayMode.h"
 
 namespace
 {
@@ -90,8 +91,7 @@ namespace
 	template <typename TDirectDraw>
 	HRESULT createPaletteConverter(CompatRef<TDirectDraw> dd)
 	{
-		auto dd7(CompatPtr<IDirectDraw7>::from(&dd));
-		auto dm = DDraw::DisplayMode::getDisplayMode(*dd7);
+		auto dm = DDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		if (dm.ddpfPixelFormat.dwRGBBitCount > 8)
 		{
 			return DD_OK;

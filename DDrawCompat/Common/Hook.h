@@ -15,6 +15,8 @@
 
 namespace Compat
 {
+	void redirectIatHooks(const char* moduleName, const char* funcName, void* newFunc);
+
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	OrigFuncPtr& getOrigFuncPtr()
 	{
@@ -22,9 +24,13 @@ namespace Compat
 		return origFuncPtr;
 	}
 
+	FARPROC* findProcAddressInIat(HMODULE module, const char* importedModuleName, const char* procName);
+	FARPROC getProcAddress(HMODULE module, const char* procName);
+	FARPROC getProcAddressFromIat(HMODULE module, const char* importedModuleName, const char* procName);
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
+	void hookIatFunction(HMODULE module, const char* importedModuleName, const char* funcName, void* newFuncPtr);
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	void hookFunction(const char* moduleName, const char* funcName, OrigFuncPtr newFuncPtr)

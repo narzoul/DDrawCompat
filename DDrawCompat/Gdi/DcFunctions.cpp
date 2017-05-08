@@ -2,10 +2,10 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "DDraw/DisplayMode.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
+#include "Win32/DisplayMode.h"
 
 namespace
 {
@@ -307,9 +307,9 @@ namespace Gdi
 			// Bitmap functions
 			HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
-			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, DDraw::DisplayMode::createCompatibleBitmap);
-			HOOK_FUNCTION(gdi32, CreateDIBitmap, DDraw::DisplayMode::createDIBitmap);
-			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, DDraw::DisplayMode::createDiscardableBitmap);
+			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, Win32::DisplayMode::createCompatibleBitmap);
+			HOOK_FUNCTION(gdi32, CreateDIBitmap, Win32::DisplayMode::createDIBitmap);
+			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, Win32::DisplayMode::createDiscardableBitmap);
 			HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);

@@ -3,7 +3,6 @@
 #include "Common/CompatPtr.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
-#include "DDraw/DisplayMode.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 
@@ -44,7 +43,7 @@ namespace
 		{
 			if (!(flags & DDSD_PIXELFORMAT))
 			{
-				auto dm = DDraw::DisplayMode::getDisplayMode(dd);
+				auto dm = DDraw::getDisplayMode(dd);
 				flags |= DDSD_PIXELFORMAT;
 				pf = dm.ddpfPixelFormat;
 			}

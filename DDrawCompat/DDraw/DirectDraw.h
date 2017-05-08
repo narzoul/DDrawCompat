@@ -1,13 +1,23 @@
 #pragma once
 
+#define CINTERFACE
+
+#include <ddraw.h>
+
+#include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
 #include "Common/CompatVtable.h"
 #include "DDraw/Visitors/DirectDrawVtblVisitor.h"
 #include "DDraw/Types.h"
 
 namespace DDraw
 {
+	CompatPtr<IDirectDrawSurface7> createCompatibleSurface(DWORD bpp);
+	
 	template <typename TDirectDraw>
 	void* getDdObject(TDirectDraw& dd);
+
+	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
 
 	template <typename TDirectDraw>
 	class DirectDraw: public CompatVtable<Vtable<TDirectDraw>>
@@ -25,9 +35,7 @@ namespace DDraw
 			IUnknown* pUnkOuter);
 
 		static HRESULT STDMETHODCALLTYPE FlipToGDISurface(TDirectDraw* This);
-		static HRESULT STDMETHODCALLTYPE GetDisplayMode(TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc);
 		static HRESULT STDMETHODCALLTYPE GetGDISurface(TDirectDraw* This, TSurface** lplpGDIDDSSurface);
-		static HRESULT STDMETHODCALLTYPE RestoreDisplayMode(TDirectDraw* This);
 		static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
 
 		template <typename... Params>

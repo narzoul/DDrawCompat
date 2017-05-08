@@ -90,7 +90,7 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PSAPI_VERSION=1;WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <MinimalRebuild>false</MinimalRebuild>
@@ -99,7 +99,7 @@
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
-      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;psapi.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
   </ItemDefinitionGroup>
@@ -122,14 +122,14 @@
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>PSAPI_VERSION=1;WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
-      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;psapi.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>No</GenerateDebugInformation>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
     </Link>
@@ -185,7 +185,6 @@
     <ClInclude Include="DDraw\DirectDrawClipper.h" />
     <ClInclude Include="DDraw\DirectDrawPalette.h" />
     <ClInclude Include="DDraw\DirectDrawSurface.h" />
-    <ClInclude Include="DDraw\DisplayMode.h" />
     <ClInclude Include="DDraw\Hooks.h" />
     <ClInclude Include="DDraw\Repository.h" />
     <ClInclude Include="DDraw\ScopedThreadLock.h" />
@@ -225,6 +224,7 @@
     <ClInclude Include="Gdi\ScrollFunctions.h" />
     <ClInclude Include="Gdi\TitleBar.h" />
     <ClInclude Include="Gdi\WinProc.h" />
+    <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\FontSmoothing.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
@@ -250,7 +250,6 @@
     <ClCompile Include="DDraw\DirectDrawClipper.cpp" />
     <ClCompile Include="DDraw\DirectDrawPalette.cpp" />
     <ClCompile Include="DDraw\DirectDrawSurface.cpp" />
-    <ClCompile Include="DDraw\DisplayMode.cpp" />
     <ClCompile Include="DDraw\Hooks.cpp" />
     <ClCompile Include="DDraw\Repository.cpp" />
     <ClCompile Include="DDraw\IReleaseNotifier.cpp" />
@@ -280,6 +279,7 @@
     <ClCompile Include="Gdi\ScrollFunctions.cpp" />
     <ClCompile Include="Gdi\TitleBar.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
+    <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\FontSmoothing.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />

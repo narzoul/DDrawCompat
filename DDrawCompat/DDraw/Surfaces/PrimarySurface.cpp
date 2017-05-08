@@ -1,5 +1,5 @@
 #include "Common/CompatPtr.h"
-#include "DDraw/DisplayMode.h"
+#include "DDraw/DirectDraw.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurfaceImpl.h"
@@ -42,8 +42,7 @@ namespace DDraw
 			return result;
 		}
 
-		CompatPtr<IDirectDraw7> dd7(Compat::queryInterface<IDirectDraw7>(&dd));
-		const auto& dm = DisplayMode::getDisplayMode(*dd7);
+		const auto& dm = DDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
 		desc.dwHeight = dm.dwHeight;

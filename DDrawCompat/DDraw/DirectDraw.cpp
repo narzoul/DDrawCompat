@@ -1,12 +1,86 @@
 #include "Common/CompatPtr.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/DisplayMode.h"
+#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/TagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
+#include "Win32/DisplayMode.h"
+
+namespace
+{
+	DDPIXELFORMAT getRgbPixelFormat(DWORD bpp)
+	{
+		DDPIXELFORMAT pf = {};
+		pf.dwSize = sizeof(pf);
+		pf.dwFlags = DDPF_RGB;
+		pf.dwRGBBitCount = bpp;
+
+		switch (bpp)
+		{
+		case 1:
+			pf.dwFlags |= DDPF_PALETTEINDEXED1;
+			break;
+		case 2:
+			pf.dwFlags |= DDPF_PALETTEINDEXED2;
+			break;
+		case 4:
+			pf.dwFlags |= DDPF_PALETTEINDEXED4;
+			break;
+		case 8:
+			pf.dwFlags |= DDPF_PALETTEINDEXED8;
+			break;
+		case 16:
+			pf.dwRBitMask = 0xF800;
+			pf.dwGBitMask = 0x07E0;
+			pf.dwBBitMask = 0x001F;
+			break;
+		case 24:
+		case 32:
+			pf.dwRBitMask = 0xFF0000;
+			pf.dwGBitMask = 0x00FF00;
+			pf.dwBBitMask = 0x0000FF;
+			break;
+		}
+
+		return pf;
+	}
+
+	template <typename TDirectDraw>
+	HRESULT setDisplayMode(TDirectDraw* This, DWORD width, DWORD height, DWORD bpp)
+	{
+		return DDraw::DirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(This, width, height, bpp);
+	}
+
+	template <typename TDirectDraw>
+	HRESULT setDisplayMode(TDirectDraw* This, DWORD width, DWORD height, DWORD bpp,
+		DWORD refreshRate, DWORD flags)
+	{
+		Win32::DisplayMode::setDDrawBpp(bpp);
+		HRESULT result = DDraw::DirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(
+			This, width, height, bpp, refreshRate, flags);
+		Win32::DisplayMode::setDDrawBpp(0);
+		return result;
+	}
+}
 
 namespace DDraw
 {
+	CompatPtr<IDirectDrawSurface7> createCompatibleSurface(DWORD bpp)
+	{
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS | DDSD_PIXELFORMAT;
+		desc.dwWidth = 1;
+		desc.dwHeight = 1;
+		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
+		desc.ddpfPixelFormat = getRgbPixelFormat(bpp);
+
+		CompatPtr<IDirectDrawSurface7> surface;
+		auto dd = DDraw::Repository::getDirectDraw();
+		dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		return surface;
+	}
+
 	template <typename TDirectDraw>
 	void* getDdObject(TDirectDraw& dd)
 	{
@@ -18,14 +92,20 @@ namespace DDraw
 	template void* getDdObject(IDirectDraw4&);
 	template void* getDdObject(IDirectDraw7&);
 
+	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
+	{
+		DDSURFACEDESC2 dm = {};
+		dm.dwSize = sizeof(dm);
+		dd->GetDisplayMode(&dd, &dm);
+		return dm;
+	}
+
 	template <typename TDirectDraw>
 	void DirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 	{
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
-		vtable.GetDisplayMode = &GetDisplayMode;
 		vtable.GetGDISurface = &GetGDISurface;
-		vtable.RestoreDisplayMode = &RestoreDisplayMode;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.SetDisplayMode = &SetDisplayMode;
 	}
@@ -65,24 +145,6 @@ namespace DDraw
 	}
 
 	template <typename TDirectDraw>
-	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetDisplayMode(
-		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc)
-	{
-		const DWORD size = lpDDSurfaceDesc ? lpDDSurfaceDesc->dwSize : 0;
-		if (sizeof(DDSURFACEDESC) != size && sizeof(DDSURFACEDESC2) != size)
-		{
-			return DDERR_INVALIDPARAMS;
-		}
-
-		CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-		const DDSURFACEDESC2 dm = DisplayMode::getDisplayMode(*dd);
-		CopyMemory(lpDDSurfaceDesc, &dm, size);
-		lpDDSurfaceDesc->dwSize = size;
-
-		return DD_OK;
-	}
-
-	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetGDISurface(
 		TDirectDraw* /*This*/, TSurface** lplpGDIDDSSurface)
 	{
@@ -99,13 +161,6 @@ namespace DDraw
 
 		*lplpGDIDDSSurface = CompatPtr<TSurface>::from(gdiSurface.get()).detach();
 		return DD_OK;
-	}
-
-	template <typename TDirectDraw>
-	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::RestoreDisplayMode(TDirectDraw* This)
-	{
-		CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-		return DisplayMode::restoreDisplayMode(*dd);
 	}
 
 	template <typename TDirectDraw>
@@ -138,8 +193,7 @@ namespace DDraw
 		DWORD dwBPP,
 		Params... params)
 	{
-		CompatPtr<IDirectDraw7> dd(Compat::queryInterface<IDirectDraw7>(This));
-		return DisplayMode::setDisplayMode(*dd, dwWidth, dwHeight, dwBPP, params...);
+		return setDisplayMode(This, dwWidth, dwHeight, dwBPP, params...);
 	}
 
 	template DirectDraw<IDirectDraw>;

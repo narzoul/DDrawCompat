@@ -5,13 +5,15 @@
 #include <Windows.h>
 #include <Uxtheme.h>
 
+#include "Common/Hook.h"
+#include "Common/Log.h"
 #include "Common/Time.h"
 #include "D3dDdi/Hooks.h"
-#include "DDraw/DisplayMode.h"
 #include "DDraw/Hooks.h"
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
 #include "Gdi/Gdi.h"
+#include "Win32/DisplayMode.h"
 #include "Win32/FontSmoothing.h"
 #include "Win32/MsgHooks.h"
 #include "Win32/Registry.h"
@@ -30,6 +32,7 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
+			Win32::DisplayMode::disableDwm8And16BitMitigation();
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
@@ -40,6 +43,8 @@ namespace
 			Direct3d::installHooks();
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
+			Compat::Log() << "Installing display mode hooks";
+			Win32::DisplayMode::installHooks(g_origDDrawModule);
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
@@ -82,7 +87,7 @@ namespace
 }
 
 #define	LOAD_ORIGINAL_PROC(procName) \
-	Dll::g_origProcs.procName = GetProcAddress(g_origDDrawModule, #procName);
+	Dll::g_origProcs.procName = Compat::getProcAddress(g_origDDrawModule, #procName);
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 {
@@ -122,7 +127,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		SetThemeAppProperties(0);
 
-		DDraw::DisplayMode::installHooks();
+		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreate",
+			Compat::getProcAddress(hinstDLL, "DirectDrawCreate"));
+		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreateEx",
+			Compat::getProcAddress(hinstDLL, "DirectDrawCreateEx"));
 		Win32::FontSmoothing::g_origSystemSettings = Win32::FontSmoothing::getSystemSettings();
 		Win32::MsgHooks::installHooks();
 		Time::init();
