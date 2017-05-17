@@ -35,6 +35,9 @@ namespace
 	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
 	decltype(D3DKMTSetVidPnSourceOwner1)* g_origD3dKmtSetVidPnSourceOwner1 = nullptr;
 
+	D3DDDI_FLIPINTERVAL_TYPE g_overrideFlipInterval = D3DDDI_FLIPINTERVAL_NOOVERRIDE;
+	UINT g_presentCount = 0;
+
 	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
 	{
 		Compat::LogEnter("D3DKMTCreateDevice", pData);
@@ -101,19 +104,37 @@ namespace
 		return result;
 	}
 
+	bool isPresentReady(D3DKMT_HANDLE device, D3DDDI_VIDEO_PRESENT_SOURCE_ID vidPnSourceId)
+	{
+		D3DKMT_GETDEVICESTATE deviceState = {};
+		deviceState.hDevice = device;
+		deviceState.StateType = D3DKMT_DEVICESTATE_PRESENT;
+		deviceState.PresentState.VidPnSourceId = vidPnSourceId;
+		NTSTATUS stateResult = D3DKMTGetDeviceState(&deviceState);
+		return FAILED(stateResult) ||
+			g_presentCount == deviceState.PresentState.PresentStats.PresentCount ||
+			0 == deviceState.PresentState.PresentStats.PresentCount;
+	}
+
 	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
 	{
 		Compat::LogEnter("D3DKMTPresent", pData);
 
-		static UINT presentCount = 0;
-		++presentCount;
+		if (pData->Flags.Flip && D3DDDI_FLIPINTERVAL_NOOVERRIDE != g_overrideFlipInterval)
+		{
+			pData->FlipInterval = g_overrideFlipInterval;
+		}
+
+		++g_presentCount;
 		pData->Flags.PresentCountValid = 1;
-		pData->PresentCount = presentCount;
+		pData->PresentCount = g_presentCount;
 
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTPresent)(pData);
 		if (SUCCEEDED(result) &&
 			1 == DDraw::PrimarySurface::getDesc().dwBackBufferCount &&
-			pData->Flags.Flip && pData->FlipInterval != D3DDDI_FLIPINTERVAL_IMMEDIATE)
+			pData->Flags.Flip &&
+			D3DDDI_FLIPINTERVAL_IMMEDIATE != pData->FlipInterval &&
+			D3DDDI_FLIPINTERVAL_NOOVERRIDE == g_overrideFlipInterval)
 		{
 			auto contextIt = g_contexts.find(pData->hContext);
 			auto deviceIt = (contextIt != g_contexts.end())
@@ -126,19 +147,12 @@ namespace
 				vbEvent.hDevice = deviceIt->first;
 				vbEvent.VidPnSourceId = deviceIt->second.vidPnSourceId;
 
-				D3DKMT_GETDEVICESTATE deviceState = {};
-				deviceState.hDevice = deviceIt->first;
-				deviceState.StateType = D3DKMT_DEVICESTATE_PRESENT;
-				deviceState.PresentState.VidPnSourceId = deviceIt->second.vidPnSourceId;
-				NTSTATUS stateResult = D3DKMTGetDeviceState(&deviceState);
-				while (SUCCEEDED(stateResult) &&
-					presentCount != deviceState.PresentState.PresentStats.PresentCount)
+				while (!isPresentReady(deviceIt->first, deviceIt->second.vidPnSourceId))
 				{
 					if (FAILED(D3DKMTWaitForVerticalBlankEvent(&vbEvent)))
 					{
 						Sleep(1);
 					}
-					stateResult = D3DKMTGetDeviceState(&deviceState);
 				}
 			}
 		}
@@ -220,6 +234,18 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
+		bool isPresentReady()
+		{
+			for (auto it : g_devices)
+			{
+				if (D3DDDI_ID_UNINITIALIZED != it.second.vidPnSourceId)
+				{
+					return ::isPresentReady(it.first, it.second.vidPnSourceId);
+				}
+			}
+			return true;
+		}
+
 		void installHooks()
 		{
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
@@ -236,6 +262,11 @@ namespace D3dDdi
 				reinterpret_cast<void*&>(g_origD3dKmtCreateContextVirtual), createContextVirtual);
 			Compat::hookFunction("gdi32", "D3DKMTSetVidPnSourceOwner1",
 				reinterpret_cast<void*&>(g_origD3dKmtSetVidPnSourceOwner1), setVidPnSourceOwner1);
+		}
+
+		void overrideFlipInterval(D3DDDI_FLIPINTERVAL_TYPE flipInterval)
+		{
+			g_overrideFlipInterval = flipInterval;
 		}
 
 		void releaseVidPnSources()

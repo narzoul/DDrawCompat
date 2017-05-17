@@ -33,7 +33,6 @@ namespace DDraw
 		HRESULT result = m_impl.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::invalidate(lpDestRect);
 			RealPrimarySurface::update();
 		}
 		return result;
@@ -67,7 +66,6 @@ namespace DDraw
 				destRect.right += desc.dwWidth;
 				destRect.bottom += desc.dwHeight;
 			}
-			RealPrimarySurface::invalidate(&destRect);
 			RealPrimarySurface::update();
 		}
 		return result;
@@ -144,7 +142,6 @@ namespace DDraw
 		HRESULT result = m_impl.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::invalidate(lpDestRect);
 			restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
 		}
 		return result;
@@ -167,7 +164,6 @@ namespace DDraw
 		HRESULT result = m_impl.ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::invalidate(nullptr);
 			RealPrimarySurface::update();
 		}
 		return result;

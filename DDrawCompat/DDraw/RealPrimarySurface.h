@@ -19,7 +19,6 @@ namespace DDraw
 		static void enableUpdates();
 		static HRESULT flip(DWORD flags);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
-		static void invalidate(const RECT* rect);
 		static bool isFullScreen();
 		static bool isLost();
 		static void release();

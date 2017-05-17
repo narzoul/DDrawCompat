@@ -3,6 +3,7 @@
 #include <string>
 
 #include <Windows.h>
+#include <timeapi.h>
 #include <Uxtheme.h>
 
 #include "Common/Hook.h"
@@ -125,6 +126,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		const BOOL disablePriorityBoost = TRUE;
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
+		timeBeginPeriod(1);
 		SetThemeAppProperties(0);
 
 		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreate",
@@ -150,6 +152,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 		FreeLibrary(g_origDInputModule);
 		FreeLibrary(g_origDDrawModule);
 		Win32::FontSmoothing::setSystemSettingsForced(Win32::FontSmoothing::g_origSystemSettings);
+		timeEndPeriod(1);
 		Compat::Log() << "DDrawCompat detached successfully";
 	}
 

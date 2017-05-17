@@ -4,6 +4,7 @@
 #include "Common/Hook.h"
 #include "Common/Time.h"
 #include "Config/Config.h"
+#include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/IReleaseNotifier.h"
@@ -17,7 +18,6 @@
 namespace
 {
 	void onRelease();
-	void updateNow(long long qpcNow);
 	DWORD WINAPI updateThreadProc(LPVOID lpParameter);
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
@@ -30,10 +30,11 @@ namespace
 	bool g_stopUpdateThread = false;
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
-	RECT g_updateRect = {};
 	std::atomic<int> g_disableUpdateCount = 0;
-	long long g_qpcMinUpdateInterval = 0;
-	std::atomic<long long> g_qpcNextUpdate = 0;
+	long long g_qpcFlipModeTimeout = 0;
+	long long g_qpcLastFlip = 0;
+	long long g_qpcNextUpdate = 0;
+	long long g_qpcUpdateInterval = 0;
 
 	std::atomic<bool> g_isFullScreen(false);
 
@@ -59,9 +60,7 @@ namespace
 			if (paletteConverterDc && primaryDc)
 			{
 				result = TRUE == CALL_ORIG_FUNC(BitBlt)(paletteConverterDc,
-					g_updateRect.left, g_updateRect.top,
-					g_updateRect.right - g_updateRect.left, g_updateRect.bottom - g_updateRect.top,
-					primaryDc, g_updateRect.left, g_updateRect.top, SRCCOPY);
+					0, 0, g_surfaceDesc.dwWidth, g_surfaceDesc.dwHeight, primaryDc, 0, 0, SRCCOPY);
 			}
 
 			primary->ReleaseDC(primary, primaryDc);
@@ -69,19 +68,13 @@ namespace
 
 			if (result)
 			{
-				result = SUCCEEDED(dest->Blt(&dest, &g_updateRect,
-					g_paletteConverter, &g_updateRect, DDBLT_WAIT, nullptr));
+				result = SUCCEEDED(dest->Blt(
+					&dest, nullptr, g_paletteConverter, nullptr, DDBLT_WAIT, nullptr));
 			}
 		}
 		else
 		{
-			result = SUCCEEDED(dest->Blt(&dest, &g_updateRect,
-				primary, &g_updateRect, DDBLT_WAIT, nullptr));
-		}
-
-		if (result)
-		{
-			SetRectEmpty(&g_updateRect);
+			result = SUCCEEDED(dest->Blt(&dest, nullptr, primary, nullptr, DDBLT_WAIT, nullptr));
 		}
 
 		Compat::LogLeave("RealPrimarySurface::compatBlt", dest) << result;
@@ -120,14 +113,8 @@ namespace
 		return result;
 	}
 
-	long long getNextUpdateQpc(long long qpcNow)
-	{
-		long long qpcNextUpdate = g_qpcNextUpdate;
-		const long long missedIntervals = (qpcNow - qpcNextUpdate) / g_qpcMinUpdateInterval;
-		return qpcNextUpdate + g_qpcMinUpdateInterval * (missedIntervals + 1);
-	}
-
-	HRESULT init(CompatPtr<IDirectDrawSurface7> surface)
+	template <typename DirectDraw>
+	HRESULT init(CompatRef<DirectDraw> dd, CompatPtr<IDirectDrawSurface7> surface)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
@@ -142,8 +129,18 @@ namespace
 			surface->GetAttachedSurface(surface, &backBufferCaps, &backBuffer.getRef());
 		}
 
-		g_qpcMinUpdateInterval = Time::g_qpcFrequency / Config::maxPrimaryUpdateRate;
+		g_qpcFlipModeTimeout = Time::g_qpcFrequency / Config::minExpectedFlipsPerSec;
+		g_qpcLastFlip = Time::queryPerformanceCounter() - g_qpcFlipModeTimeout;
 		g_qpcNextUpdate = Time::queryPerformanceCounter();
+
+		typename DDraw::Types<DirectDraw>::TSurfaceDesc dm = {};
+		dm.dwSize = sizeof(dm);
+		dd->GetDisplayMode(&dd, &dm);
+		if (dm.dwRefreshRate <= 1 || dm.dwRefreshRate >= 1000)
+		{
+			dm.dwRefreshRate = 60;
+		}
+		g_qpcUpdateInterval = Time::g_qpcFrequency / dm.dwRefreshRate;
 
 		if (!g_updateEvent)
 		{
@@ -159,8 +156,6 @@ namespace
 		surface->SetPrivateData(surface, IID_IReleaseNotifier,
 			&g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
 
-		timeBeginPeriod(1);
-
 		g_frontBuffer = surface.detach();
 		g_backBuffer = backBuffer;
 		g_surfaceDesc = desc;
@@ -169,10 +164,21 @@ namespace
 		return DD_OK;
 	}
 
-	bool isNextUpdateSignaledAndReady(long long qpcNow)
+	bool isUpdateScheduled()
 	{
-		return Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0 &&
-			WAIT_OBJECT_0 == WaitForSingleObject(g_updateEvent, 0);
+		return WAIT_OBJECT_0 == WaitForSingleObject(g_updateEvent, 0);
+	}
+
+	int msUntilNextUpdate()
+	{
+		DDraw::ScopedThreadLock lock;
+		const auto qpcNow = Time::queryPerformanceCounter();
+		const int result = max(0, Time::qpcToMs(g_qpcNextUpdate - qpcNow));
+		if (0 == result && g_isFullScreen && qpcNow - g_qpcLastFlip >= g_qpcFlipModeTimeout)
+		{
+			return D3dDdi::KernelModeThunks::isPresentReady() ? 0 : 2;
+		}
+		return result;
 	}
 
 	void onRelease()
@@ -180,7 +186,6 @@ namespace
 		Compat::LogEnter("RealPrimarySurface::onRelease");
 
 		ResetEvent(g_updateEvent);
-		timeEndPeriod(1);
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
 		g_clipper = nullptr;
@@ -192,18 +197,24 @@ namespace
 		Compat::LogLeave("RealPrimarySurface::onRelease");
 	}
 
-	void updateNow(long long qpcNow)
+	void updateNow()
 	{
 		ResetEvent(g_updateEvent);
 
-		if (compatBlt(*g_frontBuffer))
+		if (!g_isFullScreen)
 		{
-			long long qpcNextUpdate = getNextUpdateQpc(qpcNow);
-			if (Time::qpcToMs(qpcNow - qpcNextUpdate) >= 0)
-			{
-				qpcNextUpdate += g_qpcMinUpdateInterval;
-			}
-			g_qpcNextUpdate = qpcNextUpdate;
+			compatBlt(*g_frontBuffer);
+			return;
+		}
+
+		if (compatBlt(*g_backBuffer))
+		{
+			D3dDdi::KernelModeThunks::overrideFlipInterval(
+				Time::queryPerformanceCounter() - g_qpcLastFlip >= g_qpcFlipModeTimeout
+				? D3DDDI_FLIPINTERVAL_ONE
+				: D3DDDI_FLIPINTERVAL_IMMEDIATE);
+			g_frontBuffer->Flip(g_frontBuffer, nullptr, DDFLIP_WAIT);
+			D3dDdi::KernelModeThunks::overrideFlipInterval(D3DDDI_FLIPINTERVAL_NOOVERRIDE);
 		}
 	}
 
@@ -218,20 +229,17 @@ namespace
 				return 0;
 			}
 
-			const long long qpcTargetNextUpdate = g_qpcNextUpdate;
-			const int msUntilNextUpdate =
-				Time::qpcToMs(qpcTargetNextUpdate - Time::queryPerformanceCounter());
-			if (msUntilNextUpdate > 0)
+			const int waitTime = msUntilNextUpdate();
+			if (waitTime > 0)
 			{
-				Sleep(msUntilNextUpdate);
+				Sleep(waitTime);
+				continue;
 			}
 
 			DDraw::ScopedThreadLock lock;
-			const long long qpcNow = Time::queryPerformanceCounter();
-			const bool isTargetUpdateStillNeeded = qpcTargetNextUpdate == g_qpcNextUpdate;
-			if (g_frontBuffer && (isTargetUpdateStillNeeded || isNextUpdateSignaledAndReady(qpcNow)))
+			if (isUpdateScheduled() && msUntilNextUpdate() <= 0)
 			{
-				updateNow(qpcNow);
+				updateNow();
 			}
 		}
 	}
@@ -275,7 +283,7 @@ namespace DDraw
 			return result;
 		}
 
-		return init(surface);
+		return init(dd, surface);
 	}
 
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw>);
@@ -305,36 +313,16 @@ namespace DDraw
 		}
 
 		ResetEvent(g_updateEvent);
-
-		invalidate(nullptr);
+		g_qpcLastFlip = Time::queryPerformanceCounter();
 		compatBlt(*g_backBuffer);
-
 		HRESULT result = g_frontBuffer->Flip(g_frontBuffer, nullptr, flags);
-		if (SUCCEEDED(result))
-		{
-			g_qpcNextUpdate = getNextUpdateQpc(
-				Time::queryPerformanceCounter() + Time::msToQpc(Config::primaryUpdateDelayAfterFlip));
-			SetRectEmpty(&g_updateRect);
-		}
+		g_qpcNextUpdate = Time::queryPerformanceCounter();
 		return result;
 	}
 
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
 	{
 		return g_frontBuffer;
-	}
-
-	void RealPrimarySurface::invalidate(const RECT* rect)
-	{
-		if (rect)
-		{
-			UnionRect(&g_updateRect, &g_updateRect, rect);
-		}
-		else
-		{
-			auto primaryDesc = PrimarySurface::getDesc();
-			SetRect(&g_updateRect, 0, 0, primaryDesc.dwWidth, primaryDesc.dwHeight);
-		}
 	}
 
 	bool RealPrimarySurface::isFullScreen()
@@ -404,16 +392,22 @@ namespace DDraw
 
 	void RealPrimarySurface::update()
 	{
-		if (!IsRectEmpty(&g_updateRect) && 0 == g_disableUpdateCount && (g_isFullScreen || g_clipper))
+		if (0 == g_disableUpdateCount && (g_isFullScreen || g_clipper))
 		{
-			const long long qpcNow = Time::queryPerformanceCounter();
-			if (Time::qpcToMs(qpcNow - g_qpcNextUpdate) >= 0)
+			if (!isUpdateScheduled())
 			{
-				updateNow(qpcNow);
-			}
-			else
-			{
+				const auto qpcNow = Time::queryPerformanceCounter();
+				const long long missedIntervals = (qpcNow - g_qpcNextUpdate) / g_qpcUpdateInterval;
+				g_qpcNextUpdate += g_qpcUpdateInterval * (missedIntervals + 1);
+				if (Time::qpcToMs(g_qpcNextUpdate - qpcNow) < 2)
+				{
+					g_qpcNextUpdate += g_qpcUpdateInterval;
+				}
 				SetEvent(g_updateEvent);
+			}
+			else if (msUntilNextUpdate() <= 0)
+			{
+				updateNow();
 			}
 		}
 	}
@@ -423,7 +417,6 @@ namespace DDraw
 		Gdi::updatePalette(startingEntry, count);
 		if (PrimarySurface::s_palette)
 		{
-			invalidate(nullptr);
 			update();
 		}
 	}

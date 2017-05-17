@@ -61,7 +61,6 @@ namespace
 			gdiSurface.get()->lpVtbl->Unlock(gdiSurface, nullptr);
 			if (DDLOCK_READONLY != g_ddLockFlags)
 			{
-				DDraw::RealPrimarySurface::invalidate(nullptr);
 				DDraw::RealPrimarySurface::update();
 			}
 		}
