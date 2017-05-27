@@ -262,12 +262,6 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
-	{
-		return s_origVtable.QueryInterface(This, riid, obp);
-	}
-
-	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
 		return s_origVtable.ReleaseDC(This, hDC);

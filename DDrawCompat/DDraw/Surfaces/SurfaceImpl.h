@@ -47,7 +47,6 @@ namespace DDraw
 		virtual HRESULT IsLost(TSurface* This);
 		virtual HRESULT Lock(TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 			DWORD dwFlags, HANDLE hEvent);
-		virtual HRESULT QueryInterface(TSurface* This, REFIID riid, LPVOID* obp);
 		virtual HRESULT ReleaseDC(TSurface* This, HDC hDC);
 		virtual HRESULT Restore(TSurface* This);
 		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper);

@@ -27,7 +27,6 @@ namespace DDraw
 		virtual HRESULT IsLost(TSurface* This) override;
 		virtual HRESULT Lock(TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 			DWORD dwFlags, HANDLE hEvent) override;
-		virtual HRESULT QueryInterface(TSurface* This, REFIID riid, LPVOID* obp) override;
 		virtual HRESULT ReleaseDC(TSurface* This, HDC hDC) override;
 		virtual HRESULT Restore(TSurface* This) override;
 		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper) override;

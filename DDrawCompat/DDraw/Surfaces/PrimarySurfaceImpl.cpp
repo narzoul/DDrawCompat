@@ -148,17 +148,6 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	HRESULT PrimarySurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
-	{
-		if (riid == IID_IDirectDrawGammaControl)
-		{
-			auto realPrimary(RealPrimarySurface::getSurface());
-			return realPrimary->QueryInterface(realPrimary, riid, obp);
-		}
-		return m_impl.QueryInterface(This, riid, obp);
-	}
-
-	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
 		HRESULT result = m_impl.ReleaseDC(This, hDC);

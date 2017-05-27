@@ -320,6 +320,17 @@ namespace DDraw
 		return result;
 	}
 
+	HRESULT RealPrimarySurface::getGammaRamp(DDGAMMARAMP* rampData)
+	{
+		auto gammaControl(CompatPtr<IDirectDrawGammaControl>::from(g_frontBuffer.get()));
+		if (!gammaControl)
+		{
+			return DDERR_INVALIDPARAMS;
+		}
+
+		return gammaControl->GetGammaRamp(gammaControl, 0, rampData);
+	}
+
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
 	{
 		return g_frontBuffer;
@@ -378,6 +389,17 @@ namespace DDraw
 			return;
 		}
 		g_clipper = clipper;
+	}
+
+	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)
+	{
+		auto gammaControl(CompatPtr<IDirectDrawGammaControl>::from(g_frontBuffer.get()));
+		if (!gammaControl)
+		{
+			return DDERR_INVALIDPARAMS;
+		}
+
+		return gammaControl->SetGammaRamp(gammaControl, 0, rampData);
 	}
 
 	void RealPrimarySurface::setPalette()

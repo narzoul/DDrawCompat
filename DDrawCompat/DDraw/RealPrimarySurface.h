@@ -18,6 +18,7 @@ namespace DDraw
 		static void disableUpdates();
 		static void enableUpdates();
 		static HRESULT flip(DWORD flags);
+		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static bool isFullScreen();
 		static bool isLost();
@@ -25,6 +26,7 @@ namespace DDraw
 		static void removeUpdateThread();
 		static HRESULT restore();
 		static void setClipper(CompatWeakPtr<IDirectDrawClipper> clipper);
+		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPalette();
 		static void update();
 		static void updatePalette(DWORD startingEntry, DWORD count);
