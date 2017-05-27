@@ -40,6 +40,7 @@ namespace Compat
 	DEFINE_BASE_INTF(IDirectDrawSurface3, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirectDrawSurface4, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirectDrawSurface7, IDirectDrawSurface);
+	DEFINE_BASE_INTF(IDirectDrawGammaControl, IDirectDrawSurface);
 
 	DEFINE_BASE_INTF(IDirect3D, IDirectDraw);
 	DEFINE_BASE_INTF(IDirect3D2, IDirectDraw);

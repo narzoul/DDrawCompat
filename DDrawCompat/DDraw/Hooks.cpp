@@ -8,6 +8,7 @@
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawClipper.h"
+#include "DDraw/DirectDrawGammaControl.h"
 #include "DDraw/DirectDrawPalette.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Hooks.h"
@@ -81,6 +82,7 @@ namespace
 			hookVtable<IDirectDrawSurface3>(surface);
 			hookVtable<IDirectDrawSurface4>(surface);
 			hookVtable<IDirectDrawSurface7>(surface);
+			hookVtable<IDirectDrawGammaControl>(surface);
 		}
 		else
 		{
@@ -91,7 +93,10 @@ namespace
 	template <typename Interface>
 	void hookVtable(const CompatPtr<Interface>& intf)
 	{
-		CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
+		if (intf)
+		{
+			CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
+		}
 	}
 }
 

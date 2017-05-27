@@ -306,6 +306,12 @@
     <ClInclude Include="Win32\DisplayMode.h">
       <Filter>Header Files\Win32</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Visitors\DirectDrawGammaControlVtblVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\DirectDrawGammaControl.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -466,6 +472,9 @@
     </ClCompile>
     <ClCompile Include="Win32\DisplayMode.cpp">
       <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\DirectDrawGammaControl.cpp">
+      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
