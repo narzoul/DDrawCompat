@@ -27,7 +27,7 @@ namespace
 
 		if (flags & SW_SMOOTHSCROLL)
 		{
-			flags = LOWORD(flags ^ SW_SMOOTHSCROLL);
+			flags = (LOWORD(flags) & ~SW_SMOOTHSCROLL) | SW_INVALIDATE | SW_ERASE;
 		}
 
 		int result = CALL_ORIG_FUNC(ScrollWindowEx)(
