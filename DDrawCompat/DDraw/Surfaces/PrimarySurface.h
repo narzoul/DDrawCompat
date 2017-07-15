@@ -1,6 +1,9 @@
 #pragma once
 
+#include <vector>
+
 #include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
 #include "DDraw/Surfaces/Surface.h"
 
 namespace DDraw
@@ -28,6 +31,10 @@ namespace DDraw
 
 		virtual void createImpl() override;
 
+		static void resizeBuffers(CompatRef<IDirectDrawSurface7> surface);
+
 		std::unique_ptr<Surface> m_surface;
+
+		static std::vector<std::vector<unsigned char>> s_surfaceBuffers;
 	};
 }

@@ -1,4 +1,5 @@
 #include "Common/CompatPtr.h"
+#include "Config/Config.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
@@ -25,6 +26,7 @@ namespace DDraw
 		g_gdiSurface = nullptr;
 		g_primarySurface = nullptr;
 		s_palette = nullptr;
+		s_surfaceBuffers.clear();
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
@@ -69,6 +71,11 @@ namespace DDraw
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
 		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetSurfaceDesc(surface7, &g_primarySurfaceDesc);
+
+		if (g_primarySurfaceDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
+		{
+			resizeBuffers(*surface7);
+		}
 
 		return DD_OK;
 	}
@@ -120,6 +127,31 @@ namespace DDraw
 			Compat::queryInterface<IDirectDrawSurface7>(g_primarySurface.get()));
 	}
 
+	void PrimarySurface::resizeBuffers(CompatRef<IDirectDrawSurface7> surface)
+	{
+		DDSCAPS2 flipCaps = {};
+		flipCaps.dwCaps = DDSCAPS_FLIP;
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_LPSURFACE;
+
+		const DWORD newBufferSize = g_primarySurfaceDesc.lPitch *
+			(g_primarySurfaceDesc.dwHeight + Config::primarySurfaceExtraRows);
+
+		auto surfacePtr(CompatPtr<IDirectDrawSurface7>::from(&surface));
+		do
+		{
+			s_surfaceBuffers.push_back(std::vector<unsigned char>(newBufferSize));
+			desc.lpSurface = s_surfaceBuffers.back().data();
+			surfacePtr->SetSurfaceDesc(surfacePtr, &desc, 0);
+
+			CompatPtr<IDirectDrawSurface7> nextSurface;
+			surfacePtr->GetAttachedSurface(surfacePtr, &flipCaps, &nextSurface.getRef());
+			surfacePtr.swap(nextSurface);
+		} while (surfacePtr && surfacePtr != &surface);
+	}
+
 	void PrimarySurface::updateGdiSurfacePtr(IDirectDrawSurface* flipTargetOverride)
 	{
 		auto primary(CompatPtr<IDirectDrawSurface>::from(m_surface->getDirectDrawSurface().get()));
@@ -153,4 +185,5 @@ namespace DDraw
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
 	PALETTEENTRY PrimarySurface::s_paletteEntries[256] = {};
+	std::vector<std::vector<unsigned char>> PrimarySurface::s_surfaceBuffers;
 }
