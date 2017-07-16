@@ -156,36 +156,24 @@ namespace
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
 	{
-		if (!hwnd || !Gdi::beginGdiRendering())
+		if (hwnd && Gdi::beginGdiRendering())
 		{
-			return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
-		}
-
-		LRESULT result = 0;
-		HDC compatDc = Gdi::Dc::getDc(dc);
-		if (compatDc)
-		{
-			result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
-			Gdi::Dc::releaseDc(dc);
-			if (result)
+			LRESULT result = 0;
+			HDC compatDc = Gdi::Dc::getDc(dc);
+			if (compatDc)
 			{
-				DDraw::RealPrimarySurface::disableUpdates();
+				result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
+				Gdi::Dc::releaseDc(dc);
+			}
+
+			Gdi::endGdiRendering();
+			if (compatDc)
+			{
+				return result;
 			}
 		}
-		else
-		{
-			result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
-		}
 
-		Gdi::endGdiRendering();
-
-		if (result && compatDc)
-		{
-			UpdateWindow(hwnd);
-			DDraw::RealPrimarySurface::enableUpdates();
-		}
-
-		return result;
+		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 	}
 
 	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
