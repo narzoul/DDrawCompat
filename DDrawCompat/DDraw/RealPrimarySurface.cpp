@@ -31,6 +31,7 @@ namespace
 	HANDLE g_updateThread = nullptr;
 	HANDLE g_updateEvent = nullptr;
 	std::atomic<int> g_disableUpdateCount = 0;
+	bool g_isUpdateSuspended = false;
 	long long g_qpcFlipModeTimeout = 0;
 	long long g_qpcLastFlip = 0;
 	long long g_qpcNextUpdate = 0;
@@ -41,11 +42,6 @@ namespace
 	bool compatBlt(CompatRef<IDirectDrawSurface7> dest)
 	{
 		Compat::LogEnter("RealPrimarySurface::compatBlt", dest);
-
-		if (g_disableUpdateCount > 0)
-		{
-			return false;
-		}
 
 		bool result = false;
 
@@ -293,15 +289,19 @@ namespace DDraw
 
 	void RealPrimarySurface::disableUpdates()
 	{
-		++g_disableUpdateCount;
-		ResetEvent(g_updateEvent);
+		if (0 == g_disableUpdateCount++ && isUpdateScheduled())
+		{
+			ResetEvent(g_updateEvent);
+			g_isUpdateSuspended = true;
+		}
 	}
 
 	void RealPrimarySurface::enableUpdates()
 	{
-		if (0 == --g_disableUpdateCount)
+		if (0 == --g_disableUpdateCount && g_isUpdateSuspended)
 		{
-			update();
+			SetEvent(g_updateEvent);
+			g_isUpdateSuspended = false;
 		}
 	}
 
@@ -313,6 +313,8 @@ namespace DDraw
 		}
 
 		ResetEvent(g_updateEvent);
+		g_isUpdateSuspended = false;
+
 		g_qpcLastFlip = Time::queryPerformanceCounter();
 		compatBlt(*g_backBuffer);
 		HRESULT result = g_frontBuffer->Flip(g_frontBuffer, nullptr, flags);
@@ -414,23 +416,33 @@ namespace DDraw
 
 	void RealPrimarySurface::update()
 	{
-		if (0 == g_disableUpdateCount && (g_isFullScreen || g_clipper))
+		if (g_isUpdateSuspended || !(g_isFullScreen || g_clipper))
 		{
-			if (!isUpdateScheduled())
+			return;
+		}
+
+		if (!isUpdateScheduled())
+		{
+			const auto qpcNow = Time::queryPerformanceCounter();
+			const long long missedIntervals = (qpcNow - g_qpcNextUpdate) / g_qpcUpdateInterval;
+			g_qpcNextUpdate += g_qpcUpdateInterval * (missedIntervals + 1);
+			if (Time::qpcToMs(g_qpcNextUpdate - qpcNow) < 2)
 			{
-				const auto qpcNow = Time::queryPerformanceCounter();
-				const long long missedIntervals = (qpcNow - g_qpcNextUpdate) / g_qpcUpdateInterval;
-				g_qpcNextUpdate += g_qpcUpdateInterval * (missedIntervals + 1);
-				if (Time::qpcToMs(g_qpcNextUpdate - qpcNow) < 2)
-				{
-					g_qpcNextUpdate += g_qpcUpdateInterval;
-				}
+				g_qpcNextUpdate += g_qpcUpdateInterval;
+			}
+
+			if (g_disableUpdateCount <= 0)
+			{
 				SetEvent(g_updateEvent);
 			}
-			else if (msUntilNextUpdate() <= 0)
+			else
 			{
-				updateNow();
+				g_isUpdateSuspended = true;
 			}
+		}
+		else if (msUntilNextUpdate() <= 0)
+		{
+			updateNow();
 		}
 	}
 
