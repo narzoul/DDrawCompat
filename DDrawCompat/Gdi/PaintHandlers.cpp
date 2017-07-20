@@ -19,11 +19,40 @@ namespace
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
+	WNDPROC g_origButtonWndProc = nullptr;
 	WNDPROC g_origComboListBoxWndProc = nullptr;
 	WNDPROC g_origEditWndProc = nullptr;
 	WNDPROC g_origListBoxWndProc = nullptr;
 	WNDPROC g_origMenuWndProc = nullptr;
 	WNDPROC g_origScrollBarWndProc = nullptr;
+
+	LRESULT WINAPI buttonWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	{
+		Compat::LogEnter("buttonWndProc", hwnd, msg, wParam, lParam);
+		LRESULT result = 0;
+
+		switch (msg)
+		{
+		case WM_PAINT:
+			result = onPaint(hwnd, g_origButtonWndProc);
+			break;
+
+		case WM_ENABLE:
+		case WM_SETTEXT:
+		case BM_SETCHECK:
+		case BM_SETSTATE:
+			result = CallWindowProc(g_origButtonWndProc, hwnd, msg, wParam, lParam);
+			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+			break;
+
+		default:
+			result = CallWindowProc(g_origButtonWndProc, hwnd, msg, wParam, lParam);
+			break;
+		}
+
+		Compat::LogLeave("buttonWndProc", hwnd, msg, wParam, lParam) << result;
+		return result;
+	}
 
 	LRESULT WINAPI comboListBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
@@ -320,6 +349,7 @@ namespace Gdi
 		{
 			disableImmersiveContextMenus();
 
+			Gdi::hookWndProc("Button", g_origButtonWndProc, &buttonWndProc);
 			Gdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
 			Gdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
 			Gdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
@@ -334,6 +364,7 @@ namespace Gdi
 
 		void uninstallHooks()
 		{
+			Gdi::unhookWndProc("Button", g_origButtonWndProc);
 			Gdi::unhookWndProc("ComboLBox", g_origComboListBoxWndProc);
 			Gdi::unhookWndProc("Edit", g_origEditWndProc);
 			Gdi::unhookWndProc("ListBox", g_origListBoxWndProc);
