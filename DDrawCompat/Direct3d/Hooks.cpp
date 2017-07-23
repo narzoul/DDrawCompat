@@ -45,21 +45,6 @@ namespace
 		return d3d;
 	}
 
-	template <typename TDirect3dDevice, typename TDirect3d, typename TDirectDrawSurface,
-		typename... Params>
-		CompatPtr<TDirect3dDevice> createDirect3dDevice(
-			CompatRef<TDirect3d> d3d, CompatRef<TDirectDrawSurface> renderTarget, Params... params)
-	{
-		CompatPtr<TDirect3dDevice> d3dDevice;
-		HRESULT result = d3d->CreateDevice(
-			&d3d, IID_IDirect3DRGBDevice, &renderTarget, &d3dDevice.getRef(), params...);
-		if (FAILED(result))
-		{
-			Compat::Log() << "Failed to create a Direct3D device for hooking: " << result;
-		}
-		return d3dDevice;
-	}
-
 	CompatPtr<IDirectDrawSurface7> createRenderTarget(CompatRef<IDirectDraw7> dd)
 	{
 		DDSURFACEDESC2 desc = {};
@@ -99,33 +84,30 @@ namespace
 		}
 	}
 
-	void hookDirect3d7(CompatRef<IDirectDraw7> dd, CompatRef<IDirectDrawSurface7> renderTarget)
+	void hookDirect3d7(CompatRef<IDirectDraw7> dd)
 	{
 		CompatPtr<IDirect3D7> d3d(createDirect3d<IDirect3D7>(dd));
 		if (d3d)
 		{
 			hookVtable<IDirect3D7>(d3d);
-			hookDirect3dDevice7(*d3d, renderTarget);
 			hookDirect3dVertexBuffer7(*d3d);
 		}
 	}
 
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget)
 	{
-		CompatPtr<IDirect3DDevice3> d3dDevice(
-			createDirect3dDevice<IDirect3DDevice3>(d3d, renderTarget, nullptr));
+		CompatPtr<IDirect3DDevice3> d3dDevice;
+		HRESULT result = d3d->CreateDevice(
+			&d3d, IID_IDirect3DRGBDevice, &renderTarget, &d3dDevice.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			Compat::Log() << "Failed to create a Direct3D device for hooking: " << result;
+			return;
+		}
 
 		hookVtable<IDirect3DDevice>(d3dDevice);
 		hookVtable<IDirect3DDevice2>(d3dDevice);
 		hookVtable<IDirect3DDevice3>(d3dDevice);
-	}
-
-	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget)
-	{
-		CompatPtr<IDirect3DDevice7> d3dDevice(
-			createDirect3dDevice<IDirect3DDevice7>(d3d, renderTarget));
-
-		hookVtable<IDirect3DDevice7>(d3dDevice);
 	}
 
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd)
@@ -223,7 +205,7 @@ namespace Direct3d
 		{
 			CompatPtr<IDirectDrawSurface4> renderTarget4(renderTarget7);
 			hookDirect3d(*dd, *renderTarget4);
-			hookDirect3d7(*dd7, *renderTarget7);
+			hookDirect3d7(*dd7);
 		}
 	}
 }

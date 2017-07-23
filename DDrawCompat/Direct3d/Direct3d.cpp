@@ -1,6 +1,7 @@
 #include "Common/CompatPtr.h"
 #include "Direct3d/DepthBuffer.h"
 #include "Direct3d/Direct3d.h"
+#include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Types.h"
 
 namespace
@@ -12,6 +13,21 @@ namespace
 		typename Direct3d::Types<TDirect3d>::TD3dEnumDevicesCallback enumDevicesCallback;
 		void* userArg;
 	};
+
+	HRESULT STDMETHODCALLTYPE createDevice(
+		IDirect3D7* This,
+		REFCLSID rclsid,
+		LPDIRECTDRAWSURFACE7 lpDDS,
+		LPDIRECT3DDEVICE7* lplpD3DDevice)
+	{
+		HRESULT result = CompatVtable<IDirect3D7Vtbl>::s_origVtable.CreateDevice(
+			This, rclsid, lpDDS, lplpD3DDevice);
+		if (SUCCEEDED(result))
+		{
+			CompatVtable<IDirect3DDevice7Vtbl>::hookVtable((*lplpD3DDevice)->lpVtbl);
+		}
+		return result;
+	}
 
 	HRESULT CALLBACK d3dEnumDevicesCallback(
 		GUID* lpGuid,
@@ -56,6 +72,16 @@ namespace
 		return CompatVtable<Vtable<TDirect3d>>::s_origVtable.EnumDevices(
 			This, &d3dEnumDevicesCallback, &params);
 	}
+
+	template <typename TDirect3dVtbl>
+	void setCompatVtable7(TDirect3dVtbl& /*vtable*/)
+	{
+	}
+
+	void setCompatVtable7(IDirect3D7Vtbl& vtable)
+	{
+		vtable.CreateDevice = &createDevice;
+	}
 }
 
 namespace Direct3d
@@ -65,6 +91,7 @@ namespace Direct3d
 	{
 		vtable.EnumDevices = &enumDevices;
 		// No need to fix FindDevice since it uses EnumDevices
+		setCompatVtable7(vtable);
 	}
 
 	template Direct3d<IDirect3D>;
