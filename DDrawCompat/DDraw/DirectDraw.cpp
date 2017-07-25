@@ -122,20 +122,14 @@ namespace DDraw
 			return s_origVtable.CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
 		}
 
-		HRESULT result = DD_OK;
-
-		const bool isPrimary = 0 != (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE);
-
-		if (isPrimary)
+		if (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
 		{
-			result = PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
+			return PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 		else
 		{
-			result = Surface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
+			return Surface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
-
-		return result;
 	}
 
 	template <typename TDirectDraw>

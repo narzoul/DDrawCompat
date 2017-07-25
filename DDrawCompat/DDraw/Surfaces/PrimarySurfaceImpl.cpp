@@ -80,19 +80,38 @@ namespace DDraw
 		}
 
 		HRESULT result = m_impl.Flip(This, lpDDSurfaceTargetOverride, dwFlags);
-		if (SUCCEEDED(result))
+		if (FAILED(result))
 		{
-			result = RealPrimarySurface::flip(dwFlags);
-			if (SUCCEEDED(result))
+			return result;
+		}
+
+		result = RealPrimarySurface::flip(dwFlags);
+		if (SUCCEEDED(result) && !PrimarySurface::isFlipEmulated())
+		{
+			static_cast<PrimarySurface*>(m_data)->updateGdiSurfacePtr(
+				CompatPtr<IDirectDrawSurface>::from(lpDDSurfaceTargetOverride));
+			return DD_OK;
+		}
+
+		undoFlip(This, lpDDSurfaceTargetOverride);
+
+		if (SUCCEEDED(result) && PrimarySurface::isFlipEmulated())
+		{
+			if (lpDDSurfaceTargetOverride)
 			{
-				static_cast<PrimarySurface*>(m_data)->updateGdiSurfacePtr(
-					CompatPtr<IDirectDrawSurface>::from(lpDDSurfaceTargetOverride));
+				s_origVtable.BltFast(This, 0, 0, lpDDSurfaceTargetOverride, nullptr, DDBLTFAST_WAIT);
 			}
 			else
 			{
-				undoFlip(This, lpDDSurfaceTargetOverride);
+				TDdsCaps caps = {};
+				caps.dwCaps = DDSCAPS_BACKBUFFER;
+				CompatPtr<TSurface> backBuffer;
+				s_origVtable.GetAttachedSurface(This, &caps, &backBuffer.getRef());
+
+				s_origVtable.BltFast(This, 0, 0, backBuffer, nullptr, DDBLTFAST_WAIT);
 			}
 		}
+
 		return result;
 	}
 

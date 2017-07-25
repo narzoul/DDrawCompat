@@ -56,6 +56,8 @@ namespace DDraw
 	protected:
 		void undoFlip(TSurface* This, TSurface* targetOverride);
 
+		static const Vtable<TSurface>& s_origVtable;
+
 	private:
 		bool bltRetry(TSurface*& dstSurface, RECT*& dstRect,
 			TSurface*& srcSurface, RECT*& srcRect, bool isTransparentBlt,
@@ -63,7 +65,5 @@ namespace DDraw
 		bool prepareBltRetrySurface(TSurface*& surface, RECT*& rect,
 			const TSurfaceDesc& desc, bool isTransparentBlt, bool isCopyNeeded);
 		void replaceWithVidMemSurface(TSurface*& surface, RECT*& rect, const TSurfaceDesc& desc);
-
-		static const Vtable<TSurface>& s_origVtable;
 	};
 }
