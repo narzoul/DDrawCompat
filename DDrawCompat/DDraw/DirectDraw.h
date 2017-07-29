@@ -18,6 +18,7 @@ namespace DDraw
 	void* getDdObject(TDirectDraw& dd);
 
 	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
+	void suppressEmulatedDirectDraw(GUID*& guid);
 
 	template <typename TDirectDraw>
 	class DirectDraw: public CompatVtable<Vtable<TDirectDraw>>
@@ -36,6 +37,7 @@ namespace DDraw
 
 		static HRESULT STDMETHODCALLTYPE FlipToGDISurface(TDirectDraw* This);
 		static HRESULT STDMETHODCALLTYPE GetGDISurface(TDirectDraw* This, TSurface** lplpGDIDDSSurface);
+		static HRESULT STDMETHODCALLTYPE Initialize(TDirectDraw* This, GUID* lpGUID);
 		static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
 
 		template <typename... Params>

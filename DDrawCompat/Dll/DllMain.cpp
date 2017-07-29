@@ -10,6 +10,7 @@
 #include "Common/Log.h"
 #include "Common/Time.h"
 #include "D3dDdi/Hooks.h"
+#include "DDraw/DirectDraw.h"
 #include "DDraw/Hooks.h"
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
@@ -75,15 +76,6 @@ namespace
 			value.pop_back();
 		}
 		Compat::Log() << "Environment variable " << var << " = \"" << value << '"';
-	}
-
-	void suppressEmulatedDirectDraw(GUID*& guid)
-	{
-		if (reinterpret_cast<GUID*>(DDCREATE_EMULATIONONLY) == guid)
-		{
-			LOG_ONCE("Warning: suppressed a request to create an emulated DirectDraw object");
-			guid = nullptr;
-		}
 	}
 }
 
@@ -166,7 +158,7 @@ extern "C" HRESULT WINAPI DirectDrawCreate(
 {
 	Compat::LogEnter(__func__, lpGUID, lplpDD, pUnkOuter);
 	installHooks();
-	suppressEmulatedDirectDraw(lpGUID);
+	DDraw::suppressEmulatedDirectDraw(lpGUID);
 	HRESULT result = CALL_ORIG_PROC(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter);
 	Compat::LogLeave(__func__, lpGUID, lplpDD, pUnkOuter) << result;
 	return result;
@@ -180,7 +172,7 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(
 {
 	Compat::LogEnter(__func__, lpGUID, lplpDD, iid, pUnkOuter);
 	installHooks();
-	suppressEmulatedDirectDraw(lpGUID);
+	DDraw::suppressEmulatedDirectDraw(lpGUID);
 	HRESULT result = CALL_ORIG_PROC(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter);
 	Compat::LogLeave(__func__, lpGUID, lplpDD, iid, pUnkOuter) << result;
 	return result;
@@ -195,5 +187,15 @@ extern "C" HRESULT WINAPI DirectInputCreateA(
 	Compat::LogEnter(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
 	HRESULT result = CALL_ORIG_PROC(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter);
 	Compat::LogLeave(__func__, hinst, dwVersion, lplpDirectInput, punkOuter) << result;
+	return result;
+}
+
+extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
+{
+	Compat::LogEnter(__func__, rclsid, riid, ppv);
+	LOG_ONCE("COM instantiation of DirectDraw detected");
+	installHooks();
+	HRESULT result = CALL_ORIG_PROC(DllGetClassObject, rclsid, riid, ppv);
+	Compat::LogLeave(__func__, rclsid, riid, ppv) << result;
 	return result;
 }

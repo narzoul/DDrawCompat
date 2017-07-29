@@ -100,6 +100,15 @@ namespace DDraw
 		return dm;
 	}
 
+	void suppressEmulatedDirectDraw(GUID*& guid)
+	{
+		if (reinterpret_cast<GUID*>(DDCREATE_EMULATIONONLY) == guid)
+		{
+			LOG_ONCE("Suppressed a request to create an emulated DirectDraw object");
+			guid = nullptr;
+		}
+	}
+
 	template <typename TDirectDraw>
 	void DirectDraw<TDirectDraw>::setCompatVtable(Vtable<TDirectDraw>& vtable)
 	{
@@ -155,6 +164,13 @@ namespace DDraw
 
 		*lplpGDIDDSSurface = CompatPtr<TSurface>::from(gdiSurface.get()).detach();
 		return DD_OK;
+	}
+
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::Initialize(TDirectDraw* This, GUID* lpGUID)
+	{
+		suppressEmulatedDirectDraw(lpGUID);
+		return s_origVtable.Initialize(This, lpGUID);
 	}
 
 	template <typename TDirectDraw>
