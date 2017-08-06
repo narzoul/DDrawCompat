@@ -10,7 +10,7 @@ namespace
 	DDSURFACEDESC2 g_primarySurfaceDesc = {};
 	CompatWeakPtr<IDirectDrawSurface> g_gdiSurface = nullptr;
 	CompatWeakPtr<IDirectDrawSurface> g_primarySurface = nullptr;
-	bool g_isFlipEmulated = false;
+	DWORD g_origCaps = 0;
 }
 
 namespace DDraw
@@ -26,7 +26,7 @@ namespace DDraw
 
 		g_gdiSurface = nullptr;
 		g_primarySurface = nullptr;
-		g_isFlipEmulated = false;
+		g_origCaps = 0;
 		s_palette = nullptr;
 		s_surfaceBuffers.clear();
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
@@ -45,6 +45,8 @@ namespace DDraw
 		{
 			return result;
 		}
+
+		const DWORD origCaps = desc.ddsCaps.dwCaps;
 
 		const auto& dm = DDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
@@ -69,7 +71,7 @@ namespace DDraw
 		CompatPtr<IDirectDrawSurface> surface1(Compat::queryInterface<IDirectDrawSurface>(surface));
 		g_gdiSurface = surface1;
 		g_primarySurface = surface1;
-		g_isFlipEmulated = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY);
+		g_origCaps = origCaps;
 
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
@@ -130,9 +132,9 @@ namespace DDraw
 			Compat::queryInterface<IDirectDrawSurface7>(g_primarySurface.get()));
 	}
 
-	bool PrimarySurface::isFlipEmulated()
+	DWORD PrimarySurface::getOrigCaps()
 	{
-		return g_isFlipEmulated;
+		return g_origCaps;
 	}
 
 	void PrimarySurface::resizeBuffers(CompatRef<IDirectDrawSurface7> surface)

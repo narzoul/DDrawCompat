@@ -10,6 +10,13 @@ namespace
 	{
 		caps &= ~DDSCAPS_OFFSCREENPLAIN;
 		caps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE;
+
+		if ((caps & DDSCAPS_SYSTEMMEMORY) &&
+			!(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY))
+		{
+			caps &= ~DDSCAPS_SYSTEMMEMORY;
+			caps |= DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
+		}
 	}
 }
 
@@ -85,8 +92,9 @@ namespace DDraw
 			return result;
 		}
 
+		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
 		result = RealPrimarySurface::flip(dwFlags);
-		if (SUCCEEDED(result) && !PrimarySurface::isFlipEmulated())
+		if (SUCCEEDED(result) && !isFlipEmulated)
 		{
 			static_cast<PrimarySurface*>(m_data)->updateGdiSurfacePtr(
 				CompatPtr<IDirectDrawSurface>::from(lpDDSurfaceTargetOverride));
@@ -95,7 +103,7 @@ namespace DDraw
 
 		undoFlip(This, lpDDSurfaceTargetOverride);
 
-		if (SUCCEEDED(result) && PrimarySurface::isFlipEmulated())
+		if (SUCCEEDED(result) && isFlipEmulated)
 		{
 			if (lpDDSurfaceTargetOverride)
 			{
