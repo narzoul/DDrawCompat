@@ -132,12 +132,33 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENTSURFACE& val)
 		<< val.SubResourceIndex;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_RENDERSTATE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.State
+		<< val.Value;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val)
 {
 	return Compat::LogStruct(os)
 		<< val.hResource
 		<< val.SubResourceIndex
 		<< Compat::hex(val.Flags.Value);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_WINFO& val)
+{
+	return Compat::LogStruct(os)
+		<< val.WNear
+		<< val.WFar;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_ZRANGE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.MinZ
+		<< val.MaxZ;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& box)

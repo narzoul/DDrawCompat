@@ -417,6 +417,18 @@ namespace
 		}
 		return getOrigVtable(hDevice).pfnUnlock(hDevice, pData);
 	}
+
+	HRESULT APIENTRY updateWInfo(HANDLE hDevice, const D3DDDIARG_WINFO* pData)
+	{
+		if (pData && 1.0f == pData->WNear && 1.0f == pData->WFar)
+		{
+			D3DDDIARG_WINFO wInfo = {};
+			wInfo.WNear = 0.0f;
+			wInfo.WFar = 1.0f;
+			return getOrigVtable(hDevice).pfnUpdateWInfo(hDevice, &wInfo);
+		}
+		return getOrigVtable(hDevice).pfnUpdateWInfo(hDevice, pData);
+	}
 }
 
 #define RENDER_FUNC(func) renderFunc<decltype(&D3DDDI_DEVICEFUNCS::func), &D3DDDI_DEVICEFUNCS::func>
@@ -449,5 +461,6 @@ namespace D3dDdi
 		vtable.pfnPresent1 = &present1;
 		vtable.pfnSetRenderTarget = &setRenderTarget;
 		vtable.pfnUnlock = &unlock;
+		vtable.pfnUpdateWInfo = &updateWInfo;
 	}
 }
