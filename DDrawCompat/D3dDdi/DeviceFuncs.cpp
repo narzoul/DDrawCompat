@@ -100,11 +100,6 @@ namespace
 		CreateResourceFunc origCreateResource)
 	{
 		const bool isOffScreenPlain = 0 == (resourceData->Flags.Value & g_resourceTypeFlags);
-		if (isOffScreenPlain)
-		{
-			resourceData->Flags.CpuOptimized = 1;
-		}
-
 		if (D3DDDIPOOL_SYSTEMMEM == resourceData->Pool &&
 			(isOffScreenPlain || resourceData->Flags.Texture) &&
 			D3dDdi::OversizedResource::isSupportedFormat(resourceData->Format) &&
