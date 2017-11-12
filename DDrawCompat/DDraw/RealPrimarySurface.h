@@ -25,7 +25,6 @@ namespace DDraw
 		static void release();
 		static void removeUpdateThread();
 		static HRESULT restore();
-		static void setClipper(CompatWeakPtr<IDirectDrawClipper> clipper);
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPalette();
 		static void update();

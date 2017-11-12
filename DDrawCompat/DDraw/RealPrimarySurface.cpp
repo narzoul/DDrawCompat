@@ -20,6 +20,7 @@ namespace
 	void onRelease();
 	DWORD WINAPI updateThreadProc(LPVOID lpParameter);
 
+	DWORD g_primaryThreadId = 0;
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_backBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_paletteConverter;
@@ -39,9 +40,28 @@ namespace
 
 	std::atomic<bool> g_isFullScreen(false);
 
-	bool compatBlt(CompatRef<IDirectDrawSurface7> dest)
+	BOOL CALLBACK bltToWindow(HWND hwnd, LPARAM lParam)
 	{
-		Compat::LogEnter("RealPrimarySurface::compatBlt", dest);
+		g_clipper->SetHWnd(g_clipper, 0, hwnd);
+		auto src = reinterpret_cast<IDirectDrawSurface7*>(lParam);
+		g_frontBuffer->Blt(g_frontBuffer, nullptr, src, nullptr, DDBLT_WAIT, nullptr);
+		return TRUE;
+	}
+
+	HRESULT bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
+	{
+		if (g_isFullScreen)
+		{
+			return g_backBuffer->Blt(g_backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
+		}
+
+		EnumThreadWindows(g_primaryThreadId, bltToWindow, reinterpret_cast<LPARAM>(&src));
+		return DD_OK;
+	}
+
+	bool compatBlt()
+	{
+		Compat::LogEnter("RealPrimarySurface::compatBlt");
 
 		bool result = false;
 
@@ -64,16 +84,15 @@ namespace
 
 			if (result)
 			{
-				result = SUCCEEDED(dest->Blt(
-					&dest, nullptr, g_paletteConverter, nullptr, DDBLT_WAIT, nullptr));
+				result = SUCCEEDED(bltToPrimaryChain(*g_paletteConverter));
 			}
 		}
 		else
 		{
-			result = SUCCEEDED(dest->Blt(&dest, nullptr, primary, nullptr, DDBLT_WAIT, nullptr));
+			result = SUCCEEDED(bltToPrimaryChain(*primary));
 		}
 
-		Compat::LogLeave("RealPrimarySurface::compatBlt", dest) << result;
+		Compat::LogLeave("RealPrimarySurface::compatBlt") << result;
 		return result;
 	}
 
@@ -124,6 +143,11 @@ namespace
 			backBufferCaps.dwCaps = DDSCAPS_BACKBUFFER;
 			surface->GetAttachedSurface(surface, &backBufferCaps, &backBuffer.getRef());
 		}
+		else
+		{
+			CALL_ORIG_PROC(DirectDrawCreateClipper, 0, &g_clipper.getRef(), nullptr);
+			surface->SetClipper(surface, g_clipper);
+		}
 
 		g_qpcFlipModeTimeout = Time::g_qpcFrequency / Config::minExpectedFlipsPerSec;
 		g_qpcLastFlip = Time::queryPerformanceCounter() - g_qpcFlipModeTimeout;
@@ -156,6 +180,7 @@ namespace
 		g_backBuffer = backBuffer;
 		g_surfaceDesc = desc;
 		g_isFullScreen = isFlippable;
+		g_primaryThreadId = GetCurrentThreadId();
 
 		return DD_OK;
 	}
@@ -184,7 +209,7 @@ namespace
 		ResetEvent(g_updateEvent);
 		g_frontBuffer = nullptr;
 		g_backBuffer = nullptr;
-		g_clipper = nullptr;
+		g_clipper.release();
 		g_isFullScreen = false;
 		g_paletteConverter.release();
 
@@ -197,13 +222,7 @@ namespace
 	{
 		ResetEvent(g_updateEvent);
 
-		if (!g_isFullScreen)
-		{
-			compatBlt(*g_frontBuffer);
-			return;
-		}
-
-		if (compatBlt(*g_backBuffer))
+		if (compatBlt() && g_isFullScreen)
 		{
 			D3dDdi::KernelModeThunks::overrideFlipInterval(
 				Time::queryPerformanceCounter() - g_qpcLastFlip >= g_qpcFlipModeTimeout
@@ -262,13 +281,11 @@ namespace DDraw
 		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
 		result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
-		bool isFlippable = true;
 		if (DDERR_NOEXCLUSIVEMODE == result)
 		{
 			desc.dwFlags = DDSD_CAPS;
 			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 			desc.dwBackBufferCount = 0;
-			isFlippable = false;
 			result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 		}
 
@@ -316,7 +333,7 @@ namespace DDraw
 		g_isUpdateSuspended = false;
 
 		g_qpcLastFlip = Time::queryPerformanceCounter();
-		compatBlt(*g_backBuffer);
+		compatBlt();
 		HRESULT result = g_frontBuffer->Flip(g_frontBuffer, nullptr, flags);
 		g_qpcNextUpdate = Time::queryPerformanceCounter();
 		return result;
@@ -377,22 +394,6 @@ namespace DDraw
 		return g_frontBuffer->Restore(g_frontBuffer);
 	}
 
-	void RealPrimarySurface::setClipper(CompatWeakPtr<IDirectDrawClipper> clipper)
-	{
-		if (g_backBuffer)
-		{
-			return;
-		}
-
-		HRESULT result = g_frontBuffer->SetClipper(g_frontBuffer, clipper);
-		if (FAILED(result))
-		{
-			LOG_ONCE("Failed to set clipper on the real primary surface: " << result);
-			return;
-		}
-		g_clipper = clipper;
-	}
-
 	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)
 	{
 		auto gammaControl(CompatPtr<IDirectDrawGammaControl>::from(g_frontBuffer.get()));
@@ -416,7 +417,7 @@ namespace DDraw
 
 	void RealPrimarySurface::update()
 	{
-		if (g_isUpdateSuspended || !(g_isFullScreen || g_clipper))
+		if (g_isUpdateSuspended)
 		{
 			return;
 		}

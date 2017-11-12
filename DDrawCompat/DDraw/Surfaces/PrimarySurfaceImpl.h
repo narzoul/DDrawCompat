@@ -29,7 +29,6 @@ namespace DDraw
 			DWORD dwFlags, HANDLE hEvent) override;
 		virtual HRESULT ReleaseDC(TSurface* This, HDC hDC) override;
 		virtual HRESULT Restore(TSurface* This) override;
-		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper) override;
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette) override;
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect) override;
 

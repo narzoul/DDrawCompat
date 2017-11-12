@@ -274,12 +274,6 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	HRESULT SurfaceImpl<TSurface>::SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper)
-	{
-		return s_origVtable.SetClipper(This, lpDDClipper);
-	}
-
-	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette)
 	{
 		return s_origVtable.SetPalette(This, lpDDPalette);
