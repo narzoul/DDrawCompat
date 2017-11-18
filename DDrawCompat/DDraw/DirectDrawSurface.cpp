@@ -26,13 +26,6 @@ namespace
 
 namespace DDraw
 {
-	CompatPtr<IDirectDraw7> getDirectDraw(CompatRef<IDirectDrawSurface7> surface)
-	{
-		CompatPtr<IUnknown> dd;
-		surface.get().lpVtbl->GetDDInterface(&surface, reinterpret_cast<void**>(&dd.getRef()));
-		return dd;
-	}
-
 	template <typename TSurface>
 	void DirectDrawSurface<TSurface>::setCompatVtable(Vtable<TSurface>& vtable)
 	{

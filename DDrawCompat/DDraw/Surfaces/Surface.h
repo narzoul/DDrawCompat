@@ -29,9 +29,6 @@ namespace DDraw
 		template <typename TSurface>
 		static Surface* getSurface(TSurface& dds);
 
-		CompatPtr<IDirectDraw7> getDirectDraw() const;
-		CompatPtr<IDirectDrawSurface7> getDirectDrawSurface() const;
-
 		template <typename TSurface>
 		SurfaceImpl<TSurface>* getImpl() const;
 
@@ -55,7 +52,6 @@ namespace DDraw
 			IDirectDrawSurface7* surface, DDSURFACEDESC2* desc, void* rootSurface);
 		virtual void createImpl();
 
-		IDirectDrawSurface* m_dds;
 		IID m_ddId;
 		DWORD m_refCount;
 	};

@@ -121,7 +121,12 @@ namespace DDraw
 		replDesc.ddpfPixelFormat = desc.ddpfPixelFormat;
 		replDesc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
 
-		DDraw::Repository::ScopedSurface replacementSurface(*m_data->getDirectDraw(), replDesc);
+		CompatPtr<IUnknown> ddUnk;
+		GetDDInterface(surface, reinterpret_cast<void**>(&ddUnk.getRef()));
+		CompatPtr<IDirectDraw7> dd;
+		ddUnk->QueryInterface(ddUnk, IID_IDirectDraw7, reinterpret_cast<void**>(&dd.getRef()));
+
+		DDraw::Repository::ScopedSurface replacementSurface(*dd, replDesc);
 		if (replacementSurface.surface)
 		{
 			surface = CompatPtr<TSurface>::from(replacementSurface.surface.get());

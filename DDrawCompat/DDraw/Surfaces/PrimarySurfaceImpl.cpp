@@ -96,8 +96,6 @@ namespace DDraw
 		result = RealPrimarySurface::flip(dwFlags);
 		if (SUCCEEDED(result) && !isFlipEmulated)
 		{
-			static_cast<PrimarySurface*>(m_data)->updateGdiSurfacePtr(
-				CompatPtr<IDirectDrawSurface>::from(lpDDSurfaceTargetOverride));
 			return DD_OK;
 		}
 
