@@ -1,43 +1,10 @@
 #include "D3dDdi/AdapterFuncs.h"
+#include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/OversizedResource.h"
 
-namespace
-{
-	UINT getBytesPerPixel(D3DDDIFORMAT format)
-	{
-		switch (format)
-		{
-		case D3DDDIFMT_R5G6B5:
-		case D3DDDIFMT_X1R5G5B5:
-		case D3DDDIFMT_A1R5G5B5:
-			return 2;
-
-		case D3DDDIFMT_R8G8B8:
-			return 3;
-
-		case D3DDDIFMT_A8R8G8B8:
-		case D3DDDIFMT_X8R8G8B8:
-		case D3DDDIFMT_A8B8G8R8:
-		case D3DDDIFMT_X8B8G8R8:
-			return 4;
-
-		default:
-			return 0;
-		}
-	}
-}
-
 namespace D3dDdi
 {
-	OversizedResource::OversizedResource()
-		: m_adapter(nullptr)
-		, m_device(nullptr)
-		, m_format(D3DDDIFMT_UNKNOWN)
-		, m_surfaceInfo()
-	{
-	}
-
 	OversizedResource::OversizedResource(
 		HANDLE adapter, HANDLE device, D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo)
 		: m_adapter(adapter)

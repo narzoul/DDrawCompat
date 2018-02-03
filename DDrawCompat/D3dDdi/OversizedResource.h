@@ -10,7 +10,6 @@ namespace D3dDdi
 	class OversizedResource
 	{
 	public:
-		OversizedResource();
 		OversizedResource(HANDLE adapter, HANDLE device,
 			D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo);
 
