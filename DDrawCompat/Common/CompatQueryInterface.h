@@ -91,13 +91,6 @@ namespace Compat
 
 #undef DEFINE_INTF_ID
 
-	template <typename Intf>
-	void queryInterface(Intf& origIntf, Intf*& newIntf)
-	{
-		newIntf = &origIntf;
-		newIntf->lpVtbl->AddRef(newIntf);
-	}
-
 	template <typename NewIntf>
 	void queryInterface(IUnknown& origIntf, NewIntf*& newIntf)
 	{
