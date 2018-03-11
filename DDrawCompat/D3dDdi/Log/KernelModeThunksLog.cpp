@@ -34,6 +34,19 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXTVIRTUAL& da
 		<< Compat::hex(data.hContext);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDCFROMMEMORY& data)
+{
+	return Compat::LogStruct(os)
+		<< data.pMemory
+		<< data.Width
+		<< data.Height
+		<< data.Pitch
+		<< data.hDeviceDc
+		<< data.pColorTable
+		<< Compat::out(data.hDc)
+		<< Compat::out(data.hBitmap);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDEVICE& data)
 {
 	return Compat::LogStruct(os)

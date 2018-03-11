@@ -80,6 +80,25 @@ namespace
 		return result;
 	}
 
+	NTSTATUS APIENTRY createDcFromMemory(D3DKMT_CREATEDCFROMMEMORY* pData)
+	{
+		Compat::LogEnter("D3DKMTCreateDCFromMemory", pData);
+		NTSTATUS result = 0;
+		if (pData && D3DDDIFMT_P8 == pData->Format && !pData->pColorTable &&
+			DDraw::PrimarySurface::s_palette)
+		{
+			pData->pColorTable = DDraw::PrimarySurface::s_paletteEntries;
+			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
+			pData->pColorTable = nullptr;
+		}
+		else
+		{
+			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
+		}
+		Compat::LogLeave("D3DKMTCreateDCFromMemory", pData) << result;
+		return result;
+	}
+
 	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
 	{
 		Compat::LogEnter("D3DKMTDestroyContext", pData);
@@ -250,6 +269,7 @@ namespace D3dDdi
 		{
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDevice, createDevice);
+			HOOK_FUNCTION(gdi32, D3DKMTCreateDCFromMemory, createDcFromMemory);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyContext, destroyContext);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyDevice, destroyDevice);
 			HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, queryAdapterInfo);

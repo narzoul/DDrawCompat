@@ -10,6 +10,7 @@
 
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXTVIRTUAL& data);
+std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDCFROMMEMORY& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDEVICE& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_DESTROYCONTEXT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_DESTROYDEVICE& data);
