@@ -73,7 +73,6 @@ namespace DDraw
 		std::unique_ptr<Surface> privateData(new PrimarySurface(Surface::getSurface(*surface)));
 		attach(*surface7, privateData);
 
-		g_gdiResourceHandle = getResourceHandle(*surface7);
 		g_primarySurface = surface7;
 		g_origCaps = origCaps;
 
@@ -86,6 +85,7 @@ namespace DDraw
 			resizeBuffers(*surface7);
 		}
 
+		g_gdiResourceHandle = getResourceHandle(*surface7);
 		return DD_OK;
 	}
 
