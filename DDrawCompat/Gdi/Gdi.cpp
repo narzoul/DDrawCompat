@@ -15,6 +15,7 @@
 namespace
 {
 	std::atomic<int> g_disableEmulationCount = 0;
+	DWORD g_gdiThreadId = 0;
 	DWORD g_renderingRefCount = 0;
 	DWORD g_ddLockFlags = 0;
 	DWORD g_ddLockThreadRenderingRefCount = 0;
@@ -159,6 +160,16 @@ namespace Gdi
 		--g_disableEmulationCount;
 	}
 
+	DWORD getGdiThreadId()
+	{
+		return g_gdiThreadId;
+	}
+
+	HRGN getVisibleWindowRgn(HWND hwnd)
+	{
+		return DcFunctions::getVisibleWindowRgn(hwnd);
+	}
+
 	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc)
 	{
 		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
@@ -169,6 +180,7 @@ namespace Gdi
 
 	void installHooks()
 	{
+		g_gdiThreadId = GetCurrentThreadId();
 		InitializeCriticalSection(&g_gdiCriticalSection);
 		if (Gdi::DcCache::init())
 		{
@@ -186,6 +198,12 @@ namespace Gdi
 			Gdi::WinProc::installHooks();
 			Gdi::Caret::installHooks();
 		}
+	}
+
+	bool isTopLevelWindow(HWND hwnd)
+	{
+		return !(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) ||
+			GetParent(hwnd) == GetDesktopWindow();
 	}
 
 	void redraw(HRGN rgn)

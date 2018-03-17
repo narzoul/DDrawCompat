@@ -1,5 +1,7 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <vector>
+
 #include <atlstr.h>
 #include <Windows.h>
 
@@ -26,7 +28,7 @@ std::ostream& operator<<(std::ostream& os, const char* str)
 		return os << "null";
 	}
 
-	if (!Compat::Log::isPointerDereferencingAllowed())
+	if (!Compat::Log::isPointerDereferencingAllowed() || reinterpret_cast<DWORD>(str) <= 0xFFFF)
 	{
 		return os << static_cast<const void*>(str);
 	}
@@ -46,7 +48,7 @@ std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 		return os << "null";
 	}
 
-	if (!Compat::Log::isPointerDereferencingAllowed())
+	if (!Compat::Log::isPointerDereferencingAllowed() || reinterpret_cast<DWORD>(wstr) <= 0xFFFF)
 	{
 		return os << static_cast<const void*>(wstr);
 	}
@@ -77,6 +79,21 @@ std::ostream& operator<<(std::ostream& os, const RECT& rect)
 std::ostream& operator<<(std::ostream& os, HDC__& dc)
 {
 	return os << "DC(" << static_cast<void*>(&dc) << ',' << WindowFromDC(&dc) << ')';
+}
+
+std::ostream& operator<<(std::ostream& os, HRGN__& rgn)
+{
+	DWORD size = GetRegionData(&rgn, 0, nullptr);
+	if (0 == size)
+	{
+		return os << "RGN[]";
+	}
+
+	std::vector<unsigned char> rgnDataBuf(size);
+	auto& rgnData = *reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
+	GetRegionData(&rgn, size, &rgnData);
+
+	return os << "RGN" << Compat::array(reinterpret_cast<RECT*>(rgnData.Buffer), rgnData.rdh.nCount);
 }
 
 std::ostream& operator<<(std::ostream& os, HWND__& hwnd)

@@ -9,7 +9,7 @@
 
 namespace
 {
-	struct ExcludeRectContext
+	struct ExcludeRgnForOverlappingWindowArgs
 	{
 		HRGN rgn;
 		HWND rootWnd;
@@ -20,6 +20,8 @@ namespace
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
 	DWORD getDdLockFlags(Params... params);
 
+	HRGN getWindowRegion(HWND hwnd);
+
 	BOOL WINAPI GdiDrawStream(HDC, DWORD, DWORD) { return FALSE; }
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
 
@@ -28,7 +30,8 @@ namespace
 
 	bool hasDisplayDcArg(HDC dc)
 	{
-		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == GetDeviceCaps(dc, TECHNOLOGY);
+		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == GetDeviceCaps(dc, TECHNOLOGY) &&
+			!(GetWindowLongPtr(CALL_ORIG_FUNC(WindowFromDC)(dc), GWL_EXSTYLE) & WS_EX_LAYERED);
 	}
 
 	template <typename T>
@@ -112,48 +115,22 @@ namespace
 		return result;
 	}
 
-	void enumTopLevelThreadWindows(WNDENUMPROC enumFunc, LPARAM lParam)
+	BOOL CALLBACK excludeRgnForOverlappingWindow(HWND hwnd, LPARAM lParam)
 	{
-		const DWORD currentThreadId = GetCurrentThreadId();
-		const char* MENU_ATOM = reinterpret_cast<LPCSTR>(0x8000);
-		HWND menuWindow = FindWindow(MENU_ATOM, nullptr);
-		BOOL cont = TRUE;
-		while (menuWindow && cont)
-		{
-			if (currentThreadId == GetWindowThreadProcessId(menuWindow, nullptr))
-			{
-				cont = enumFunc(menuWindow, lParam);
-			}
-			if (cont)
-			{
-				menuWindow = FindWindowEx(nullptr, menuWindow, MENU_ATOM, nullptr);
-			}
-		}
-
-		if (cont)
-		{
-			EnumThreadWindows(currentThreadId, enumFunc, lParam);
-		}
-	}
-
-	BOOL CALLBACK excludeRectForOverlappingWindow(HWND hwnd, LPARAM lParam)
-	{
-		auto excludeRectContext = reinterpret_cast<ExcludeRectContext*>(lParam);
-		if (hwnd == excludeRectContext->rootWnd)
+		auto& args = *reinterpret_cast<ExcludeRgnForOverlappingWindowArgs*>(lParam);
+		if (hwnd == args.rootWnd)
 		{
 			return FALSE;
 		}
 
-		if (!IsWindowVisible(hwnd) || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_TRANSPARENT))
+		if (!IsWindowVisible(hwnd) ||
+			(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & (WS_EX_LAYERED | WS_EX_TRANSPARENT)))
 		{
 			return TRUE;
 		}
 
-		RECT windowRect = {};
-		GetWindowRect(hwnd, &windowRect);
-
-		HRGN windowRgn = CreateRectRgnIndirect(&windowRect);
-		CombineRgn(excludeRectContext->rgn, excludeRectContext->rgn, windowRgn, RGN_DIFF);
+		HRGN windowRgn = getWindowRegion(hwnd);
+		CombineRgn(args.rgn, args.rgn, windowRgn, RGN_DIFF);
 		DeleteObject(windowRgn);
 
 		return TRUE;
@@ -245,6 +222,18 @@ namespace
 		return getDdLockFlagsBlt(hdcDest, hdcSrc);
 	}
 
+	HRGN getWindowRegion(HWND hwnd)
+	{
+		RECT wr = {};
+		GetWindowRect(hwnd, &wr);
+		HRGN windowRgn = CreateRectRgnIndirect(&wr);
+		if (ERROR != GetWindowRgn(hwnd, windowRgn))
+		{
+			OffsetRgn(windowRgn, wr.left, wr.top);
+		}
+		return windowRgn;
+	}
+
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	void hookGdiDcFunction(const char* moduleName, const char* funcName)
 	{
@@ -265,22 +254,14 @@ namespace
 		}
 
 		HWND hwnd = WindowFromDC(hdc);
-		if (!hwnd)
+		if (!hwnd || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
 			return 1;
 		}
 
-		if ((GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
-			!GetLayeredWindowAttributes(hwnd, nullptr, nullptr, nullptr))
-		{
-			RECT rect = {};
-			GetWindowRect(hwnd, &rect);
-			SetRectRgn(hrgn, rect.left, rect.top, rect.right, rect.bottom);
-		}
-
-		ExcludeRectContext excludeRectContext = { hrgn, GetAncestor(hwnd, GA_ROOT) };
-		enumTopLevelThreadWindows(excludeRectForOverlappingWindow,
-			reinterpret_cast<LPARAM>(&excludeRectContext));
+		ExcludeRgnForOverlappingWindowArgs args = { hrgn, GetAncestor(hwnd, GA_ROOT) };
+		EnumThreadWindows(Gdi::getGdiThreadId(), excludeRgnForOverlappingWindow,
+			reinterpret_cast<LPARAM>(&args));
 
 		return 1;
 	}
@@ -302,6 +283,15 @@ namespace Gdi
 {
 	namespace DcFunctions
 	{
+		HRGN getVisibleWindowRgn(HWND hwnd)
+		{
+			HRGN rgn = getWindowRegion(hwnd);
+			ExcludeRgnForOverlappingWindowArgs args = { rgn, hwnd };
+			EnumThreadWindows(Gdi::getGdiThreadId(), excludeRgnForOverlappingWindow,
+				reinterpret_cast<LPARAM>(&args));
+			return rgn;
+		}
+
 		void installHooks()
 		{
 			// Bitmap functions

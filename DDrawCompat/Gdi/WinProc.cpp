@@ -94,11 +94,10 @@ namespace
 	WindowData getWindowData(HWND hwnd)
 	{
 		WindowData data;
-		if (IsWindowVisible(hwnd))
+		if (IsWindowVisible(hwnd) && !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
 			GetWindowRect(hwnd, &data.wndRect);
 			data.sysClipRgn.reset(CreateRectRgnIndirect(&data.wndRect), DeleteObject);
-
 			HDC dc = GetWindowDC(hwnd);
 			GetRandomRgn(dc, data.sysClipRgn.get(), SYSRGN);
 			ReleaseDC(hwnd, dc);
@@ -186,7 +185,13 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd)
 	{
-		if (GetAncestor(hwnd, GA_ROOT) != hwnd)
+		const ATOM menuAtom = 0x8000;
+		if (menuAtom == GetClassLongPtr(hwnd, GCW_ATOM))
+		{
+			SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
+		}
+
+		if (!Gdi::isTopLevelWindow(hwnd))
 		{
 			return;
 		}
@@ -272,7 +277,7 @@ namespace Gdi
 	{
 		void installHooks()
 		{
-			const DWORD threadId = GetCurrentThreadId();
+			const DWORD threadId = Gdi::getGdiThreadId();
 			g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 				nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);

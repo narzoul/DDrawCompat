@@ -75,7 +75,7 @@ namespace
 	{
 		GUITHREADINFO gti = {};
 		gti.cbSize = sizeof(gti);
-		GetGUIThreadInfo(GetCurrentThreadId(), &gti);
+		GetGUIThreadInfo(Gdi::getGdiThreadId(), &gti);
 
 		CaretData caretData = {};
 		caretData.hwnd = gti.hwndCaret;
@@ -132,7 +132,7 @@ namespace Gdi
 			HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
 			HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
 
-			const DWORD threadId = GetCurrentThreadId();
+			const DWORD threadId = Gdi::getGdiThreadId();
 			g_compatGdiCaretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
 				nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
 			g_compatGdiCaretLocationChangeEventHook = SetWinEventHook(

@@ -1,4 +1,5 @@
 #include <atomic>
+#include <vector>
 
 #include "Common/CompatPtr.h"
 #include "Common/Hook.h"
@@ -20,7 +21,6 @@ namespace
 	void onRelease();
 	DWORD WINAPI updateThreadProc(LPVOID lpParameter);
 
-	DWORD g_primaryThreadId = 0;
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_backBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_paletteConverter;
@@ -40,12 +40,61 @@ namespace
 
 	std::atomic<bool> g_isFullScreen(false);
 
+	BOOL CALLBACK addVisibleLayeredWindowToVector(HWND hwnd, LPARAM lParam)
+	{
+		if (IsWindowVisible(hwnd) && (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		{
+			auto& visibleLayeredWindows = *reinterpret_cast<std::vector<HWND>*>(lParam);
+			visibleLayeredWindows.push_back(hwnd);
+		}
+		return TRUE;
+	}
+
 	BOOL CALLBACK bltToWindow(HWND hwnd, LPARAM lParam)
 	{
+		if (!IsWindowVisible(hwnd) || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		{
+			return TRUE;
+		}
+
 		g_clipper->SetHWnd(g_clipper, 0, hwnd);
 		auto src = reinterpret_cast<IDirectDrawSurface7*>(lParam);
 		g_frontBuffer->Blt(g_frontBuffer, nullptr, src, nullptr, DDBLT_WAIT, nullptr);
 		return TRUE;
+	}
+
+	void bltVisibleLayeredWindowsToBackBuffer()
+	{
+		std::vector<HWND> visibleLayeredWindows;
+		EnumThreadWindows(Gdi::getGdiThreadId(), addVisibleLayeredWindowToVector,
+			reinterpret_cast<LPARAM>(&visibleLayeredWindows));
+
+		if (visibleLayeredWindows.empty())
+		{
+			return;
+		}
+
+		HDC backBufferDc = nullptr;
+		g_backBuffer->GetDC(g_backBuffer, &backBufferDc);
+
+		for (auto it = visibleLayeredWindows.rbegin(); it != visibleLayeredWindows.rend(); ++it)
+		{
+			HDC windowDc = GetWindowDC(*it);
+			HRGN rgn = Gdi::getVisibleWindowRgn(*it);
+			RECT wr = {};
+			GetWindowRect(*it, &wr);
+			
+			SelectClipRgn(backBufferDc, rgn);
+			CALL_ORIG_FUNC(BitBlt)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+				windowDc, 0, 0, SRCCOPY);
+			SelectClipRgn(backBufferDc, nullptr);
+
+			DeleteObject(rgn);
+			ReleaseDC(*it, windowDc);
+		}
+
+		g_backBuffer->ReleaseDC(g_backBuffer, backBufferDc);
+		DDraw::RealPrimarySurface::update();
 	}
 
 	HRESULT bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
@@ -55,7 +104,7 @@ namespace
 			return g_backBuffer->Blt(g_backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
 		}
 
-		EnumThreadWindows(g_primaryThreadId, bltToWindow, reinterpret_cast<LPARAM>(&src));
+		EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindow, reinterpret_cast<LPARAM>(&src));
 		return DD_OK;
 	}
 
@@ -90,6 +139,11 @@ namespace
 		else
 		{
 			result = SUCCEEDED(bltToPrimaryChain(*primary));
+		}
+
+		if (result && g_isFullScreen && primary == DDraw::PrimarySurface::getGdiSurface())
+		{
+			bltVisibleLayeredWindowsToBackBuffer();
 		}
 
 		Compat::LogLeave("RealPrimarySurface::compatBlt") << result;
@@ -180,7 +234,6 @@ namespace
 		g_backBuffer = backBuffer;
 		g_surfaceDesc = desc;
 		g_isFullScreen = isFlippable;
-		g_primaryThreadId = GetCurrentThreadId();
 
 		return DD_OK;
 	}
