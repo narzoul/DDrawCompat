@@ -147,11 +147,6 @@ namespace
 
 	void onActivate(HWND hwnd)
 	{
-		if (!Gdi::isEmulationEnabled())
-		{
-			return;
-		}
-
 		RECT windowRect = {};
 		GetWindowRect(hwnd, &windowRect);
 		RECT clientRect = {};
@@ -170,11 +165,6 @@ namespace
 
 	void onMenuSelect()
 	{
-		if (!Gdi::isEmulationEnabled())
-		{
-			return;
-		}
-
 		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
 		while (menuWindow)
 		{
@@ -207,7 +197,7 @@ namespace
 			notifyFunc(hwnd, prevData.wndRect, data.wndRect);
 		}
 
-		if (!prevData.sysClipRgn && !data.sysClipRgn || !Gdi::isEmulationEnabled())
+		if (!prevData.sysClipRgn && !data.sysClipRgn)
 		{
 			return;
 		}

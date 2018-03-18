@@ -1,5 +1,3 @@
-#include <atomic>
-
 #include "Common/ScopedCriticalSection.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
@@ -14,7 +12,6 @@
 
 namespace
 {
-	std::atomic<int> g_disableEmulationCount = 0;
 	DWORD g_gdiThreadId = 0;
 	DWORD g_renderingRefCount = 0;
 	DWORD g_ddLockFlags = 0;
@@ -82,11 +79,6 @@ namespace Gdi
 
 	bool beginGdiRendering(DWORD lockFlags)
 	{
-		if (!isEmulationEnabled())
-		{
-			return false;
-		}
-
 		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
 
 		if (0 == g_renderingRefCount)
@@ -150,16 +142,6 @@ namespace Gdi
 		}
 	}
 
-	void disableEmulation()
-	{
-		++g_disableEmulationCount;
-	}
-
-	void enableEmulation()
-	{
-		--g_disableEmulationCount;
-	}
-
 	DWORD getGdiThreadId()
 	{
 		return g_gdiThreadId;
@@ -208,10 +190,7 @@ namespace Gdi
 
 	void redraw(HRGN rgn)
 	{
-		if (isEmulationEnabled())
-		{
-			EnumThreadWindows(GetCurrentThreadId(), &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
-		}
+		EnumThreadWindows(GetCurrentThreadId(), &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
 	}
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
@@ -236,11 +215,6 @@ namespace Gdi
 		OffsetRgn(rgn, origin.x, origin.y);
 	}
 
-	bool isEmulationEnabled()
-	{
-		return g_disableEmulationCount <= 0 && DDraw::RealPrimarySurface::isFullScreen();
-	}
-
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)
 	{
 		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
@@ -257,7 +231,7 @@ namespace Gdi
 
 	void updatePalette(DWORD startingEntry, DWORD count)
 	{
-		if (isEmulationEnabled() && DDraw::PrimarySurface::s_palette)
+		if (DDraw::PrimarySurface::s_palette)
 		{
 			Gdi::DcCache::updatePalette(startingEntry, count);
 		}

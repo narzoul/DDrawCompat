@@ -55,13 +55,10 @@ namespace Gdi
 
 		void updateScrolledWindow(HWND hwnd)
 		{
-			if (Gdi::isEmulationEnabled())
-			{
-				DDraw::RealPrimarySurface::disableUpdates();
-				RedrawWindow(hwnd, nullptr, nullptr,
-					RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
-				DDraw::RealPrimarySurface::enableUpdates();
-			}
+			DDraw::RealPrimarySurface::disableUpdates();
+			RedrawWindow(hwnd, nullptr, nullptr,
+				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
+			DDraw::RealPrimarySurface::enableUpdates();
 		}
 	}
 }
