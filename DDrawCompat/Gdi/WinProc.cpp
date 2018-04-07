@@ -35,6 +35,7 @@ namespace
 	void redrawChangedWindowRegion(HWND hwnd, const WindowData& prevData, const WindowData& data);
 	void redrawUncoveredRegion(const WindowData& prevData, const WindowData& data);
 	void removeDropShadow(HWND hwnd);
+	BOOL CALLBACK updateWindowData(HWND hwnd, LPARAM lParam);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -189,8 +190,8 @@ namespace
 		Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 
 		WindowData prevData = g_windowData[hwnd];
-		WindowData data = getWindowData(hwnd);
-		g_windowData[hwnd] = data;
+		EnumThreadWindows(Gdi::getGdiThreadId(), updateWindowData, 0);
+		WindowData& data = g_windowData[hwnd];
 
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
 		{
@@ -258,6 +259,12 @@ namespace
 		{
 			SetClassLongPtr(hwnd, GCL_STYLE, style ^ CS_DROPSHADOW);
 		}
+	}
+
+	BOOL CALLBACK updateWindowData(HWND hwnd, LPARAM /*lParam*/)
+	{
+		g_windowData[hwnd] = getWindowData(hwnd);
+		return TRUE;
 	}
 }
 
