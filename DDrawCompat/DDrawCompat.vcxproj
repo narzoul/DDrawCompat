@@ -221,9 +221,11 @@
     <ClInclude Include="Gdi\DcCache.h" />
     <ClInclude Include="Gdi\DcFunctions.h" />
     <ClInclude Include="Gdi\PaintHandlers.h" />
+    <ClInclude Include="Gdi\Region.h" />
     <ClInclude Include="Gdi\ScrollBar.h" />
     <ClInclude Include="Gdi\ScrollFunctions.h" />
     <ClInclude Include="Gdi\TitleBar.h" />
+    <ClInclude Include="Gdi\Window.h" />
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\FontSmoothing.h" />
@@ -278,9 +280,11 @@
     <ClCompile Include="Gdi\DcCache.cpp" />
     <ClCompile Include="Gdi\DcFunctions.cpp" />
     <ClCompile Include="Gdi\PaintHandlers.cpp" />
+    <ClCompile Include="Gdi\Region.cpp" />
     <ClCompile Include="Gdi\ScrollBar.cpp" />
     <ClCompile Include="Gdi\ScrollFunctions.cpp" />
     <ClCompile Include="Gdi\TitleBar.cpp" />
+    <ClCompile Include="Gdi\Window.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\FontSmoothing.cpp" />

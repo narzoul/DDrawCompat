@@ -372,6 +372,13 @@ namespace Win32
 			return result;
 		}
 
+		ULONG queryDisplaySettingsUniqueness()
+		{
+			static auto ddQueryDisplaySettingsUniqueness = reinterpret_cast<ULONG(APIENTRY*)()>(
+				GetProcAddress(GetModuleHandle("gdi32"), "GdiEntry13"));
+			return ddQueryDisplaySettingsUniqueness();
+		}
+
 		void setDDrawBpp(DWORD bpp)
 		{
 			g_ddrawBpp = bpp;

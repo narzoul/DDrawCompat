@@ -242,7 +242,7 @@ namespace
 		}
 
 		HWND hwnd = WindowFromDC(hdc);
-		if (!hwnd || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		if (!hwnd || hwnd == GetDesktopWindow() || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
 			return 1;
 		}

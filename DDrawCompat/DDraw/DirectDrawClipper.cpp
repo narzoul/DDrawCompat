@@ -17,14 +17,11 @@ namespace
 
 	void updateWindowClipList(CompatRef<IDirectDrawClipper> clipper, ClipperData& data);
 
-	void onWindowPosChange(HWND /*hwnd*/, const RECT& oldWindowRect, const RECT& newWindowRect)
+	void onWindowPosChange()
 	{
 		for (auto& clipperData : g_clipperData)
 		{
-			if (!IsRectEmpty(&oldWindowRect) || !IsRectEmpty(&newWindowRect))
-			{
-				updateWindowClipList(*clipperData.first, clipperData.second);
-			}
+			updateWindowClipList(*clipperData.first, clipperData.second);
 		}
 	}
 

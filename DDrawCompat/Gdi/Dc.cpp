@@ -7,6 +7,7 @@
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Window.h"
 
 namespace
 {
@@ -95,7 +96,20 @@ namespace
 			SelectClipRgn(compatDc, clipRgn);
 		}
 		DeleteObject(clipRgn);
+	}
 
+	void updateWindow(HWND wnd)
+	{
+		RECT windowRect = {};
+		GetWindowRect(wnd, &windowRect);
+
+		auto& window = Gdi::Window::get(wnd);
+		RECT cachedWindowRect = window.getWindowRect();
+
+		if (!EqualRect(&windowRect, &cachedWindowRect))
+		{
+			Gdi::Window::updateAll();
+		}
 	}
 }
 
@@ -119,6 +133,13 @@ namespace Gdi
 				return it->second.dc;
 			}
 
+			const HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+			const HWND rootWnd = wnd ? GetAncestor(wnd, GA_ROOT) : nullptr;
+			if (rootWnd && GetDesktopWindow() != rootWnd)
+			{
+				updateWindow(rootWnd);
+			}
+
 			CompatDc compatDc(Gdi::DcCache::getDc());
 			if (!compatDc.dc)
 			{
@@ -130,7 +151,7 @@ namespace Gdi
 
 			compatDc.savedState = SaveDC(compatDc.dc);
 			copyDcAttributes(compatDc, origDc, origin);
-			setClippingRegion(compatDc.dc, origDc, CALL_ORIG_FUNC(WindowFromDC)(origDc), origin);
+			setClippingRegion(compatDc.dc, origDc, wnd, origin);
 
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;

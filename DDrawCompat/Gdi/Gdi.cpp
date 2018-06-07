@@ -195,24 +195,25 @@ namespace Gdi
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
 	{
-		if (!IsWindowVisible(hwnd))
+		if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
 		{
-			return;
-		}
-
-		if (!rgn)
-		{
-			RedrawWindow(hwnd, nullptr, nullptr,
-				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
 			return;
 		}
 
 		POINT origin = {};
-		ClientToScreen(hwnd, &origin);
-		OffsetRgn(rgn, -origin.x, -origin.y);
-		RedrawWindow(hwnd, nullptr, rgn,
-			RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
-		OffsetRgn(rgn, origin.x, origin.y);
+		if (rgn)
+		{
+			ClientToScreen(hwnd, &origin);
+			OffsetRgn(rgn, -origin.x, -origin.y);
+		}
+
+		RedrawWindow(hwnd, nullptr, rgn, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+		RedrawWindow(hwnd, nullptr, rgn, RDW_ERASENOW);
+
+		if (rgn)
+		{
+			OffsetRgn(rgn, origin.x, origin.y);
+		}
 	}
 
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)

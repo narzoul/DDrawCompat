@@ -6,7 +6,7 @@
 
 namespace Gdi
 {
-	typedef void(*WindowPosChangeNotifyFunc)(HWND, const RECT&, const RECT&);
+	typedef void(*WindowPosChangeNotifyFunc)();
 
 	bool beginGdiRendering(DWORD lockFlags = 0);
 	void endGdiRendering();

@@ -315,6 +315,12 @@
     <ClInclude Include="D3dDdi\Device.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\Window.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\Region.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -481,6 +487,12 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\Device.cpp">
       <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Window.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Region.cpp">
+      <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

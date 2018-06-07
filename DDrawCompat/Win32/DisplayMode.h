@@ -13,6 +13,7 @@ namespace Win32
 			const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage);
 		HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight);
 
+		ULONG queryDisplaySettingsUniqueness();
 		void setDDrawBpp(DWORD bpp);
 
 		void disableDwm8And16BitMitigation();

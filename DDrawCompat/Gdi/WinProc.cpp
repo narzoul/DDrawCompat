@@ -1,8 +1,8 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <map>
 #include <memory>
 #include <set>
-#include <unordered_map>
 
 #include <dwmapi.h>
 #include <Windows.h>
@@ -13,29 +13,22 @@
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
+#include "Gdi/Window.h"
 #include "Gdi/WinProc.h"
 
 namespace
 {
-	struct WindowData
-	{
-		RECT wndRect;
-		std::shared_ptr<HRGN__> sysClipRgn;
-	};
-
 	HHOOK g_callWndRetProcHook = nullptr;
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
-	std::unordered_map<HWND, WindowData> g_windowData;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	void disableDwmAttributes(HWND hwnd);
 	void onActivate(HWND hwnd);
+	void onCreateWindow(HWND hwnd);
+	void onDestroyWindow(HWND hwnd);
 	void onMenuSelect();
 	void onWindowPosChanged(HWND hwnd);
-	void redrawChangedWindowRegion(HWND hwnd, const WindowData& prevData, const WindowData& data);
-	void redrawUncoveredRegion(const WindowData& prevData, const WindowData& data);
 	void removeDropShadow(HWND hwnd);
-	BOOL CALLBACK updateWindowData(HWND hwnd, LPARAM lParam);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -46,13 +39,11 @@ namespace
 		{
 			if (WM_CREATE == ret->message)
 			{
-				disableDwmAttributes(ret->hwnd);
-				removeDropShadow(ret->hwnd);
+				onCreateWindow(ret->hwnd);
 			}
 			else if (WM_DESTROY == ret->message)
 			{
-				Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
-				g_windowData.erase(ret->hwnd);
+				onDestroyWindow(ret->hwnd);
 			}
 			else if (WM_WINDOWPOSCHANGED == ret->message)
 			{
@@ -92,18 +83,15 @@ namespace
 			&disableTransitions, sizeof(disableTransitions));
 	}
 
-	WindowData getWindowData(HWND hwnd)
+	BOOL CALLBACK initTopLevelWindow(HWND hwnd, LPARAM /*lParam*/)
 	{
-		WindowData data;
-		if (IsWindowVisible(hwnd) && !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		onCreateWindow(hwnd);
+		if (!(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
-			GetWindowRect(hwnd, &data.wndRect);
-			data.sysClipRgn.reset(CreateRectRgnIndirect(&data.wndRect), DeleteObject);
-			HDC dc = GetWindowDC(hwnd);
-			GetRandomRgn(dc, data.sysClipRgn.get(), SYSRGN);
-			ReleaseDC(hwnd, dc);
+			RedrawWindow(hwnd, nullptr, nullptr,
+				RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 		}
-		return data;
+		return TRUE;
 	}
 
 	void CALLBACK objectStateChangeEvent(
@@ -164,6 +152,26 @@ namespace
 		DeleteObject(ncRgn);
 	}
 
+	void onCreateWindow(HWND hwnd)
+	{
+		if (Gdi::isTopLevelWindow(hwnd))
+		{
+			disableDwmAttributes(hwnd);
+			removeDropShadow(hwnd);
+			Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
+			Gdi::Window::add(hwnd);
+		}
+	}
+
+	void onDestroyWindow(HWND hwnd)
+	{
+		if (Gdi::isTopLevelWindow(hwnd))
+		{
+			Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
+			Gdi::Window::remove(hwnd);
+		}
+	}
+
 	void onMenuSelect()
 	{
 		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
@@ -189,67 +197,12 @@ namespace
 
 		Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 
-		WindowData prevData = g_windowData[hwnd];
-		EnumThreadWindows(Gdi::getGdiThreadId(), updateWindowData, 0);
-		WindowData& data = g_windowData[hwnd];
-
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
 		{
-			notifyFunc(hwnd, prevData.wndRect, data.wndRect);
+			notifyFunc();
 		}
 
-		if (!prevData.sysClipRgn && !data.sysClipRgn)
-		{
-			return;
-		}
-
-		redrawUncoveredRegion(prevData, data);
-		redrawChangedWindowRegion(hwnd, prevData, data);
-	}
-
-	void redrawChangedWindowRegion(HWND hwnd, const WindowData& prevData, const WindowData& data)
-	{
-		if (!data.sysClipRgn)
-		{
-			return;
-		}
-
-		if (!prevData.sysClipRgn)
-		{
-			Gdi::redrawWindow(hwnd, data.sysClipRgn.get());
-			return;
-		}
-
-		if (EqualRect(&prevData.wndRect, &data.wndRect))
-		{
-			HRGN rgn = CreateRectRgn(0, 0, 0, 0);
-			CombineRgn(rgn, data.sysClipRgn.get(), prevData.sysClipRgn.get(), RGN_DIFF);
-			Gdi::redrawWindow(hwnd, rgn);
-			DeleteObject(rgn);
-		}
-		else
-		{
-			Gdi::redrawWindow(hwnd, data.sysClipRgn.get());
-		}
-	}
-
-	void redrawUncoveredRegion(const WindowData& prevData, const WindowData& data)
-	{
-		if (!prevData.sysClipRgn)
-		{
-			return;
-		}
-
-		if (!data.sysClipRgn)
-		{
-			Gdi::redraw(prevData.sysClipRgn.get());
-			return;
-		}
-
-		HRGN rgn = CreateRectRgn(0, 0, 0, 0);
-		CombineRgn(rgn, prevData.sysClipRgn.get(), data.sysClipRgn.get(), RGN_DIFF);
-		Gdi::redraw(rgn);
-		DeleteObject(rgn);
+		Gdi::Window::updateAll();
 	}
 
 	void removeDropShadow(HWND hwnd)
@@ -259,12 +212,6 @@ namespace
 		{
 			SetClassLongPtr(hwnd, GCL_STYLE, style ^ CS_DROPSHADOW);
 		}
-	}
-
-	BOOL CALLBACK updateWindowData(HWND hwnd, LPARAM /*lParam*/)
-	{
-		g_windowData[hwnd] = getWindowData(hwnd);
-		return TRUE;
 	}
 }
 
@@ -278,6 +225,8 @@ namespace Gdi
 			g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 				nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+
+			EnumThreadWindows(threadId, initTopLevelWindow, 0);
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
