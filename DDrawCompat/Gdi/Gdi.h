@@ -8,20 +8,14 @@ namespace Gdi
 {
 	typedef void(*WindowPosChangeNotifyFunc)();
 
-	bool beginGdiRendering(DWORD lockFlags = 0);
-	void endGdiRendering();
-
 	DWORD getGdiThreadId();
+	HDC getScreenDc();
 	HRGN getVisibleWindowRgn(HWND hwnd);
 	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc);
 	void installHooks();
-	bool isTopLevelWindow(HWND hwnd);
 	void redraw(HRGN rgn);
 	void redrawWindow(HWND hwnd, HRGN rgn);
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
 	void uninstallHooks();
-	void updatePalette(DWORD startingEntry, DWORD count);
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
-
-	extern CRITICAL_SECTION g_gdiCriticalSection;
 };

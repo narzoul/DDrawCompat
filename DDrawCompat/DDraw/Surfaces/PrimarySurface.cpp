@@ -1,5 +1,13 @@
+#define CINTERFACE
+#define _NO_DDRAWINT_NO_COM
+
+#include <ddraw.h>
+
 #include "Common/CompatPtr.h"
+#include "Common/CompatRef.h"
 #include "Config/Config.h"
+#include "D3dDdi/Device.h"
+#include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
@@ -8,11 +16,30 @@
 namespace
 {
 	DDSURFACEDESC2 g_primarySurfaceDesc = {};
-	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface = nullptr;
+	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
 	HANDLE g_gdiResourceHandle = nullptr;
 	DWORD g_origCaps = 0;
+	RECT g_monitorRect = {};
 
-	HANDLE getResourceHandle(IDirectDrawSurface7& surface)
+	RECT getDdMonitorRect(CompatRef<IDirectDraw7> dd)
+	{
+		DDDEVICEIDENTIFIER2 di = {};
+		dd->GetDeviceIdentifier(&dd, &di, 0);  // Calls D3DKMTOpenAdapterFromHdc, which updates last monitor below
+
+		HMONITOR monitor = D3dDdi::KernelModeThunks::getLastOpenAdapterMonitor();
+		if (!monitor)
+		{
+			monitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
+		}
+
+		MONITORINFO mi = {};
+		mi.cbSize = sizeof(mi);
+		GetMonitorInfo(monitor, &mi);
+		return mi.rcMonitor;
+	}
+
+	template <typename TSurface>
+	HANDLE getResourceHandle(TSurface& surface)
 	{
 		return reinterpret_cast<HANDLE**>(&surface)[1][2];
 	}
@@ -32,6 +59,7 @@ namespace DDraw
 		g_gdiResourceHandle = nullptr;
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
+		g_monitorRect = {};
 		s_palette = nullptr;
 		s_surfaceBuffers.clear();
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
@@ -75,6 +103,7 @@ namespace DDraw
 
 		g_primarySurface = surface7;
 		g_origCaps = origCaps;
+		g_monitorRect = getDdMonitorRect(*CompatPtr<IDirectDraw7>::from(&dd));
 
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
@@ -86,6 +115,8 @@ namespace DDraw
 		}
 
 		g_gdiResourceHandle = getResourceHandle(*surface7);
+		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
+
 		return DD_OK;
 	}
 
@@ -135,7 +166,7 @@ namespace DDraw
 
 		do
 		{
-			if (getResourceHandle(*surface) == g_gdiResourceHandle)
+			if (isGdiSurface(surface.get()))
 			{
 				return CompatPtr<IDirectDrawSurface7>::from(surface.get());
 			}
@@ -150,6 +181,11 @@ namespace DDraw
 		return nullptr;
 	}
 
+	RECT PrimarySurface::getMonitorRect()
+	{
+		return g_monitorRect;
+	}
+
 	CompatWeakPtr<IDirectDrawSurface7> PrimarySurface::getPrimary()
 	{
 		return g_primarySurface;
@@ -158,6 +194,27 @@ namespace DDraw
 	DWORD PrimarySurface::getOrigCaps()
 	{
 		return g_origCaps;
+	}
+
+	template <typename TSurface>
+	static bool PrimarySurface::isGdiSurface(TSurface* surface)
+	{
+		return surface && getResourceHandle(*surface) == g_gdiResourceHandle;
+	}
+
+	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface*);
+	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface2*);
+	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface3*);
+	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface4*);
+	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface7*);
+
+	void PrimarySurface::onRestore()
+	{
+		CompatPtr<IUnknown> ddUnk;
+		g_primarySurface.get()->lpVtbl->GetDDInterface(
+			g_primarySurface, reinterpret_cast<void**>(&ddUnk.getRef()));
+		CompatPtr<IDirectDraw7> dd7(ddUnk);
+		g_monitorRect = getDdMonitorRect(*dd7);
 	}
 
 	void PrimarySurface::resizeBuffers(CompatRef<IDirectDrawSurface7> surface)

@@ -35,6 +35,4 @@ namespace Gdi
 
 		HRGN m_region;
 	};
-
-	const Region& getVirtualScreenRegion();
 }

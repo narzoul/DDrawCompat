@@ -1,10 +1,12 @@
 #include <atomic>
+#include <memory>
 #include <vector>
 
 #include "Common/CompatPtr.h"
 #include "Common/Hook.h"
 #include "Common/Time.h"
 #include "Config/Config.h"
+#include "D3dDdi/Device.h"
 #include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
@@ -13,11 +15,26 @@
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Types.h"
+#include "Gdi/AccessGuard.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/VirtualScreen.h"
+#include "Gdi/Window.h"
 #include "Win32/DisplayMode.h"
 
 namespace
 {
+	struct BltToWindowViaGdiArgs
+	{
+		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc;
+		Gdi::Region* primaryRegion;
+
+		BltToWindowViaGdiArgs()
+			: virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc)
+			, primaryRegion(nullptr)
+		{
+		}
+	};
+
 	void onRelease();
 	DWORD WINAPI updateThreadProc(LPVOID lpParameter);
 
@@ -42,7 +59,8 @@ namespace
 
 	BOOL CALLBACK addVisibleLayeredWindowToVector(HWND hwnd, LPARAM lParam)
 	{
-		if (IsWindowVisible(hwnd) && (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		if (IsWindowVisible(hwnd) && (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+			!Gdi::Window::isPresentationWindow(hwnd))
 		{
 			auto& visibleLayeredWindows = *reinterpret_cast<std::vector<HWND>*>(lParam);
 			visibleLayeredWindows.push_back(hwnd);
@@ -52,7 +70,7 @@ namespace
 
 	BOOL CALLBACK bltToWindow(HWND hwnd, LPARAM lParam)
 	{
-		if (!IsWindowVisible(hwnd) || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		if (!IsWindowVisible(hwnd) || !Gdi::Window::isPresentationWindow(hwnd))
 		{
 			return TRUE;
 		}
@@ -60,6 +78,54 @@ namespace
 		g_clipper->SetHWnd(g_clipper, 0, hwnd);
 		auto src = reinterpret_cast<IDirectDrawSurface7*>(lParam);
 		g_frontBuffer->Blt(g_frontBuffer, nullptr, src, nullptr, DDBLT_WAIT, nullptr);
+		return TRUE;
+	}
+
+	BOOL CALLBACK bltToWindowViaGdi(HWND hwnd, LPARAM lParam)
+	{
+		if (!IsWindowVisible(hwnd) || !Gdi::Window::isPresentationWindow(hwnd))
+		{
+			return TRUE;
+		}
+
+		auto window = Gdi::Window::get(GetParent(hwnd));
+		if (!window)
+		{
+			return TRUE;
+		}
+
+		Gdi::Region visibleRegion = window->getVisibleRegion();
+		if (visibleRegion.isEmpty())
+		{
+			return TRUE;
+		}
+
+		auto& args = *reinterpret_cast<BltToWindowViaGdiArgs*>(lParam);
+		if (args.primaryRegion)
+		{
+			visibleRegion -= *args.primaryRegion;
+			if (visibleRegion.isEmpty())
+			{
+				return TRUE;
+			}
+		}
+
+		if (!args.virtualScreenDc)
+		{
+			args.virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
+			if (!args.virtualScreenDc)
+			{
+				return FALSE;
+			}
+		}
+
+		Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_READ);
+		HDC presentationWindowDc = GetWindowDC(hwnd);
+		RECT rect = window->getWindowRect();
+		CALL_ORIG_FUNC(BitBlt)(presentationWindowDc, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
+			args.virtualScreenDc.get(), rect.left, rect.top, SRCCOPY);
+		ReleaseDC(hwnd, presentationWindowDc);
+
 		return TRUE;
 	}
 
@@ -94,7 +160,6 @@ namespace
 		}
 
 		g_backBuffer->ReleaseDC(g_backBuffer, backBufferDc);
-		DDraw::RealPrimarySurface::update();
 	}
 
 	HRESULT bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
@@ -112,15 +177,31 @@ namespace
 	{
 		Compat::LogEnter("RealPrimarySurface::compatBlt");
 
-		bool result = false;
+		BltToWindowViaGdiArgs bltToWindowViaGdiArgs;
+		if (!g_frontBuffer || (!g_isFullScreen && DDraw::RealPrimarySurface::isLost()))
+		{
+			EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindowViaGdi,
+				reinterpret_cast<LPARAM>(&bltToWindowViaGdiArgs));
+			Compat::LogLeave("RealPrimarySurface::compatBlt") << false;
+			return false;
+		}
 
+		Gdi::Region primaryRegion(DDraw::PrimarySurface::getMonitorRect());
+		bltToWindowViaGdiArgs.primaryRegion = &primaryRegion;
+		EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindowViaGdi,
+			reinterpret_cast<LPARAM>(&bltToWindowViaGdiArgs));
+
+		bool result = false;
 		auto primary(DDraw::PrimarySurface::getPrimary());
+		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, DDraw::PrimarySurface::isGdiSurface(primary.get()));
 		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
 			HDC paletteConverterDc = nullptr;
 			g_paletteConverter->GetDC(g_paletteConverter, &paletteConverterDc);
 			HDC primaryDc = nullptr;
+			D3dDdi::Device::setReadOnlyGdiLock(true);
 			primary->GetDC(primary, &primaryDc);
+			D3dDdi::Device::setReadOnlyGdiLock(false);
 
 			if (paletteConverterDc && primaryDc)
 			{
@@ -203,7 +284,6 @@ namespace
 			surface->SetClipper(surface, g_clipper);
 		}
 
-		g_qpcFlipModeTimeout = Time::g_qpcFrequency / Config::minExpectedFlipsPerSec;
 		g_qpcLastFlip = Time::queryPerformanceCounter() - g_qpcFlipModeTimeout;
 		g_qpcNextUpdate = Time::queryPerformanceCounter();
 
@@ -215,17 +295,6 @@ namespace
 			dm.dwRefreshRate = 60;
 		}
 		g_qpcUpdateInterval = Time::g_qpcFrequency / dm.dwRefreshRate;
-
-		if (!g_updateEvent)
-		{
-			g_updateEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-		}
-
-		if (!g_updateThread)
-		{
-			g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
-			SetThreadPriority(g_updateThread, THREAD_PRIORITY_TIME_CRITICAL);
-		}
 
 		surface->SetPrivateData(surface, IID_IReleaseNotifier,
 			&g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
@@ -265,6 +334,7 @@ namespace
 		g_clipper.release();
 		g_isFullScreen = false;
 		g_paletteConverter.release();
+		g_qpcUpdateInterval = Time::g_qpcFrequency / 60;
 
 		ZeroMemory(&g_surfaceDesc, sizeof(g_surfaceDesc));
 
@@ -275,6 +345,7 @@ namespace
 	{
 		ResetEvent(g_updateEvent);
 
+		Gdi::VirtualScreen::update();
 		if (compatBlt() && g_isFullScreen)
 		{
 			D3dDdi::KernelModeThunks::overrideFlipInterval(
@@ -349,7 +420,7 @@ namespace DDraw
 			return result;
 		}
 
-		return init(dd, surface);
+		return ::init(dd, surface);
 	}
 
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw>);
@@ -406,6 +477,17 @@ namespace DDraw
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
 	{
 		return g_frontBuffer;
+	}
+
+	void RealPrimarySurface::init()
+	{
+		g_qpcNextUpdate = Time::queryPerformanceCounter();
+		g_qpcUpdateInterval = Time::g_qpcFrequency / 60;
+		g_qpcFlipModeTimeout = Time::g_qpcFrequency / Config::minExpectedFlipsPerSec;
+		g_updateEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+
+		g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
+		SetThreadPriority(g_updateThread, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
 	bool RealPrimarySurface::isFullScreen()
@@ -465,7 +547,7 @@ namespace DDraw
 			g_frontBuffer->SetPalette(g_frontBuffer, PrimarySurface::s_palette);
 		}
 
-		updatePalette(0, 256);
+		updatePalette();
 	}
 
 	void RealPrimarySurface::update()
@@ -500,9 +582,8 @@ namespace DDraw
 		}
 	}
 
-	void RealPrimarySurface::updatePalette(DWORD startingEntry, DWORD count)
+	void RealPrimarySurface::updatePalette()
 	{
-		Gdi::updatePalette(startingEntry, count);
 		if (PrimarySurface::s_palette)
 		{
 			update();

@@ -8,43 +8,6 @@
 
 namespace
 {
-	DDPIXELFORMAT getRgbPixelFormat(DWORD bpp)
-	{
-		DDPIXELFORMAT pf = {};
-		pf.dwSize = sizeof(pf);
-		pf.dwFlags = DDPF_RGB;
-		pf.dwRGBBitCount = bpp;
-
-		switch (bpp)
-		{
-		case 1:
-			pf.dwFlags |= DDPF_PALETTEINDEXED1;
-			break;
-		case 2:
-			pf.dwFlags |= DDPF_PALETTEINDEXED2;
-			break;
-		case 4:
-			pf.dwFlags |= DDPF_PALETTEINDEXED4;
-			break;
-		case 8:
-			pf.dwFlags |= DDPF_PALETTEINDEXED8;
-			break;
-		case 16:
-			pf.dwRBitMask = 0xF800;
-			pf.dwGBitMask = 0x07E0;
-			pf.dwBBitMask = 0x001F;
-			break;
-		case 24:
-		case 32:
-			pf.dwRBitMask = 0xFF0000;
-			pf.dwGBitMask = 0x00FF00;
-			pf.dwBBitMask = 0x0000FF;
-			break;
-		}
-
-		return pf;
-	}
-
 	template <typename TDirectDraw>
 	HRESULT setDisplayMode(TDirectDraw* This, DWORD width, DWORD height, DWORD bpp)
 	{
@@ -98,6 +61,43 @@ namespace DDraw
 		dm.dwSize = sizeof(dm);
 		dd->GetDisplayMode(&dd, &dm);
 		return dm;
+	}
+
+	DDPIXELFORMAT getRgbPixelFormat(DWORD bpp)
+	{
+		DDPIXELFORMAT pf = {};
+		pf.dwSize = sizeof(pf);
+		pf.dwFlags = DDPF_RGB;
+		pf.dwRGBBitCount = bpp;
+
+		switch (bpp)
+		{
+		case 1:
+			pf.dwFlags |= DDPF_PALETTEINDEXED1;
+			break;
+		case 2:
+			pf.dwFlags |= DDPF_PALETTEINDEXED2;
+			break;
+		case 4:
+			pf.dwFlags |= DDPF_PALETTEINDEXED4;
+			break;
+		case 8:
+			pf.dwFlags |= DDPF_PALETTEINDEXED8;
+			break;
+		case 16:
+			pf.dwRBitMask = 0xF800;
+			pf.dwGBitMask = 0x07E0;
+			pf.dwBBitMask = 0x001F;
+			break;
+		case 24:
+		case 32:
+			pf.dwRBitMask = 0xFF0000;
+			pf.dwGBitMask = 0x00FF00;
+			pf.dwBBitMask = 0x0000FF;
+			break;
+		}
+
+		return pf;
 	}
 
 	void suppressEmulatedDirectDraw(GUID*& guid)

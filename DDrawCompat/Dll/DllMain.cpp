@@ -15,6 +15,7 @@
 #include "Direct3d/Hooks.h"
 #include "Dll/Procs.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/VirtualScreen.h"
 #include "Win32/DisplayMode.h"
 #include "Win32/FontSmoothing.h"
 #include "Win32/MsgHooks.h"
@@ -39,14 +40,15 @@ namespace
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks();
+			Compat::Log() << "Installing display mode hooks";
+			Win32::DisplayMode::installHooks(g_origDDrawModule);
+			Gdi::VirtualScreen::init();
 			Compat::Log() << "Installing DirectDraw hooks";
 			DDraw::installHooks();
 			Compat::Log() << "Installing Direct3D hooks";
 			Direct3d::installHooks();
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
-			Compat::Log() << "Installing display mode hooks";
-			Win32::DisplayMode::installHooks(g_origDDrawModule);
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}

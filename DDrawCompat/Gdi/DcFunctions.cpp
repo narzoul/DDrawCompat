@@ -2,9 +2,11 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
+#include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/VirtualScreen.h"
 #include "Win32/DisplayMode.h"
 
 namespace
@@ -80,21 +82,18 @@ namespace
 		Compat::LogEnter(g_funcNames[origFunc], params...);
 #endif
 
-		if (!hasDisplayDcArg(params...) ||
-			!Gdi::beginGdiRendering(getDdLockFlags<OrigFuncPtr, origFunc>(params...)))
+		Result result = 0;
+		if (hasDisplayDcArg(params...))
 		{
-			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
-
-#ifdef _DEBUG
-			Compat::LogLeave(g_funcNames[origFunc], params...) << result;
-#endif
-
-			return result;
+			const bool isReadOnlyAccess = getDdLockFlags<OrigFuncPtr, origFunc>(params...) & DDLOCK_READONLY;
+			Gdi::GdiAccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
+			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
+			releaseDc(params...);
 		}
-
-		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
-		releaseDc(params...);
-		Gdi::endGdiRendering();
+		else
+		{
+			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+		}
 
 #ifdef _DEBUG
 		Compat::LogLeave(g_funcNames[origFunc], params...) << result;
@@ -254,6 +253,13 @@ namespace
 		return 1;
 	}
 
+	UINT WINAPI realizePalette(HDC hdc)
+	{
+		UINT result = CALL_ORIG_FUNC(RealizePalette)(hdc);
+		Gdi::VirtualScreen::updatePalette();
+		return result;
+	}
+
 	HWND WINAPI windowFromDc(HDC dc)
 	{
 		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
@@ -310,6 +316,9 @@ namespace Gdi
 
 			// Clipping functions
 			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
+
+			// Color functions
+			HOOK_SHIM_FUNCTION(RealizePalette, realizePalette);
 
 			// Device context functions
 			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);

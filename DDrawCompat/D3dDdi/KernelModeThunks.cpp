@@ -31,6 +31,7 @@ namespace
 
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
 	std::map<D3DKMT_HANDLE, DeviceInfo> g_devices;
+	HMONITOR g_lastOpenAdapterMonitor = nullptr;
 
 	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
 	decltype(D3DKMTSetVidPnSourceOwner1)* g_origD3dKmtSetVidPnSourceOwner1 = nullptr;
@@ -120,6 +121,20 @@ namespace
 			g_devices.erase(pData->hDevice);
 		}
 		Compat::LogLeave("D3DKMTDestroyDevice", pData) << result;
+		return result;
+	}
+
+	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
+	{
+		Compat::LogEnter("D3DKMTOpenAdapterFromHdc", pData);
+		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(pData);
+		if (pData)
+		{
+			POINT p = {};
+			GetDCOrgEx(pData->hDc, &p);
+			g_lastOpenAdapterMonitor = MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY);
+		}
+		Compat::LogLeave("D3DKMTOpenAdapterFromHdc", pData) << result;
 		return result;
 	}
 
@@ -253,6 +268,11 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
+		HMONITOR getLastOpenAdapterMonitor()
+		{
+			return g_lastOpenAdapterMonitor;
+		}
+
 		bool isPresentReady()
 		{
 			for (auto it : g_devices)
@@ -272,6 +292,7 @@ namespace D3dDdi
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDCFromMemory, createDcFromMemory);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyContext, destroyContext);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyDevice, destroyDevice);
+			HOOK_FUNCTION(gdi32, D3DKMTOpenAdapterFromHdc, openAdapterFromHdc);
 			HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, queryAdapterInfo);
 			HOOK_FUNCTION(gdi32, D3DKMTPresent, present);
 			HOOK_FUNCTION(gdi32, D3DKMTSetQueuedLimit, setQueuedLimit);

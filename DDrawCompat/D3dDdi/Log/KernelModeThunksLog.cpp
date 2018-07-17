@@ -1,6 +1,13 @@
 #include "Common/Log.h"
 #include "D3dDdi/Log/KernelModeThunksLog.h"
 
+std::ostream& operator<<(std::ostream& os, const LUID& luid)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(luid.LowPart)
+		<< Compat::hex(luid.HighPart);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXT& data)
 {
 	return Compat::LogStruct(os)
@@ -71,6 +78,15 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_DESTROYDEVICE& data)
 {
 	return Compat::LogStruct(os)
 		<< Compat::hex(data.hDevice);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DKMT_OPENADAPTERFROMHDC& data)
+{
+	return Compat::LogStruct(os)
+		<< data.hDc
+		<< Compat::hex(data.hAdapter)
+		<< data.AdapterLuid
+		<< data.VidPnSourceId;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DKMT_PRESENT& data)

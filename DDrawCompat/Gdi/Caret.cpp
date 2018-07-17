@@ -4,6 +4,7 @@
 
 #include "Common/Hook.h"
 #include "Common/ScopedCriticalSection.h"
+#include "Gdi/AccessGuard.h"
 #include "Gdi/Caret.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
@@ -103,11 +104,11 @@ namespace
 			return;
 		}
 
-		if ((g_caret.isVisible || newCaret.isVisible) && Gdi::beginGdiRendering())
+		if ((g_caret.isVisible || newCaret.isVisible))
 		{
+			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			drawCaret(g_caret);
 			drawCaret(newCaret);
-			Gdi::endGdiRendering();
 		}
 
 		g_caret = newCaret;

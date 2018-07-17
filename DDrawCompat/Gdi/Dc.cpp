@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <unordered_map>
+#include <vector>
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
@@ -7,24 +8,27 @@
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
 
 namespace
 {
-	using Gdi::DcCache::CachedDc;
-
-	struct CompatDc : CachedDc
+	struct CompatDc
 	{
-		CompatDc(const CachedDc& cachedDc = {}) : CachedDc(cachedDc) {}
+		HDC dc;
 		DWORD refCount;
 		HDC origDc;
 		int savedState;
 	};
 
+	typedef std::unique_ptr<HDC__, void(*)(HDC)> OrigDc;
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
-	CompatDcMap g_origDcToCompatDc;
 
-	void copyDcAttributes(CompatDc& compatDc, HDC origDc, POINT& origin)
+	CRITICAL_SECTION g_cs;
+	CompatDcMap g_origDcToCompatDc;
+	thread_local std::vector<OrigDc> g_threadDcs;
+
+	void copyDcAttributes(const CompatDc& compatDc, HDC origDc, const POINT& origin)
 	{
 		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
 		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_BRUSH));
@@ -76,6 +80,15 @@ namespace
 		MoveToEx(compatDc.dc, currentPos.x, currentPos.y, nullptr);
 	}
 
+	void deleteDc(HDC origDc)
+	{
+		Compat::ScopedCriticalSection lock(g_cs);
+		auto it = g_origDcToCompatDc.find(origDc);
+		RestoreDC(it->second.dc, it->second.savedState);
+		Gdi::DcCache::deleteDc(it->second.dc);
+		g_origDcToCompatDc.erase(origDc);
+	}
+
 	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, const POINT& origin)
 	{
 		if (hwnd)
@@ -100,12 +113,16 @@ namespace
 
 	void updateWindow(HWND wnd)
 	{
+		auto window = Gdi::Window::get(wnd);
+		if (!window)
+		{
+			return;
+		}
+
 		RECT windowRect = {};
 		GetWindowRect(wnd, &windowRect);
 
-		auto& window = Gdi::Window::get(wnd);
-		RECT cachedWindowRect = window.getWindowRect();
-
+		RECT cachedWindowRect = window->getWindowRect();
 		if (!EqualRect(&windowRect, &cachedWindowRect))
 		{
 			Gdi::Window::updateAll();
@@ -124,8 +141,7 @@ namespace Gdi
 				return nullptr;
 			}
 
-			Compat::ScopedCriticalSection gdiLock(Gdi::g_gdiCriticalSection);
-
+			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it != g_origDcToCompatDc.end())
 			{
@@ -140,7 +156,8 @@ namespace Gdi
 				updateWindow(rootWnd);
 			}
 
-			CompatDc compatDc(Gdi::DcCache::getDc());
+			CompatDc compatDc;
+			compatDc.dc = Gdi::DcCache::getDc();
 			if (!compatDc.dc)
 			{
 				return nullptr;
@@ -148,6 +165,9 @@ namespace Gdi
 
 			POINT origin = {};
 			GetDCOrgEx(origDc, &origin);
+			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
+			origin.x -= virtualScreenBounds.left;
+			origin.y -= virtualScreenBounds.top;
 
 			compatDc.savedState = SaveDC(compatDc.dc);
 			copyDcAttributes(compatDc, origDc, origin);
@@ -156,21 +176,27 @@ namespace Gdi
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;
 			g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
+			g_threadDcs.emplace_back(origDc, &deleteDc);
 
 			return compatDc.dc;
 		}
 
 		HDC getOrigDc(HDC dc)
 		{
+			Compat::ScopedCriticalSection lock(g_cs);
 			const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
 				[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
 			return it != g_origDcToCompatDc.end() ? it->first : dc;
 		}
 
+		void init()
+		{
+			InitializeCriticalSection(&g_cs);
+		}
+
 		void releaseDc(HDC origDc)
 		{
-			Compat::ScopedCriticalSection gdiLock(Gdi::g_gdiCriticalSection);
-
+			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it == g_origDcToCompatDc.end())
 			{
@@ -181,8 +207,13 @@ namespace Gdi
 			--compatDc.refCount;
 			if (0 == compatDc.refCount)
 			{
+				auto threadDcIter = std::find_if(g_threadDcs.begin(), g_threadDcs.end(),
+					[origDc](const OrigDc& dc) { return dc.get() == origDc; });
+				threadDcIter->release();
+				g_threadDcs.erase(threadDcIter);
+
 				RestoreDC(compatDc.dc, compatDc.savedState);
-				Gdi::DcCache::releaseDc(compatDc);
+				Gdi::DcCache::releaseDc(compatDc.dc);
 				g_origDcToCompatDc.erase(origDc);
 			}
 		}

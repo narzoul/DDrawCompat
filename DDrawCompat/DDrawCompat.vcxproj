@@ -215,6 +215,7 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
     <ClInclude Include="Dll\Procs.h" />
+    <ClInclude Include="Gdi\AccessGuard.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
     <ClInclude Include="Gdi\Dc.h" />
@@ -225,6 +226,7 @@
     <ClInclude Include="Gdi\ScrollBar.h" />
     <ClInclude Include="Gdi\ScrollFunctions.h" />
     <ClInclude Include="Gdi\TitleBar.h" />
+    <ClInclude Include="Gdi\VirtualScreen.h" />
     <ClInclude Include="Gdi\Window.h" />
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
@@ -274,6 +276,7 @@
     <ClCompile Include="Dll\Procs.cpp" />
     <ClCompile Include="Dll\DllMain.cpp" />
     <ClCompile Include="Dll\UnmodifiedProcs.cpp" />
+    <ClCompile Include="Gdi\AccessGuard.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />
     <ClCompile Include="Gdi\Dc.cpp" />
@@ -284,6 +287,7 @@
     <ClCompile Include="Gdi\ScrollBar.cpp" />
     <ClCompile Include="Gdi\ScrollFunctions.cpp" />
     <ClCompile Include="Gdi\TitleBar.cpp" />
+    <ClCompile Include="Gdi\VirtualScreen.cpp" />
     <ClCompile Include="Gdi\Window.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />

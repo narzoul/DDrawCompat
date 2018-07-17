@@ -6,6 +6,7 @@
 #include "DDraw/DirectDrawPalette.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
+#include "Gdi/AccessGuard.h"
 
 namespace DDraw
 {
@@ -37,7 +38,7 @@ namespace DDraw
 		{
 			std::memcpy(&PrimarySurface::s_paletteEntries[dwStartingEntry], lpEntries,
 				dwCount * sizeof(PALETTEENTRY));
-			RealPrimarySurface::updatePalette(dwStartingEntry, dwCount);
+			RealPrimarySurface::updatePalette();
 		}
 		return result;
 	}

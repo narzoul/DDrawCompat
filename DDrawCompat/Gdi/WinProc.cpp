@@ -9,6 +9,7 @@
 
 #include "Common/Log.h"
 #include "Common/ScopedCriticalSection.h"
+#include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
@@ -94,6 +95,12 @@ namespace
 		return TRUE;
 	}
 
+	bool isTopLevelNonLayeredWindow(HWND hwnd)
+	{
+		return !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+			(!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow());
+	}
+
 	void CALLBACK objectStateChangeEvent(
 		HWINEVENTHOOK /*hWinEventHook*/,
 		DWORD /*event*/,
@@ -105,7 +112,7 @@ namespace
 	{
 		if (OBJID_TITLEBAR == idObject || OBJID_HSCROLL == idObject || OBJID_VSCROLL == idObject)
 		{
-			if (!hwnd || !Gdi::beginGdiRendering())
+			if (!hwnd)
 			{
 				return;
 			}
@@ -114,6 +121,7 @@ namespace
 			HDC compatDc = Gdi::Dc::getDc(windowDc);
 			if (compatDc)
 			{
+				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				if (OBJID_TITLEBAR == idObject)
 				{
 					Gdi::TitleBar(hwnd, compatDc).drawButtons();
@@ -128,9 +136,7 @@ namespace
 				}
 				Gdi::Dc::releaseDc(windowDc);
 			}
-
 			ReleaseDC(hwnd, windowDc);
-			Gdi::endGdiRendering();
 		}
 	}
 
@@ -154,22 +160,17 @@ namespace
 
 	void onCreateWindow(HWND hwnd)
 	{
-		if (Gdi::isTopLevelWindow(hwnd))
+		if (isTopLevelNonLayeredWindow(hwnd))
 		{
 			disableDwmAttributes(hwnd);
 			removeDropShadow(hwnd);
-			Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
 			Gdi::Window::add(hwnd);
 		}
 	}
 
 	void onDestroyWindow(HWND hwnd)
 	{
-		if (Gdi::isTopLevelWindow(hwnd))
-		{
-			Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
-			Gdi::Window::remove(hwnd);
-		}
+		Gdi::Window::remove(hwnd);
 	}
 
 	void onMenuSelect()
@@ -190,19 +191,15 @@ namespace
 			SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
 		}
 
-		if (!Gdi::isTopLevelWindow(hwnd))
-		{
-			return;
-		}
-
-		Compat::ScopedCriticalSection lock(Gdi::g_gdiCriticalSection);
-
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
 		{
 			notifyFunc();
 		}
 
-		Gdi::Window::updateAll();
+		if (isTopLevelNonLayeredWindow(hwnd))
+		{
+			Gdi::Window::updateAll();
+		}
 	}
 
 	void removeDropShadow(HWND hwnd)

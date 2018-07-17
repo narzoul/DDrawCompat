@@ -2,12 +2,36 @@
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/KernelModeThunks.h"
+#include "Gdi/AccessGuard.h"
 
 namespace
 {
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
+	HANDLE g_gdiResourceHandle = nullptr;
+	bool g_isReadOnlyGdiLockEnabled = false;
+
+	class RenderGuard : public Gdi::DDrawAccessGuard
+	{
+	public:
+		RenderGuard(D3dDdi::Device& device, Gdi::Access access)
+			: Gdi::DDrawAccessGuard(access)
+			, m_device(device)
+		{
+			device.prepareForRendering();
+		}
+
+		RenderGuard(D3dDdi::Device& device, Gdi::Access access, HANDLE resource, UINT subResourceIndex = UINT_MAX)
+			: Gdi::DDrawAccessGuard(access, g_gdiResourceHandle == resource)
+			, m_device(device)
+		{
+			device.prepareForRendering(resource, subResourceIndex);
+		}
+
+	private:
+		D3dDdi::Device & m_device;
+	};
 
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags()
 	{
@@ -81,8 +105,8 @@ namespace D3dDdi
 
 	HRESULT Device::blt(const D3DDDIARG_BLT& data)
 	{
-		prepareForRendering(data.hSrcResource, data.SrcSubResourceIndex);
-		prepareForRendering(data.hDstResource, data.DstSubResourceIndex);
+		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
+		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource, data.DstSubResourceIndex);
 
 		auto it = m_oversizedResources.find(data.hSrcResource);
 		if (it != m_oversizedResources.end())
@@ -101,13 +125,13 @@ namespace D3dDdi
 
 	HRESULT Device::clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnClear(m_device, &data, numRect, rect);
 	}
 
 	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL& data)
 	{
-		prepareForRendering(data.hResource, data.SubResourceIndex);
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE, data.hResource, data.SubResourceIndex);
 		return m_origVtable->pfnColorFill(m_device, &data);
 	}
 
@@ -198,6 +222,10 @@ namespace D3dDdi
 			{
 				m_sharedPrimary = nullptr;
 			}
+			if (resource == g_gdiResourceHandle)
+			{
+				g_gdiResourceHandle = nullptr;
+			}
 		}
 
 		return result;
@@ -205,45 +233,49 @@ namespace D3dDdi
 
 	HRESULT Device::drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE& data)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawIndexedPrimitive(m_device, &data);
 	}
 
 	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2& data,
 		UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawIndexedPrimitive2(m_device, &data, indicesSize, indexBuffer, flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE& data, const UINT* flagBuffer)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawPrimitive(m_device, &data, flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2& data)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawPrimitive2(m_device, &data);
 	}
 
 	HRESULT Device::drawRectPatch(const D3DDDIARG_DRAWRECTPATCH& data, const D3DDDIRECTPATCH_INFO* info,
 		const FLOAT* patch)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawRectPatch(m_device, &data, info, patch);
 	}
 
 	HRESULT Device::drawTriPatch(const D3DDDIARG_DRAWTRIPATCH& data, const D3DDDITRIPATCH_INFO* info,
 		const FLOAT* patch)
 	{
-		prepareForRendering();
+		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
 		return m_origVtable->pfnDrawTriPatch(m_device, &data, info, patch);
 	}
 
 	HRESULT Device::lock(D3DDDIARG_LOCK& data)
 	{
+		Gdi::DDrawAccessGuard accessGuard(
+			(data.Flags.ReadOnly || g_isReadOnlyGdiLockEnabled) ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE,
+			data.hResource == g_gdiResourceHandle);
+
 		auto it = m_renderTargetResources.find(data.hResource);
 		if (it != m_renderTargetResources.end())
 		{
@@ -269,35 +301,45 @@ namespace D3dDdi
 
 	HRESULT Device::present(const D3DDDIARG_PRESENT& data)
 	{
-		prepareForRendering(data.hSrcResource, data.SrcSubResourceIndex);
+		RenderGuard renderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
 		return m_origVtable->pfnPresent(m_device, &data);
 	}
 
 	HRESULT Device::present1(D3DDDIARG_PRESENT1& data)
 	{
+		bool isGdiResourceInvolved = false;
+		for (UINT i = 0; i < data.SrcResources && !isGdiResourceInvolved; ++i)
+		{
+			isGdiResourceInvolved = data.phSrcResources[i].hResource == g_gdiResourceHandle;
+		}
+
+		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, isGdiResourceInvolved);
+
 		for (UINT i = 0; i < data.SrcResources; ++i)
 		{
 			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex);
 		}
+
 		return m_origVtable->pfnPresent1(m_device, &data);
 	}
 
 	HRESULT Device::texBlt(const D3DDDIARG_TEXBLT& data)
 	{
-		prepareForRendering(data.hDstResource);
-		prepareForRendering(data.hSrcResource);
+		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource);
+		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource);
 		return m_origVtable->pfnTexBlt(m_device, &data);
 	}
 
 	HRESULT Device::texBlt1(const D3DDDIARG_TEXBLT1& data)
 	{
-		prepareForRendering(data.hDstResource);
-		prepareForRendering(data.hSrcResource);
+		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource);
+		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource);
 		return m_origVtable->pfnTexBlt1(m_device, &data);
 	}
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK& data)
 	{
+		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, data.hResource == g_gdiResourceHandle);
 		auto it = m_renderTargetResources.find(data.hResource);
 		if (it != m_renderTargetResources.end())
 		{
@@ -343,5 +385,15 @@ namespace D3dDdi
 		{
 			prepareForRendering((it++)->second);
 		}
+	}
+
+	void Device::setGdiResourceHandle(HANDLE resource)
+	{
+		g_gdiResourceHandle = resource;
+	}
+
+	void Device::setReadOnlyGdiLock(bool enable)
+	{
+		g_isReadOnlyGdiLockEnabled = enable;
 	}
 }

@@ -1,150 +1,35 @@
-#include "Common/ScopedCriticalSection.h"
-#include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
-#include "Dll/Procs.h"
 #include "Gdi/Caret.h"
-#include "Gdi/DcCache.h"
+#include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollFunctions.h"
+#include "Gdi/Window.h"
 #include "Gdi/WinProc.h"
 
 namespace
 {
 	DWORD g_gdiThreadId = 0;
-	DWORD g_renderingRefCount = 0;
-	DWORD g_ddLockFlags = 0;
-	DWORD g_ddLockThreadRenderingRefCount = 0;
-	DWORD g_ddLockThreadId = 0;
-	HANDLE g_ddUnlockBeginEvent = nullptr;
-	HANDLE g_ddUnlockEndEvent = nullptr;
-	bool g_isDelayedUnlockPending = false;
-
-	bool lockGdiSurface(DWORD lockFlags)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		auto gdiSurface(DDraw::PrimarySurface::getGdiSurface());
-		if (!gdiSurface || FAILED(gdiSurface.get()->lpVtbl->Lock(
-			gdiSurface, nullptr, &desc, lockFlags | DDLOCK_WAIT, nullptr)))
-		{
-			return false;
-		}
-
-		g_ddLockFlags = lockFlags;
-		if (0 != lockFlags)
-		{
-			EnterCriticalSection(&Gdi::g_gdiCriticalSection);
-		}
-
-		g_ddLockThreadId = GetCurrentThreadId();
-		Gdi::DcCache::setDdLockThreadId(g_ddLockThreadId);
-		Gdi::DcCache::setSurfaceMemory(desc.lpSurface, desc.lPitch);
-		return true;
-	}
+	HDC g_screenDc = nullptr;
 
 	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
 	{
 		Gdi::redrawWindow(hwnd, reinterpret_cast<HRGN>(lParam));
 		return TRUE;
 	}
-
-	void unlockGdiSurface()
-	{
-		GdiFlush();
-		auto gdiSurface(DDraw::PrimarySurface::getGdiSurface());
-		if (gdiSurface)
-		{
-			gdiSurface.get()->lpVtbl->Unlock(gdiSurface, nullptr);
-			if (DDLOCK_READONLY != g_ddLockFlags)
-			{
-				DDraw::RealPrimarySurface::update();
-			}
-		}
-
-		if (0 != g_ddLockFlags)
-		{
-			LeaveCriticalSection(&Gdi::g_gdiCriticalSection);
-		}
-		g_ddLockFlags = 0;
-
-		Dll::g_origProcs.ReleaseDDThreadLock();
-	}
 }
 
 namespace Gdi
 {
-	CRITICAL_SECTION g_gdiCriticalSection;
-
-	bool beginGdiRendering(DWORD lockFlags)
-	{
-		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
-
-		if (0 == g_renderingRefCount)
-		{
-			LeaveCriticalSection(&g_gdiCriticalSection);
-			Dll::g_origProcs.AcquireDDThreadLock();
-			EnterCriticalSection(&g_gdiCriticalSection);
-			if (!lockGdiSurface(lockFlags))
-			{
-				Dll::g_origProcs.ReleaseDDThreadLock();
-				return false;
-			}
-		}
-
-		if (GetCurrentThreadId() == g_ddLockThreadId)
-		{
-			++g_ddLockThreadRenderingRefCount;
-		}
-
-		++g_renderingRefCount;
-		return true;
-	}
-
-	void endGdiRendering()
-	{
-		Compat::ScopedCriticalSection gdiLock(g_gdiCriticalSection);
-
-		if (GetCurrentThreadId() == g_ddLockThreadId)
-		{
-			if (1 == g_renderingRefCount)
-			{
-				unlockGdiSurface();
-				g_ddLockThreadRenderingRefCount = 0;
-				g_renderingRefCount = 0;
-			}
-			else if (1 == g_ddLockThreadRenderingRefCount)
-			{
-				g_isDelayedUnlockPending = true;
-				gdiLock.unlock();
-				WaitForSingleObject(g_ddUnlockBeginEvent, INFINITE);
-				unlockGdiSurface();
-				g_ddLockThreadRenderingRefCount = 0;
-				g_renderingRefCount = 0;
-				SetEvent(g_ddUnlockEndEvent);
-			}
-			else
-			{
-				--g_ddLockThreadRenderingRefCount;
-				--g_renderingRefCount;
-			}
-		}
-		else
-		{
-			--g_renderingRefCount;
-			if (1 == g_renderingRefCount && g_isDelayedUnlockPending)
-			{
-				SetEvent(g_ddUnlockBeginEvent);
-				WaitForSingleObject(g_ddUnlockEndEvent, INFINITE);
-				g_isDelayedUnlockPending = false;
-			}
-		}
-	}
-
 	DWORD getGdiThreadId()
 	{
 		return g_gdiThreadId;
+	}
+
+	HDC getScreenDc()
+	{
+		return g_screenDc;
 	}
 
 	HRGN getVisibleWindowRgn(HWND hwnd)
@@ -163,39 +48,24 @@ namespace Gdi
 	void installHooks()
 	{
 		g_gdiThreadId = GetCurrentThreadId();
-		InitializeCriticalSection(&g_gdiCriticalSection);
-		if (Gdi::DcCache::init())
-		{
-			g_ddUnlockBeginEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			g_ddUnlockEndEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-			if (!g_ddUnlockBeginEvent || !g_ddUnlockEndEvent)
-			{
-				Compat::Log() << "Failed to create the unlock events for GDI";
-				return;
-			}
+		g_screenDc = GetDC(nullptr);
 
-			Gdi::DcFunctions::installHooks();
-			Gdi::PaintHandlers::installHooks();
-			Gdi::ScrollFunctions::installHooks();
-			Gdi::WinProc::installHooks();
-			Gdi::Caret::installHooks();
-		}
-	}
-
-	bool isTopLevelWindow(HWND hwnd)
-	{
-		return !(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) ||
-			GetParent(hwnd) == GetDesktopWindow();
+		Gdi::Dc::init();
+		Gdi::DcFunctions::installHooks();
+		Gdi::PaintHandlers::installHooks();
+		Gdi::ScrollFunctions::installHooks();
+		Gdi::WinProc::installHooks();
+		Gdi::Caret::installHooks();
 	}
 
 	void redraw(HRGN rgn)
 	{
-		EnumThreadWindows(GetCurrentThreadId(), &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
+		EnumThreadWindows(g_gdiThreadId, &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
 	}
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
 	{
-		if (!IsWindowVisible(hwnd) || IsIconic(hwnd))
+		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || Window::isPresentationWindow(hwnd))
 		{
 			return;
 		}
@@ -228,14 +98,7 @@ namespace Gdi
 		Gdi::Caret::uninstallHooks();
 		Gdi::WinProc::uninstallHooks();
 		Gdi::PaintHandlers::uninstallHooks();
-	}
-
-	void updatePalette(DWORD startingEntry, DWORD count)
-	{
-		if (DDraw::PrimarySurface::s_palette)
-		{
-			Gdi::DcCache::updatePalette(startingEntry, count);
-		}
+		ReleaseDC(nullptr, g_screenDc);
 	}
 
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)

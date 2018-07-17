@@ -8,12 +8,14 @@
 #include <d3dumddi.h>
 #include <../km/d3dkmthk.h>
 
+std::ostream& operator<<(std::ostream& os, const LUID& luid);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATECONTEXTVIRTUAL& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDCFROMMEMORY& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDEVICE& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_DESTROYCONTEXT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_DESTROYDEVICE& data);
+std::ostream& operator<<(std::ostream& os, const D3DKMT_OPENADAPTERFROMHDC& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_PRESENT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETQUEUEDLIMIT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETVIDPNSOURCEOWNER& data);

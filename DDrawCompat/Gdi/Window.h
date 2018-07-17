@@ -20,9 +20,11 @@ namespace Gdi
 		Region getVisibleRegion() const;
 		RECT getWindowRect() const;
 
-		static Window& add(HWND hwnd);
-		static Window& get(HWND hwnd);
+		static Window* add(HWND hwnd);
+		static Window* get(HWND hwnd);
 		static void remove(HWND hwnd);
+
+		static bool isPresentationWindow(HWND hwnd);
 		static void updateAll();
 
 	private:
@@ -30,6 +32,7 @@ namespace Gdi
 		void update();
 
 		HWND m_hwnd;
+		HWND m_presentationWindow;
 		RECT m_windowRect;
 		Region m_visibleRegion;
 		Region m_invalidatedRegion;

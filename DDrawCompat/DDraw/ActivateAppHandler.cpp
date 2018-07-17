@@ -4,6 +4,7 @@
 
 #include "Common/Hook.h"
 #include "DDraw/ActivateAppHandler.h"
+#include "DDraw/RealPrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Win32/DisplayMode.h"
 #include "Win32/FontSmoothing.h"
@@ -32,6 +33,7 @@ namespace
 		{
 		case WM_ACTIVATEAPP:
 		{
+			DDraw::RealPrimarySurface::disableUpdates();
 			isDisplayChangeNotificationEnabled = false;
 			if (TRUE == wParam)
 			{
@@ -43,6 +45,7 @@ namespace
 			}
 			LRESULT result = g_origDdWndProc(hwnd, uMsg, wParam, lParam);
 			isDisplayChangeNotificationEnabled = true;
+			DDraw::RealPrimarySurface::enableUpdates();
 			return result;
 		}
 

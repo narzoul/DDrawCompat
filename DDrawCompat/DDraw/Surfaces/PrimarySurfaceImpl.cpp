@@ -57,22 +57,6 @@ namespace DDraw
 		HRESULT result = m_impl.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
 		{
-			const LONG x = dwX;
-			const LONG y = dwY;
-			RECT destRect = { x, y, x, y };
-			if (lpSrcRect)
-			{
-				destRect.right += lpSrcRect->right - lpSrcRect->left;
-				destRect.bottom += lpSrcRect->bottom - lpSrcRect->top;
-			}
-			else
-			{
-				TSurfaceDesc desc = {};
-				desc.dwSize = sizeof(desc);
-				CompatVtable<Vtable<TSurface>>::s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
-				destRect.right += desc.dwWidth;
-				destRect.bottom += desc.dwHeight;
-			}
 			RealPrimarySurface::update();
 		}
 		return result;
@@ -195,6 +179,7 @@ namespace DDraw
 				result = m_impl.Restore(This);
 				if (SUCCEEDED(result))
 				{
+					PrimarySurface::onRestore();
 					Gdi::redraw(nullptr);
 				}
 			}

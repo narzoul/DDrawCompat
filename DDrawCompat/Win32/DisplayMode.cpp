@@ -372,6 +372,11 @@ namespace Win32
 			return result;
 		}
 
+		DWORD getBpp()
+		{
+			return g_currentBpp;
+		}
+
 		ULONG queryDisplaySettingsUniqueness()
 		{
 			static auto ddQueryDisplaySettingsUniqueness = reinterpret_cast<ULONG(APIENTRY*)()>(

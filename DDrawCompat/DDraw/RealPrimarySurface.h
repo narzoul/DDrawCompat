@@ -20,6 +20,7 @@ namespace DDraw
 		static HRESULT flip(DWORD flags);
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
+		static void init();
 		static bool isFullScreen();
 		static bool isLost();
 		static void release();
@@ -28,6 +29,6 @@ namespace DDraw
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPalette();
 		static void update();
-		static void updatePalette(DWORD startingEntry, DWORD count);
+		static void updatePalette();
 	};
 }

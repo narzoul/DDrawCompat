@@ -10,6 +10,7 @@ namespace Gdi
 	{
 		HDC getDc(HDC origDc);
 		HDC getOrigDc(HDC dc);
+		void init();
 		void releaseDc(HDC origDc);
 	}
 }

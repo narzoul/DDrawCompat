@@ -1,6 +1,7 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "DDraw/RealPrimarySurface.h"
+#include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/PaintHandlers.h"
@@ -185,19 +186,15 @@ namespace
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
 	{
-		if (hwnd && Gdi::beginGdiRendering())
+		if (hwnd)
 		{
 			LRESULT result = 0;
 			HDC compatDc = Gdi::Dc::getDc(dc);
 			if (compatDc)
 			{
+				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
 				Gdi::Dc::releaseDc(dc);
-			}
-
-			Gdi::endGdiRendering();
-			if (compatDc)
-			{
 				return result;
 			}
 		}
@@ -207,7 +204,7 @@ namespace
 
 	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
 	{
-		if (!hwnd || !Gdi::beginGdiRendering())
+		if (!hwnd)
 		{
 			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
@@ -216,6 +213,7 @@ namespace
 		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
+			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
 				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
 			ValidateRect(hwnd, nullptr);
@@ -227,13 +225,12 @@ namespace
 		}
 
 		ReleaseDC(hwnd, dc);
-		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
 	{
-		if (!hwnd || !Gdi::beginGdiRendering())
+		if (!hwnd)
 		{
 			return CallWindowProc(origWndProc, hwnd, WM_NCPAINT, wParam, 0);
 		}
@@ -243,6 +240,7 @@ namespace
 
 		if (compatDc)
 		{
+			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			Gdi::TitleBar titleBar(hwnd, compatDc);
 			titleBar.drawAll();
 			titleBar.excludeFromClipRegion();
@@ -257,13 +255,12 @@ namespace
 		}
 
 		ReleaseDC(hwnd, windowDc);
-		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc)
 	{
-		if (!hwnd || !Gdi::beginGdiRendering())
+		if (!hwnd)
 		{
 			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
@@ -274,6 +271,7 @@ namespace
 
 		if (compatDc)
 		{
+			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
 				reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
 			Gdi::Dc::releaseDc(dc);
@@ -285,21 +283,16 @@ namespace
 
 		EndPaint(hwnd, &paint);
 
-		Gdi::endGdiRendering();
 		return 0;
 	}
 
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc)
 	{
-		if (!Gdi::beginGdiRendering())
-		{
-			return CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
-		}
-
 		LRESULT result = 0;
 		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
+			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
 			Gdi::Dc::releaseDc(dc);
 		}
@@ -307,8 +300,6 @@ namespace
 		{
 			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
-
-		Gdi::endGdiRendering();
 		return result;
 	}
 

@@ -1,26 +1,9 @@
 #include <utility>
 
 #include "Gdi/Region.h"
-#include "Win32/DisplayMode.h"
 
 namespace
 {
-	BOOL CALLBACK addMonitorRectToRegion(
-		HMONITOR /*hMonitor*/, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
-	{
-		Gdi::Region& virtualScreenRegion = *reinterpret_cast<Gdi::Region*>(dwData);
-		Gdi::Region monitorRegion(*lprcMonitor);
-		virtualScreenRegion |= monitorRegion;
-		return TRUE;		
-	}
-
-	Gdi::Region calculateVirtualScreenRegion()
-	{
-		Gdi::Region region;
-		EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&region));
-		return region;
-	}
-
 	Gdi::Region combineRegions(const Gdi::Region& rgn1, const Gdi::Region& rgn2, int mode)
 	{
 		Gdi::Region region;
@@ -131,18 +114,5 @@ namespace Gdi
 	{
 		CombineRgn(m_region, m_region, other, mode);
 		return *this;
-	}
-
-	const Region& getVirtualScreenRegion()
-	{
-		static Region virtualScreenRegion;
-		static ULONG displaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
-		const ULONG currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
-		if (currentDisplaySettingsUniqueness != displaySettingsUniqueness)
-		{
-			virtualScreenRegion = calculateVirtualScreenRegion();
-			displaySettingsUniqueness = currentDisplaySettingsUniqueness;
-		}
-		return virtualScreenRegion;
 	}
 }

@@ -321,6 +321,12 @@
     <ClInclude Include="Gdi\Region.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\VirtualScreen.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Gdi\AccessGuard.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -492,6 +498,12 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\Region.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\VirtualScreen.cpp">
+      <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\AccessGuard.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>

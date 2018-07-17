@@ -43,6 +43,7 @@ namespace DDraw
 			TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans);
 		virtual HRESULT Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags);
 		virtual HRESULT GetCaps(TSurface* This, TDdsCaps* lpDDSCaps);
+		virtual HRESULT GetDC(TSurface* This, HDC* lphDC);
 		virtual HRESULT GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc);
 		virtual HRESULT IsLost(TSurface* This);
 		virtual HRESULT Lock(TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,

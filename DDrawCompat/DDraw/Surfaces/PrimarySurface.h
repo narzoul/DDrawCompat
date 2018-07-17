@@ -19,10 +19,13 @@ namespace DDraw
 		static HRESULT flipToGdiSurface();
 		static const DDSURFACEDESC2& getDesc();
 		static CompatPtr<IDirectDrawSurface7> getGdiSurface();
+		static RECT getMonitorRect();
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
 		static DWORD getOrigCaps();
+		static void onRestore();
 
-		void updateGdiSurfacePtr(IDirectDrawSurface* flipTargetOverride);
+		template <typename TSurface>
+		static bool isGdiSurface(TSurface* surface);
 
 		static CompatWeakPtr<IDirectDrawPalette> s_palette;
 		static PALETTEENTRY s_paletteEntries[256];

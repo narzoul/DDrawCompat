@@ -1,11 +1,12 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <algorithm>
+#include <list>
 #include <map>
 #include <set>
 #include <string>
-#include <vector>
 #include <utility>
+#include <vector>
 
 #include <Windows.h>
 #include <detours.h>
@@ -19,7 +20,7 @@ namespace
 	struct HookedFunctionInfo
 	{
 		HMODULE module;
-		void* trampoline;
+		void*& origFunction;
 		void* newFunction;
 	};
 
@@ -28,7 +29,7 @@ namespace
 	std::map<void*, HookedFunctionInfo>::iterator findOrigFunc(void* origFunc)
 	{
 		return std::find_if(g_hookedFunctions.begin(), g_hookedFunctions.end(),
-			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.trampoline; });
+			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.origFunction; });
 	}
 
 	std::vector<HMODULE> getProcessModules(HANDLE process)
@@ -111,7 +112,7 @@ namespace
 		const auto it = findOrigFunc(origFuncPtr);
 		if (it != g_hookedFunctions.end())
 		{
-			origFuncPtr = it->second.trampoline;
+			origFuncPtr = it->second.origFunction;
 			return;
 		}
 
@@ -136,13 +137,14 @@ namespace
 		HMODULE module = nullptr;
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 			reinterpret_cast<char*>(hookedFuncPtr), &module);
-		g_hookedFunctions[hookedFuncPtr] = { module, origFuncPtr, newFuncPtr };
+		g_hookedFunctions.emplace(
+			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
 	}
 
 	void unhookFunction(const std::map<void*, HookedFunctionInfo>::iterator& hookedFunc)
 	{
 		DetourTransactionBegin();
-		DetourDetach(&hookedFunc->second.trampoline, hookedFunc->second.newFunction);
+		DetourDetach(&hookedFunc->second.origFunction, hookedFunc->second.newFunction);
 		DetourTransactionCommit();
 
 		if (hookedFunc->second.module)
@@ -173,7 +175,9 @@ namespace Compat
 			if (0 != _stricmp(moduleBaseName.c_str(), moduleName))
 			{
 				Compat::Log() << "Disabling external hook to " << funcName << " in " << moduleBaseName;
-				hookFunction(hookFunc, newFunc);
+				static std::list<void*> origFuncs;
+				origFuncs.push_back(hookFunc);
+				hookFunction(origFuncs.back(), newFunc);
 			}
 		}
 	}

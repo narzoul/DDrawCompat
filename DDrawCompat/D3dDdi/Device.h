@@ -48,6 +48,9 @@ namespace D3dDdi
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex = UINT_MAX);
 		void prepareForRendering();
 
+		static void setGdiResourceHandle(HANDLE resource);
+		static void setReadOnlyGdiLock(bool enable);
+
 	private:
 		template <typename CreateResourceArg, typename CreateResourceFunc>
 		HRESULT createOversizedResource(
