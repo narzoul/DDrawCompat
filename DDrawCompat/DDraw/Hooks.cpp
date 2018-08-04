@@ -1,5 +1,3 @@
-#define CINTERFACE
-
 #include <d3d.h>
 
 #include "Common/CompatPtr.h"

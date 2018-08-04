@@ -1,7 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-
 #include <ddraw.h>
 #include <fstream>
 #include <ostream>
@@ -186,7 +184,7 @@ namespace Compat
 	class LogNull
 	{
 	public:
-		template <typename T> LogNull& operator<<(const T&) { return *this;  }
+		template <typename T> LogNull& operator<<(const T&) { return *this; }
 	};
 
 	typedef LogNull LogDebug;

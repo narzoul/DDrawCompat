@@ -2,7 +2,6 @@
 
 #include <vector>
 
-#include <atlstr.h>
 #include <Windows.h>
 
 #include "Common/Log.h"
@@ -53,8 +52,7 @@ std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 		return os << static_cast<const void*>(wstr);
 	}
 
-	CStringA str(wstr);
-	return os << '"' << static_cast<const char*>(str) << '"';
+	return os << std::string(wstr, wstr + wcslen(wstr)).c_str();
 }
 
 std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm)
@@ -143,13 +141,13 @@ std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd)
 {
 	return Compat::LogStruct(os)
 		<< Compat::hex(sd.dwFlags)
-		<< sd.dwHeight 
-		<< sd.dwWidth 
-		<< sd.lPitch 
-		<< sd.dwBackBufferCount 
+		<< sd.dwHeight
+		<< sd.dwWidth
+		<< sd.lPitch
+		<< sd.dwBackBufferCount
 		<< sd.dwMipMapCount
-		<< sd.dwAlphaBitDepth 
-		<< sd.dwReserved 
+		<< sd.dwAlphaBitDepth
+		<< sd.dwReserved
 		<< sd.lpSurface
 		<< sd.ddpfPixelFormat
 		<< sd.ddsCaps
@@ -160,16 +158,16 @@ std::ostream& operator<<(std::ostream& os, const CWPSTRUCT& cwrp)
 {
 	return Compat::LogStruct(os)
 		<< Compat::hex(cwrp.message)
-		<< cwrp.hwnd 
+		<< cwrp.hwnd
 		<< Compat::hex(cwrp.wParam)
 		<< Compat::hex(cwrp.lParam);
 }
 
 std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp)
 {
-	return Compat::LogStruct(os) 
+	return Compat::LogStruct(os)
 		<< Compat::hex(cwrp.message)
-		<< cwrp.hwnd 
+		<< cwrp.hwnd
 		<< Compat::hex(cwrp.wParam)
 		<< Compat::hex(cwrp.lParam)
 		<< Compat::hex(cwrp.lResult);

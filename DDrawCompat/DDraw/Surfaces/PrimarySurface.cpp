@@ -1,6 +1,3 @@
-#define CINTERFACE
-#define _NO_DDRAWINT_NO_COM
-
 #include <ddraw.h>
 
 #include "Common/CompatPtr.h"
@@ -170,7 +167,7 @@ namespace DDraw
 			{
 				return CompatPtr<IDirectDrawSurface7>::from(surface.get());
 			}
-			
+
 			if (FAILED(surface->GetAttachedSurface(surface, &caps, &surface.getRef())))
 			{
 				return nullptr;

@@ -1,5 +1,3 @@
-#define CINTERFACE
-
 #include <set>
 
 #include <Windows.h>

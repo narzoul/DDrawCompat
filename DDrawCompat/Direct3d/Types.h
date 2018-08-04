@@ -1,7 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-
 #include <d3d.h>
 
 namespace Direct3d

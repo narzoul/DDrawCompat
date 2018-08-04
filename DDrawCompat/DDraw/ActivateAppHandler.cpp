@@ -1,5 +1,3 @@
-#define CINTERFACE
-
 #include <ddraw.h>
 
 #include "Common/Hook.h"

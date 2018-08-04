@@ -1,5 +1,3 @@
-#define CINTERFACE
-
 #include <map>
 
 #include <d3d.h>

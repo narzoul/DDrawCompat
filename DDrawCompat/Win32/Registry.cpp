@@ -2,45 +2,49 @@
 #include <cstring>
 #include <map>
 #include <set>
-
-#include <atlstr.h>
+#include <sstream>
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "Win32/Registry.h"
+
+typedef long NTSTATUS;
 
 namespace
 {
 	struct RegistryKey
 	{
 		HKEY key;
-		CStringW subKey;
-		CStringW value;
+		std::wstring subKey;
+		std::wstring value;
 
-		RegistryKey(HKEY key, CStringW subKey, CStringW value) : key(key), subKey(subKey), value(value) {}
+		RegistryKey(HKEY key, const std::wstring& subKey, const std::wstring& value)
+			: key(key), subKey(subKey), value(value)
+		{
+		}
 
 		bool operator<(const RegistryKey& rhs) const
 		{
 			if (key < rhs.key) { return true; }
 			if (key > rhs.key) { return false; }
-			const int subKeyComp = subKey.CompareNoCase(rhs.subKey);
+			const int subKeyComp = lstrcmpiW(subKey.c_str(), rhs.subKey.c_str());
 			if (subKeyComp < 0) { return true; }
 			if (subKeyComp > 0) { return false; }
-			return value.CompareNoCase(rhs.value) < 0;
+			return lstrcmpiW(value.c_str(), rhs.value.c_str());
 		}
 
 		bool operator==(const RegistryKey& rhs) const
 		{
 			return key == rhs.key &&
-				0 == subKey.CompareNoCase(rhs.subKey) &&
-				0 == value.CompareNoCase(rhs.value);
+				0 == lstrcmpiW(subKey.c_str(), rhs.subKey.c_str()) &&
+				0 == lstrcmpiW(value.c_str(), rhs.value.c_str());
 		}
 	};
 
 	std::map<RegistryKey, DWORD> g_dwordValues;
 	std::set<RegistryKey> g_unsetValues;
 
-	CStringW getKeyName(HKEY key)
+	std::wstring getKeyName(HKEY key)
 	{
 		enum KEY_INFORMATION_CLASS
 		{
@@ -77,11 +81,11 @@ namespace
 			ULONG resultSize = 0;
 			if (SUCCEEDED(ntQueryKey(key, KeyNameInformation, &keyName, sizeof(keyName), &resultSize)))
 			{
-				return CStringW(keyName.Name, keyName.NameLength / 2);
+				return std::wstring(keyName.Name, keyName.NameLength / 2);
 			}
 		}
 
-		return CStringW();
+		return std::wstring();
 	}
 
 	LONG WINAPI regGetValueW(HKEY hkey, LPCWSTR lpSubKey, LPCWSTR lpValue, 
@@ -139,12 +143,14 @@ namespace
 
 		if (hKey && lpValueName)
 		{
-			const CStringW keyName = getKeyName(hKey);
-			const CStringW localMachinePrefix = "\\REGISTRY\\MACHINE\\";
-			if (localMachinePrefix == keyName.Mid(0, localMachinePrefix.GetLength()))
+			const std::wstring keyName = getKeyName(hKey);
+			const std::wstring localMachinePrefix = L"\\REGISTRY\\MACHINE\\";
+			if (localMachinePrefix == keyName.substr(0, localMachinePrefix.size()))
 			{
+				std::wostringstream oss;
+				oss << lpValueName;
 				auto it = g_unsetValues.find(RegistryKey(HKEY_LOCAL_MACHINE,
-					keyName.Mid(localMachinePrefix.GetLength()), lpValueName));
+					keyName.substr(localMachinePrefix.size()), oss.str()));
 				if (it != g_unsetValues.end())
 				{
 					return ERROR_FILE_NOT_FOUND;
@@ -174,13 +180,21 @@ namespace Win32
 		void setValue(HKEY key, const char* subKey, const char* valueName, DWORD value)
 		{
 			assert(key && subKey && valueName);
-			g_dwordValues[RegistryKey(key, subKey, valueName)] = value;
+			std::wostringstream subKeyW;
+			subKeyW << subKey;
+			std::wostringstream valueNameW;
+			valueNameW << valueName;
+			g_dwordValues[RegistryKey(key, subKeyW.str(), valueNameW.str())] = value;
 		}
 
 		void unsetValue(HKEY key, const char* subKey, const char* valueName)
 		{
 			assert(key && subKey && valueName);
-			g_unsetValues.insert(RegistryKey(key, subKey, valueName));
+			std::wostringstream subKeyW;
+			subKeyW << subKey;
+			std::wostringstream valueNameW;
+			valueNameW << valueName;
+			g_unsetValues.insert(RegistryKey(key, subKeyW.str(), valueNameW.str()));
 		}
 	}
 }

@@ -1,7 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-
 #include <ddraw.h>
 
 namespace DDraw

@@ -1,7 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-
 #include <d3d.h>
 
 #include "Common/VtableVisitor.h"

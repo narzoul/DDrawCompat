@@ -1,7 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-
 #include <type_traits>
 
 #include <d3d.h>

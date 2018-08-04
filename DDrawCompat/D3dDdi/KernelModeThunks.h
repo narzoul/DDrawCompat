@@ -1,8 +1,5 @@
 #pragma once
 
-#define CINTERFACE
-#define WIN32_LEAN_AND_MEAN
-
 #include <d3d.h>
 #include <d3dumddi.h>
 #include <../km/d3dkmthk.h>
