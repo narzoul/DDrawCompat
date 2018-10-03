@@ -1,6 +1,7 @@
 #include <set>
 
 #include "Common/CompatRef.h"
+#include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Repository.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
@@ -27,6 +28,20 @@ namespace
 		{
 			dst->SetColorKey(&dst, ckFlag, &ck);
 		}
+	}
+
+	template <typename TSurface>
+	bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
+	{
+		if (!This)
+		{
+			return true;
+		}
+
+		const bool wait = (flags & waitFlag) || !(flags & doNotWaitFlag) &&
+			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
+
+		return DDraw::RealPrimarySurface::waitForFlip(DDraw::Surface::getSurface(*This), wait);
 	}
 }
 
@@ -137,30 +152,15 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	void SurfaceImpl<TSurface>::undoFlip(TSurface* This, TSurface* targetOverride)
-	{
-		if (targetOverride)
-		{
-			SurfaceImpl::Flip(This, targetOverride, DDFLIP_WAIT);
-		}
-		else
-		{
-			TSurfaceDesc desc = {};
-			desc.dwSize = sizeof(desc);
-			s_origVtable.GetSurfaceDesc(This, &desc);
-
-			for (DWORD i = 0; i < desc.dwBackBufferCount; ++i)
-			{
-				SurfaceImpl::Flip(This, nullptr, DDFLIP_WAIT);
-			}
-		}
-	}
-
-	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
+		if (!waitForFlip(This, dwFlags, DDBLT_WAIT, DDBLT_DONOTWAIT))
+		{
+			return DDERR_WASSTILLDRAWING;
+		}
+
 		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
 		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
 		HRESULT result = s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
@@ -182,6 +182,11 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
+		if (!waitForFlip(This, dwTrans, DDBLTFAST_WAIT, DDBLTFAST_DONOTWAIT))
+		{
+			return DDERR_WASSTILLDRAWING;
+		}
+
 		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
 		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
 		HRESULT result = s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
@@ -222,6 +227,21 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::GetBltStatus(TSurface* This, DWORD dwFlags)
+	{
+		HRESULT result = s_origVtable.GetBltStatus(This, dwFlags);
+		if (SUCCEEDED(result) && (dwFlags & DDGBS_CANBLT))
+		{
+			const bool wait = false;
+			if (!RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
+			{
+				return DDERR_WASSTILLDRAWING;
+			}
+		}
+		return result;
+	}
+
+	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
 		return s_origVtable.GetCaps(This, lpDDSCaps);
@@ -230,8 +250,19 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
-		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_WRITE);
-		return s_origVtable.GetDC(This, lphDC);
+		HRESULT result = DD_OK;
+
+		{
+			Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			result = s_origVtable.GetDC(This, lphDC);
+		}
+
+		if (SUCCEEDED(result))
+		{
+			RealPrimarySurface::waitForFlip(Surface::getSurface(*This));
+		}
+
+		return result;
 	}
 
 	template <typename TSurface>
@@ -244,6 +275,21 @@ namespace DDraw
 		dd.ddObject = m_data->m_ddObject;
 		return CompatVtable<IDirectDrawVtbl>::s_origVtable.QueryInterface(
 			reinterpret_cast<IDirectDraw*>(&dd), m_data->m_ddId, lplpDD);
+	}
+
+	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::GetFlipStatus(TSurface* This, DWORD dwFlags)
+	{
+		HRESULT result = s_origVtable.GetFlipStatus(This, dwFlags);
+		if (SUCCEEDED(result))
+		{
+			const bool wait = false;
+			if (!RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
+			{
+				return DDERR_WASSTILLDRAWING;
+			}
+		}
+		return result;
 	}
 
 	template <typename TSurface>
@@ -263,6 +309,11 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 		DWORD dwFlags, HANDLE hEvent)
 	{
+		if (!waitForFlip(This, dwFlags, DDLOCK_WAIT, DDLOCK_DONOTWAIT))
+		{
+			return DDERR_WASSTILLDRAWING;
+		}
+
 		Gdi::DDrawAccessGuard accessGuard((dwFlags & DDLOCK_READONLY) ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE,
 			PrimarySurface::isGdiSurface(This));
 		HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);

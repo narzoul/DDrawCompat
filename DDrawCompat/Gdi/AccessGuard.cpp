@@ -2,6 +2,7 @@
 
 #include <Windows.h>
 
+#include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
@@ -83,7 +84,7 @@ namespace
 			return false;
 		}
 
-		auto gdiSurface(Gdi::VirtualScreen::createSurface(DDraw::PrimarySurface::getMonitorRect()));
+		auto gdiSurface(Gdi::VirtualScreen::createSurface(D3dDdi::KernelModeThunks::getMonitorRect()));
 		if (!gdiSurface)
 		{
 			return false;
@@ -96,8 +97,8 @@ namespace
 			CompatPtr<IDirectDrawClipper> clipper;
 			ddrawSurface->GetClipper(ddrawSurface, &clipper.getRef());
 			ddrawSurface->SetClipper(ddrawSurface, nullptr);
-			result = SUCCEEDED(ddrawSurface->BltFast(
-				ddrawSurface, 0, 0, gdiSurface, nullptr, DDBLTFAST_WAIT));
+			result = SUCCEEDED(ddrawSurface->Blt(
+				ddrawSurface, nullptr, gdiSurface, nullptr, DDBLT_WAIT, nullptr));
 			ddrawSurface->SetClipper(ddrawSurface, clipper);
 		}
 		else

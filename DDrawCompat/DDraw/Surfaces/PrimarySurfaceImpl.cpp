@@ -1,4 +1,5 @@
 #include "DDraw/DirectDrawPalette.h"
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurfaceImpl.h"
@@ -65,44 +66,14 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
-		if (RealPrimarySurface::isLost())
+		const bool wait = (dwFlags & DDFLIP_WAIT) || !(dwFlags & DDFLIP_DONOTWAIT) &&
+			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
+		if (!DDraw::RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
 		{
-			return DDERR_SURFACELOST;
+			return DDERR_WASSTILLDRAWING;
 		}
 
-		HRESULT result = m_impl.Flip(This, lpDDSurfaceTargetOverride, dwFlags);
-		if (FAILED(result))
-		{
-			return result;
-		}
-
-		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
-		result = RealPrimarySurface::flip(dwFlags);
-		if (SUCCEEDED(result) && !isFlipEmulated)
-		{
-			return DD_OK;
-		}
-
-		undoFlip(This, lpDDSurfaceTargetOverride);
-
-		if (SUCCEEDED(result) && isFlipEmulated)
-		{
-			if (lpDDSurfaceTargetOverride)
-			{
-				s_origVtable.BltFast(This, 0, 0, lpDDSurfaceTargetOverride, nullptr, DDBLTFAST_WAIT);
-			}
-			else
-			{
-				TDdsCaps caps = {};
-				caps.dwCaps = DDSCAPS_BACKBUFFER;
-				CompatPtr<TSurface> backBuffer;
-				s_origVtable.GetAttachedSurface(This, &caps, &backBuffer.getRef());
-
-				s_origVtable.BltFast(This, 0, 0, backBuffer, nullptr, DDBLTFAST_WAIT);
-			}
-		}
-
-		return result;
+		return RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7>::from(lpDDSurfaceTargetOverride), dwFlags);
 	}
 
 	template <typename TSurface>

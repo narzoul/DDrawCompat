@@ -1,5 +1,3 @@
-#include <ddraw.h>
-
 #include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "Config/Config.h"
@@ -16,24 +14,6 @@ namespace
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
 	HANDLE g_gdiResourceHandle = nullptr;
 	DWORD g_origCaps = 0;
-	RECT g_monitorRect = {};
-
-	RECT getDdMonitorRect(CompatRef<IDirectDraw7> dd)
-	{
-		DDDEVICEIDENTIFIER2 di = {};
-		dd->GetDeviceIdentifier(&dd, &di, 0);  // Calls D3DKMTOpenAdapterFromHdc, which updates last monitor below
-
-		HMONITOR monitor = D3dDdi::KernelModeThunks::getLastOpenAdapterMonitor();
-		if (!monitor)
-		{
-			monitor = MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
-		}
-
-		MONITORINFO mi = {};
-		mi.cbSize = sizeof(mi);
-		GetMonitorInfo(monitor, &mi);
-		return mi.rcMonitor;
-	}
 
 	template <typename TSurface>
 	HANDLE getResourceHandle(TSurface& surface)
@@ -56,7 +36,6 @@ namespace DDraw
 		g_gdiResourceHandle = nullptr;
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
-		g_monitorRect = {};
 		s_palette = nullptr;
 		s_surfaceBuffers.clear();
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
@@ -100,19 +79,8 @@ namespace DDraw
 
 		g_primarySurface = surface7;
 		g_origCaps = origCaps;
-		g_monitorRect = getDdMonitorRect(*CompatPtr<IDirectDraw7>::from(&dd));
 
-		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
-		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
-		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.GetSurfaceDesc(surface7, &g_primarySurfaceDesc);
-
-		if (g_primarySurfaceDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
-		{
-			resizeBuffers(*surface7);
-		}
-
-		g_gdiResourceHandle = getResourceHandle(*surface7);
-		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
+		onRestore();
 
 		return DD_OK;
 	}
@@ -178,9 +146,29 @@ namespace DDraw
 		return nullptr;
 	}
 
-	RECT PrimarySurface::getMonitorRect()
+	CompatPtr<IDirectDrawSurface7> PrimarySurface::getBackBuffer()
 	{
-		return g_monitorRect;
+		DDSCAPS2 caps = {};
+		caps.dwCaps = DDSCAPS_BACKBUFFER;
+		CompatPtr<IDirectDrawSurface7> backBuffer;
+		g_primarySurface->GetAttachedSurface(g_primarySurface, &caps, &backBuffer.getRef());
+		return backBuffer;
+	}
+
+	CompatPtr<IDirectDrawSurface7> PrimarySurface::getLastSurface()
+	{
+		DDSCAPS2 caps = {};
+		caps.dwCaps = DDSCAPS_FLIP;
+		auto surface(CompatPtr<IDirectDrawSurface7>::from(g_primarySurface.get()));
+		CompatPtr<IDirectDrawSurface7> nextSurface;
+
+		while (SUCCEEDED(surface->GetAttachedSurface(surface, &caps, &nextSurface.getRef())) &&
+			nextSurface != g_primarySurface)
+		{
+			surface = nextSurface;
+		}
+
+		return surface;
 	}
 
 	CompatWeakPtr<IDirectDrawSurface7> PrimarySurface::getPrimary()
@@ -207,14 +195,20 @@ namespace DDraw
 
 	void PrimarySurface::onRestore()
 	{
-		CompatPtr<IUnknown> ddUnk;
-		g_primarySurface.get()->lpVtbl->GetDDInterface(
-			g_primarySurface, reinterpret_cast<void**>(&ddUnk.getRef()));
-		CompatPtr<IDirectDraw7> dd7(ddUnk);
-		g_monitorRect = getDdMonitorRect(*dd7);
+		g_primarySurfaceDesc = {};
+		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
+		g_primarySurface->GetSurfaceDesc(g_primarySurface, &g_primarySurfaceDesc);
+
+		if (g_primarySurfaceDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
+		{
+			resizeBuffers();
+		}
+
+		g_gdiResourceHandle = getResourceHandle(*g_primarySurface);
+		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
 	}
 
-	void PrimarySurface::resizeBuffers(CompatRef<IDirectDrawSurface7> surface)
+	void PrimarySurface::resizeBuffers()
 	{
 		DDSCAPS2 flipCaps = {};
 		flipCaps.dwCaps = DDSCAPS_FLIP;
@@ -226,7 +220,7 @@ namespace DDraw
 		const DWORD newBufferSize = g_primarySurfaceDesc.lPitch *
 			(g_primarySurfaceDesc.dwHeight + Config::primarySurfaceExtraRows);
 
-		auto surfacePtr(CompatPtr<IDirectDrawSurface7>::from(&surface));
+		auto surfacePtr(CompatPtr<IDirectDrawSurface7>::from(g_primarySurface.get()));
 		do
 		{
 			s_surfaceBuffers.push_back(std::vector<unsigned char>(newBufferSize));
@@ -236,7 +230,7 @@ namespace DDraw
 			CompatPtr<IDirectDrawSurface7> nextSurface;
 			surfacePtr->GetAttachedSurface(surfacePtr, &flipCaps, &nextSurface.getRef());
 			surfacePtr.swap(nextSurface);
-		} while (surfacePtr && surfacePtr != &surface);
+		} while (surfacePtr && surfacePtr != g_primarySurface.get());
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;

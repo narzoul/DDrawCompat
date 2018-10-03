@@ -1,3 +1,4 @@
+#include <atomic>
 #include <map>
 
 #include <d3d.h>
@@ -6,12 +7,23 @@
 
 #include "Common/Log.h"
 #include "Common/Hook.h"
+#include "Common/ScopedCriticalSection.h"
+#include "Common/Time.h"
 #include "D3dDdi/Hooks.h"
 #include "D3dDdi/KernelModeThunks.h"
+#include "D3dDdi/Log/KernelModeThunksLog.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
+#include "Win32/DisplayMode.h"
 
 namespace
 {
+	struct AdapterInfo
+	{
+		UINT adapter;
+		UINT vidPnSourceId;
+		RECT monitorRect;
+	};
+
 	struct ContextInfo
 	{
 		D3DKMT_HANDLE device;
@@ -19,40 +31,26 @@ namespace
 		ContextInfo() : device(0) {}
 	};
 
-	struct DeviceInfo
-	{
-		D3DKMT_HANDLE adapter;
-		D3DDDI_VIDEO_PRESENT_SOURCE_ID vidPnSourceId;
-
-		DeviceInfo() : adapter(0), vidPnSourceId(D3DDDI_ID_UNINITIALIZED) {}
-	};
-
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
-	std::map<D3DKMT_HANDLE, DeviceInfo> g_devices;
-	HMONITOR g_lastOpenAdapterMonitor = nullptr;
+	AdapterInfo g_gdiAdapterInfo = {};
+	AdapterInfo g_lastOpenAdapterInfo = {};
+	UINT g_lastFlipInterval = 0;
+	UINT g_flipIntervalOverride = 0;
+	D3DKMT_HANDLE g_lastPresentContext = 0;
+	UINT g_presentCount = 0;
+	std::atomic<long long> g_qpcLastVerticalBlank = 0;
+	CRITICAL_SECTION g_vblankCs = {};
 
 	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
-	decltype(D3DKMTSetVidPnSourceOwner1)* g_origD3dKmtSetVidPnSourceOwner1 = nullptr;
 
-	D3DDDI_FLIPINTERVAL_TYPE g_overrideFlipInterval = D3DDDI_FLIPINTERVAL_NOOVERRIDE;
-	UINT g_presentCount = 0;
-
-	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
+	NTSTATUS APIENTRY closeAdapter(const D3DKMT_CLOSEADAPTER* pData)
 	{
-		Compat::LogEnter("D3DKMTCreateDevice", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateDevice)(pData);
-		if (SUCCEEDED(result))
+		Compat::ScopedCriticalSection lock(g_vblankCs);
+		if (pData && pData->hAdapter == g_lastOpenAdapterInfo.adapter)
 		{
-			g_devices[pData->hDevice].adapter = pData->hAdapter;
-
-			D3DKMT_SETQUEUEDLIMIT limit = {};
-			limit.hDevice = pData->hDevice;
-			limit.Type = D3DKMT_SET_QUEUEDLIMIT_PRESENT;
-			limit.QueuedPresentLimit = 1;
-			CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(&limit);
+			g_lastOpenAdapterInfo = {};
 		}
-		Compat::LogLeave("D3DKMTCreateDevice", pData) << result;
-		return result;
+		return CALL_ORIG_FUNC(D3DKMTCloseAdapter)(pData);
 	}
 
 	NTSTATUS APIENTRY createContext(D3DKMT_CREATECONTEXT* pData)
@@ -98,6 +96,22 @@ namespace
 		return result;
 	}
 
+	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
+	{
+		Compat::LogEnter("D3DKMTCreateDevice", pData);
+		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateDevice)(pData);
+		if (SUCCEEDED(result))
+		{
+			D3DKMT_SETQUEUEDLIMIT limit = {};
+			limit.hDevice = pData->hDevice;
+			limit.Type = D3DKMT_SET_QUEUEDLIMIT_PRESENT;
+			limit.QueuedPresentLimit = 2;
+			CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(&limit);
+		}
+		Compat::LogLeave("D3DKMTCreateDevice", pData) << result;
+		return result;
+	}
+
 	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
 	{
 		Compat::LogEnter("D3DKMTDestroyContext", pData);
@@ -105,89 +119,71 @@ namespace
 		if (SUCCEEDED(result))
 		{
 			g_contexts.erase(pData->hContext);
+			if (g_lastPresentContext == pData->hContext)
+			{
+				g_lastPresentContext = 0;
+			}
 		}
 		Compat::LogLeave("D3DKMTDestroyContext", pData) << result;
 		return result;
 	}
 
-	NTSTATUS APIENTRY destroyDevice(const D3DKMT_DESTROYDEVICE* pData)
+	AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
 	{
-		Compat::LogEnter("D3DKMTDestroyDevice", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTDestroyDevice)(pData);
-		if (SUCCEEDED(result))
-		{
-			g_devices.erase(pData->hDevice);
-		}
-		Compat::LogLeave("D3DKMTDestroyDevice", pData) << result;
-		return result;
+		AdapterInfo adapterInfo = {};
+		adapterInfo.adapter = data.hAdapter;
+		adapterInfo.vidPnSourceId = data.VidPnSourceId;
+
+		POINT p = {};
+		GetDCOrgEx(data.hDc, &p);
+		MONITORINFO mi = {};
+		mi.cbSize = sizeof(mi);
+		GetMonitorInfo(MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY), &mi);
+		adapterInfo.monitorRect = mi.rcMonitor;
+
+		return adapterInfo;
 	}
 
 	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
 	{
 		Compat::LogEnter("D3DKMTOpenAdapterFromHdc", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(pData);
-		if (pData)
+		if (SUCCEEDED(result))
 		{
-			POINT p = {};
-			GetDCOrgEx(pData->hDc, &p);
-			g_lastOpenAdapterMonitor = MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY);
+			Compat::ScopedCriticalSection lock(g_vblankCs);
+			g_lastOpenAdapterInfo = getAdapterInfo(*pData);
 		}
 		Compat::LogLeave("D3DKMTOpenAdapterFromHdc", pData) << result;
 		return result;
-	}
-
-	bool isPresentReady(D3DKMT_HANDLE device, D3DDDI_VIDEO_PRESENT_SOURCE_ID vidPnSourceId)
-	{
-		D3DKMT_GETDEVICESTATE deviceState = {};
-		deviceState.hDevice = device;
-		deviceState.StateType = D3DKMT_DEVICESTATE_PRESENT;
-		deviceState.PresentState.VidPnSourceId = vidPnSourceId;
-		NTSTATUS stateResult = D3DKMTGetDeviceState(&deviceState);
-		return FAILED(stateResult) ||
-			g_presentCount == deviceState.PresentState.PresentStats.PresentCount ||
-			0 == deviceState.PresentState.PresentStats.PresentCount;
 	}
 
 	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
 	{
 		Compat::LogEnter("D3DKMTPresent", pData);
 
-		if (pData->Flags.Flip && D3DDDI_FLIPINTERVAL_NOOVERRIDE != g_overrideFlipInterval)
+		if (pData->Flags.Flip)
 		{
-			pData->FlipInterval = g_overrideFlipInterval;
-		}
+			g_lastFlipInterval = pData->FlipInterval;
+			g_lastPresentContext = pData->hContext;
 
-		++g_presentCount;
-		pData->Flags.PresentCountValid = 1;
-		pData->PresentCount = g_presentCount;
+			if (UINT_MAX == g_flipIntervalOverride)
+			{
+				Compat::LogLeave("D3DKMTPresent", pData) << S_OK;
+				return S_OK;
+			}
+
+			++g_presentCount;
+			if (0 == g_presentCount)
+			{
+				g_presentCount = 1;
+			}
+
+			pData->PresentCount = g_presentCount;
+			pData->Flags.PresentCountValid = 1;
+			pData->FlipInterval = static_cast<D3DDDI_FLIPINTERVAL_TYPE>(g_flipIntervalOverride);
+		}
 
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTPresent)(pData);
-		if (SUCCEEDED(result) &&
-			1 == DDraw::PrimarySurface::getDesc().dwBackBufferCount &&
-			pData->Flags.Flip &&
-			D3DDDI_FLIPINTERVAL_IMMEDIATE != pData->FlipInterval &&
-			D3DDDI_FLIPINTERVAL_NOOVERRIDE == g_overrideFlipInterval)
-		{
-			auto contextIt = g_contexts.find(pData->hContext);
-			auto deviceIt = (contextIt != g_contexts.end())
-				? g_devices.find(contextIt->second.device)
-				: g_devices.find(pData->hDevice);
-			if (deviceIt != g_devices.end())
-			{
-				D3DKMT_WAITFORVERTICALBLANKEVENT vbEvent = {};
-				vbEvent.hAdapter = deviceIt->second.adapter;
-				vbEvent.hDevice = deviceIt->first;
-				vbEvent.VidPnSourceId = deviceIt->second.vidPnSourceId;
-
-				while (!isPresentReady(deviceIt->first, deviceIt->second.vidPnSourceId))
-				{
-					if (FAILED(D3DKMTWaitForVerticalBlankEvent(&vbEvent)))
-					{
-						Sleep(1);
-					}
-				}
-			}
-		}
 
 		Compat::LogLeave("D3DKMTPresent", pData) << result;
 		return result;
@@ -212,7 +208,7 @@ namespace
 		if (D3DKMT_SET_QUEUEDLIMIT_PRESENT == pData->Type)
 		{
 			const UINT origLimit = pData->QueuedPresentLimit;
-			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = 1;
+			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = 2;
 			NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData);
 			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = origLimit;
 			Compat::LogLeave("D3DKMTSetQueuedLimit", pData) << result;
@@ -223,42 +219,30 @@ namespace
 		return result;
 	}
 
-	void processSetVidPnSourceOwner(const D3DKMT_SETVIDPNSOURCEOWNER* pData)
+	void updateGdiAdapterInfo()
 	{
-		auto& vidPnSourceId = g_devices[pData->hDevice].vidPnSourceId;
-		for (UINT i = 0; i < pData->VidPnSourceCount; ++i)
+		static auto lastDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
+		const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
+		if (currentDisplaySettingsUniqueness != lastDisplaySettingsUniqueness)
 		{
-			if (D3DKMT_VIDPNSOURCEOWNER_UNOWNED != pData->pType[i])
+			if (g_gdiAdapterInfo.adapter)
 			{
-				vidPnSourceId = pData->pVidPnSourceId[i];
-				return;
+				D3DKMT_CLOSEADAPTER data = {};
+				data.hAdapter = g_gdiAdapterInfo.adapter;
+				CALL_ORIG_FUNC(D3DKMTCloseAdapter)(&data);
+				g_gdiAdapterInfo = {};
 			}
-		}
-		vidPnSourceId = D3DDDI_ID_UNINITIALIZED;
-	}
 
-	NTSTATUS APIENTRY setVidPnSourceOwner(const D3DKMT_SETVIDPNSOURCEOWNER* pData)
-	{
-		Compat::LogEnter("D3DKMTSetVidPnSourceOwner", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetVidPnSourceOwner)(pData);
-		if (SUCCEEDED(result))
-		{
-			processSetVidPnSourceOwner(pData);
-		}
-		Compat::LogLeave("D3DKMTSetVidPnSourceOwner", pData) << result;
-		return result;
-	}
+			D3DKMT_OPENADAPTERFROMHDC data = {};
+			data.hDc = GetDC(nullptr);
+			if (SUCCEEDED(CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(&data)))
+			{
+				g_gdiAdapterInfo = getAdapterInfo(data);
+			}
+			ReleaseDC(nullptr, data.hDc);
 
-	NTSTATUS APIENTRY setVidPnSourceOwner1(const D3DKMT_SETVIDPNSOURCEOWNER1* pData)
-	{
-		Compat::LogEnter("D3DKMTSetVidPnSourceOwner1", pData);
-		NTSTATUS result = g_origD3dKmtSetVidPnSourceOwner1(pData);
-		if (SUCCEEDED(result))
-		{
-			processSetVidPnSourceOwner(&pData->Version0);
+			lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
 		}
-		Compat::LogLeave("D3DKMTSetVidPnSourceOwner1", pData) << result;
-		return result;
 	}
 }
 
@@ -266,58 +250,113 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
-		HMONITOR getLastOpenAdapterMonitor()
+		UINT getLastFlipInterval()
 		{
-			return g_lastOpenAdapterMonitor;
+			return g_lastFlipInterval;
 		}
 
-		bool isPresentReady()
+		UINT getLastDisplayedFrameCount()
 		{
-			for (auto it : g_devices)
+			auto contextIter = g_contexts.find(g_lastPresentContext);
+			if (contextIter == g_contexts.end())
 			{
-				if (D3DDDI_ID_UNINITIALIZED != it.second.vidPnSourceId)
-				{
-					return ::isPresentReady(it.first, it.second.vidPnSourceId);
-				}
+				return g_presentCount;
 			}
-			return true;
+
+			D3DKMT_GETDEVICESTATE data = {};
+			data.hDevice = contextIter->second.device;
+			data.StateType = D3DKMT_DEVICESTATE_PRESENT;
+			data.PresentState.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
+			D3DKMTGetDeviceState(&data);
+
+			if (0 == data.PresentState.PresentStats.PresentCount)
+			{
+				return g_presentCount;
+			}
+
+			return data.PresentState.PresentStats.PresentCount;
+		}
+
+		UINT getLastSubmittedFrameCount()
+		{
+			return g_presentCount;
+		}
+
+		RECT getMonitorRect()
+		{
+			auto primary(DDraw::PrimarySurface::getPrimary());
+			if (!primary)
+			{
+				return {};
+			}
+
+			static auto lastDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
+			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
+			if (currentDisplaySettingsUniqueness != lastDisplaySettingsUniqueness)
+			{
+				lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
+				CompatPtr<IUnknown> ddUnk;
+				primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
+				CompatPtr<IDirectDraw7> dd7(ddUnk);
+
+				DDDEVICEIDENTIFIER2 di = {};
+				dd7->GetDeviceIdentifier(dd7, &di, 0);
+			}
+
+			return g_lastOpenAdapterInfo.monitorRect;
+		}
+
+		long long getQpcLastVerticalBlank()
+		{
+			return g_qpcLastVerticalBlank;
 		}
 
 		void installHooks()
 		{
+			InitializeCriticalSection(&g_vblankCs);
+			HOOK_FUNCTION(gdi32, D3DKMTCloseAdapter, closeAdapter);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDevice, createDevice);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDCFromMemory, createDcFromMemory);
 			HOOK_FUNCTION(gdi32, D3DKMTDestroyContext, destroyContext);
-			HOOK_FUNCTION(gdi32, D3DKMTDestroyDevice, destroyDevice);
 			HOOK_FUNCTION(gdi32, D3DKMTOpenAdapterFromHdc, openAdapterFromHdc);
 			HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, queryAdapterInfo);
 			HOOK_FUNCTION(gdi32, D3DKMTPresent, present);
 			HOOK_FUNCTION(gdi32, D3DKMTSetQueuedLimit, setQueuedLimit);
-			HOOK_FUNCTION(gdi32, D3DKMTSetVidPnSourceOwner, setVidPnSourceOwner);
 
 			// Functions not available in Windows Vista
 			Compat::hookFunction("gdi32", "D3DKMTCreateContextVirtual",
 				reinterpret_cast<void*&>(g_origD3dKmtCreateContextVirtual), createContextVirtual);
-			Compat::hookFunction("gdi32", "D3DKMTSetVidPnSourceOwner1",
-				reinterpret_cast<void*&>(g_origD3dKmtSetVidPnSourceOwner1), setVidPnSourceOwner1);
 		}
 
-		void overrideFlipInterval(D3DDDI_FLIPINTERVAL_TYPE flipInterval)
+		void setFlipIntervalOverride(UINT flipInterval)
 		{
-			g_overrideFlipInterval = flipInterval;
+			g_flipIntervalOverride = flipInterval;
 		}
 
-		void releaseVidPnSources()
+		void waitForVerticalBlank()
 		{
-			for (auto it : g_devices)
+			D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
+
 			{
-				if (D3DDDI_ID_UNINITIALIZED != it.second.vidPnSourceId)
+				Compat::ScopedCriticalSection lock(g_vblankCs);
+				if (g_lastOpenAdapterInfo.adapter)
 				{
-					D3DKMT_SETVIDPNSOURCEOWNER vidPnSourceOwner = {};
-					vidPnSourceOwner.hDevice = it.first;
-					D3DKMTSetVidPnSourceOwner(&vidPnSourceOwner);
+					data.hAdapter = g_lastOpenAdapterInfo.adapter;
+					data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
 				}
+				else
+				{
+					updateGdiAdapterInfo();
+					data.hAdapter = g_gdiAdapterInfo.adapter;
+					data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
+				}
+			}
+			
+			if (data.hAdapter)
+			{
+				D3DKMTWaitForVerticalBlankEvent(&data);
+				g_qpcLastVerticalBlank = Time::queryPerformanceCounter();
 			}
 		}
 	}

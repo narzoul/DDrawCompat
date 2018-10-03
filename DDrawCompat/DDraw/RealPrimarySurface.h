@@ -2,11 +2,13 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatWeakPtr.h"
+#include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 
 namespace DDraw
 {
+	class Surface;
+
 	class RealPrimarySurface
 	{
 	public:
@@ -15,7 +17,7 @@ namespace DDraw
 
 		static void disableUpdates();
 		static void enableUpdates();
-		static HRESULT flip(DWORD flags);
+		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static void init();
@@ -28,5 +30,6 @@ namespace DDraw
 		static void setPalette();
 		static void update();
 		static void updatePalette();
+		static bool waitForFlip(Surface* surface, bool wait = true);
 	};
 }

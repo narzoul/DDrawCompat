@@ -46,6 +46,8 @@ namespace DDraw
 			DWORD dwHeight,
 			DWORD dwBPP,
 			Params... params);
+
+		static HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent);
 	};
 }
 

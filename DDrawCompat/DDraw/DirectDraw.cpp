@@ -1,4 +1,5 @@
 #include "Common/CompatPtr.h"
+#include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/Repository.h"
@@ -117,6 +118,7 @@ namespace DDraw
 		vtable.GetGDISurface = &GetGDISurface;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.SetDisplayMode = &SetDisplayMode;
+		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
 	}
 
 	template <typename TDirectDraw>
@@ -205,6 +207,30 @@ namespace DDraw
 	{
 		return setDisplayMode(This, dwWidth, dwHeight, dwBPP, params...);
 	}
+
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::WaitForVerticalBlank(
+		TDirectDraw* This, DWORD dwFlags, HANDLE hEvent)
+	{
+		if (!This || (DDWAITVB_BLOCKBEGIN != dwFlags && DDWAITVB_BLOCKEND != dwFlags))
+		{
+			return s_origVtable.WaitForVerticalBlank(This, dwFlags, hEvent);
+		}
+
+		DWORD scanLine = 0;
+		if (DDERR_VERTICALBLANKINPROGRESS != s_origVtable.GetScanLine(This, &scanLine))
+		{
+			D3dDdi::KernelModeThunks::waitForVerticalBlank();
+		}
+
+		if (DDWAITVB_BLOCKEND == dwFlags)
+		{
+			while (DDERR_VERTICALBLANKINPROGRESS == s_origVtable.GetScanLine(This, &scanLine));
+		}
+
+		return DD_OK;
+	}
+
 
 	template DirectDraw<IDirectDraw>;
 	template DirectDraw<IDirectDraw2>;

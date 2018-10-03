@@ -10,14 +10,14 @@ namespace Time
 
 	void init();
 
-	inline long long msToQpc(int ms)
+	inline long long msToQpc(long long ms)
 	{
 		return static_cast<long long>(ms) * g_qpcFrequency / 1000;
 	}
 
-	inline int qpcToMs(long long qpc)
+	inline long long qpcToMs(long long qpc)
 	{
-		return static_cast<int>(qpc * 1000 / g_qpcFrequency);
+		return qpc * 1000 / g_qpcFrequency;
 	}
 
 	inline long long queryPerformanceCounter()

@@ -1,3 +1,6 @@
+#include <d3d.h>
+#include <../km/d3dkmthk.h>
+
 #include "D3dDdi/AdapterFuncs.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
@@ -208,7 +211,7 @@ namespace D3dDdi
 	{
 		if (resource == m_sharedPrimary)
 		{
-			KernelModeThunks::releaseVidPnSources();
+			D3DKMTReleaseProcessVidPnSourceOwners(GetCurrentProcess());
 		}
 
 		HRESULT result = m_origVtable->pfnDestroyResource(m_device, resource);

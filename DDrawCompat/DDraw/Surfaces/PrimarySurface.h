@@ -2,6 +2,8 @@
 
 #include <vector>
 
+#include <ddraw.h>
+
 #include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "DDraw/Surfaces/Surface.h"
@@ -19,7 +21,8 @@ namespace DDraw
 		static HRESULT flipToGdiSurface();
 		static const DDSURFACEDESC2& getDesc();
 		static CompatPtr<IDirectDrawSurface7> getGdiSurface();
-		static RECT getMonitorRect();
+		static CompatPtr<IDirectDrawSurface7> getBackBuffer();
+		static CompatPtr<IDirectDrawSurface7> getLastSurface();
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
 		static DWORD getOrigCaps();
 		static void onRestore();
@@ -35,7 +38,7 @@ namespace DDraw
 
 		virtual void createImpl() override;
 
-		static void resizeBuffers(CompatRef<IDirectDrawSurface7> surface);
+		static void resizeBuffers();
 
 		std::unique_ptr<Surface> m_surface;
 

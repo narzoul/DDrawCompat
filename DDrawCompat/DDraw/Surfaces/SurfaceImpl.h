@@ -40,8 +40,10 @@ namespace DDraw
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,
 			TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans);
 		virtual HRESULT Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags);
+		virtual HRESULT GetBltStatus(TSurface* This, DWORD dwFlags);
 		virtual HRESULT GetCaps(TSurface* This, TDdsCaps* lpDDSCaps);
 		virtual HRESULT GetDC(TSurface* This, HDC* lphDC);
+		virtual HRESULT GetFlipStatus(TSurface* This, DWORD dwFlags);
 		virtual HRESULT GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc);
 		virtual HRESULT IsLost(TSurface* This);
 		virtual HRESULT Lock(TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
@@ -52,8 +54,6 @@ namespace DDraw
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
 	protected:
-		void undoFlip(TSurface* This, TSurface* targetOverride);
-
 		static const Vtable<TSurface>& s_origVtable;
 
 	private:
