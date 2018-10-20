@@ -1,8 +1,9 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "DDraw/RealPrimarySurface.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/ScrollFunctions.h"
+#include "Gdi/Window.h"
 
 namespace
 {
@@ -55,10 +56,14 @@ namespace Gdi
 
 		void updateScrolledWindow(HWND hwnd)
 		{
-			DDraw::RealPrimarySurface::disableUpdates();
-			RedrawWindow(hwnd, nullptr, nullptr,
-				RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW);
-			DDraw::RealPrimarySurface::enableUpdates();
+			DDraw::ScopedThreadLock lock;
+			auto window(Gdi::Window::get(hwnd));
+			UINT flags = RDW_ERASE | RDW_INVALIDATE | RDW_NOCHILDREN | RDW_UPDATENOW;
+			if (!window || window->getPresentationWindow() != hwnd)
+			{
+				flags |= RDW_FRAME;
+			}
+			RedrawWindow(hwnd, nullptr, nullptr, flags);
 		}
 	}
 }

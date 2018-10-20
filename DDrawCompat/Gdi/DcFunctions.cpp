@@ -6,7 +6,9 @@
 #include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Region.h"
 #include "Gdi/VirtualScreen.h"
+#include "Gdi/Window.h"
 #include "Win32/DisplayMode.h"
 
 namespace
@@ -20,7 +22,7 @@ namespace
 	std::unordered_map<void*, const char*> g_funcNames;
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
-	DWORD getDdLockFlags(Params... params);
+	HDC getDestinationDc(Params... params);
 
 	HRGN getWindowRegion(HWND hwnd);
 
@@ -85,7 +87,7 @@ namespace
 		Result result = 0;
 		if (hasDisplayDcArg(params...))
 		{
-			const bool isReadOnlyAccess = getDdLockFlags<OrigFuncPtr, origFunc>(params...) & DDLOCK_READONLY;
+			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
 			Gdi::GdiAccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
 			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
 			releaseDc(params...);
@@ -99,6 +101,49 @@ namespace
 		Compat::LogLeave(g_funcNames[origFunc], params...) << result;
 #endif
 
+		return result;
+	}
+
+	template <>
+	BOOL WINAPI compatGdiDcFunc<decltype(&ExtTextOutW), &ExtTextOutW>(
+		HDC hdc, int x, int y, UINT options, const RECT* lprect, LPCWSTR lpString, UINT c, const INT* lpDx)
+	{
+		Compat::LogEnter("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
+
+		BOOL result = TRUE;
+		if (hasDisplayDcArg(hdc))
+		{
+			HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
+			ATOM atom = static_cast<ATOM>(GetClassLong(hwnd, GCW_ATOM));
+			POINT p = { x, y };
+			if (Gdi::MENU_ATOM == atom)
+			{
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
+			}
+			else if (GetCurrentThreadId() == GetWindowThreadProcessId(hwnd, nullptr) &&
+				LPtoDP(hdc, &p, 1) &&
+				HTMENU == SendMessage(hwnd, WM_NCHITTEST, 0, (p.y << 16) | (p.x & 0xFFFF)))
+			{
+				WINDOWINFO wi = {};
+				GetWindowInfo(hwnd, &wi);
+				Gdi::Region ncRegion(wi.rcWindow);
+				ncRegion -= wi.rcClient;
+				ncRegion.offset(-wi.rcClient.left, -wi.rcClient.top);
+				RedrawWindow(hwnd, nullptr, ncRegion, RDW_INVALIDATE | RDW_FRAME);
+			}
+			else
+			{
+				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+				result = CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx);
+				releaseDc(hdc);
+			}
+		}
+		else
+		{
+			result = CALL_ORIG_FUNC(ExtTextOutW)(hdc, x, y, options, lprect, lpString, c, lpDx);
+		}
+
+		Compat::LogLeave("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx) << result;
 		return result;
 	}
 
@@ -129,84 +174,40 @@ namespace
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
 
-	DWORD getDdLockFlagsBlt(HDC hdcDest, HDC hdcSrc)
+	HDC getFirstDc()
 	{
-		return hasDisplayDcArg(hdcSrc) && !hasDisplayDcArg(hdcDest) ? DDLOCK_READONLY : 0;
+		return nullptr;
+	}
+
+	template <typename... Params>
+	HDC getFirstDc(HDC dc, Params...)
+	{
+		return dc;
+	}
+
+	template <typename FirstParam, typename... Params>
+	HDC getFirstDc(FirstParam, Params... params)
+	{
+		return getFirstDc(params...);
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
-	DWORD getDdLockFlags(Params...)
+	HDC getDestinationDc(Params... params)
 	{
-		return 0;
+		return getFirstDc(params...);
 	}
 
 	template <>
-	DWORD getDdLockFlags<decltype(&AlphaBlend), &AlphaBlend>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, BLENDFUNCTION)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&BitBlt), &BitBlt>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, DWORD)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&GdiAlphaBlend), &GdiAlphaBlend>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, BLENDFUNCTION)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&GdiTransparentBlt), &GdiTransparentBlt >(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, UINT)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&GetDIBits), &GetDIBits>(
+	HDC getDestinationDc<decltype(&GetDIBits), &GetDIBits>(
 		HDC, HBITMAP, UINT, UINT, LPVOID, LPBITMAPINFO, UINT)
 	{
-		return DDLOCK_READONLY;
+		return nullptr;
 	}
 
 	template <>
-	DWORD getDdLockFlags<decltype(&GetPixel), &GetPixel>(HDC, int, int)
+	HDC getDestinationDc<decltype(&GetPixel), &GetPixel>(HDC, int, int)
 	{
-		return DDLOCK_READONLY;
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&MaskBlt), &MaskBlt>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, HBITMAP, int, int, DWORD)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&PlgBlt), &PlgBlt>(
-		HDC hdcDest, const POINT*, HDC hdcSrc, int, int, int, int, HBITMAP, int, int)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&StretchBlt), &StretchBlt>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, DWORD)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
-	}
-
-	template <>
-	DWORD getDdLockFlags<decltype(&TransparentBlt), &TransparentBlt>(
-		HDC hdcDest, int, int, int, int, HDC hdcSrc, int, int, int, int, UINT)
-	{
-		return getDdLockFlagsBlt(hdcDest, hdcSrc);
+		return nullptr;
 	}
 
 	HRGN getWindowRegion(HWND hwnd)

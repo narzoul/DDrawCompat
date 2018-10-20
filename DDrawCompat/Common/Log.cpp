@@ -96,10 +96,13 @@ std::ostream& operator<<(std::ostream& os, HRGN__& rgn)
 
 std::ostream& operator<<(std::ostream& os, HWND__& hwnd)
 {
-	char name[256] = {};
-	GetClassName(&hwnd, name, sizeof(name));
+	char name[256] = "INVALID";
 	RECT rect = {};
-	GetWindowRect(&hwnd, &rect);
+	if (IsWindow(&hwnd))
+	{
+		GetClassName(&hwnd, name, sizeof(name));
+		GetWindowRect(&hwnd, &rect);
+	}
 	return os << "WND(" << static_cast<void*>(&hwnd) << ',' << name << ',' << rect << ')';
 }
 

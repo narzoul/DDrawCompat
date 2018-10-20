@@ -32,6 +32,37 @@ namespace
 		virtualScreenRegion |= monitorRegion;
 		return TRUE;
 	}
+
+	HBITMAP createDibSection(DWORD width, DWORD height, HANDLE section)
+	{
+		struct BITMAPINFO256 : public BITMAPINFO
+		{
+			RGBQUAD bmiRemainingColors[255];
+		};
+
+		BITMAPINFO256 bmi = {};
+		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+		bmi.bmiHeader.biWidth = width;
+		bmi.bmiHeader.biHeight = -static_cast<LONG>(height);
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = static_cast<WORD>(g_bpp);
+		bmi.bmiHeader.biCompression = 8 == g_bpp ? BI_RGB : BI_BITFIELDS;
+
+		if (8 == g_bpp)
+		{
+			memcpy(bmi.bmiColors, g_systemPalette, sizeof(g_systemPalette));
+		}
+		else
+		{
+			const auto pf = DDraw::getRgbPixelFormat(g_bpp);
+			reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = pf.dwRBitMask;
+			reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = pf.dwGBitMask;
+			reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = pf.dwBBitMask;
+		}
+
+		void* bits = nullptr;
+		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, 0);
+	}
 }
 
 namespace Gdi
@@ -74,34 +105,13 @@ namespace Gdi
 			{
 				return nullptr;
 			}
+			return createDibSection(g_width, g_height, g_surfaceFileMapping);
+		}
 
-			struct BITMAPINFO256 : public BITMAPINFO
-			{
-				RGBQUAD bmiRemainingColors[255];
-			};
-
-			BITMAPINFO256 bmi = {};
-			bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-			bmi.bmiHeader.biWidth = g_width;
-			bmi.bmiHeader.biHeight = -g_height;
-			bmi.bmiHeader.biPlanes = 1;
-			bmi.bmiHeader.biBitCount = static_cast<WORD>(g_bpp);
-			bmi.bmiHeader.biCompression = 8 == g_bpp ? BI_RGB : BI_BITFIELDS;
-
-			if (8 == g_bpp)
-			{
-				memcpy(bmi.bmiColors, g_systemPalette, sizeof(g_systemPalette));
-			}
-			else
-			{
-				const auto pf = DDraw::getRgbPixelFormat(g_bpp);
-				reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = pf.dwRBitMask;
-				reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = pf.dwGBitMask;
-				reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = pf.dwBBitMask;
-			}
-
-			void* bits = nullptr;
-			return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, g_surfaceFileMapping, 0);
+		HBITMAP createOffScreenDib(DWORD width, DWORD height)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			return createDibSection(width, height, nullptr);
 		}
 
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect)

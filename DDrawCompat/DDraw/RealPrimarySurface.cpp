@@ -22,18 +22,6 @@
 
 namespace
 {
-	struct BltToWindowViaGdiArgs
-	{
-		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc;
-		Gdi::Region* primaryRegion;
-
-		BltToWindowViaGdiArgs()
-			: virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc)
-			, primaryRegion(nullptr)
-		{
-		}
-	};
-
 	void onRelease();
 	DWORD WINAPI updateThreadProc(LPVOID lpParameter);
 
@@ -70,65 +58,61 @@ namespace
 		return TRUE;
 	}
 
-	BOOL CALLBACK bltToWindow(HWND hwnd, LPARAM lParam)
+	void bltToWindow(CompatRef<IDirectDrawSurface7> src)
 	{
-		if (!IsWindowVisible(hwnd) || !Gdi::Window::isPresentationWindow(hwnd))
+		for (auto windowPair : Gdi::Window::getWindows())
 		{
-			return TRUE;
+			if (IsWindowVisible(windowPair.first))
+			{
+				g_clipper->SetHWnd(g_clipper, 0, windowPair.second->getPresentationWindow());
+				g_frontBuffer->Blt(g_frontBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
+			}
 		}
-
-		g_clipper->SetHWnd(g_clipper, 0, hwnd);
-		auto src = reinterpret_cast<IDirectDrawSurface7*>(lParam);
-		g_frontBuffer->Blt(g_frontBuffer, nullptr, src, nullptr, DDBLT_WAIT, nullptr);
-		return TRUE;
 	}
 
-	BOOL CALLBACK bltToWindowViaGdi(HWND hwnd, LPARAM lParam)
+	void bltToWindowViaGdi(Gdi::Region* primaryRegion)
 	{
-		if (!IsWindowVisible(hwnd) || !Gdi::Window::isPresentationWindow(hwnd))
-		{
-			return TRUE;
-		}
+		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
 
-		auto window = Gdi::Window::get(GetParent(hwnd));
-		if (!window)
+		for (auto windowPair : Gdi::Window::getWindows())
 		{
-			return TRUE;
-		}
+			if (!IsWindowVisible(windowPair.first))
+			{
+				continue;
+			}
 
-		Gdi::Region visibleRegion = window->getVisibleRegion();
-		if (visibleRegion.isEmpty())
-		{
-			return TRUE;
-		}
-
-		auto& args = *reinterpret_cast<BltToWindowViaGdiArgs*>(lParam);
-		if (args.primaryRegion)
-		{
-			visibleRegion -= *args.primaryRegion;
+			Gdi::Region visibleRegion = windowPair.second->getVisibleRegion();
 			if (visibleRegion.isEmpty())
 			{
-				return TRUE;
+				continue;
 			}
-		}
 
-		if (!args.virtualScreenDc)
-		{
-			args.virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
-			if (!args.virtualScreenDc)
+			if (primaryRegion)
 			{
-				return FALSE;
+				visibleRegion -= *primaryRegion;
+				if (visibleRegion.isEmpty())
+				{
+					continue;
+				}
 			}
+
+			if (!virtualScreenDc)
+			{
+				virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
+				if (!virtualScreenDc)
+				{
+					return;
+				}
+			}
+
+			Gdi::GdiAccessGuard gdiAccessGuard(Gdi::ACCESS_READ);
+			HWND presentationWindow = windowPair.second->getPresentationWindow();
+			HDC dc = GetWindowDC(presentationWindow);
+			RECT rect = windowPair.second->getWindowRect();
+			CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
+				virtualScreenDc.get(), rect.left, rect.top, SRCCOPY);
+			ReleaseDC(presentationWindow, dc);
 		}
-
-		Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_READ);
-		HDC presentationWindowDc = GetWindowDC(hwnd);
-		RECT rect = window->getWindowRect();
-		CALL_ORIG_FUNC(BitBlt)(presentationWindowDc, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
-			args.virtualScreenDc.get(), rect.left, rect.top, SRCCOPY);
-		ReleaseDC(hwnd, presentationWindowDc);
-
-		return TRUE;
 	}
 
 	void bltVisibleLayeredWindowsToBackBuffer()
@@ -174,7 +158,7 @@ namespace
 	{
 		if (!g_isFullScreen)
 		{
-			EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindow, reinterpret_cast<LPARAM>(&src));
+			bltToWindow(src);
 			return;
 		}
 
@@ -364,19 +348,15 @@ namespace
 
 		Gdi::VirtualScreen::update();
 
-		BltToWindowViaGdiArgs bltToWindowViaGdiArgs;
 		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
 		{
-			EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindowViaGdi,
-				reinterpret_cast<LPARAM>(&bltToWindowViaGdiArgs));
+			bltToWindowViaGdi(nullptr);
 			Compat::LogLeave("RealPrimarySurface::presentToPrimaryChain", src.get()) << false;
 			return;
 		}
 
 		Gdi::Region primaryRegion(D3dDdi::KernelModeThunks::getMonitorRect());
-		bltToWindowViaGdiArgs.primaryRegion = &primaryRegion;
-		EnumThreadWindows(Gdi::getGdiThreadId(), bltToWindowViaGdi,
-			reinterpret_cast<LPARAM>(&bltToWindowViaGdiArgs));
+		bltToWindowViaGdi(&primaryRegion);
 
 		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, DDraw::PrimarySurface::isGdiSurface(src.get()));
 		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)

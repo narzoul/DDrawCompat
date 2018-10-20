@@ -1,3 +1,5 @@
+#include <vector>
+
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "DDraw/RealPrimarySurface.h"
@@ -8,56 +10,130 @@
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
+#include "Gdi/VirtualScreen.h"
+#include "Gdi/Window.h"
 #include "Win32/Registry.h"
 
 namespace
 {
-	LRESULT WINAPI defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
-		WNDPROC origWndProc, const char* origWndProcName);
+	typedef LRESULT(*WndProcHook)(HWND, UINT, WPARAM, LPARAM, WNDPROC);
+
+	struct User32WndProc
+	{
+		WNDPROC oldWndProcTrampoline;
+		WNDPROC oldWndProc;
+		WNDPROC newWndProc;
+		std::string name;
+	
+		User32WndProc()
+			: oldWndProcTrampoline(nullptr)
+			, oldWndProc(nullptr)
+			, newWndProc(nullptr)
+		{
+		}
+	};
+
+	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
+	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
+		const char* origWndProcName);
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
-	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
-	WNDPROC g_origButtonWndProc = nullptr;
-	WNDPROC g_origComboListBoxWndProc = nullptr;
-	WNDPROC g_origEditWndProc = nullptr;
-	WNDPROC g_origListBoxWndProc = nullptr;
-	WNDPROC g_origMenuWndProc = nullptr;
-	WNDPROC g_origScrollBarWndProc = nullptr;
+	HHOOK g_cbtProcHook = nullptr;
+	int g_menuWndProcIndex = 0;
+	int g_scrollBarWndProcIndex = 0;
 
-	LRESULT WINAPI buttonWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	std::vector<User32WndProc> g_user32WndProcA;
+	std::vector<User32WndProc> g_user32WndProcW;
+	std::vector<WndProcHook> g_user32WndProcHook;
+
+	LRESULT buttonWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		Compat::LogEnter("buttonWndProc", hwnd, msg, wParam, lParam);
-		LRESULT result = 0;
-
 		switch (msg)
 		{
 		case WM_PAINT:
-			result = onPaint(hwnd, g_origButtonWndProc);
-			break;
+			return onPaint(hwnd, origWndProc);
 
 		case WM_ENABLE:
 		case WM_SETTEXT:
 		case BM_SETCHECK:
 		case BM_SETSTATE:
-			result = CallWindowProc(g_origButtonWndProc, hwnd, msg, wParam, lParam);
+		{
+			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
-			break;
-
-		default:
-			result = CallWindowProc(g_origButtonWndProc, hwnd, msg, wParam, lParam);
-			break;
+			return result;
 		}
 
-		Compat::LogLeave("buttonWndProc", hwnd, msg, wParam, lParam) << result;
+		default:
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+		}
+	}
+
+	LRESULT CALLBACK cbtProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		Compat::LogEnter("cbtProc", Compat::hex(nCode), Compat::hex(wParam), Compat::hex(lParam));
+		LRESULT result = 0;
+
+		if (nCode < 0)
+		{
+			result = CallNextHookEx(nullptr, nCode, wParam, lParam);
+		}
+		else if (HCBT_CREATEWND == nCode)
+		{
+			HWND hwnd = reinterpret_cast<HWND>(wParam);
+			WNDPROC wndProcA = reinterpret_cast<WNDPROC>(GetWindowLongA(hwnd, GWL_WNDPROC));
+			WNDPROC wndProcW = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
+
+			int index = -1;
+			if (wndProcA == g_user32WndProcA[g_menuWndProcIndex].oldWndProc ||
+				wndProcW == g_user32WndProcW[g_menuWndProcIndex].oldWndProc)
+			{
+				index = g_menuWndProcIndex;
+			}
+			else if (wndProcA == g_user32WndProcA[g_scrollBarWndProcIndex].oldWndProc ||
+				wndProcW == g_user32WndProcW[g_scrollBarWndProcIndex].oldWndProc)
+			{
+				index = g_scrollBarWndProcIndex;
+			}
+
+			if (-1 != index)
+			{
+				if (IsWindowUnicode(hwnd))
+				{
+					CALL_ORIG_FUNC(SetWindowLongW)(hwnd, GWL_WNDPROC,
+						reinterpret_cast<LONG>(g_user32WndProcW[index].newWndProc));
+				}
+				else
+				{
+					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC,
+						reinterpret_cast<LONG>(g_user32WndProcA[index].newWndProc));
+				}
+			}
+		}
+
+		Compat::LogLeave("cbtProc", Compat::hex(nCode), Compat::hex(wParam), Compat::hex(lParam)) << result;
 		return result;
 	}
 
-	LRESULT WINAPI comboListBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	LRESULT comboBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		return defPaintProc(hwnd, msg, wParam, lParam, g_origComboListBoxWndProc, "comboListBoxWndProc");
+		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+	}
+
+	LRESULT comboListBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+
+		switch (msg)
+		{
+		case WM_NCPAINT:
+			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			break;
+		}
+
+		return result;
 	}
 
 	LRESULT WINAPI defDlgProcA(HWND hdlg, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -70,38 +146,31 @@ namespace
 		return defPaintProc(hdlg, msg, wParam, lParam, CALL_ORIG_FUNC(DefDlgProcW), "defDlgProcW");
 	}
 
-	LRESULT WINAPI defPaintProc(
-		HWND hwnd,
-		UINT msg,
-		WPARAM wParam,
-		LPARAM lParam,
-		WNDPROC origWndProc,
-		const char* origWndProcName)
+	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		Compat::LogEnter(origWndProcName, hwnd, msg, wParam, lParam);
-		LRESULT result = 0;
-
 		switch (msg)
 		{
 		case WM_ERASEBKGND:
-			result = onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
-			break;
+			return onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
 
 		case WM_NCPAINT:
-			result = onNcPaint(hwnd, wParam, origWndProc);
-			break;
+			return onNcPaint(hwnd, wParam, origWndProc);
 
 		case WM_PRINT:
 		case WM_PRINTCLIENT:
-			result = onPrint(hwnd, msg, reinterpret_cast<HDC>(wParam), lParam, origWndProc);
-			break;
+			return onPrint(hwnd, msg, reinterpret_cast<HDC>(wParam), lParam, origWndProc);
 
 		default:
-			result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			break;
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
+	}
 
-		Compat::LogLeave(origWndProcName, hwnd, msg, wParam, lParam) << result;
+	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
+		const char* origWndProcName)
+	{
+		Compat::LogEnter(origWndProcName, hwnd, Compat::hex(msg), Compat::hex(wParam), Compat::hex(lParam));
+		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+		Compat::LogLeave(origWndProcName, hwnd, Compat::hex(msg), Compat::hex(wParam), Compat::hex(lParam)) << result;
 		return result;
 	}
 
@@ -141,9 +210,9 @@ namespace
 			0);
 	}
 
-	LRESULT WINAPI editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	LRESULT editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, g_origEditWndProc, "editWndProc");
+		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
 		if (0 == result && (WM_HSCROLL == msg || WM_VSCROLL == msg))
 		{
 			Gdi::ScrollFunctions::updateScrolledWindow(hwnd);
@@ -151,37 +220,88 @@ namespace
 		return result;
 	}
 
-	LRESULT WINAPI listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	void hookUser32WndProc(const std::string& wndProcName, HWND hwnd, WNDPROC newWndProc,
+		decltype(GetWindowLongPtr)* getWindowLong, std::vector<User32WndProc>& user32WndProc)
 	{
-		return defPaintProc(hwnd, msg, wParam, lParam, g_origListBoxWndProc, "listBoxWndProc");
+		User32WndProc wndProc;
+		wndProc.oldWndProc =
+			reinterpret_cast<WNDPROC>(getWindowLong(hwnd, GWL_WNDPROC));
+		wndProc.oldWndProcTrampoline = wndProc.oldWndProc;
+		wndProc.newWndProc = newWndProc;
+		wndProc.name = wndProcName;
+		user32WndProc.push_back(wndProc);
+
+		if (reinterpret_cast<DWORD>(wndProc.oldWndProcTrampoline) < 0xFFFF0000)
+		{
+			Compat::hookFunction(
+				reinterpret_cast<void*&>(user32WndProc.back().oldWndProcTrampoline), newWndProc);
+		}
 	}
 
-	LRESULT WINAPI menuWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	void hookUser32WndProcA(const char* className, WNDPROC newWndProc, const std::string& wndProcName)
 	{
-		Compat::LogEnter("menuWndProc", hwnd, msg, wParam, lParam);
-		LRESULT result = 0;
+		CLIENTCREATESTRUCT ccs = {};
+		HWND hwnd = CreateWindowA(className, "", 0, 0, 0, 0, 0, 0, 0, 0, &ccs);
+		hookUser32WndProc(wndProcName + 'A', hwnd, newWndProc, CALL_ORIG_FUNC(GetWindowLongA), g_user32WndProcA);
+		DestroyWindow(hwnd);
+	}
 
+	void hookUser32WndProcW(const char* name, WNDPROC newWndProc, const std::string& wndProcName)
+	{
+		CLIENTCREATESTRUCT ccs = {};
+		HWND hwnd = CreateWindowW(
+			std::wstring(name, name + std::strlen(name)).c_str(), L"", 0, 0, 0, 0, 0, 0, 0, 0, &ccs);
+		hookUser32WndProc(wndProcName + 'W', hwnd, newWndProc, CALL_ORIG_FUNC(GetWindowLongW), g_user32WndProcW);
+		DestroyWindow(hwnd);
+	}
+
+	LRESULT listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+	}
+
+	LRESULT mdiClientWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+	}
+
+	LRESULT menuWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
 		switch (msg)
 		{
+		case WM_NCPAINT:
+			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			return onNcPaint(hwnd, wParam, origWndProc);
+
 		case WM_PAINT:
-			result = onMenuPaint(hwnd, g_origMenuWndProc);
-			break;
+			return onPaint(hwnd, origWndProc);
+
+		case WM_PRINTCLIENT:
+		{
+			RECT r = {};
+			GetClientRect(hwnd, &r);
+			HDC dc = CreateCompatibleDC(nullptr);
+			HBITMAP dib = Gdi::VirtualScreen::createOffScreenDib(r.right, r.bottom);
+			HGDIOBJ origBitmap = SelectObject(dc, dib);
+			CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
+			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), lParam);
+			CALL_ORIG_FUNC(BitBlt)(reinterpret_cast<HDC>(wParam), 0, 0, r.right, r.bottom, dc, 0, 0, SRCCOPY);
+			SelectObject(dc, origBitmap);
+			DeleteObject(dib);
+			DeleteDC(dc);
+			return result;
+		}
 
 		case 0x1e5:
 			if (-1 == wParam)
 			{
-				// Clearing of selection is not caught by WM_MENUSELECT when mouse leaves menu window
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE);
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
 			}
-			// fall through to default
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 
 		default:
-			result = CallWindowProc(g_origMenuWndProc, hwnd, msg, wParam, lParam);
-			break;
+			return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
 		}
-
-		Compat::LogLeave("menuWndProc", hwnd, msg, wParam, lParam) << result;
-		return result;
 	}
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
@@ -200,32 +320,6 @@ namespace
 		}
 
 		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
-	}
-
-	LRESULT onMenuPaint(HWND hwnd, WNDPROC origWndProc)
-	{
-		if (!hwnd)
-		{
-			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
-		}
-
-		HDC dc = GetWindowDC(hwnd);
-		HDC compatDc = Gdi::Dc::getDc(dc);
-		if (compatDc)
-		{
-			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc),
-				PRF_NONCLIENT | PRF_ERASEBKGND | PRF_CLIENT);
-			ValidateRect(hwnd, nullptr);
-			Gdi::Dc::releaseDc(dc);
-		}
-		else
-		{
-			CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
-		}
-
-		ReleaseDC(hwnd, dc);
-		return 0;
 	}
 
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
@@ -249,7 +343,7 @@ namespace
 			scrollBar.drawAll();
 			scrollBar.excludeFromClipRegion();
 
-			SendMessage(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc), PRF_NONCLIENT);
+			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc), PRF_NONCLIENT);
 
 			Gdi::Dc::releaseDc(windowDc);
 		}
@@ -265,6 +359,7 @@ namespace
 			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
 
+		DDraw::ScopedThreadLock lock;
 		PAINTSTRUCT paint = {};
 		HDC dc = BeginPaint(hwnd, &paint);
 		HDC compatDc = Gdi::Dc::getDc(dc);
@@ -303,32 +398,51 @@ namespace
 		return result;
 	}
 
-	LRESULT WINAPI scrollBarWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+	LRESULT scrollBarWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		Compat::LogEnter("scrollBarWndProc", hwnd, msg, wParam, lParam);
-		LRESULT result = 0;
-
 		switch (msg)
 		{
 		case WM_PAINT:
-			result = onPaint(hwnd, g_origScrollBarWndProc);
-			break;
+			return onPaint(hwnd, origWndProc);
 
 		case WM_SETCURSOR:
 			if (GetWindowLong(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))
 			{
 				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
 			}
-			result = TRUE;
-			break;
+			return TRUE;
 
 		default:
-			result = CallWindowProc(g_origScrollBarWndProc, hwnd, msg, wParam, lParam);
-			break;
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
+	}
 
-		Compat::LogLeave("scrollBarWndProc", hwnd, msg, wParam, lParam) << result;
+	LRESULT staticWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+	}
+
+	LRESULT CALLBACK user32WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
+		const User32WndProc& user32WndProc, WndProcHook wndProcHook)
+	{
+		Compat::LogEnter(user32WndProc.name.c_str(),
+			hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		LRESULT result = wndProcHook(hwnd, uMsg, wParam, lParam, user32WndProc.oldWndProcTrampoline);
+		Compat::LogLeave(user32WndProc.name.c_str(),
+			hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam)) << result;
 		return result;
+	}
+
+	template <int index>
+	LRESULT CALLBACK user32WndProcA(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	{
+		return user32WndProc(hwnd, uMsg, wParam, lParam, g_user32WndProcA[index], g_user32WndProcHook[index]);
+	}
+
+	template <int index>
+	LRESULT CALLBACK user32WndProcW(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	{
+		return user32WndProc(hwnd, uMsg, wParam, lParam, g_user32WndProcW[index], g_user32WndProcHook[index]);
 	}
 }
 
@@ -340,27 +454,40 @@ namespace Gdi
 		{
 			disableImmersiveContextMenus();
 
-			Gdi::hookWndProc("Button", g_origButtonWndProc, &buttonWndProc);
-			Gdi::hookWndProc("ComboLBox", g_origComboListBoxWndProc, &comboListBoxWndProc);
-			Gdi::hookWndProc("Edit", g_origEditWndProc, &editWndProc);
-			Gdi::hookWndProc("ListBox", g_origListBoxWndProc, &listBoxWndProc);
-			Gdi::hookWndProc("#32768", g_origMenuWndProc, &menuWndProc);
-			Gdi::hookWndProc("ScrollBar", g_origScrollBarWndProc, &scrollBarWndProc);
+#define HOOK_USER32_WNDPROC(index, name, wndProcHook) \
+	g_user32WndProcHook.push_back(wndProcHook); \
+	hookUser32WndProcA(name, user32WndProcA<index>, #wndProcHook); \
+	hookUser32WndProcW(name, user32WndProcW<index>, #wndProcHook)
+
+			g_user32WndProcA.reserve(9);
+			g_user32WndProcW.reserve(9);
+
+			HOOK_USER32_WNDPROC(0, "Button", buttonWndProc);
+			HOOK_USER32_WNDPROC(1, "ComboBox", comboBoxWndProc);
+			HOOK_USER32_WNDPROC(2, "Edit", editWndProc);
+			HOOK_USER32_WNDPROC(3, "ListBox", listBoxWndProc);
+			HOOK_USER32_WNDPROC(4, "MDIClient", mdiClientWndProc);
+			HOOK_USER32_WNDPROC(5, "ScrollBar", scrollBarWndProc);
+			HOOK_USER32_WNDPROC(6, "Static", staticWndProc);
+			HOOK_USER32_WNDPROC(7, "ComboLBox", comboListBoxWndProc);
+			HOOK_USER32_WNDPROC(8, "#32768", menuWndProc);
+
+			g_scrollBarWndProcIndex = 5;
+			g_menuWndProcIndex = 8;
+
+#undef HOOK_USER32_WNDPROC
 
 			HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
 			HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
 			HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
 			HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
+
+			g_cbtProcHook = SetWindowsHookEx(WH_CBT, cbtProc, nullptr, Gdi::getGdiThreadId());
 		}
 
 		void uninstallHooks()
 		{
-			Gdi::unhookWndProc("Button", g_origButtonWndProc);
-			Gdi::unhookWndProc("ComboLBox", g_origComboListBoxWndProc);
-			Gdi::unhookWndProc("Edit", g_origEditWndProc);
-			Gdi::unhookWndProc("ListBox", g_origListBoxWndProc);
-			Gdi::unhookWndProc("#32768", g_origMenuWndProc);
-			Gdi::unhookWndProc("ScrollBar", g_origScrollBarWndProc);
+			UnhookWindowsHookEx(g_cbtProcHook);
 		}
 	}
 }

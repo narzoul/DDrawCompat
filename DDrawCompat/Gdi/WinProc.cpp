@@ -27,14 +27,13 @@ namespace
 	void onActivate(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
-	void onMenuSelect();
 	void onWindowPosChanged(HWND hwnd);
 	void removeDropShadow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
-		Compat::LogEnter("callWndRetProc", nCode, wParam, ret);
+		Compat::LogEnter("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret);
 
 		if (HC_ACTION == nCode)
 		{
@@ -62,14 +61,10 @@ namespace
 					Gdi::ScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
 			}
-			else if (WM_MENUSELECT == ret->message)
-			{
-				onMenuSelect();
-			}
 		}
 
 		LRESULT result = CallNextHookEx(nullptr, nCode, wParam, lParam);
-		Compat::LogLeave("callWndRetProc", nCode, wParam, ret) << result;
+		Compat::LogLeave("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret) << result;
 		return result;
 	}
 
@@ -93,12 +88,6 @@ namespace
 				RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 		}
 		return TRUE;
-	}
-
-	bool isTopLevelNonLayeredWindow(HWND hwnd)
-	{
-		return !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
-			(!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow());
 	}
 
 	void CALLBACK objectStateChangeEvent(
@@ -160,12 +149,9 @@ namespace
 
 	void onCreateWindow(HWND hwnd)
 	{
-		if (isTopLevelNonLayeredWindow(hwnd))
-		{
-			disableDwmAttributes(hwnd);
-			removeDropShadow(hwnd);
-			Gdi::Window::add(hwnd);
-		}
+		disableDwmAttributes(hwnd);
+		removeDropShadow(hwnd);
+		Gdi::Window::add(hwnd);
 	}
 
 	void onDestroyWindow(HWND hwnd)
@@ -173,20 +159,9 @@ namespace
 		Gdi::Window::remove(hwnd);
 	}
 
-	void onMenuSelect()
-	{
-		HWND menuWindow = FindWindow(reinterpret_cast<LPCSTR>(0x8000), nullptr);
-		while (menuWindow)
-		{
-			RedrawWindow(menuWindow, nullptr, nullptr, RDW_INVALIDATE);
-			menuWindow = FindWindowEx(nullptr, menuWindow, reinterpret_cast<LPCSTR>(0x8000), nullptr);
-		}
-	}
-
 	void onWindowPosChanged(HWND hwnd)
 	{
-		const ATOM menuAtom = 0x8000;
-		if (menuAtom == GetClassLongPtr(hwnd, GCW_ATOM))
+		if (Gdi::MENU_ATOM == GetClassLongPtr(hwnd, GCW_ATOM))
 		{
 			SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
 		}
@@ -196,7 +171,7 @@ namespace
 			notifyFunc();
 		}
 
-		if (isTopLevelNonLayeredWindow(hwnd))
+		if (Gdi::Window::get(hwnd))
 		{
 			Gdi::Window::updateAll();
 		}

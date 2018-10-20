@@ -3,6 +3,7 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <map>
+#include <memory>
 
 #include <Windows.h>
 
@@ -17,13 +18,16 @@ namespace Gdi
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
 
+		HWND getPresentationWindow() const;
 		Region getVisibleRegion() const;
 		RECT getWindowRect() const;
+		void updateWindow();
 
-		static Window* add(HWND hwnd);
-		static Window* get(HWND hwnd);
+		static bool add(HWND hwnd);
+		static std::shared_ptr<Window> get(HWND hwnd);
 		static void remove(HWND hwnd);
 
+		static std::map<HWND, std::shared_ptr<Window>> getWindows();
 		static bool isPresentationWindow(HWND hwnd);
 		static void updateAll();
 
@@ -38,6 +42,6 @@ namespace Gdi
 		Region m_invalidatedRegion;
 		bool m_isUpdating;
 
-		static std::map<HWND, Window> s_windows;
+		static std::map<HWND, std::shared_ptr<Window>> s_windows;
 	};
 }

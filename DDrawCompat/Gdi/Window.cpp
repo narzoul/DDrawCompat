@@ -1,3 +1,4 @@
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
@@ -7,6 +8,13 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 namespace
 {
 	ATOM registerPresentationWindowClass();
+
+	ATOM getComboLBoxAtom()
+	{
+		WNDCLASS wc = {};
+		static ATOM comboLBoxAtom = static_cast<ATOM>(GetClassInfo(nullptr, "ComboLBox", &wc));
+		return comboLBoxAtom;
+	}
 
 	ATOM getPresentationWindowClassAtom()
 	{
@@ -33,37 +41,43 @@ namespace Gdi
 {
 	Window::Window(HWND hwnd)
 		: m_hwnd(hwnd)
+		, m_presentationWindow(nullptr)
 		, m_windowRect{ 0, 0, 0, 0 }
 		, m_isUpdating(false)
 	{
-		m_presentationWindow = CreateWindowEx(
-			WS_EX_LAYERED | WS_EX_TRANSPARENT,
-			reinterpret_cast<const char*>(getPresentationWindowClassAtom()),
-			nullptr,
-			WS_DISABLED | WS_POPUP,
-			0, 0, 1, 1,
-			m_hwnd,
-			nullptr,
-			nullptr,
-			nullptr);
-		SetLayeredWindowAttributes(m_presentationWindow, 0, 255, LWA_ALPHA);
+		const ATOM atom = static_cast<ATOM>(GetClassLong(hwnd, GCW_ATOM));
+		if (MENU_ATOM != atom && getComboLBoxAtom() != atom)
+		{
+			m_presentationWindow = CreateWindowEx(
+				WS_EX_LAYERED | WS_EX_TRANSPARENT,
+				reinterpret_cast<const char*>(getPresentationWindowClassAtom()),
+				nullptr,
+				WS_DISABLED | WS_POPUP,
+				0, 0, 1, 1,
+				m_hwnd,
+				nullptr,
+				nullptr,
+				nullptr);
+			SetLayeredWindowAttributes(m_presentationWindow, 0, 255, LWA_ALPHA);
+		}
+
 		update();
 	}
 
-	Window* Window::add(HWND hwnd)
+	bool Window::add(HWND hwnd)
 	{
-		auto it = s_windows.find(hwnd);
-		if (it != s_windows.end())
+		const bool isTopLevelNonLayeredWindow = !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+			(!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow() ||
+				getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM));
+
+		if (isTopLevelNonLayeredWindow && !get(hwnd) &&
+			GetClassLong(hwnd, GCW_ATOM) != getPresentationWindowClassAtom())
 		{
-			return &it->second;
+			s_windows.emplace(hwnd, std::make_shared<Window>(hwnd));
+			return true;
 		}
 
-		if (isPresentationWindow(hwnd))
-		{
-			return nullptr;
-		}
-
-		return &s_windows.emplace(hwnd, hwnd).first->second;
+		return false;
 	}
 
 	void Window::calcInvalidatedRegion(const RECT& oldWindowRect, const Region& oldVisibleRegion)
@@ -97,20 +111,34 @@ namespace Gdi
 		}
 	}
 
-	Window* Window::get(HWND hwnd)
+	std::shared_ptr<Window> Window::get(HWND hwnd)
 	{
+		DDraw::ScopedThreadLock lock;
 		auto it = s_windows.find(hwnd);
-		return it != s_windows.end() ? &it->second : nullptr;
+		return it != s_windows.end() ? it->second : nullptr;
+	}
+
+	HWND Window::getPresentationWindow() const
+	{
+		return m_presentationWindow ? m_presentationWindow : m_hwnd;
 	}
 
 	Region Window::getVisibleRegion() const
 	{
+		DDraw::ScopedThreadLock lock;
 		return m_visibleRegion;
 	}
 
 	RECT Window::getWindowRect() const
 	{
+		DDraw::ScopedThreadLock lock;
 		return m_windowRect;
+	}
+
+	std::map<HWND, std::shared_ptr<Window>> Window::getWindows()
+	{
+		DDraw::ScopedThreadLock lock;
+		return s_windows;
 	}
 
 	bool Window::isPresentationWindow(HWND hwnd)
@@ -120,11 +148,13 @@ namespace Gdi
 
 	void Window::remove(HWND hwnd)
 	{
+		DDraw::ScopedThreadLock lock;
 		s_windows.erase(hwnd);
 	}
 
 	void Window::update()
 	{
+		DDraw::ScopedThreadLock lock;
 		if (m_isUpdating)
 		{
 			return;
@@ -145,9 +175,16 @@ namespace Gdi
 				newVisibleRegion &= VirtualScreen::getRegion();
 			}
 
-			SetWindowPos(m_presentationWindow, nullptr, newWindowRect.left, newWindowRect.top,
-				newWindowRect.right - newWindowRect.left, newWindowRect.bottom - newWindowRect.top,
-				SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW);
+			if (m_presentationWindow)
+			{
+				SetWindowPos(m_presentationWindow, nullptr, newWindowRect.left, newWindowRect.top,
+					newWindowRect.right - newWindowRect.left, newWindowRect.bottom - newWindowRect.top,
+					SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW);
+			}
+		}
+		else if (m_presentationWindow)
+		{
+			ShowWindow(m_presentationWindow, SW_HIDE);
 		}
 
 		std::swap(m_windowRect, newWindowRect);
@@ -160,23 +197,34 @@ namespace Gdi
 
 	void Window::updateAll()
 	{
-		for (auto& windowPair : s_windows)
+		auto windows(getWindows());
+		for (auto& windowPair : windows)
 		{
-			windowPair.second.update();
+			windowPair.second->update();
 		}
 
-		for (auto& windowPair : s_windows)
+		for (auto& windowPair : windows)
 		{
-			if (!windowPair.second.m_invalidatedRegion.isEmpty())
+			if (!windowPair.second->m_invalidatedRegion.isEmpty())
 			{
 				POINT clientOrigin = {};
 				ClientToScreen(windowPair.first, &clientOrigin);
-				windowPair.second.m_invalidatedRegion.offset(-clientOrigin.x, -clientOrigin.y);
-				RedrawWindow(windowPair.first, nullptr, windowPair.second.m_invalidatedRegion,
+				windowPair.second->m_invalidatedRegion.offset(-clientOrigin.x, -clientOrigin.y);
+				RedrawWindow(windowPair.first, nullptr, windowPair.second->m_invalidatedRegion,
 					RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_ERASENOW);
 			}
 		}
 	}
 
-	std::map<HWND, Window> Window::s_windows;
+	void Window::updateWindow()
+	{
+		RECT windowRect = {};
+		GetWindowRect(m_hwnd, &windowRect);
+		if (!EqualRect(&windowRect, &m_windowRect))
+		{
+			updateAll();
+		}
+	}
+
+	std::map<HWND, std::shared_ptr<Window>> Window::s_windows;
 }

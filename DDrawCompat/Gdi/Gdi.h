@@ -6,12 +6,13 @@
 
 namespace Gdi
 {
+	const ATOM MENU_ATOM = 0x8000;
+
 	typedef void(*WindowPosChangeNotifyFunc)();
 
 	DWORD getGdiThreadId();
 	HDC getScreenDc();
 	HRGN getVisibleWindowRgn(HWND hwnd);
-	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc);
 	void installHooks();
 	void redraw(HRGN rgn);
 	void redrawWindow(HWND hwnd, HRGN rgn);

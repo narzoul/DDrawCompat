@@ -30,7 +30,7 @@ namespace
 			const int subKeyComp = lstrcmpiW(subKey.c_str(), rhs.subKey.c_str());
 			if (subKeyComp < 0) { return true; }
 			if (subKeyComp > 0) { return false; }
-			return lstrcmpiW(value.c_str(), rhs.value.c_str());
+			return lstrcmpiW(value.c_str(), rhs.value.c_str()) < 0;
 		}
 
 		bool operator==(const RegistryKey& rhs) const

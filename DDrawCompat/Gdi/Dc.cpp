@@ -4,7 +4,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "Common/ScopedCriticalSection.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/Gdi.h"
@@ -24,7 +24,6 @@ namespace
 	typedef std::unique_ptr<HDC__, void(*)(HDC)> OrigDc;
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
 
-	CRITICAL_SECTION g_cs;
 	CompatDcMap g_origDcToCompatDc;
 	thread_local std::vector<OrigDc> g_threadDcs;
 
@@ -82,7 +81,7 @@ namespace
 
 	void deleteDc(HDC origDc)
 	{
-		Compat::ScopedCriticalSection lock(g_cs);
+		DDraw::ScopedThreadLock lock;
 		auto it = g_origDcToCompatDc.find(origDc);
 		RestoreDC(it->second.dc, it->second.savedState);
 		Gdi::DcCache::deleteDc(it->second.dc);
@@ -110,24 +109,6 @@ namespace
 		}
 		DeleteObject(clipRgn);
 	}
-
-	void updateWindow(HWND wnd)
-	{
-		auto window = Gdi::Window::get(wnd);
-		if (!window)
-		{
-			return;
-		}
-
-		RECT windowRect = {};
-		GetWindowRect(wnd, &windowRect);
-
-		RECT cachedWindowRect = window->getWindowRect();
-		if (!EqualRect(&windowRect, &cachedWindowRect))
-		{
-			Gdi::Window::updateAll();
-		}
-	}
 }
 
 namespace Gdi
@@ -141,7 +122,7 @@ namespace Gdi
 				return nullptr;
 			}
 
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it != g_origDcToCompatDc.end())
 			{
@@ -150,10 +131,15 @@ namespace Gdi
 			}
 
 			const HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-			const HWND rootWnd = wnd ? GetAncestor(wnd, GA_ROOT) : nullptr;
+			auto rootWnd = wnd ? GetAncestor(wnd, GA_ROOT) : nullptr;
 			if (rootWnd && GetDesktopWindow() != rootWnd)
 			{
-				updateWindow(rootWnd);
+				auto rootWindow(Window::get(rootWnd));
+				if (!rootWindow)
+				{
+					return nullptr;
+				}
+				rootWindow->updateWindow();
 			}
 
 			CompatDc compatDc;
@@ -183,20 +169,15 @@ namespace Gdi
 
 		HDC getOrigDc(HDC dc)
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
 				[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
 			return it != g_origDcToCompatDc.end() ? it->first : dc;
 		}
 
-		void init()
-		{
-			InitializeCriticalSection(&g_cs);
-		}
-
 		void releaseDc(HDC origDc)
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it == g_origDcToCompatDc.end())
 			{

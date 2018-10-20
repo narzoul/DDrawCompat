@@ -1,6 +1,5 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Caret.h"
-#include "Gdi/Dc.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/PaintHandlers.h"
@@ -37,20 +36,11 @@ namespace Gdi
 		return DcFunctions::getVisibleWindowRgn(hwnd);
 	}
 
-	void hookWndProc(LPCSTR className, WNDPROC &oldWndProc, WNDPROC newWndProc)
-	{
-		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
-		oldWndProc = reinterpret_cast<WNDPROC>(
-			SetClassLongPtr(hwnd, GCLP_WNDPROC, reinterpret_cast<LONG>(newWndProc)));
-		DestroyWindow(hwnd);
-	}
-
 	void installHooks()
 	{
 		g_gdiThreadId = GetCurrentThreadId();
 		g_screenDc = GetDC(nullptr);
 
-		Gdi::Dc::init();
 		Gdi::DcFunctions::installHooks();
 		Gdi::PaintHandlers::installHooks();
 		Gdi::ScrollFunctions::installHooks();
