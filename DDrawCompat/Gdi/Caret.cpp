@@ -3,19 +3,16 @@
 #include <Windows.h>
 
 #include "Common/Hook.h"
-#include "Common/ScopedCriticalSection.h"
-#include "Gdi/AccessGuard.h"
+#include "Common/Time.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Caret.h"
-#include "Gdi/Dc.h"
-#include "Gdi/Gdi.h"
+
+extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace
 {
-	HWINEVENTHOOK g_compatGdiCaretGeneralEventHook = nullptr;
-	HWINEVENTHOOK g_compatGdiCaretLocationChangeEventHook = nullptr;
-
-	template <typename Result, typename... Params>
-	using FuncPtr = Result(WINAPI *)(Params...);
+	HWINEVENTHOOK g_caretGeneralEventHook = nullptr;
+	HWINEVENTHOOK g_caretLocationChangeEventHook = nullptr;
 
 	struct CaretData
 	{
@@ -25,58 +22,36 @@ namespace
 		long width;
 		long height;
 		bool isVisible;
-
-		bool operator==(const CaretData& rhs) const
-		{
-			return hwnd == rhs.hwnd &&
-				left == rhs.left &&
-				top == rhs.top &&
-				width == rhs.width &&
-				height == rhs.height &&
-				isVisible == rhs.isVisible;
-		}
+		bool isDrawn;
 	};
 
 
 	CaretData g_caret = {};
-	CRITICAL_SECTION g_caretCriticalSection;
-	
-	void updateCaret();
+	long long g_qpcLastBlink = 0;
 
-	void CALLBACK compatGdiCaretEvent(HWINEVENTHOOK, DWORD, HWND, LONG idObject, LONG, DWORD, DWORD)
+	void updateCaret(DWORD threadId);
+
+	void CALLBACK caretEvent(HWINEVENTHOOK, DWORD, HWND hwnd, LONG idObject, LONG, DWORD, DWORD)
 	{
 		if (OBJID_CARET == idObject)
 		{
-			updateCaret();
+			DDraw::ScopedThreadLock lock;
+			updateCaret(GetWindowThreadProcessId(hwnd, nullptr));
 		}
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	Result WINAPI compatGdiCaretFunc(Params... params)
+	void drawCaret()
 	{
-		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
-		updateCaret();
-		return result;
+		HDC dc = GetDC(g_caret.hwnd);
+		PatBlt(dc, g_caret.left, g_caret.top, g_caret.width, g_caret.height, PATINVERT);
+		ReleaseDC(g_caret.hwnd, dc);
 	}
 
-	void drawCaret(const CaretData& caret)
-	{
-		if (caret.isVisible)
-		{
-			HDC dc = GetDC(caret.hwnd);
-			HDC compatDc = Gdi::Dc::getDc(dc);
-			CALL_ORIG_FUNC(PatBlt)(
-				compatDc, caret.left, caret.top, caret.width, caret.height, PATINVERT);
-			Gdi::Dc::releaseDc(dc);
-			ReleaseDC(caret.hwnd, dc);
-		}
-	}
-
-	CaretData getCaretData()
+	CaretData getCaretData(DWORD threadId)
 	{
 		GUITHREADINFO gti = {};
 		gti.cbSize = sizeof(gti);
-		GetGUIThreadInfo(Gdi::getGdiThreadId(), &gti);
+		GetGUIThreadInfo(threadId, &gti);
 
 		CaretData caretData = {};
 		caretData.hwnd = gti.hwndCaret;
@@ -88,63 +63,75 @@ namespace
 		return caretData;
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getCompatGdiCaretFuncPtr(FuncPtr<Result, Params...>)
+	void updateCaret(DWORD threadId)
 	{
-		return &compatGdiCaretFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	void updateCaret()
-	{
-		Compat::ScopedCriticalSection lock(g_caretCriticalSection);
-
-		CaretData newCaret = getCaretData();
-		if (newCaret == g_caret)
+		DDraw::ScopedThreadLock lock;
+		if (g_caret.isDrawn)
 		{
-			return;
+			drawCaret();
 		}
 
-		if ((g_caret.isVisible || newCaret.isVisible))
-		{
-			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			drawCaret(g_caret);
-			drawCaret(newCaret);
-		}
+		g_caret = getCaretData(threadId);
 
-		g_caret = newCaret;
+		if (g_caret.isVisible)
+		{
+			g_caret.isDrawn = true;
+			drawCaret();
+			g_qpcLastBlink = Time::queryPerformanceCounter();
+		}
 	}
 }
-
-#define HOOK_GDI_CARET_FUNCTION(module, func) \
-	Compat::hookFunction<decltype(&func), &func>( \
-		#module, #func, getCompatGdiCaretFuncPtr<decltype(&func), &func>(&func));
 
 namespace Gdi
 {
 	namespace Caret
 	{
+		void blink()
+		{
+			DDraw::ScopedThreadLock lock;
+			if (!g_caret.isVisible)
+			{
+				return;
+			}
+
+			UINT caretBlinkTime = GetCaretBlinkTime();
+			if (INFINITE == caretBlinkTime)
+			{
+				return;
+			}
+
+			const long long qpcNow = Time::queryPerformanceCounter();
+			if (Time::qpcToMs(qpcNow - g_qpcLastBlink) >= caretBlinkTime)
+			{
+				g_qpcLastBlink = qpcNow;
+
+				GUITHREADINFO gti = {};
+				gti.cbSize = sizeof(gti);
+				GetGUIThreadInfo(GetWindowThreadProcessId(g_caret.hwnd, nullptr), &gti);
+				if (!(gti.flags & (GUI_INMENUMODE | GUI_POPUPMENUMODE | GUI_SYSTEMMENUMODE)))
+				{
+					g_caret.isDrawn = !g_caret.isDrawn;
+					drawCaret();
+				}
+			}
+		}
+
 		void installHooks()
 		{
-			InitializeCriticalSection(&g_caretCriticalSection);
-
-			HOOK_GDI_CARET_FUNCTION(user32, CreateCaret);
-			HOOK_GDI_CARET_FUNCTION(user32, DestroyCaret);
-			HOOK_GDI_CARET_FUNCTION(user32, HideCaret);
-			HOOK_GDI_CARET_FUNCTION(user32, SetCaretPos);
-			HOOK_GDI_CARET_FUNCTION(user32, ShowCaret);
-
-			const DWORD threadId = Gdi::getGdiThreadId();
-			g_compatGdiCaretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_HIDE,
-				nullptr, &compatGdiCaretEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
-			g_compatGdiCaretLocationChangeEventHook = SetWinEventHook(
-				EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE, nullptr, &compatGdiCaretEvent,
-				0, threadId, WINEVENT_OUTOFCONTEXT);
+			g_caretGeneralEventHook = SetWinEventHook(
+				EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
+				reinterpret_cast<HMODULE>(&__ImageBase), &caretEvent,
+				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+			g_caretLocationChangeEventHook = SetWinEventHook(
+				EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+				reinterpret_cast<HMODULE>(&__ImageBase), &caretEvent,
+				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 		}
 
 		void uninstallHooks()
 		{
-			UnhookWinEvent(g_compatGdiCaretLocationChangeEventHook);
-			UnhookWinEvent(g_compatGdiCaretGeneralEventHook);
+			UnhookWinEvent(g_caretLocationChangeEventHook);
+			UnhookWinEvent(g_caretGeneralEventHook);
 		}
 	}
 }

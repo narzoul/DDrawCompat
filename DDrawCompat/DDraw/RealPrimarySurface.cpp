@@ -15,6 +15,7 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Types.h"
 #include "Gdi/AccessGuard.h"
+#include "Gdi/Caret.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
@@ -459,6 +460,7 @@ namespace
 			Sleep(msPresentDelayAfterVBlank);
 
 			DDraw::ScopedThreadLock lock;
+			Gdi::Caret::blink();
 			waitForVBlank = Time::qpcToMs(Time::queryPerformanceCounter() -
 				D3dDdi::KernelModeThunks::getQpcLastVerticalBlank()) >= msPresentDelayAfterVBlank;
 
