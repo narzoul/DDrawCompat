@@ -3,7 +3,6 @@
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/Repository.h"
-#include "DDraw/Surfaces/TagSurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Win32/DisplayMode.h"
 
@@ -182,15 +181,6 @@ namespace DDraw
 		HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
 		if (SUCCEEDED(result))
 		{
-			void* ddObject = getDdObject(*This);
-			TagSurface* tagSurface = TagSurface::get(ddObject);
-			if (!tagSurface)
-			{
-				CompatPtr<IDirectDraw> dd(Compat::queryInterface<IDirectDraw>(This));
-				TagSurface::create(*dd);
-				tagSurface = TagSurface::get(ddObject);
-			}
-
 			ActivateAppHandler::setCooperativeLevel(hWnd, dwFlags);
 		}
 		return result;

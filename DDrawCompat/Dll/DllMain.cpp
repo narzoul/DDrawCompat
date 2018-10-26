@@ -84,7 +84,7 @@ namespace
 #define	LOAD_ORIGINAL_PROC(procName) \
 	Dll::g_origProcs.procName = Compat::getProcAddress(g_origDDrawModule, #procName);
 
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
 	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
@@ -96,7 +96,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 
 		char currentDllPath[MAX_PATH] = {};
 		GetModuleFileName(hinstDLL, currentDllPath, MAX_PATH);
-		Compat::Log() << "Loading DDrawCompat from " << currentDllPath;
+		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically")
+			<< " from " << currentDllPath;
 
 		char systemDirectory[MAX_PATH] = {};
 		GetSystemDirectory(systemDirectory, MAX_PATH);
@@ -138,16 +139,23 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID /*lpvReserved*/)
 	}
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
-		Compat::Log() << "Detaching DDrawCompat";
-		DDraw::uninstallHooks();
-		D3dDdi::uninstallHooks();
-		Gdi::uninstallHooks();
-		Compat::unhookAllFunctions();
-		FreeLibrary(g_origDInputModule);
-		FreeLibrary(g_origDDrawModule);
+		Compat::Log() << "Detaching DDrawCompat due to " << (lpvReserved ? "process termination" : "FreeLibrary");
+		if (!lpvReserved)
+		{
+			DDraw::uninstallHooks();
+			D3dDdi::uninstallHooks();
+			Gdi::uninstallHooks();
+			Compat::unhookAllFunctions();
+			FreeLibrary(g_origDInputModule);
+			FreeLibrary(g_origDDrawModule);
+		}
 		Win32::FontSmoothing::setSystemSettingsForced(Win32::FontSmoothing::g_origSystemSettings);
 		timeEndPeriod(1);
 		Compat::Log() << "DDrawCompat detached successfully";
+	}
+	else if (fdwReason == DLL_THREAD_DETACH)
+	{
+		Gdi::dllThreadDetach();
 	}
 
 	return TRUE;

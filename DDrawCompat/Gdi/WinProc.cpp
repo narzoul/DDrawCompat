@@ -1,7 +1,6 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <map>
-#include <memory>
 #include <set>
 
 #include <dwmapi.h>
@@ -11,15 +10,20 @@
 #include "Common/ScopedCriticalSection.h"
 #include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
+#include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
 #include "Gdi/TitleBar.h"
 #include "Gdi/Window.h"
 #include "Gdi/WinProc.h"
 
+extern "C" IMAGE_DOS_HEADER __ImageBase;
+
 namespace
 {
-	HHOOK g_callWndRetProcHook = nullptr;
+	std::multimap<DWORD, HHOOK> g_threadIdToHook;
+	Compat::CriticalSection g_threadIdToHookCs;
+	HWINEVENTHOOK g_objectCreateEventHook = nullptr;
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
@@ -35,13 +39,9 @@ namespace
 		auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
 		Compat::LogEnter("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret);
 
-		if (HC_ACTION == nCode)
+		if (HC_ACTION == nCode && !Gdi::Window::isPresentationWindow(ret->hwnd))
 		{
-			if (WM_CREATE == ret->message)
-			{
-				onCreateWindow(ret->hwnd);
-			}
-			else if (WM_DESTROY == ret->message)
+			if (WM_DESTROY == ret->message)
 			{
 				onDestroyWindow(ret->hwnd);
 			}
@@ -79,8 +79,25 @@ namespace
 			&disableTransitions, sizeof(disableTransitions));
 	}
 
+	void hookThread(DWORD threadId)
+	{
+		Compat::ScopedCriticalSection lock(g_threadIdToHookCs);
+		if (g_threadIdToHook.end() == g_threadIdToHook.find(threadId))
+		{
+			g_threadIdToHook.emplace(threadId,
+				SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId));
+		}
+	}
+
 	BOOL CALLBACK initTopLevelWindow(HWND hwnd, LPARAM /*lParam*/)
 	{
+		DWORD windowPid = 0;
+		GetWindowThreadProcessId(hwnd, &windowPid);
+		if (GetCurrentProcessId() != windowPid)
+		{
+			return TRUE;
+		}
+
 		onCreateWindow(hwnd);
 		if (!(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
@@ -88,6 +105,21 @@ namespace
 				RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
 		}
 		return TRUE;
+	}
+
+	void CALLBACK objectCreateEvent(
+		HWINEVENTHOOK /*hWinEventHook*/,
+		DWORD /*event*/,
+		HWND hwnd,
+		LONG idObject,
+		LONG /*idChild*/,
+		DWORD /*dwEventThread*/,
+		DWORD /*dwmsEventTime*/)
+	{
+		if (OBJID_WINDOW == idObject && !Gdi::Window::isPresentationWindow(hwnd))
+		{
+			onCreateWindow(hwnd);
+		}
 	}
 
 	void CALLBACK objectStateChangeEvent(
@@ -149,9 +181,14 @@ namespace
 
 	void onCreateWindow(HWND hwnd)
 	{
+		hookThread(GetWindowThreadProcessId(hwnd, nullptr));
 		disableDwmAttributes(hwnd);
 		removeDropShadow(hwnd);
-		Gdi::Window::add(hwnd);
+		Gdi::PaintHandlers::onCreateWindow(hwnd);
+		if (Gdi::Window::isTopLevelNonLayeredWindow(hwnd))
+		{
+			Gdi::Window::add(hwnd);
+		}
 	}
 
 	void onDestroyWindow(HWND hwnd)
@@ -191,14 +228,30 @@ namespace Gdi
 {
 	namespace WinProc
 	{
+		void dllThreadDetach()
+		{
+			Compat::ScopedCriticalSection lock(g_threadIdToHookCs);
+			const DWORD threadId = GetCurrentThreadId();
+			for (auto threadIdToHook : g_threadIdToHook)
+			{
+				if (threadId == threadIdToHook.first)
+				{
+					UnhookWindowsHookEx(threadIdToHook.second);
+				}
+			}
+			g_threadIdToHook.erase(threadId);
+		}
+
 		void installHooks()
 		{
-			const DWORD threadId = Gdi::getGdiThreadId();
-			g_callWndRetProcHook = SetWindowsHookEx(WH_CALLWNDPROCRET, callWndRetProc, nullptr, threadId);
+			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
+				reinterpret_cast<HMODULE>(&__ImageBase), &objectCreateEvent,
+				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
-				nullptr, &objectStateChangeEvent, 0, threadId, WINEVENT_OUTOFCONTEXT);
+				reinterpret_cast<HMODULE>(&__ImageBase), &objectStateChangeEvent,
+				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 
-			EnumThreadWindows(threadId, initTopLevelWindow, 0);
+			EnumWindows(initTopLevelWindow, 0);
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
@@ -209,7 +262,16 @@ namespace Gdi
 		void uninstallHooks()
 		{
 			UnhookWinEvent(g_objectStateChangeEventHook);
-			UnhookWindowsHookEx(g_callWndRetProcHook);
+			UnhookWinEvent(g_objectCreateEventHook);
+
+			{
+				Compat::ScopedCriticalSection lock(g_threadIdToHookCs);
+				for (auto threadIdToHook : g_threadIdToHook)
+				{
+					UnhookWindowsHookEx(threadIdToHook.second);
+				}
+				g_threadIdToHook.clear();
+			}
 		}
 	}
 }

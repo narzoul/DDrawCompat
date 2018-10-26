@@ -6,6 +6,7 @@ namespace Gdi
 {
 	namespace WinProc
 	{
+		void dllThreadDetach();
 		void installHooks();
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 		void uninstallHooks();

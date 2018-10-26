@@ -1,14 +1,15 @@
+#include <algorithm>
+#include <map>
 #include <memory>
 #include <vector>
 
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/VirtualScreen.h"
 
 namespace
 {
-	typedef std::unique_ptr<HDC__, void(*)(HDC)> CachedDc;
-
-	thread_local std::vector<CachedDc> g_cache;
+	std::map<DWORD, std::vector<HDC>> g_threadIdToDcCache;
 }
 
 namespace Gdi
@@ -17,29 +18,69 @@ namespace Gdi
 	{
 		void deleteDc(HDC cachedDc)
 		{
-			Gdi::VirtualScreen::deleteDc(cachedDc);
+			DDraw::ScopedThreadLock lock;
+			for (auto& threadIdToDcCache : g_threadIdToDcCache)
+			{
+				auto& dcCache = threadIdToDcCache.second;
+				auto it = std::find(dcCache.begin(), dcCache.end(), cachedDc);
+				if (it != dcCache.end())
+				{
+					Gdi::VirtualScreen::deleteDc(*it);
+					dcCache.erase(it);
+					return;
+				}
+			}
+		}
+
+		void dllProcessDetach()
+		{
+			DDraw::ScopedThreadLock lock;
+			for (auto& threadIdToDcCache : g_threadIdToDcCache)
+			{
+				for (HDC dc : threadIdToDcCache.second)
+				{
+					Gdi::VirtualScreen::deleteDc(dc);
+				}
+			}
+			g_threadIdToDcCache.clear();
+		}
+
+		void dllThreadDetach()
+		{
+			DDraw::ScopedThreadLock lock;
+			auto it = g_threadIdToDcCache.find(GetCurrentThreadId());
+			if (it == g_threadIdToDcCache.end())
+			{
+				return;
+			}
+
+			for (HDC dc : it->second)
+			{
+				Gdi::VirtualScreen::deleteDc(dc);
+			}
+
+			g_threadIdToDcCache.erase(it);
 		}
 
 		HDC getDc()
 		{
-			HDC cachedDc = nullptr;
+			DDraw::ScopedThreadLock lock;
+			std::vector<HDC>& dcCache = g_threadIdToDcCache[GetCurrentThreadId()];
 
-			if (g_cache.empty())
+			if (dcCache.empty())
 			{
-				cachedDc = Gdi::VirtualScreen::createDc();
-			}
-			else
-			{
-				cachedDc = g_cache.back().release();
-				g_cache.pop_back();
+				return Gdi::VirtualScreen::createDc();
 			}
 
-			return cachedDc;
+			HDC dc = dcCache.back();
+			dcCache.pop_back();
+			return dc;
 		}
 
 		void releaseDc(HDC cachedDc)
 		{
-			g_cache.emplace_back(CachedDc(cachedDc, &deleteDc));
+			DDraw::ScopedThreadLock lock;
+			g_threadIdToDcCache[GetCurrentThreadId()].push_back(cachedDc);
 		}
 	}
 }

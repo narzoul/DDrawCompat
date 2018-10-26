@@ -255,9 +255,6 @@
     <ClInclude Include="DDraw\Surfaces\PrimarySurfaceImpl.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>
-    <ClInclude Include="DDraw\Surfaces\TagSurface.h">
-      <Filter>Header Files\DDraw\Surfaces</Filter>
-    </ClInclude>
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h">
       <Filter>Header Files\Direct3d\Visitors</Filter>
     </ClInclude>
@@ -447,9 +444,6 @@
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp">
-      <Filter>Source Files\DDraw\Surfaces</Filter>
-    </ClCompile>
-    <ClCompile Include="DDraw\Surfaces\TagSurface.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dViewport.cpp">

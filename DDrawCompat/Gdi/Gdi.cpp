@@ -1,5 +1,7 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Caret.h"
+#include "Gdi/Dc.h"
+#include "Gdi/DcCache.h"
 #include "Gdi/DcFunctions.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/PaintHandlers.h"
@@ -9,21 +11,27 @@
 
 namespace
 {
-	DWORD g_gdiThreadId = 0;
 	HDC g_screenDc = nullptr;
 
 	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
 	{
-		Gdi::redrawWindow(hwnd, reinterpret_cast<HRGN>(lParam));
+		DWORD windowPid = 0;
+		GetWindowThreadProcessId(hwnd, &windowPid);
+		if (GetCurrentProcessId() == windowPid)
+		{
+			Gdi::redrawWindow(hwnd, reinterpret_cast<HRGN>(lParam));
+		}
 		return TRUE;
 	}
 }
 
 namespace Gdi
 {
-	DWORD getGdiThreadId()
+	void dllThreadDetach()
 	{
-		return g_gdiThreadId;
+		WinProc::dllThreadDetach();
+		Dc::dllThreadDetach();
+		DcCache::dllThreadDetach();
 	}
 
 	HDC getScreenDc()
@@ -38,19 +46,18 @@ namespace Gdi
 
 	void installHooks()
 	{
-		g_gdiThreadId = GetCurrentThreadId();
 		g_screenDc = GetDC(nullptr);
 
-		Gdi::DcFunctions::installHooks();
-		Gdi::PaintHandlers::installHooks();
-		Gdi::ScrollFunctions::installHooks();
-		Gdi::WinProc::installHooks();
-		Gdi::Caret::installHooks();
+		DcFunctions::installHooks();
+		PaintHandlers::installHooks();
+		ScrollFunctions::installHooks();
+		WinProc::installHooks();
+		Caret::installHooks();
 	}
 
 	void redraw(HRGN rgn)
 	{
-		EnumThreadWindows(g_gdiThreadId, &redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
+		EnumWindows(&redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
 	}
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
@@ -68,7 +75,6 @@ namespace Gdi
 		}
 
 		RedrawWindow(hwnd, nullptr, rgn, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-		RedrawWindow(hwnd, nullptr, rgn, RDW_ERASENOW);
 
 		if (rgn)
 		{
@@ -85,9 +91,10 @@ namespace Gdi
 
 	void uninstallHooks()
 	{
-		Gdi::Caret::uninstallHooks();
-		Gdi::WinProc::uninstallHooks();
-		Gdi::PaintHandlers::uninstallHooks();
+		Caret::uninstallHooks();
+		WinProc::uninstallHooks();
+		Dc::dllProcessDetach();
+		DcCache::dllProcessDetach();
 		ReleaseDC(nullptr, g_screenDc);
 	}
 

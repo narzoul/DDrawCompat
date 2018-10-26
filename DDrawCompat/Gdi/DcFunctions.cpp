@@ -13,6 +13,39 @@
 
 namespace
 {
+	class CompatDc
+	{
+	public:
+		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc)) 
+		{
+		}
+
+		CompatDc(const CompatDc&) = delete;
+
+		CompatDc(CompatDc&& other) : m_origDc(nullptr), m_compatDc(nullptr)
+		{
+			std::swap(m_origDc, other.m_origDc);
+			std::swap(m_compatDc, other.m_compatDc);
+		}
+
+		~CompatDc()
+		{
+			if (m_compatDc)
+			{
+				Gdi::Dc::releaseDc(m_origDc);
+			}
+		}
+
+		operator HDC() const
+		{
+			return m_compatDc ? m_compatDc : m_origDc;
+		}
+
+	private:
+		HDC m_origDc;
+		HDC m_compatDc;
+	};
+
 	struct ExcludeRgnForOverlappingWindowArgs
 	{
 		HRGN rgn;
@@ -56,25 +89,9 @@ namespace
 		return t;
 	}
 
-	HDC replaceDc(HDC dc)
+	CompatDc replaceDc(HDC dc)
 	{
-		HDC compatDc = Gdi::Dc::getDc(dc);
-		return compatDc ? compatDc : dc;
-	}
-
-	template <typename T>
-	void releaseDc(T) {}
-
-	void releaseDc(HDC dc)
-	{
-		Gdi::Dc::releaseDc(dc);
-	}
-
-	template <typename T, typename... Params>
-	void releaseDc(T t, Params... params)
-	{
-		releaseDc(params...);
-		releaseDc(t);
+		return CompatDc(dc);
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
@@ -90,7 +107,6 @@ namespace
 			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
 			Gdi::GdiAccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
 			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
-			releaseDc(params...);
 		}
 		else
 		{
@@ -135,7 +151,6 @@ namespace
 			{
 				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				result = CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx);
-				releaseDc(hdc);
 			}
 		}
 		else
@@ -155,7 +170,10 @@ namespace
 			return FALSE;
 		}
 
-		if (!IsWindowVisible(hwnd) ||
+		DWORD windowPid = 0;
+		GetWindowThreadProcessId(hwnd, &windowPid);
+		if (GetCurrentProcessId() != windowPid ||
+			!IsWindowVisible(hwnd) ||
 			(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & (WS_EX_LAYERED | WS_EX_TRANSPARENT)))
 		{
 			return TRUE;
@@ -248,8 +266,7 @@ namespace
 		}
 
 		ExcludeRgnForOverlappingWindowArgs args = { hrgn, GetAncestor(hwnd, GA_ROOT) };
-		EnumThreadWindows(Gdi::getGdiThreadId(), excludeRgnForOverlappingWindow,
-			reinterpret_cast<LPARAM>(&args));
+		EnumWindows(excludeRgnForOverlappingWindow, reinterpret_cast<LPARAM>(&args));
 
 		return 1;
 	}
@@ -282,8 +299,7 @@ namespace Gdi
 		{
 			HRGN rgn = getWindowRegion(hwnd);
 			ExcludeRgnForOverlappingWindowArgs args = { rgn, hwnd };
-			EnumThreadWindows(Gdi::getGdiThreadId(), excludeRgnForOverlappingWindow,
-				reinterpret_cast<LPARAM>(&args));
+			EnumWindows(excludeRgnForOverlappingWindow, reinterpret_cast<LPARAM>(&args));
 			return rgn;
 		}
 

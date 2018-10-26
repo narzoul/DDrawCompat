@@ -25,7 +25,6 @@ namespace
 		bool isDrawn;
 	};
 
-
 	CaretData g_caret = {};
 	long long g_qpcLastBlink = 0;
 

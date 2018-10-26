@@ -151,7 +151,6 @@ namespace DDraw
 				if (SUCCEEDED(result))
 				{
 					PrimarySurface::onRestore();
-					Gdi::redraw(nullptr);
 				}
 			}
 		}

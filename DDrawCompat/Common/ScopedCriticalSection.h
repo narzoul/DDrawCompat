@@ -6,6 +6,20 @@
 
 namespace Compat
 {
+	class CriticalSection : public CRITICAL_SECTION
+	{
+	public:
+		CriticalSection()
+		{
+			InitializeCriticalSection(this);
+		}
+
+		~CriticalSection()
+		{
+			DeleteCriticalSection(this);
+		}
+	};
+
 	class ScopedCriticalSection
 	{
 	public:

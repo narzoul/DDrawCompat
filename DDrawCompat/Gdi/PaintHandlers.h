@@ -5,6 +5,6 @@ namespace Gdi
 	namespace PaintHandlers
 	{
 		void installHooks();
-		void uninstallHooks();
+		void onCreateWindow(HWND hwnd);
 	}
 }

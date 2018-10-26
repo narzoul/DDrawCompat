@@ -39,7 +39,7 @@ namespace
 	D3DKMT_HANDLE g_lastPresentContext = 0;
 	UINT g_presentCount = 0;
 	std::atomic<long long> g_qpcLastVerticalBlank = 0;
-	CRITICAL_SECTION g_vblankCs = {};
+	Compat::CriticalSection g_vblankCs;
 
 	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
 
@@ -313,7 +313,6 @@ namespace D3dDdi
 
 		void installHooks()
 		{
-			InitializeCriticalSection(&g_vblankCs);
 			HOOK_FUNCTION(gdi32, D3DKMTCloseAdapter, closeAdapter);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateDevice, createDevice);

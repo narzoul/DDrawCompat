@@ -18,14 +18,15 @@ namespace
 		HDC dc;
 		DWORD refCount;
 		HDC origDc;
+		DWORD threadId;
 		int savedState;
 	};
 
-	typedef std::unique_ptr<HDC__, void(*)(HDC)> OrigDc;
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
 
 	CompatDcMap g_origDcToCompatDc;
-	thread_local std::vector<OrigDc> g_threadDcs;
+
+	void restoreDc(const CompatDc& compatDc);
 
 	void copyDcAttributes(const CompatDc& compatDc, HDC origDc, const POINT& origin)
 	{
@@ -79,13 +80,12 @@ namespace
 		MoveToEx(compatDc.dc, currentPos.x, currentPos.y, nullptr);
 	}
 
-	void deleteDc(HDC origDc)
+	void restoreDc(const CompatDc& compatDc)
 	{
-		DDraw::ScopedThreadLock lock;
-		auto it = g_origDcToCompatDc.find(origDc);
-		RestoreDC(it->second.dc, it->second.savedState);
-		Gdi::DcCache::deleteDc(it->second.dc);
-		g_origDcToCompatDc.erase(origDc);
+		// Bitmap may have changed during VirtualScreen::update, do not let RestoreDC restore the old one
+		HGDIOBJ bitmap = GetCurrentObject(compatDc.dc, OBJ_BITMAP);
+		RestoreDC(compatDc.dc, compatDc.savedState);
+		SelectObject(compatDc.dc, bitmap);
 	}
 
 	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, const POINT& origin)
@@ -115,6 +115,37 @@ namespace Gdi
 {
 	namespace Dc
 	{
+		void dllProcessDetach()
+		{
+			DDraw::ScopedThreadLock lock;
+			for (auto& origDcToCompatDc : g_origDcToCompatDc)
+			{
+				restoreDc(origDcToCompatDc.second);
+				Gdi::DcCache::deleteDc(origDcToCompatDc.second.dc);
+			}
+			g_origDcToCompatDc.clear();
+		}
+
+		void dllThreadDetach()
+		{
+			DDraw::ScopedThreadLock lock;
+			const DWORD threadId = GetCurrentThreadId();
+			auto it = g_origDcToCompatDc.begin();
+			while (it != g_origDcToCompatDc.end())
+			{
+				if (threadId == it->second.threadId)
+				{
+					restoreDc(it->second);
+					Gdi::DcCache::deleteDc(it->second.dc);
+					it = g_origDcToCompatDc.erase(it);
+				}
+				else
+				{
+					++it;
+				}
+			}
+		}
+
 		HDC getDc(HDC origDc)
 		{
 			if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
@@ -161,8 +192,8 @@ namespace Gdi
 
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;
+			compatDc.threadId = GetCurrentThreadId();
 			g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
-			g_threadDcs.emplace_back(origDc, &deleteDc);
 
 			return compatDc.dc;
 		}
@@ -188,12 +219,7 @@ namespace Gdi
 			--compatDc.refCount;
 			if (0 == compatDc.refCount)
 			{
-				auto threadDcIter = std::find_if(g_threadDcs.begin(), g_threadDcs.end(),
-					[origDc](const OrigDc& dc) { return dc.get() == origDc; });
-				threadDcIter->release();
-				g_threadDcs.erase(threadDcIter);
-
-				RestoreDC(compatDc.dc, compatDc.savedState);
+				restoreDc(compatDc);
 				Gdi::DcCache::releaseDc(compatDc.dc);
 				g_origDcToCompatDc.erase(origDc);
 			}

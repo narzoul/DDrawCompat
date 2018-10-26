@@ -50,7 +50,11 @@ namespace
 
 	BOOL CALLBACK addVisibleLayeredWindowToVector(HWND hwnd, LPARAM lParam)
 	{
-		if (IsWindowVisible(hwnd) && (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+		DWORD windowPid = 0;
+		GetWindowThreadProcessId(hwnd, &windowPid);
+		if (GetCurrentProcessId() == windowPid &&
+			IsWindowVisible(hwnd) &&
+			(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
 			!Gdi::Window::isPresentationWindow(hwnd))
 		{
 			auto& visibleLayeredWindows = *reinterpret_cast<std::vector<HWND>*>(lParam);
@@ -119,8 +123,7 @@ namespace
 	void bltVisibleLayeredWindowsToBackBuffer()
 	{
 		std::vector<HWND> visibleLayeredWindows;
-		EnumThreadWindows(Gdi::getGdiThreadId(), addVisibleLayeredWindowToVector,
-			reinterpret_cast<LPARAM>(&visibleLayeredWindows));
+		EnumWindows(addVisibleLayeredWindowToVector, reinterpret_cast<LPARAM>(&visibleLayeredWindows));
 
 		if (visibleLayeredWindows.empty())
 		{

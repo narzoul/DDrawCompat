@@ -66,13 +66,9 @@ namespace Gdi
 
 	bool Window::add(HWND hwnd)
 	{
-		const bool isTopLevelNonLayeredWindow = !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
-			(!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow() ||
-				getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM));
-
-		if (isTopLevelNonLayeredWindow && !get(hwnd) &&
-			GetClassLong(hwnd, GCW_ATOM) != getPresentationWindowClassAtom())
+		if (isTopLevelNonLayeredWindow(hwnd) && !get(hwnd))
 		{
+			DDraw::ScopedThreadLock lock;
 			s_windows.emplace(hwnd, std::make_shared<Window>(hwnd));
 			return true;
 		}
@@ -143,7 +139,14 @@ namespace Gdi
 
 	bool Window::isPresentationWindow(HWND hwnd)
 	{
-		return GetClassLong(hwnd, GCW_ATOM) == getPresentationWindowClassAtom();
+		return IsWindow(hwnd) && GetClassLong(hwnd, GCW_ATOM) == getPresentationWindowClassAtom();
+	}
+
+	bool Window::isTopLevelNonLayeredWindow(HWND hwnd)
+	{
+		return !(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
+			(!(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow() ||
+				getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM));
 	}
 
 	void Window::remove(HWND hwnd)
@@ -175,14 +178,14 @@ namespace Gdi
 				newVisibleRegion &= VirtualScreen::getRegion();
 			}
 
-			if (m_presentationWindow)
+			if (m_presentationWindow && GetCurrentThreadId() == GetWindowThreadProcessId(m_hwnd, nullptr))
 			{
 				SetWindowPos(m_presentationWindow, nullptr, newWindowRect.left, newWindowRect.top,
 					newWindowRect.right - newWindowRect.left, newWindowRect.bottom - newWindowRect.top,
 					SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW);
 			}
 		}
-		else if (m_presentationWindow)
+		else if (m_presentationWindow && GetCurrentThreadId() == GetWindowThreadProcessId(m_hwnd, nullptr))
 		{
 			ShowWindow(m_presentationWindow, SW_HIDE);
 		}

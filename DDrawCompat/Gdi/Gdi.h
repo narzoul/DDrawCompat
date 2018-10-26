@@ -10,7 +10,7 @@ namespace Gdi
 
 	typedef void(*WindowPosChangeNotifyFunc)();
 
-	DWORD getGdiThreadId();
+	void dllThreadDetach();
 	HDC getScreenDc();
 	HRGN getVisibleWindowRgn(HWND hwnd);
 	void installHooks();

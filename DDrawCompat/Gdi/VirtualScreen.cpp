@@ -1,8 +1,8 @@
 #include <set>
 
-#include "Common/ScopedCriticalSection.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/Repository.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Region.h"
 #include "Gdi/VirtualScreen.h"
@@ -10,7 +10,6 @@
 
 namespace
 {
-	CRITICAL_SECTION g_cs = {};
 	Gdi::Region g_region;
 	RECT g_bounds = {};
 	DWORD g_bpp = 0;
@@ -71,7 +70,7 @@ namespace Gdi
 	{
 		HDC createDc()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			std::unique_ptr<void, decltype(&DeleteObject)> dib(createDib(), DeleteObject);
 			if (!dib)
 			{
@@ -100,7 +99,7 @@ namespace Gdi
 
 		HBITMAP createDib()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			if (!g_surfaceFileMapping)
 			{
 				return nullptr;
@@ -110,7 +109,7 @@ namespace Gdi
 
 		HBITMAP createOffScreenDib(DWORD width, DWORD height)
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			return createDibSection(width, height, nullptr);
 		}
 
@@ -122,7 +121,7 @@ namespace Gdi
 				return nullptr;
 			}
 
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			DDSURFACEDESC2 desc = {};
 			desc.dwSize = sizeof(desc);
 			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
@@ -148,7 +147,7 @@ namespace Gdi
 				return;
 			}
 
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			DeleteObject(SelectObject(dc, g_stockBitmap));
 			DeleteDC(dc);
 			g_dcs.erase(dc);
@@ -156,19 +155,18 @@ namespace Gdi
 
 		RECT getBounds()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			return g_bounds;
 		}
 
 		const Region& getRegion()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			return g_region;
 		}
 
 		void init()
 		{
-			InitializeCriticalSection(&g_cs);
 			update();
 			updatePalette();
 		}
@@ -176,7 +174,7 @@ namespace Gdi
 		bool update()
 		{
 			Compat::LogEnter("VirtualScreen::update");
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 
 			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
 			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
@@ -224,7 +222,7 @@ namespace Gdi
 
 		void updatePalette()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			DDraw::ScopedThreadLock lock;
 			if (8 != g_bpp)
 			{
 				return;

@@ -4,7 +4,7 @@
 #include "Common/CompatPtr.h"
 #include "Common/Hook.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/RealPrimarySurface.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "Win32/DisplayMode.h"
 
 BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; };
@@ -48,12 +48,12 @@ namespace
 		EnumDisplaySettingsExFunc origEnumDisplaySettingsEx,
 		CStr lpszDeviceName, DevMode* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
+		DDraw::ScopedThreadLock lock;
 		DevMode prevDevMode = {};
 		if (!(dwflags & CDS_TEST))
 		{
 			prevDevMode.dmSize = sizeof(prevDevMode);
 			origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &prevDevMode, 0);
-			DDraw::RealPrimarySurface::disableUpdates();
 		}
 
 		BOOL result = FALSE;
@@ -97,11 +97,6 @@ namespace
 				SetEvent(dwmDxFullScreenTransitionEvent);
 				CloseHandle(dwmDxFullScreenTransitionEvent);
 			}
-		}
-
-		if (!(dwflags & CDS_TEST))
-		{
-			DDraw::RealPrimarySurface::enableUpdates();
 		}
 
 		return result;

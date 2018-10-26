@@ -29,6 +29,7 @@ namespace Gdi
 
 		static std::map<HWND, std::shared_ptr<Window>> getWindows();
 		static bool isPresentationWindow(HWND hwnd);
+		static bool isTopLevelNonLayeredWindow(HWND hwnd);
 		static void updateAll();
 
 	private:

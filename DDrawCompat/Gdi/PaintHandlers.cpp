@@ -41,7 +41,6 @@ namespace
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
-	HHOOK g_cbtProcHook = nullptr;
 	int g_menuWndProcIndex = 0;
 	int g_scrollBarWndProcIndex = 0;
 
@@ -69,52 +68,6 @@ namespace
 		default:
 			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
-	}
-
-	LRESULT CALLBACK cbtProc(int nCode, WPARAM wParam, LPARAM lParam)
-	{
-		Compat::LogEnter("cbtProc", Compat::hex(nCode), Compat::hex(wParam), Compat::hex(lParam));
-		LRESULT result = 0;
-
-		if (nCode < 0)
-		{
-			result = CallNextHookEx(nullptr, nCode, wParam, lParam);
-		}
-		else if (HCBT_CREATEWND == nCode)
-		{
-			HWND hwnd = reinterpret_cast<HWND>(wParam);
-			WNDPROC wndProcA = reinterpret_cast<WNDPROC>(GetWindowLongA(hwnd, GWL_WNDPROC));
-			WNDPROC wndProcW = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
-
-			int index = -1;
-			if (wndProcA == g_user32WndProcA[g_menuWndProcIndex].oldWndProc ||
-				wndProcW == g_user32WndProcW[g_menuWndProcIndex].oldWndProc)
-			{
-				index = g_menuWndProcIndex;
-			}
-			else if (wndProcA == g_user32WndProcA[g_scrollBarWndProcIndex].oldWndProc ||
-				wndProcW == g_user32WndProcW[g_scrollBarWndProcIndex].oldWndProc)
-			{
-				index = g_scrollBarWndProcIndex;
-			}
-
-			if (-1 != index)
-			{
-				if (IsWindowUnicode(hwnd))
-				{
-					CALL_ORIG_FUNC(SetWindowLongW)(hwnd, GWL_WNDPROC,
-						reinterpret_cast<LONG>(g_user32WndProcW[index].newWndProc));
-				}
-				else
-				{
-					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC,
-						reinterpret_cast<LONG>(g_user32WndProcA[index].newWndProc));
-				}
-			}
-		}
-
-		Compat::LogLeave("cbtProc", Compat::hex(nCode), Compat::hex(wParam), Compat::hex(lParam)) << result;
-		return result;
 	}
 
 	LRESULT comboBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -481,13 +434,38 @@ namespace Gdi
 			HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
 			HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
 			HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
-
-			g_cbtProcHook = SetWindowsHookEx(WH_CBT, cbtProc, nullptr, Gdi::getGdiThreadId());
 		}
 
-		void uninstallHooks()
+		void onCreateWindow(HWND hwnd)
 		{
-			UnhookWindowsHookEx(g_cbtProcHook);
+			WNDPROC wndProcA = reinterpret_cast<WNDPROC>(GetWindowLongA(hwnd, GWL_WNDPROC));
+			WNDPROC wndProcW = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
+
+			int index = -1;
+			if (wndProcA == g_user32WndProcA[g_menuWndProcIndex].oldWndProc ||
+				wndProcW == g_user32WndProcW[g_menuWndProcIndex].oldWndProc)
+			{
+				index = g_menuWndProcIndex;
+			}
+			else if (wndProcA == g_user32WndProcA[g_scrollBarWndProcIndex].oldWndProc ||
+				wndProcW == g_user32WndProcW[g_scrollBarWndProcIndex].oldWndProc)
+			{
+				index = g_scrollBarWndProcIndex;
+			}
+
+			if (-1 != index)
+			{
+				if (IsWindowUnicode(hwnd))
+				{
+					CALL_ORIG_FUNC(SetWindowLongW)(hwnd, GWL_WNDPROC,
+						reinterpret_cast<LONG>(g_user32WndProcW[index].newWndProc));
+				}
+				else
+				{
+					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC,
+						reinterpret_cast<LONG>(g_user32WndProcA[index].newWndProc));
+				}
+			}
 		}
 	}
 }
