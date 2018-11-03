@@ -10,21 +10,19 @@ namespace
 	BOOL WINAPI scrollWindow(HWND hWnd, int XAmount, int YAmount,
 		const RECT* lpRect, const RECT* lpClipRect)
 	{
-		Compat::LogEnter("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect);
+		LOG_FUNC("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		BOOL result = CALL_ORIG_FUNC(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		if (result)
 		{
 			Gdi::ScrollFunctions::updateScrolledWindow(hWnd);
 		}
-		Compat::LogLeave("scrollWindow", hWnd, XAmount, YAmount, lpRect, lpClipRect) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	int WINAPI scrollWindowEx(HWND hWnd, int dx, int dy, const RECT* prcScroll, const RECT* prcClip,
 		HRGN hrgnUpdate, LPRECT prcUpdate, UINT flags)
 	{
-		Compat::LogEnter("scrollWindowEx",
-			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
+		LOG_FUNC("scrollWindowEx", hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 
 		if (flags & SW_SMOOTHSCROLL)
 		{
@@ -38,9 +36,7 @@ namespace
 			Gdi::ScrollFunctions::updateScrolledWindow(hWnd);
 		}
 
-		Compat::LogLeave("scrollWindowEx",
-			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 }
 

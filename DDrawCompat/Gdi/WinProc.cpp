@@ -37,7 +37,7 @@ namespace
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		auto ret = reinterpret_cast<CWPRETSTRUCT*>(lParam);
-		Compat::LogEnter("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret);
+		LOG_FUNC("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret);
 
 		if (HC_ACTION == nCode && !Gdi::Window::isPresentationWindow(ret->hwnd))
 		{
@@ -63,9 +63,7 @@ namespace
 			}
 		}
 
-		LRESULT result = CallNextHookEx(nullptr, nCode, wParam, lParam);
-		Compat::LogLeave("callWndRetProc", Compat::hex(nCode), Compat::hex(wParam), ret) << result;
-		return result;
+		return LOG_RESULT(CallNextHookEx(nullptr, nCode, wParam, lParam));
 	}
 
 	void disableDwmAttributes(HWND hwnd)

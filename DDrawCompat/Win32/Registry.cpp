@@ -91,7 +91,7 @@ namespace
 	LONG WINAPI regGetValueW(HKEY hkey, LPCWSTR lpSubKey, LPCWSTR lpValue, 
 		DWORD dwFlags, LPDWORD pdwType, PVOID pvData, LPDWORD pcbData)
 	{
-		Compat::LogEnter("regGetValueW", hkey, lpSubKey, lpValue, dwFlags, pdwType, pvData, pcbData);
+		LOG_FUNC("regGetValueW", hkey, lpSubKey, lpValue, dwFlags, pdwType, pvData, pcbData);
 		LONG result = ERROR_SUCCESS;
 
 		const auto it = hkey && lpSubKey && lpValue && (dwFlags & RRF_RT_REG_DWORD)
@@ -131,15 +131,13 @@ namespace
 			result = CALL_ORIG_FUNC(RegGetValueW)(hkey, lpSubKey, lpValue, dwFlags, pdwType, pvData, pcbData);
 		}
 
-	 	Compat::LogLeave("regGetValueW", hkey, lpSubKey, lpValue, dwFlags, pdwType, pvData, pcbData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	LONG WINAPI regQueryValueExA(HKEY hKey, LPCSTR lpValueName, LPDWORD lpReserved, LPDWORD lpType,
 		LPBYTE lpData, LPDWORD lpcbData)
 	{
-		Compat::LogEnter("regQueryValueExA", hKey, lpValueName, lpReserved, lpType,
-			static_cast<void*>(lpData), lpcbData);
+		LOG_FUNC("regQueryValueExA", hKey, lpValueName, lpReserved, lpType, static_cast<void*>(lpData), lpcbData);
 
 		if (hKey && lpValueName)
 		{
@@ -153,17 +151,12 @@ namespace
 					keyName.substr(localMachinePrefix.size()), oss.str()));
 				if (it != g_unsetValues.end())
 				{
-					return ERROR_FILE_NOT_FOUND;
+					return LOG_RESULT(ERROR_FILE_NOT_FOUND);
 				}
 			}
 		}
 
-		LONG result = CALL_ORIG_FUNC(RegQueryValueExA)(hKey, lpValueName, lpReserved, lpType,
-			lpData, lpcbData);
-
-		Compat::LogLeave("regQueryValueExA", hKey, lpValueName, lpReserved, lpType,
-			static_cast<void*>(lpData), lpcbData) << result;
-		return result;
+		return LOG_RESULT(CALL_ORIG_FUNC(RegQueryValueExA)(hKey, lpValueName, lpReserved, lpType, lpData, lpcbData));
 	}
 }
 

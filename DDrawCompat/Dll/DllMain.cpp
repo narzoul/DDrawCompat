@@ -166,12 +166,10 @@ extern "C" HRESULT WINAPI DirectDrawCreate(
 	LPDIRECTDRAW* lplpDD,
 	IUnknown* pUnkOuter)
 {
-	Compat::LogEnter(__func__, lpGUID, lplpDD, pUnkOuter);
+	LOG_FUNC(__func__, lpGUID, lplpDD, pUnkOuter);
 	installHooks();
 	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	HRESULT result = CALL_ORIG_PROC(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter);
-	Compat::LogLeave(__func__, lpGUID, lplpDD, pUnkOuter) << result;
-	return result;
+	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter));
 }
 
 extern "C" HRESULT WINAPI DirectDrawCreateEx(
@@ -180,12 +178,10 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(
 	REFIID iid,
 	IUnknown* pUnkOuter)
 {
-	Compat::LogEnter(__func__, lpGUID, lplpDD, iid, pUnkOuter);
+	LOG_FUNC(__func__, lpGUID, lplpDD, iid, pUnkOuter);
 	installHooks();
 	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	HRESULT result = CALL_ORIG_PROC(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter);
-	Compat::LogLeave(__func__, lpGUID, lplpDD, iid, pUnkOuter) << result;
-	return result;
+	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter));
 }
 
 extern "C" HRESULT WINAPI DirectInputCreateA(
@@ -194,18 +190,14 @@ extern "C" HRESULT WINAPI DirectInputCreateA(
 	IDirectInput** lplpDirectInput,
 	LPUNKNOWN punkOuter)
 {
-	Compat::LogEnter(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
-	HRESULT result = CALL_ORIG_PROC(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter);
-	Compat::LogLeave(__func__, hinst, dwVersion, lplpDirectInput, punkOuter) << result;
-	return result;
+	LOG_FUNC(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
+	return LOG_RESULT(CALL_ORIG_PROC(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter));
 }
 
 extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
 {
-	Compat::LogEnter(__func__, rclsid, riid, ppv);
+	LOG_FUNC(__func__, rclsid, riid, ppv);
 	LOG_ONCE("COM instantiation of DirectDraw detected");
 	installHooks();
-	HRESULT result = CALL_ORIG_PROC(DllGetClassObject, rclsid, riid, ppv);
-	Compat::LogLeave(__func__, rclsid, riid, ppv) << result;
-	return result;
+	return LOG_RESULT(CALL_ORIG_PROC(DllGetClassObject, rclsid, riid, ppv));
 }

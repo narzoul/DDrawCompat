@@ -31,7 +31,7 @@ namespace DDraw
 
 	PrimarySurface::~PrimarySurface()
 	{
-		Compat::LogEnter("PrimarySurface::~PrimarySurface");
+		LOG_FUNC("PrimarySurface::~PrimarySurface");
 
 		g_gdiResourceHandle = nullptr;
 		g_primarySurface = nullptr;
@@ -42,8 +42,6 @@ namespace DDraw
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
 		DDraw::RealPrimarySurface::release();
-
-		Compat::LogLeave("PrimarySurface::~PrimarySurface");
 	}
 
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>

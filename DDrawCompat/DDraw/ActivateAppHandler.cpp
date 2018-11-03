@@ -1,6 +1,7 @@
 #include <ddraw.h>
 
 #include "Common/Hook.h"
+#include "Common/Log.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "Gdi/Gdi.h"
@@ -25,6 +26,7 @@ namespace
 
 	LRESULT CALLBACK ddWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
+		LOG_FUNC("ddWndProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		static bool isDisplayChangeNotificationEnabled = true;
 
 		switch (uMsg)
@@ -44,7 +46,7 @@ namespace
 			LRESULT result = g_origDdWndProc(hwnd, uMsg, wParam, lParam);
 			isDisplayChangeNotificationEnabled = true;
 			DDraw::RealPrimarySurface::enableUpdates();
-			return result;
+			return LOG_RESULT(result);
 		}
 
 		case WM_DISPLAYCHANGE:
@@ -52,13 +54,13 @@ namespace
 			// Fix for alt-tabbing in Commandos 2
 			if (!isDisplayChangeNotificationEnabled)
 			{
-				return 0;
+				return LOG_RESULT(0);
 			}
 			break;
 		}
 		}
 
-		return g_origDdWndProc(hwnd, uMsg, wParam, lParam);
+		return LOG_RESULT(g_origDdWndProc(hwnd, uMsg, wParam, lParam));
 	}
 }
 

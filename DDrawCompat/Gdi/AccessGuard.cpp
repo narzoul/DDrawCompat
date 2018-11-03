@@ -28,7 +28,7 @@ namespace
 
 	void beginAccess(Gdi::User user, Gdi::Access access)
 	{
-		Compat::LogEnter("beginAccess", user, access);
+		LOG_FUNC("beginAccess", user, access);
 
 		Accessor& accessor = Gdi::USER_DDRAW == user ? g_ddrawAccessor : g_gdiAccessor;
 		DWORD& accessDepth = Gdi::ACCESS_READ == access ? accessor.readAccessDepth : accessor.writeAccessDepth;
@@ -41,12 +41,12 @@ namespace
 			otherAccessor.isSynced = false;
 		}
 
-		Compat::LogLeave("beginAccess", user, access) << accessor.isSynced;
+		LOG_RESULT(accessor.isSynced);
 	}
 
 	void endAccess(Gdi::User user, Gdi::Access access)
 	{
-		Compat::LogEnter("endAccess", user, access);
+		LOG_FUNC("endAccess", user, access);
 
 		Accessor& accessor = Gdi::USER_DDRAW == user ? g_ddrawAccessor : g_gdiAccessor;
 		DWORD& accessDepth = Gdi::ACCESS_READ == access ? accessor.readAccessDepth : accessor.writeAccessDepth;
@@ -72,8 +72,6 @@ namespace
 				DDraw::RealPrimarySurface::update();
 			}
 		}
-
-		Compat::LogLeave("endAccess", user, access);
 	}
 
 	bool synchronize(Gdi::User user)

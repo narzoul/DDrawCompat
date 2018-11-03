@@ -138,10 +138,8 @@ private:
 			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
 			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
-			Compat::LogEnter(funcName, firstParam, params...);
-			Result result = Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...);
-			Compat::LogLeave(funcName, firstParam, params...) << result;
-			return result;
+			LOG_FUNC(funcName, firstParam, params...);
+			return LOG_RESULT(Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...));
 #else
 			return (s_compatVtable.*ptr)(firstParam, params...);
 #endif
@@ -153,9 +151,8 @@ private:
 			DDraw::ScopedThreadLock lock;
 #ifdef _DEBUG
 			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
-			Compat::LogEnter(funcName, firstParam, params...);
+			LOG_FUNC(funcName, firstParam, params...);
 			Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...);
-			Compat::LogLeave(funcName, firstParam, params...);
 #else
 			(s_compatVtable.*ptr)(firstParam, params...);
 #endif

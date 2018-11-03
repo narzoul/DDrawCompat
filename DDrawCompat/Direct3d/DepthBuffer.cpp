@@ -18,7 +18,7 @@ namespace
 
 	HRESULT CALLBACK enumZBufferFormatsCallback(LPDDPIXELFORMAT lpDDPixFmt, LPVOID lpContext)
 	{
-		Compat::LogEnter("CompatDepthBuffer::enumZBufferFormatsCallback", lpDDPixFmt, lpContext);
+		LOG_FUNC("CompatDepthBuffer::enumZBufferFormatsCallback", lpDDPixFmt, lpContext);
 		if (DDPF_ZBUFFER == lpDDPixFmt->dwFlags &&
 			(static_cast<uint64_t>(1) << lpDDPixFmt->dwZBufferBitDepth) - 1 == lpDDPixFmt->dwZBitMask)
 		{
@@ -31,9 +31,7 @@ namespace
 			case 32: supportedBitDepths |= DDBD_32; break;
 			}
 		}
-		Compat::LogLeave("CompatDepthBuffer::enumZBufferFormatsCallback",
-			lpDDPixFmt, lpContext) << D3DENUMRET_OK;
-		return D3DENUMRET_OK;
+		return LOG_RESULT(D3DENUMRET_OK);
 	}
 
 	GUID getDeviceGuid(const D3DDEVICEDESC& /*desc*/)

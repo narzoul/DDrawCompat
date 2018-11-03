@@ -173,15 +173,14 @@ namespace Gdi
 
 		bool update()
 		{
-			Compat::LogEnter("VirtualScreen::update");
+			LOG_FUNC("VirtualScreen::update");
 			DDraw::ScopedThreadLock lock;
 
 			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
 			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
 			if (currentDisplaySettingsUniqueness == prevDisplaySettingsUniqueness)
 			{
-				Compat::LogLeave("VirtualScreen::update") << false;
-				return false;
+				return LOG_RESULT(false);
 			}
 
 			prevDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
@@ -215,9 +214,7 @@ namespace Gdi
 			}
 
 			Gdi::redraw(nullptr);
-
-			Compat::LogLeave("VirtualScreen::update") << true;
-			return true;
+			return LOG_RESULT(true);
 		}
 
 		void updatePalette()

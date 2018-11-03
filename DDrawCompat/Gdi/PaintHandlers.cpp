@@ -121,10 +121,8 @@ namespace
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
 		const char* origWndProcName)
 	{
-		Compat::LogEnter(origWndProcName, hwnd, Compat::hex(msg), Compat::hex(wParam), Compat::hex(lParam));
-		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
-		Compat::LogLeave(origWndProcName, hwnd, Compat::hex(msg), Compat::hex(wParam), Compat::hex(lParam)) << result;
-		return result;
+		LOG_FUNC(origWndProcName, hwnd, Compat::hex(msg), Compat::hex(wParam), Compat::hex(lParam));
+		return LOG_RESULT(defPaintProc(hwnd, msg, wParam, lParam, origWndProc));
 	}
 
 	LRESULT WINAPI defWindowProcA(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
@@ -378,12 +376,8 @@ namespace
 	LRESULT CALLBACK user32WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 		const User32WndProc& user32WndProc, WndProcHook wndProcHook)
 	{
-		Compat::LogEnter(user32WndProc.name.c_str(),
-			hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
-		LRESULT result = wndProcHook(hwnd, uMsg, wParam, lParam, user32WndProc.oldWndProcTrampoline);
-		Compat::LogLeave(user32WndProc.name.c_str(),
-			hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam)) << result;
-		return result;
+		LOG_FUNC(user32WndProc.name.c_str(), hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		return LOG_RESULT(wndProcHook(hwnd, uMsg, wParam, lParam, user32WndProc.oldWndProcTrampoline));
 	}
 
 	template <int index>

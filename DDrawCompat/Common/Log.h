@@ -2,8 +2,14 @@
 
 #include <ddraw.h>
 #include <fstream>
+#include <functional>
 #include <ostream>
 #include <type_traits>
+
+#include "Common/ScopedCriticalSection.h"
+
+#define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
+#define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
 
 #define LOG_ONCE(msg) \
 	static bool isAlreadyLogged##__LINE__ = false; \
@@ -34,37 +40,104 @@ namespace Compat
 {
 	using ::operator<<;
 
-	template <typename Num>
-	struct Hex
+	namespace detail
 	{
-		explicit Hex(Num val) : val(val) {}
-		Num val;
-	};
+		template <typename T>
+		struct Hex
+		{
+			explicit Hex(T val) : val(val) {}
+			T val;
+		};
 
-	template <typename Num> Hex<Num> hex(Num val) { return Hex<Num>(val); }
+		template <typename Elem>
+		struct Array
+		{
+			Array(const Elem* elem, const unsigned long size) : elem(elem), size(size) {}
+			const Elem* elem;
+			const unsigned long size;
+		};
 
-	template <typename Elem>
-	struct Array
-	{
-		Array(const Elem* elem, const unsigned long size) : elem(elem), size(size) {}
-		const Elem* elem;
-		const unsigned long size;
-	};
+		template <typename T>
+		struct Out
+		{
+			explicit Out(T val) : val(val) {}
+			T val;
+		};
 
-	template <typename Elem>
-	Array<Elem> array(const Elem* elem, const unsigned long size)
-	{
-		return Array<Elem>(elem, size);
+		class LogParams;
+
+		class LogFirstParam
+		{
+		public:
+			LogFirstParam(std::ostream& os) : m_os(os) {}
+			template <typename T> LogParams operator<<(const T& val) { m_os << val; return LogParams(m_os); }
+
+		protected:
+			std::ostream& m_os;
+		};
+
+		class LogParams
+		{
+		public:
+			LogParams(std::ostream& os) : m_os(os) {}
+			template <typename T> LogParams& operator<<(const T& val) { m_os << ',' << val; return *this; }
+
+			operator std::ostream&() { return m_os; }
+
+		private:
+			std::ostream& m_os;
+		};
+
+		template <typename T>
+		std::ostream& operator<<(std::ostream& os, Hex<T> hex)
+		{
+			os << "0x" << std::hex << hex.val << std::dec;
+			return os;
+		}
+
+		template <typename Elem>
+		std::ostream& operator<<(std::ostream& os, Array<Elem> array)
+		{
+			os << '[';
+			if (Log::isPointerDereferencingAllowed())
+			{
+				if (0 != array.size)
+				{
+					os << array.elem[0];
+				}
+				for (unsigned long i = 1; i < array.size; ++i)
+				{
+					os << ',' << array.elem[i];
+				}
+			}
+			return os << ']';
+		}
+
+		template <typename T>
+		std::ostream& operator<<(std::ostream& os, Out<T> out)
+		{
+			++Log::s_outParamDepth;
+			os << out.val;
+			--Log::s_outParamDepth;
+			return os;
+		}
 	}
 
-	template <typename T>
-	struct Out
+	template <typename T> detail::Hex<T> hex(T val)
 	{
-		explicit Out(const T& val) : val(val) {}
-		const T& val;
-	};
+		return detail::Hex<T>(val);
+	}
 
-	template <typename T> Out<T> out(const T& val) { return Out<T>(val); }
+	template <typename Elem>
+	detail::Array<Elem> array(const Elem* elem, const unsigned long size)
+	{
+		return detail::Array<Elem>(elem, size);
+	}
+
+	template <typename T> detail::Out<T> out(const T& val)
+	{
+		return detail::Out<T>(val);
+	}
 
 	class Log
 	{
@@ -91,8 +164,8 @@ namespace Compat
 		}
 
 	private:
-		friend class LogLeaveGuard;
-		template <typename T> friend std::ostream& operator<<(std::ostream& os, Out<T> out);
+		friend class LogFunc;
+		template <typename T> friend std::ostream& detail::operator<<(std::ostream& os, detail::Out<T> out);
 
 		void toList()
 		{
@@ -111,126 +184,102 @@ namespace Compat
 			toList(remainingParams...);
 		}
 
+		ScopedCriticalSection m_lock;
+
+		static thread_local DWORD s_indent;
+
 		static std::ofstream s_logFile;
 		static DWORD s_outParamDepth;
 		static bool s_isLeaveLog;
 	};
 
-	class LogParams;
-
-	class LogFirstParam
+	class LogStruct : public detail::LogFirstParam
 	{
 	public:
-		LogFirstParam(std::ostream& os) : m_os(os) {}
-		template <typename T> LogParams operator<<(const T& val) { m_os << val; return LogParams(m_os); }
-
-	protected:
-		std::ostream& m_os;
-	};
-
-	class LogParams
-	{
-	public:
-		LogParams(std::ostream& os) : m_os(os) {}
-		template <typename T> LogParams& operator<<(const T& val) { m_os << ',' << val; return *this; }
-
-		operator std::ostream&() { return m_os; }
-
-	private:
-		std::ostream& m_os;
-	};
-
-	class LogStruct : public LogFirstParam
-	{
-	public:
-		LogStruct(std::ostream& os) : LogFirstParam(os) { m_os << '{'; }
+		LogStruct(std::ostream& os) : detail::LogFirstParam(os) { m_os << '{'; }
 		~LogStruct() { m_os << '}'; }
 	};
 
 #ifdef _DEBUG
 	typedef Log LogDebug;
 
-	class LogEnter : private Log
+	class LogFunc
 	{
 	public:
 		template <typename... Params>
-		LogEnter(const char* funcName, Params... params) : Log("-->", funcName, params...)
+		LogFunc(const char* funcName, Params... params)
+			: m_printCall([=](Log& log) { log << funcName << '('; toList(log, params...); log << ')'; })
 		{
-		}
-	};
-
-	class LogLeaveGuard
-	{
-	public:
-		LogLeaveGuard() { Log::s_isLeaveLog = true; }
-		~LogLeaveGuard() { Log::s_isLeaveLog = false; }
-	};
-
-	class LogLeave : private LogLeaveGuard, private Log
-	{
-	public:
-		template <typename... Params>
-		LogLeave(const char* funcName, Params... params) : Log("<--", funcName, params...)
-		{
+			Log log;
+			log << "> ";
+			m_printCall(log);
+			Log::s_indent += 2;
 		}
 
-		template <typename Result>
-		void operator<<(const Result& result)
+		~LogFunc()
 		{
-			static_cast<Log&>(*this) << " = " << std::hex << result << std::dec;
+			Log::s_indent -= 2;
+			Log log;
+			log << "< ";
+			m_printCall(log);
+
+			if (m_printResult)
+			{
+				log << " = ";
+				m_printResult(log);
+			}
 		}
+
+		template <typename T>
+		T setResult(T result)
+		{
+			m_printResult = [=](Log& log) { log << std::hex << result << std::dec; };
+			return result;
+		}
+
+	private:
+		void toList(Log&)
+		{
+		}
+
+		template <typename Param>
+		void toList(Log& log, Param param)
+		{
+			log << param;
+		}
+
+		template <typename Param, typename... Params>
+		void toList(Log& log, Param firstParam, Params... remainingParams)
+		{
+			log << firstParam << ", ";
+			toList(log, remainingParams...);
+		}
+
+		std::function<void(Log&)> m_printCall;
+		std::function<void(Log&)> m_printResult;
 	};
 #else
-	class LogNull
+	class LogDebug
 	{
 	public:
-		template <typename T> LogNull& operator<<(const T&) { return *this; }
+		template <typename T> LogDebug& operator<<(const T&) { return *this; }
 	};
 
-	typedef LogNull LogDebug;
-
-	class LogEnter : public LogNull
+	class LogFunc
 	{
 	public:
-		template <typename... Params> LogEnter(const char*, Params...) {}
-	};
-
-	typedef LogEnter LogLeave;
-#endif
-
-	template <typename Num>
-	std::ostream& operator<<(std::ostream& os, Hex<Num> hex)
-	{
-		os << "0x" << std::hex << hex.val << std::dec;
-		return os;
-	}
-
-	template <typename Elem>
-	std::ostream& operator<<(std::ostream& os, Array<Elem> array)
-	{
-		os << '[';
-		if (Log::isPointerDereferencingAllowed())
+		template <typename... Params>
+		LogFunc(const char* /*funcName*/, Params...)
 		{
-			if (0 != array.size)
-			{
-				os << array.elem[0];
-			}
-			for (unsigned long i = 1; i < array.size; ++i)
-			{
-				os << ',' << array.elem[i];
-			}
 		}
-		return os << ']';
-	}
 
-	template <typename T>
-	std::ostream& operator<<(std::ostream& os, Out<T> out)
-	{
-		++Log::s_outParamDepth;
-		os << out.val;
-		--Log::s_outParamDepth;
-		return os;
-	}
+		template <typename T>
+		T setResult(T result)
+		{
+			return result;
+		}
+	};
+#endif
 }
 
 template <typename T>

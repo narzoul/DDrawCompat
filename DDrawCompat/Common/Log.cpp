@@ -1,13 +1,17 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <iomanip>
 #include <vector>
 
 #include <Windows.h>
 
+#include "Common/Hook.h"
 #include "Common/Log.h"
 
 namespace
 {
+	Compat::CriticalSection g_logCs;
+
 	template <typename DevMode>
 	std::ostream& streamDevMode(std::ostream& os, const DevMode& dm)
 	{
@@ -76,7 +80,7 @@ std::ostream& operator<<(std::ostream& os, const RECT& rect)
 
 std::ostream& operator<<(std::ostream& os, HDC__& dc)
 {
-	return os << "DC(" << static_cast<void*>(&dc) << ',' << WindowFromDC(&dc) << ')';
+	return os << "DC(" << static_cast<void*>(&dc) << ',' << CALL_ORIG_FUNC(WindowFromDC)(&dc) << ')';
 }
 
 std::ostream& operator<<(std::ostream& os, HRGN__& rgn)
@@ -178,21 +182,28 @@ std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp)
 
 namespace Compat
 {
-	Log::Log()
+	Log::Log() : m_lock(g_logCs)
 	{
 		SYSTEMTIME st = {};
 		GetLocalTime(&st);
 
-		char time[100];
-		sprintf_s(time, "%02hu:%02hu:%02hu.%03hu ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+		char header[20];
+		sprintf_s(header, "%04hx %02hu:%02hu:%02hu.%03hu ",
+			GetCurrentThreadId(), st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+		s_logFile << header;
 
-		s_logFile << GetCurrentThreadId() << " " << time;
+		if (0 != s_indent)
+		{
+			std::fill_n(std::ostreambuf_iterator<char>(s_logFile), s_indent, ' ');
+		}
 	}
 
 	Log::~Log()
 	{
 		s_logFile << std::endl;
 	}
+
+	thread_local DWORD Log::s_indent = 0;
 
 	std::ofstream Log::s_logFile("ddraw.log");
 	DWORD Log::s_outParamDepth = 0;

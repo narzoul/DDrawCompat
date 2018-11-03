@@ -287,7 +287,7 @@ namespace
 
 	void onRelease()
 	{
-		Compat::LogEnter("RealPrimarySurface::onRelease");
+		LOG_FUNC("RealPrimarySurface::onRelease");
 
 		g_frontBuffer = nullptr;
 		g_clipper.release();
@@ -297,8 +297,6 @@ namespace
 		g_waitingForPrimaryUnlock = false;
 		g_paletteConverter.release();
 		g_surfaceDesc = {};
-
-		Compat::LogLeave("RealPrimarySurface::onRelease");
 	}
 
 	void onRestore()
@@ -348,14 +346,13 @@ namespace
 
 	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src)
 	{
-		Compat::LogEnter("RealPrimarySurface::presentToPrimaryChain", src.get());
+		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src.get());
 
 		Gdi::VirtualScreen::update();
 
 		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
 		{
 			bltToWindowViaGdi(nullptr);
-			Compat::LogLeave("RealPrimarySurface::presentToPrimaryChain", src.get()) << false;
 			return;
 		}
 
@@ -392,8 +389,6 @@ namespace
 		{
 			bltVisibleLayeredWindowsToBackBuffer();
 		}
-
-		Compat::LogLeave("RealPrimarySurface::presentToPrimaryChain", src.get());
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, UINT flipInterval)

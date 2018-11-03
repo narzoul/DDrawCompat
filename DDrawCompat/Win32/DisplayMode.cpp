@@ -105,25 +105,21 @@ namespace
 	LONG WINAPI changeDisplaySettingsExA(
 		LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
-		Compat::LogEnter("ChangeDisplaySettingsExA", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		LONG result = changeDisplaySettingsEx(
+		LOG_FUNC("ChangeDisplaySettingsExA", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+		return LOG_RESULT(changeDisplaySettingsEx(
 			CALL_ORIG_FUNC(ChangeDisplaySettingsExA),
 			CALL_ORIG_FUNC(EnumDisplaySettingsExA),
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		Compat::LogLeave("ChangeDisplaySettingsExA", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam) << result;
-		return result;
+			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
 	}
 
 	LONG WINAPI changeDisplaySettingsExW(
 		LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
-		Compat::LogEnter("ChangeDisplaySettingsExW", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		LONG result = changeDisplaySettingsEx(
+		LOG_FUNC("ChangeDisplaySettingsExW", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+		return LOG_RESULT(changeDisplaySettingsEx(
 			CALL_ORIG_FUNC(ChangeDisplaySettingsExW),
 			CALL_ORIG_FUNC(EnumDisplaySettingsExW),
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		Compat::LogLeave("ChangeDisplaySettingsExW", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam) << result;
-		return result;
+			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
 	}
 
 	template <typename CStr, typename DevMode, typename ChangeDisplaySettingsExFunc>
@@ -271,35 +267,28 @@ namespace
 	BOOL WINAPI enumDisplaySettingsExA(
 		LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags)
 	{
-		Compat::LogEnter("EnumDisplaySettingsExA", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		BOOL result = enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExA),
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		Compat::LogLeave("EnumDisplaySettingsExA", lpszDeviceName, iModeNum, lpDevMode, dwFlags) << result;
-		return result;
+		LOG_FUNC("EnumDisplaySettingsExA", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
+		return LOG_RESULT(enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExA),
+			lpszDeviceName, iModeNum, lpDevMode, dwFlags));
 	}
 
 	BOOL WINAPI enumDisplaySettingsExW(
 		LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags)
 	{
-		Compat::LogEnter("EnumDisplaySettingsExW", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		BOOL result = enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExW),
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		Compat::LogLeave("EnumDisplaySettingsExW", lpszDeviceName, iModeNum, lpDevMode, dwFlags) << result;
-		return result;
+		LOG_FUNC("EnumDisplaySettingsExW", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
+		return LOG_RESULT(enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExW),
+			lpszDeviceName, iModeNum, lpDevMode, dwFlags));
 	}
 
 	int WINAPI getDeviceCaps(HDC hdc, int nIndex)
 	{
-		Compat::LogEnter("GetDeviceCaps", hdc, nIndex);
+		LOG_FUNC("GetDeviceCaps", hdc, nIndex);
 		if (hdc && BITSPIXEL == nIndex &&
 			DT_RASDISPLAY == GetDeviceCaps(hdc, TECHNOLOGY) && OBJ_DC == GetObjectType(hdc))
 		{
-			Compat::LogLeave("GetDeviceCaps", hdc, nIndex) << g_currentBpp;
-			return g_currentBpp;
+			return LOG_RESULT(g_currentBpp);
 		}
-		int result = CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex);
-		Compat::LogLeave("GetDeviceCaps", hdc, nIndex) << result;
-		return result;
+		return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex));
 	}
 
 	void releaseCompatibleDc()
@@ -340,31 +329,24 @@ namespace Win32
 	{
 		HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 		{
-			Compat::LogEnter("CreateCompatibleBitmap", hdc, cx, cy);
+			LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
 			replaceDc(hdc);
-			HBITMAP result = CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy);
-			Compat::LogLeave("CreateCompatibleBitmap", hdc, cx, cy) << result;
-			return result;
+			return LOG_RESULT(CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy));
 		}
 
 		HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
 			const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
 		{
-			Compat::LogEnter("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
+			LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
 			replaceDc(hdc);
-			HBITMAP result = CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
-			Compat::LogLeave("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage)
-				<< result;
-			return result;
+			return LOG_RESULT(CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage));
 		}
 
 		HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
 		{
-			Compat::LogEnter("CreateDiscardableBitmap", hdc, nWidth, nHeight);
+			LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
 			replaceDc(hdc);
-			HBITMAP result = CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight);
-			Compat::LogLeave("CreateDiscardableBitmap", hdc, nWidth, nHeight) << result;
-			return result;
+			return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
 		}
 
 		DWORD getBpp()

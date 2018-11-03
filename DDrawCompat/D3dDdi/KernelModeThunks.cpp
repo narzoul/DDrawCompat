@@ -55,31 +55,29 @@ namespace
 
 	NTSTATUS APIENTRY createContext(D3DKMT_CREATECONTEXT* pData)
 	{
-		Compat::LogEnter("D3DKMTCreateContext", pData);
+		LOG_FUNC("D3DKMTCreateContext", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateContext)(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts[pData->hContext].device = pData->hDevice;
 		}
-		Compat::LogLeave("D3DKMTCreateContext", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY createContextVirtual(D3DKMT_CREATECONTEXTVIRTUAL* pData)
 	{
-		Compat::LogEnter("D3DKMTCreateContextVirtual", pData);
+		LOG_FUNC("D3DKMTCreateContextVirtual", pData);
 		NTSTATUS result = g_origD3dKmtCreateContextVirtual(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts[pData->hContext].device = pData->hDevice;
 		}
-		Compat::LogLeave("D3DKMTCreateContextVirtual", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY createDcFromMemory(D3DKMT_CREATEDCFROMMEMORY* pData)
 	{
-		Compat::LogEnter("D3DKMTCreateDCFromMemory", pData);
+		LOG_FUNC("D3DKMTCreateDCFromMemory", pData);
 		NTSTATUS result = 0;
 		if (pData && D3DDDIFMT_P8 == pData->Format && !pData->pColorTable &&
 			DDraw::PrimarySurface::s_palette)
@@ -92,13 +90,12 @@ namespace
 		{
 			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
 		}
-		Compat::LogLeave("D3DKMTCreateDCFromMemory", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
 	{
-		Compat::LogEnter("D3DKMTCreateDevice", pData);
+		LOG_FUNC("D3DKMTCreateDevice", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateDevice)(pData);
 		if (SUCCEEDED(result))
 		{
@@ -108,13 +105,12 @@ namespace
 			limit.QueuedPresentLimit = 2;
 			CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(&limit);
 		}
-		Compat::LogLeave("D3DKMTCreateDevice", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
 	{
-		Compat::LogEnter("D3DKMTDestroyContext", pData);
+		LOG_FUNC("D3DKMTDestroyContext", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTDestroyContext)(pData);
 		if (SUCCEEDED(result))
 		{
@@ -124,8 +120,7 @@ namespace
 				g_lastPresentContext = 0;
 			}
 		}
-		Compat::LogLeave("D3DKMTDestroyContext", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
@@ -146,20 +141,19 @@ namespace
 
 	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
 	{
-		Compat::LogEnter("D3DKMTOpenAdapterFromHdc", pData);
+		LOG_FUNC("D3DKMTOpenAdapterFromHdc", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(pData);
 		if (SUCCEEDED(result))
 		{
 			Compat::ScopedCriticalSection lock(g_vblankCs);
 			g_lastOpenAdapterInfo = getAdapterInfo(*pData);
 		}
-		Compat::LogLeave("D3DKMTOpenAdapterFromHdc", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
 	{
-		Compat::LogEnter("D3DKMTPresent", pData);
+		LOG_FUNC("D3DKMTPresent", pData);
 
 		if (pData->Flags.Flip)
 		{
@@ -168,8 +162,7 @@ namespace
 
 			if (UINT_MAX == g_flipIntervalOverride)
 			{
-				Compat::LogLeave("D3DKMTPresent", pData) << S_OK;
-				return S_OK;
+				return LOG_RESULT(S_OK);
 			}
 
 			++g_presentCount;
@@ -183,40 +176,33 @@ namespace
 			pData->FlipInterval = static_cast<D3DDDI_FLIPINTERVAL_TYPE>(g_flipIntervalOverride);
 		}
 
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTPresent)(pData);
-
-		Compat::LogLeave("D3DKMTPresent", pData) << result;
-		return result;
+		return LOG_RESULT(CALL_ORIG_FUNC(D3DKMTPresent)(pData));
 	}
 
 	NTSTATUS APIENTRY queryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
 	{
-		Compat::LogEnter("D3DKMTQueryAdapterInfo", pData);
+		LOG_FUNC("D3DKMTQueryAdapterInfo", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTQueryAdapterInfo)(pData);
 		if (SUCCEEDED(result) && KMTQAITYPE_UMDRIVERNAME == pData->Type)
 		{
 			auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
 			D3dDdi::onUmdFileNameQueried(info->UmdFileName);
 		}
-		Compat::LogLeave("D3DKMTQueryAdapterInfo", pData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY setQueuedLimit(const D3DKMT_SETQUEUEDLIMIT* pData)
 	{
-		Compat::LogEnter("D3DKMTSetQueuedLimit", pData);
+		LOG_FUNC("D3DKMTSetQueuedLimit", pData);
 		if (D3DKMT_SET_QUEUEDLIMIT_PRESENT == pData->Type)
 		{
 			const UINT origLimit = pData->QueuedPresentLimit;
 			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = 2;
 			NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData);
 			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = origLimit;
-			Compat::LogLeave("D3DKMTSetQueuedLimit", pData) << result;
-			return result;
+			return LOG_RESULT(result);
 		}
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData);
-		Compat::LogLeave("D3DKMTSetQueuedLimit", pData) << result;
-		return result;
+		return LOG_RESULT(CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData));
 	}
 
 	void updateGdiAdapterInfo()

@@ -46,7 +46,7 @@ namespace
 
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
 	{
-		Compat::LogEnter("openAdapter", pOpenData);
+		LOG_FUNC("openAdapter", pOpenData);
 		D3dDdi::AdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
 		HRESULT result = g_origOpenAdapter(pOpenData);
 		if (SUCCEEDED(result))
@@ -61,8 +61,7 @@ namespace
 			D3dDdi::AdapterFuncs::hookDriverVtable(pOpenData->hAdapter, pOpenData->pAdapterFuncs);
 			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter);
 		}
-		Compat::LogLeave("openAdapter", pOpenData) << result;
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	void unhookOpenAdapter()

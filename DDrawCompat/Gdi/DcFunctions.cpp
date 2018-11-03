@@ -98,35 +98,27 @@ namespace
 	Result WINAPI compatGdiDcFunc(Params... params)
 	{
 #ifdef _DEBUG
-		Compat::LogEnter(g_funcNames[origFunc], params...);
+		LOG_FUNC(g_funcNames[origFunc], params...);
+#else
+		LOG_FUNC("", params...);
 #endif
 
-		Result result = 0;
 		if (hasDisplayDcArg(params...))
 		{
 			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
 			Gdi::GdiAccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
-			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...);
-		}
-		else
-		{
-			result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+			return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...));
 		}
 
-#ifdef _DEBUG
-		Compat::LogLeave(g_funcNames[origFunc], params...) << result;
-#endif
-
-		return result;
+		return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...));
 	}
 
 	template <>
 	BOOL WINAPI compatGdiDcFunc<decltype(&ExtTextOutW), &ExtTextOutW>(
 		HDC hdc, int x, int y, UINT options, const RECT* lprect, LPCWSTR lpString, UINT c, const INT* lpDx)
 	{
-		Compat::LogEnter("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
+		LOG_FUNC("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
 
-		BOOL result = TRUE;
 		if (hasDisplayDcArg(hdc))
 		{
 			HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
@@ -150,16 +142,15 @@ namespace
 			else
 			{
 				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
-				result = CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx);
+				return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx));
 			}
 		}
 		else
 		{
-			result = CALL_ORIG_FUNC(ExtTextOutW)(hdc, x, y, options, lprect, lpString, c, lpDx);
+			return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(hdc, x, y, options, lprect, lpString, c, lpDx));
 		}
 
-		Compat::LogLeave("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx) << result;
-		return result;
+		return LOG_RESULT(TRUE);
 	}
 
 	BOOL CALLBACK excludeRgnForOverlappingWindow(HWND hwnd, LPARAM lParam)
