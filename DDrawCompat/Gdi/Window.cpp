@@ -1,6 +1,6 @@
+#include "Common/Hook.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
-#include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -175,7 +175,6 @@ namespace Gdi
 				HDC windowDc = GetWindowDC(m_hwnd);
 				GetRandomRgn(windowDc, newVisibleRegion, SYSRGN);
 				ReleaseDC(m_hwnd, windowDc);
-				newVisibleRegion &= VirtualScreen::getRegion();
 			}
 
 			if (m_presentationWindow && GetCurrentThreadId() == GetWindowThreadProcessId(m_hwnd, nullptr))

@@ -16,7 +16,7 @@ namespace
 	class CompatDc
 	{
 	public:
-		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc)) 
+		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc, false)) 
 		{
 		}
 

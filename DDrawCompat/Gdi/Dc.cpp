@@ -8,6 +8,7 @@
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Region.h"
 #include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
 
@@ -20,6 +21,9 @@ namespace
 		HDC origDc;
 		DWORD threadId;
 		int savedState;
+		HGDIOBJ savedFont;
+		HGDIOBJ savedBrush;
+		HGDIOBJ savedPen;
 	};
 
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
@@ -28,35 +32,41 @@ namespace
 
 	void restoreDc(const CompatDc& compatDc);
 
-	void copyDcAttributes(const CompatDc& compatDc, HDC origDc, const POINT& origin)
+	void copyDcAttributes(CompatDc& compatDc, HDC origDc, const POINT& origin)
 	{
-		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
-		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_BRUSH));
-		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_PEN));
+		SelectObject(compatDc.dc, compatDc.savedFont = GetCurrentObject(origDc, OBJ_FONT));
+		SelectObject(compatDc.dc, compatDc.savedBrush = GetCurrentObject(origDc, OBJ_BRUSH));
+		SelectObject(compatDc.dc, compatDc.savedPen = GetCurrentObject(origDc, OBJ_PEN));
 
-		if (GM_ADVANCED == GetGraphicsMode(origDc))
+		const int graphicsMode = GetGraphicsMode(origDc);
+		SetGraphicsMode(compatDc.dc, graphicsMode);
+		if (GM_ADVANCED == graphicsMode)
 		{
-			SetGraphicsMode(compatDc.dc, GM_ADVANCED);
 			XFORM transform = {};
 			GetWorldTransform(origDc, &transform);
 			SetWorldTransform(compatDc.dc, &transform);
 		}
 
-		SetMapMode(compatDc.dc, GetMapMode(origDc));
+		const int mapMode = GetMapMode(origDc);
+		SetMapMode(compatDc.dc, mapMode);
+		if (MM_TEXT != mapMode)
+		{
+			SIZE windowExt = {};
+			GetWindowExtEx(origDc, &windowExt);
+			SetWindowExtEx(compatDc.dc, windowExt.cx, windowExt.cy, nullptr);
 
-		POINT viewportOrg = {};
-		GetViewportOrgEx(origDc, &viewportOrg);
-		SetViewportOrgEx(compatDc.dc, viewportOrg.x + origin.x, viewportOrg.y + origin.y, nullptr);
-		SIZE viewportExt = {};
-		GetViewportExtEx(origDc, &viewportExt);
-		SetViewportExtEx(compatDc.dc, viewportExt.cx, viewportExt.cy, nullptr);
+			SIZE viewportExt = {};
+			GetViewportExtEx(origDc, &viewportExt);
+			SetViewportExtEx(compatDc.dc, viewportExt.cx, viewportExt.cy, nullptr);
+		}
 
 		POINT windowOrg = {};
 		GetWindowOrgEx(origDc, &windowOrg);
 		SetWindowOrgEx(compatDc.dc, windowOrg.x, windowOrg.y, nullptr);
-		SIZE windowExt = {};
-		GetWindowExtEx(origDc, &windowExt);
-		SetWindowExtEx(compatDc.dc, windowExt.cx, windowExt.cy, nullptr);
+
+		POINT viewportOrg = {};
+		GetViewportOrgEx(origDc, &viewportOrg);
+		SetViewportOrgEx(compatDc.dc, viewportOrg.x + origin.x, viewportOrg.y + origin.y, nullptr);
 
 		SetArcDirection(compatDc.dc, GetArcDirection(origDc));
 		SetBkColor(compatDc.dc, GetBkColor(origDc));
@@ -82,32 +92,46 @@ namespace
 
 	void restoreDc(const CompatDc& compatDc)
 	{
-		// Bitmap may have changed during VirtualScreen::update, do not let RestoreDC restore the old one
-		HGDIOBJ bitmap = GetCurrentObject(compatDc.dc, OBJ_BITMAP);
-		RestoreDC(compatDc.dc, compatDc.savedState);
-		SelectObject(compatDc.dc, bitmap);
+		if (0 != compatDc.savedState)
+		{
+			// Bitmap may have changed during VirtualScreen::update, do not let RestoreDC restore the old one
+			HGDIOBJ bitmap = GetCurrentObject(compatDc.dc, OBJ_BITMAP);
+			RestoreDC(compatDc.dc, compatDc.savedState);
+			SelectObject(compatDc.dc, bitmap);
+		}
+		else
+		{
+			SelectObject(compatDc.dc, compatDc.savedFont);
+			SelectObject(compatDc.dc, compatDc.savedBrush);
+			SelectObject(compatDc.dc, compatDc.savedPen);
+		}
 	}
 
-	void setClippingRegion(HDC compatDc, HDC origDc, HWND hwnd, const POINT& origin)
+	void setClippingRegion(const CompatDc& compatDc, std::shared_ptr<Gdi::Window> rootWindow, const POINT& origin)
 	{
-		if (hwnd)
+		if (rootWindow)
 		{
-			HRGN sysRgn = CreateRectRgn(0, 0, 0, 0);
-			if (1 == GetRandomRgn(origDc, sysRgn, SYSRGN))
-			{
-				SelectClipRgn(compatDc, sysRgn);
-				SetMetaRgn(compatDc);
-			}
-			DeleteObject(sysRgn);
+			Gdi::Region sysRgn;
+			CALL_ORIG_FUNC(GetRandomRgn)(compatDc.origDc, sysRgn, SYSRGN);
+			sysRgn &= rootWindow->getVisibleRegion();
+			SelectClipRgn(compatDc.dc, sysRgn);
+		}
+		else
+		{
+			SelectClipRgn(compatDc.dc, nullptr);
 		}
 
-		HRGN clipRgn = CreateRectRgn(0, 0, 0, 0);
-		if (1 == GetClipRgn(origDc, clipRgn))
+		Gdi::Region clipRgn;
+		if (1 == GetClipRgn(compatDc.origDc, clipRgn))
 		{
 			OffsetRgn(clipRgn, origin.x, origin.y);
-			SelectClipRgn(compatDc, clipRgn);
+			ExtSelectClipRgn(compatDc.dc, clipRgn, RGN_AND);
 		}
-		DeleteObject(clipRgn);
+
+		if (0 != compatDc.savedState)
+		{
+			SetMetaRgn(compatDc.dc);
+		}
 	}
 }
 
@@ -146,7 +170,7 @@ namespace Gdi
 			}
 		}
 
-		HDC getDc(HDC origDc)
+		HDC getDc(HDC origDc, bool useMetaRgn)
 		{
 			if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
 			{
@@ -162,14 +186,9 @@ namespace Gdi
 			}
 
 			const HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-			auto rootWnd = wnd ? GetAncestor(wnd, GA_ROOT) : nullptr;
-			if (rootWnd && GetDesktopWindow() != rootWnd)
+			auto rootWindow(wnd ? Gdi::Window::get(GetAncestor(wnd, GA_ROOT)) : nullptr);
+			if (rootWindow)
 			{
-				auto rootWindow(Window::get(rootWnd));
-				if (!rootWindow)
-				{
-					return nullptr;
-				}
 				rootWindow->updateWindow();
 			}
 
@@ -186,13 +205,13 @@ namespace Gdi
 			origin.x -= virtualScreenBounds.left;
 			origin.y -= virtualScreenBounds.top;
 
-			compatDc.savedState = SaveDC(compatDc.dc);
-			copyDcAttributes(compatDc, origDc, origin);
-			setClippingRegion(compatDc.dc, origDc, wnd, origin);
-
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;
 			compatDc.threadId = GetCurrentThreadId();
+			compatDc.savedState = useMetaRgn ? SaveDC(compatDc.dc) : 0;
+			copyDcAttributes(compatDc, origDc, origin);
+			setClippingRegion(compatDc, rootWindow, origin);
+
 			g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
 
 			return compatDc.dc;
