@@ -103,6 +103,7 @@ namespace DDraw
 	void installHooks()
 	{
 		RealPrimarySurface::init();
+		ActivateAppHandler::installHooks();
 
 		Win32::Registry::unsetValue(
 			HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\DirectDraw", "EmulationOnly");
