@@ -136,7 +136,7 @@ private:
 		static Result STDMETHODCALLTYPE threadSafeFunc(FirstParam firstParam, Params... params)
 		{
 			DDraw::ScopedThreadLock lock;
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
 			LOG_FUNC(funcName, firstParam, params...);
 			return LOG_RESULT(Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...));
@@ -149,7 +149,7 @@ private:
 		static void STDMETHODCALLTYPE threadSafeFunc(FirstParam firstParam, Params... params)
 		{
 			DDraw::ScopedThreadLock lock;
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 			const char* funcName = s_funcNames[getKey<MemberDataPtr, ptr>()].c_str();
 			LOG_FUNC(funcName, firstParam, params...);
 			Hook::getCompatFunc<MemberDataPtr, ptr>(firstParam)(firstParam, params...);

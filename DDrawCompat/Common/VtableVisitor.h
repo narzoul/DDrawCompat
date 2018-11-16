@@ -23,7 +23,7 @@ std::string getTypeName()
 	return typeName;
 }
 
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 #define DD_VISIT(member) \
 		visitor.visitDebug<decltype(&Vtable::member), &Vtable::member>(getTypeName<Vtable>(), #member)
 #else

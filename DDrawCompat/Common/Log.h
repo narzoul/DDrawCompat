@@ -200,7 +200,7 @@ namespace Compat
 		~LogStruct() { m_os << '}'; }
 	};
 
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 	typedef Log LogDebug;
 
 	class LogFunc

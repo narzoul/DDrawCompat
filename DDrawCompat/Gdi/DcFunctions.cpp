@@ -97,7 +97,7 @@ namespace
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiDcFunc(Params... params)
 	{
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 		LOG_FUNC(g_funcNames[origFunc], params...);
 #else
 		LOG_FUNC("", params...);
@@ -234,7 +234,7 @@ namespace
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	void hookGdiDcFunction(const char* moduleName, const char* funcName)
 	{
-#ifdef _DEBUG
+#ifdef DEBUGLOGS
 		g_funcNames[origFunc] = funcName;
 #endif
 
