@@ -51,6 +51,7 @@ namespace Gdi
 		DcFunctions::installHooks();
 		PaintHandlers::installHooks();
 		ScrollFunctions::installHooks();
+		Window::installHooks();
 		WinProc::installHooks();
 		Caret::installHooks();
 	}
@@ -93,6 +94,7 @@ namespace Gdi
 	{
 		Caret::uninstallHooks();
 		WinProc::uninstallHooks();
+		Window::uninstallHooks();
 		Dc::dllProcessDetach();
 		DcCache::dllProcessDetach();
 		ReleaseDC(nullptr, g_screenDc);

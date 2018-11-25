@@ -1,4 +1,5 @@
 #include "Common/Hook.h"
+#include "Common/Log.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Window.h"
@@ -7,8 +8,12 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace
 {
-	ATOM registerPresentationWindowClass();
+	const UINT WM_CREATEPRESENTATIONWINDOW = WM_USER;
 
+	HANDLE g_presentationWindowThread = nullptr;
+	DWORD g_presentationWindowThreadId = 0;
+	HWND g_messageWindow = nullptr;
+	
 	ATOM getComboLBoxAtom()
 	{
 		WNDCLASS wc = {};
@@ -16,24 +21,65 @@ namespace
 		return comboLBoxAtom;
 	}
 
-	ATOM getPresentationWindowClassAtom()
+	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		static ATOM atom = registerPresentationWindowClass();
-		return atom;
+		LOG_FUNC("messageWindowProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		switch (uMsg)
+		{
+		case WM_CREATEPRESENTATIONWINDOW:
+		{
+			HWND presentationWindow = CreateWindowEx(
+				WS_EX_LAYERED | WS_EX_TRANSPARENT,
+				"DDrawCompatPresentationWindow",
+				nullptr,
+				WS_DISABLED | WS_POPUP,
+				0, 0, 1, 1,
+				reinterpret_cast<HWND>(wParam),
+				nullptr,
+				nullptr,
+				nullptr);
+			SetLayeredWindowAttributes(presentationWindow, 0, 255, LWA_ALPHA);
+			return reinterpret_cast<LRESULT>(presentationWindow);
+		}
+
+		case WM_DESTROY:
+			PostQuitMessage(0);
+			return 0;
+
+		default:
+			return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
+		}
 	}
 
 	LRESULT CALLBACK presentationWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
+		LOG_FUNC("presentationWindowProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
-	ATOM registerPresentationWindowClass()
+	DWORD WINAPI presentationWindowThreadProc(LPVOID /*lpParameter*/)
 	{
 		WNDCLASS wc = {};
-		wc.lpfnWndProc = &presentationWindowProc;
+		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
-		wc.lpszClassName = "DDrawCompatPresentationWindow";
-		return RegisterClass(&wc);
+		wc.lpszClassName = "DDrawCompatMessageWindow";
+		RegisterClass(&wc);
+
+		g_messageWindow = CreateWindow(
+			"DDrawCompatMessageWindow", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
+		if (!g_messageWindow)
+		{
+			return 0;
+		}
+
+		MSG msg = {};
+		while (GetMessage(&msg, nullptr, 0, 0))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+		}
+
+		return 0;
 	}
 }
 
@@ -48,17 +94,8 @@ namespace Gdi
 		const ATOM atom = static_cast<ATOM>(GetClassLong(hwnd, GCW_ATOM));
 		if (MENU_ATOM != atom && getComboLBoxAtom() != atom)
 		{
-			m_presentationWindow = CreateWindowEx(
-				WS_EX_LAYERED | WS_EX_TRANSPARENT,
-				reinterpret_cast<const char*>(getPresentationWindowClassAtom()),
-				nullptr,
-				WS_DISABLED | WS_POPUP,
-				0, 0, 1, 1,
-				m_hwnd,
-				nullptr,
-				nullptr,
-				nullptr);
-			SetLayeredWindowAttributes(m_presentationWindow, 0, 255, LWA_ALPHA);
+			m_presentationWindow = reinterpret_cast<HWND>(SendMessage(
+				g_messageWindow, WM_CREATEPRESENTATIONWINDOW, reinterpret_cast<WPARAM>(hwnd), 0));
 		}
 
 		update();
@@ -137,9 +174,33 @@ namespace Gdi
 		return s_windows;
 	}
 
+	void Window::installHooks()
+	{
+		WNDCLASS wc = {};
+		wc.lpfnWndProc = &presentationWindowProc;
+		wc.hInstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
+		wc.lpszClassName = "DDrawCompatPresentationWindow";
+		RegisterClass(&wc);
+
+		g_presentationWindowThread = CreateThread(
+			nullptr, 0, &presentationWindowThreadProc, nullptr, 0, &g_presentationWindowThreadId);
+
+		int i = 0;
+		while (!g_messageWindow && i < 1000)
+		{
+			Sleep(1);
+			++i;
+		}
+
+		if (!g_messageWindow)
+		{
+			Compat::Log() << "Failed to create a message-only window";
+		}
+	}
+
 	bool Window::isPresentationWindow(HWND hwnd)
 	{
-		return IsWindow(hwnd) && GetClassLong(hwnd, GCW_ATOM) == getPresentationWindowClassAtom();
+		return IsWindow(hwnd) && g_presentationWindowThreadId == GetWindowThreadProcessId(hwnd, nullptr);
 	}
 
 	bool Window::isTopLevelNonLayeredWindow(HWND hwnd)
@@ -153,6 +214,19 @@ namespace Gdi
 	{
 		DDraw::ScopedThreadLock lock;
 		s_windows.erase(hwnd);
+	}
+
+	void Window::uninstallHooks()
+	{
+		if (g_presentationWindowThread)
+		{
+			SendMessage(g_messageWindow, WM_CLOSE, 0, 0);
+			if (WAIT_OBJECT_0 != WaitForSingleObject(g_presentationWindowThread, 1000))
+			{
+				TerminateThread(g_presentationWindowThread, 0);
+				Compat::Log() << "The presentation window thread was terminated forcefully";
+			}
+		}
 	}
 
 	void Window::update()

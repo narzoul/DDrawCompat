@@ -91,16 +91,9 @@ namespace
 	{
 		DWORD windowPid = 0;
 		GetWindowThreadProcessId(hwnd, &windowPid);
-		if (GetCurrentProcessId() != windowPid)
+		if (GetCurrentProcessId() == windowPid)
 		{
-			return TRUE;
-		}
-
-		onCreateWindow(hwnd);
-		if (!(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
-		{
-			RedrawWindow(hwnd, nullptr, nullptr,
-				RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_UPDATENOW);
+			onCreateWindow(hwnd);
 		}
 		return TRUE;
 	}

@@ -32,6 +32,9 @@ namespace Gdi
 		static bool isTopLevelNonLayeredWindow(HWND hwnd);
 		static void updateAll();
 
+		static void installHooks();
+		static void uninstallHooks();
+
 	private:
 		void calcInvalidatedRegion(const RECT& oldWindowRect, const Region& oldVisibleRegion);
 		void update();
