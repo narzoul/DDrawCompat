@@ -42,7 +42,7 @@ namespace
 		}
 
 		DeleteObject(rgn);
-		ReleaseDC(data.hwnd, dc);
+		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);
 	}
 
 	HRESULT STDMETHODCALLTYPE GetHWnd(IDirectDrawClipper* This, HWND* lphWnd)

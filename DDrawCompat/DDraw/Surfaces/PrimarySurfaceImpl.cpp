@@ -173,7 +173,7 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			PrimarySurface::s_palette = lpDDPalette;
-			RealPrimarySurface::setPalette();
+			PrimarySurface::updatePalette();
 		}
 		return result;
 	}

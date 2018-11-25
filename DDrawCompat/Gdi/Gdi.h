@@ -14,6 +14,7 @@ namespace Gdi
 	HDC getScreenDc();
 	HRGN getVisibleWindowRgn(HWND hwnd);
 	void installHooks();
+	bool isDisplayDc(HDC dc);
 	void redraw(HRGN rgn);
 	void redrawWindow(HWND hwnd, HRGN rgn);
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);

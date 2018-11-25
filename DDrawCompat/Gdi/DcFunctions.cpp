@@ -67,8 +67,7 @@ namespace
 
 	bool hasDisplayDcArg(HDC dc)
 	{
-		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == GetDeviceCaps(dc, TECHNOLOGY) &&
-			!(GetWindowLongPtr(CALL_ORIG_FUNC(WindowFromDC)(dc), GWL_EXSTYLE) & WS_EX_LAYERED);
+		return Gdi::isDisplayDc(dc);
 	}
 
 	template <typename T>
@@ -151,6 +150,42 @@ namespace
 		}
 
 		return LOG_RESULT(TRUE);
+	}
+
+	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
+	{
+		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
+		if (Gdi::isDisplayDc(hdc))
+		{
+			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, cy));
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy));
+	}
+
+	HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
+		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
+	{
+		LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
+		if (lpbmih && (!(fdwInit & CBM_INIT) || lpbInit && lpbmi))
+		{
+			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(lpbmih->biWidth, std::abs(lpbmih->biHeight));
+			if (bitmap && (fdwInit & CBM_INIT))
+			{
+				SetDIBits(hdc, bitmap, 0, std::abs(lpbmih->biHeight), lpbInit, lpbmi, fuUsage);
+			}
+			return LOG_RESULT(bitmap);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage));
+	}
+
+	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
+	{
+		LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
+		if (Gdi::isDisplayDc(hdc))
+		{
+			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(nWidth, nHeight));
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
 	}
 
 	BOOL CALLBACK excludeRgnForOverlappingWindow(HWND hwnd, LPARAM lParam)
@@ -262,13 +297,6 @@ namespace
 		return 1;
 	}
 
-	UINT WINAPI realizePalette(HDC hdc)
-	{
-		UINT result = CALL_ORIG_FUNC(RealizePalette)(hdc);
-		Gdi::VirtualScreen::updatePalette();
-		return result;
-	}
-
 	HWND WINAPI windowFromDc(HDC dc)
 	{
 		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
@@ -299,9 +327,9 @@ namespace Gdi
 			// Bitmap functions
 			HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
-			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, Win32::DisplayMode::createCompatibleBitmap);
-			HOOK_FUNCTION(gdi32, CreateDIBitmap, Win32::DisplayMode::createDIBitmap);
-			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, Win32::DisplayMode::createDiscardableBitmap);
+			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, createCompatibleBitmap);
+			HOOK_FUNCTION(gdi32, CreateDIBitmap, createDIBitmap);
+			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, createDiscardableBitmap);
 			HOOK_GDI_DC_FUNCTION(gdi32, ExtFloodFill);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);
@@ -324,9 +352,6 @@ namespace Gdi
 
 			// Clipping functions
 			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
-
-			// Color functions
-			HOOK_SHIM_FUNCTION(RealizePalette, realizePalette);
 
 			// Device context functions
 			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);

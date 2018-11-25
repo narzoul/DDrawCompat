@@ -248,7 +248,7 @@ namespace Gdi
 			{
 				HDC windowDc = GetWindowDC(m_hwnd);
 				GetRandomRgn(windowDc, newVisibleRegion, SYSRGN);
-				ReleaseDC(m_hwnd, windowDc);
+				CALL_ORIG_FUNC(ReleaseDC)(m_hwnd, windowDc);
 			}
 
 			if (m_presentationWindow && GetCurrentThreadId() == GetWindowThreadProcessId(m_hwnd, nullptr))

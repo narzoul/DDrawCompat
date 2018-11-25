@@ -20,7 +20,7 @@ namespace
 	{
 		Win32::DisplayMode::setDDrawBpp(bpp);
 		HRESULT result = DDraw::DirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(
-			This, width, height, bpp, refreshRate, flags);
+			This, width, height, 32, refreshRate, flags);
 		Win32::DisplayMode::setDDrawBpp(0);
 		return result;
 	}
@@ -59,7 +59,7 @@ namespace DDraw
 	{
 		DDSURFACEDESC2 dm = {};
 		dm.dwSize = sizeof(dm);
-		dd->GetDisplayMode(&dd, &dm);
+		dd.get().lpVtbl->GetDisplayMode(&dd, &dm);
 		return dm;
 	}
 
@@ -114,6 +114,7 @@ namespace DDraw
 	{
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
+		vtable.GetDisplayMode = &GetDisplayMode;
 		vtable.GetGDISurface = &GetGDISurface;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.SetDisplayMode = &SetDisplayMode;
@@ -146,6 +147,18 @@ namespace DDraw
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::FlipToGDISurface(TDirectDraw* /*This*/)
 	{
 		return PrimarySurface::flipToGdiSurface();
+	}
+
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetDisplayMode(
+		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc)
+	{
+		HRESULT result = s_origVtable.GetDisplayMode(This, lpDDSurfaceDesc);
+		if (SUCCEEDED(result) && lpDDSurfaceDesc)
+		{
+			lpDDSurfaceDesc->ddpfPixelFormat = getRgbPixelFormat(Win32::DisplayMode::getBpp());
+		}
+		return result;
 	}
 
 	template <typename TDirectDraw>

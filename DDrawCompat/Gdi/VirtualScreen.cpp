@@ -168,7 +168,6 @@ namespace Gdi
 		void init()
 		{
 			update();
-			updatePalette();
 		}
 
 		bool update()
@@ -220,13 +219,9 @@ namespace Gdi
 		void updatePalette()
 		{
 			DDraw::ScopedThreadLock lock;
-			if (8 != g_bpp)
-			{
-				return;
-			}
 
 			PALETTEENTRY pal[256] = {};
-			GetSystemPaletteEntries(nullptr, 0, 256, pal);
+			GetSystemPaletteEntries(Gdi::getScreenDc(), 0, 256, pal);
 
 			RGBQUAD systemPalette[256] = {};
 			for (int i = 0; i < 256; ++i)

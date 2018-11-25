@@ -27,9 +27,7 @@ namespace DDraw
 		static void removeUpdateThread();
 		static HRESULT restore();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
-		static void setPalette();
 		static void update();
-		static void updatePalette();
 		static bool waitForFlip(Surface* surface, bool wait = true);
 	};
 }

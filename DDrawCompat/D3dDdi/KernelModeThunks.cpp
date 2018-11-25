@@ -225,7 +225,7 @@ namespace
 			{
 				g_gdiAdapterInfo = getAdapterInfo(data);
 			}
-			ReleaseDC(nullptr, data.hDc);
+			CALL_ORIG_FUNC(ReleaseDC)(nullptr, data.hDc);
 
 			lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
 		}

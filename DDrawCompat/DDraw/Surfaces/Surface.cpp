@@ -5,6 +5,7 @@
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
+#include "Win32/DisplayMode.h"
 
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
 DEFINE_GUID(IID_CompatSurfacePrivateData,
@@ -15,8 +16,7 @@ namespace
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT createSurface(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
-		auto dd7(CompatPtr<IDirectDraw7>::from(&dd));
-		fixSurfaceDesc(*dd7, desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
+		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
 
 		if ((desc.ddsCaps.dwCaps & DDSCAPS_OFFSCREENPLAIN) &&
 			!(desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_3DDEVICE)))
@@ -35,7 +35,7 @@ namespace
 		return dd->CreateSurface(&dd, &desc, &surface, nullptr);
 	}
 
-	void fixSurfaceDesc(CompatRef<IDirectDraw7> dd, DWORD& flags, DWORD& caps, DDPIXELFORMAT& pf)
+	void fixSurfaceDesc(DWORD& flags, DWORD& caps, DDPIXELFORMAT& pf)
 	{
 		if ((flags & DDSD_WIDTH) &&
 			(flags & DDSD_HEIGHT) &&
@@ -43,9 +43,8 @@ namespace
 		{
 			if (!(flags & DDSD_PIXELFORMAT))
 			{
-				auto dm = DDraw::getDisplayMode(dd);
 				flags |= DDSD_PIXELFORMAT;
-				pf = dm.ddpfPixelFormat;
+				pf = DDraw::getRgbPixelFormat(Win32::DisplayMode::getBpp());
 			}
 
 			if ((pf.dwFlags & DDPF_RGB) && pf.dwRGBBitCount <= 8)

@@ -8,11 +8,6 @@ namespace Win32
 {
 	namespace DisplayMode
 	{
-		HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy);
-		HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
-			const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage);
-		HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight);
-
 		DWORD getBpp();
 		ULONG queryDisplaySettingsUniqueness();
 		void setDDrawBpp(DWORD bpp);

@@ -43,7 +43,7 @@ namespace
 	{
 		HDC dc = GetDC(g_caret.hwnd);
 		PatBlt(dc, g_caret.left, g_caret.top, g_caret.width, g_caret.height, PATINVERT);
-		ReleaseDC(g_caret.hwnd, dc);
+		CALL_ORIG_FUNC(ReleaseDC)(g_caret.hwnd, dc);
 	}
 
 	CaretData getCaretData(DWORD threadId)

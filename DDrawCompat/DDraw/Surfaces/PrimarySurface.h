@@ -26,6 +26,7 @@ namespace DDraw
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
 		static DWORD getOrigCaps();
 		static void onRestore();
+		static void updatePalette();
 
 		template <typename TSurface>
 		static bool isGdiSurface(TSurface* surface);

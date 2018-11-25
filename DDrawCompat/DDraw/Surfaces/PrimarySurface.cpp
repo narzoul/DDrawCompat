@@ -231,6 +231,15 @@ namespace DDraw
 		} while (surfacePtr && surfacePtr != g_primarySurface.get());
 	}
 
+	void PrimarySurface::updatePalette()
+	{
+		if (s_palette)
+		{
+			PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, s_paletteEntries);
+			RealPrimarySurface::update();
+		}
+	}
+
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
 	PALETTEENTRY PrimarySurface::s_paletteEntries[256] = {};
 	std::vector<std::vector<unsigned char>> PrimarySurface::s_surfaceBuffers;

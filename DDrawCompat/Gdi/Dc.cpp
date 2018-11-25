@@ -24,6 +24,7 @@ namespace
 		HGDIOBJ savedFont;
 		HGDIOBJ savedBrush;
 		HGDIOBJ savedPen;
+		HPALETTE savedPalette;
 	};
 
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
@@ -37,6 +38,8 @@ namespace
 		SelectObject(compatDc.dc, compatDc.savedFont = GetCurrentObject(origDc, OBJ_FONT));
 		SelectObject(compatDc.dc, compatDc.savedBrush = GetCurrentObject(origDc, OBJ_BRUSH));
 		SelectObject(compatDc.dc, compatDc.savedPen = GetCurrentObject(origDc, OBJ_PEN));
+		CALL_ORIG_FUNC(SelectPalette)(
+			compatDc.dc, compatDc.savedPalette = static_cast<HPALETTE>(GetCurrentObject(origDc, OBJ_PAL)), FALSE);
 
 		const int graphicsMode = GetGraphicsMode(origDc);
 		SetGraphicsMode(compatDc.dc, graphicsMode);
@@ -104,6 +107,7 @@ namespace
 			SelectObject(compatDc.dc, compatDc.savedFont);
 			SelectObject(compatDc.dc, compatDc.savedBrush);
 			SelectObject(compatDc.dc, compatDc.savedPen);
+			CALL_ORIG_FUNC(SelectPalette)(compatDc.dc, compatDc.savedPalette, FALSE);
 		}
 	}
 

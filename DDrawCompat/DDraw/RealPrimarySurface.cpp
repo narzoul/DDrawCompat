@@ -116,7 +116,7 @@ namespace
 			RECT rect = windowPair.second->getWindowRect();
 			CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
 				virtualScreenDc.get(), rect.left, rect.top, SRCCOPY);
-			ReleaseDC(presentationWindow, dc);
+			CALL_ORIG_FUNC(ReleaseDC)(presentationWindow, dc);
 		}
 	}
 
@@ -152,7 +152,7 @@ namespace
 			SelectClipRgn(backBufferDc, nullptr);
 
 			DeleteObject(rgn);
-			ReleaseDC(*it, windowDc);
+			CALL_ORIG_FUNC(ReleaseDC)(*it, windowDc);
 		}
 
 		backBuffer->ReleaseDC(backBuffer, backBufferDc);
@@ -667,17 +667,6 @@ namespace DDraw
 		return gammaControl->SetGammaRamp(gammaControl, 0, rampData);
 	}
 
-	void RealPrimarySurface::setPalette()
-	{
-		DDraw::ScopedThreadLock lock;
-		if (g_surfaceDesc.ddpfPixelFormat.dwRGBBitCount <= 8)
-		{
-			g_frontBuffer->SetPalette(g_frontBuffer, PrimarySurface::s_palette);
-		}
-
-		updatePalette();
-	}
-
 	void RealPrimarySurface::update()
 	{
 		DDraw::ScopedThreadLock lock;
@@ -686,15 +675,6 @@ namespace DDraw
 		if (g_waitingForPrimaryUnlock)
 		{
 			updateNowIfNotBusy();
-		}
-	}
-
-	void RealPrimarySurface::updatePalette()
-	{
-		DDraw::ScopedThreadLock lock;
-		if (PrimarySurface::s_palette)
-		{
-			update();
 		}
 	}
 

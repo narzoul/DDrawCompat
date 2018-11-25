@@ -28,8 +28,6 @@ namespace
 		}
 	};
 
-	CompatWeakPtr<IDirectDrawSurface7> g_compatibleSurface = {};
-	HDC g_compatibleDc = nullptr;
 	DWORD g_origBpp = 0;
 	DWORD g_currentBpp = 0;
 	DWORD g_lastBpp = 0;
@@ -39,7 +37,6 @@ namespace
 		LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags);
 	BOOL WINAPI enumDisplaySettingsExW(
 		LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags);
-	void updateCompatibleDc();
 
 	template <typename CStr, typename DevMode, typename ChangeDisplaySettingsExFunc,
 		typename EnumDisplaySettingsExFunc>
@@ -80,7 +77,6 @@ namespace
 			{
 				g_currentBpp = g_origBpp;
 			}
-			updateCompatibleDc();
 
 			DevMode currDevMode = {};
 			currDevMode.dmSize = sizeof(currDevMode);
@@ -290,65 +286,12 @@ namespace
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex));
 	}
-
-	void releaseCompatibleDc()
-	{
-		if (g_compatibleDc)
-		{
-			Dll::g_origProcs.AcquireDDThreadLock();
-			g_compatibleSurface->ReleaseDC(g_compatibleSurface, g_compatibleDc);
-			g_compatibleDc = nullptr;
-			g_compatibleSurface.release();
-		}
-	}
-
-	void replaceDc(HDC& hdc)
-	{
-		if (g_compatibleDc && hdc &&
-			OBJ_DC == GetObjectType(hdc) && DT_RASDISPLAY == GetDeviceCaps(hdc, TECHNOLOGY))
-		{
-			hdc = g_compatibleDc;
-		}
-	}
-
-	void updateCompatibleDc()
-	{
-		releaseCompatibleDc();
-		g_compatibleSurface = DDraw::createCompatibleSurface(g_currentBpp).detach();
-		if (g_compatibleSurface &&
-			SUCCEEDED(g_compatibleSurface->GetDC(g_compatibleSurface, &g_compatibleDc)))
-		{
-			Dll::g_origProcs.ReleaseDDThreadLock();
-		}
-	}
 }
 
 namespace Win32
 {
 	namespace DisplayMode
 	{
-		HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
-		{
-			LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
-			replaceDc(hdc);
-			return LOG_RESULT(CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy));
-		}
-
-		HBITMAP WINAPI createDIBitmap(HDC hdc, const BITMAPINFOHEADER* lpbmih, DWORD fdwInit,
-			const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
-		{
-			LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
-			replaceDc(hdc);
-			return LOG_RESULT(CALL_ORIG_FUNC(CreateDIBitmap)(hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage));
-		}
-
-		HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
-		{
-			LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
-			replaceDc(hdc);
-			return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
-		}
-
 		DWORD getBpp()
 		{
 			return g_currentBpp;
@@ -380,6 +323,12 @@ namespace Win32
 			g_currentBpp = g_origBpp;
 			g_lastBpp = g_origBpp;
 
+			if (32 != devMode.dmBitsPerPel)
+			{
+				devMode.dmBitsPerPel = 32;
+				ChangeDisplaySettings(&devMode, 0);
+			}
+
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExA, enumDisplaySettingsExA);
@@ -402,8 +351,6 @@ namespace Win32
 				&ddrawEnumDisplaySettingsExA);
 			Compat::hookIatFunction(origDDrawModule, "user32.dll", "EnumDisplaySettingsExW",
 				&ddrawEnumDisplaySettingsExW);
-
-			updateCompatibleDc();
 		}
 	}
 }

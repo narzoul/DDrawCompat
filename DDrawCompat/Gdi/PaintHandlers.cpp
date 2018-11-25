@@ -299,7 +299,7 @@ namespace
 			Gdi::Dc::releaseDc(windowDc);
 		}
 
-		ReleaseDC(hwnd, windowDc);
+		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 		return 0;
 	}
 

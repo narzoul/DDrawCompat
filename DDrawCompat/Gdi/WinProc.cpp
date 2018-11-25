@@ -6,10 +6,12 @@
 #include <dwmapi.h>
 #include <Windows.h>
 
+#include "Common/Hook.h"
 #include "Common/Log.h"
 #include "Common/ScopedCriticalSection.h"
 #include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
+#include "Win32/DisplayMode.h"
 #include "Gdi/PaintHandlers.h"
 #include "Gdi/ScrollBar.h"
 #include "Gdi/ScrollFunctions.h"
@@ -94,6 +96,10 @@ namespace
 		if (GetCurrentProcessId() == windowPid)
 		{
 			onCreateWindow(hwnd);
+			if (8 == Win32::DisplayMode::getBpp())
+			{
+				PostMessage(hwnd, WM_PALETTECHANGED, reinterpret_cast<WPARAM>(GetDesktopWindow()), 0);
+			}
 		}
 		return TRUE;
 	}
@@ -148,7 +154,7 @@ namespace
 				}
 				Gdi::Dc::releaseDc(windowDc);
 			}
-			ReleaseDC(hwnd, windowDc);
+			CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 		}
 	}
 

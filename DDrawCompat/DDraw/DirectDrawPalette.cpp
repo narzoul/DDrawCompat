@@ -4,7 +4,6 @@
 #include "Common/Time.h"
 #include "Config/Config.h"
 #include "DDraw/DirectDrawPalette.h"
-#include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/AccessGuard.h"
 
@@ -36,9 +35,7 @@ namespace DDraw
 		HRESULT result = s_origVtable.SetEntries(This, dwFlags, dwStartingEntry, dwCount, lpEntries);
 		if (This == PrimarySurface::s_palette && SUCCEEDED(result))
 		{
-			std::memcpy(&PrimarySurface::s_paletteEntries[dwStartingEntry], lpEntries,
-				dwCount * sizeof(PALETTEENTRY));
-			RealPrimarySurface::updatePalette();
+			PrimarySurface::updatePalette();
 		}
 		return result;
 	}
