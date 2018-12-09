@@ -2,7 +2,6 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "Common/CompatVtable.h"
 #include "DDraw/Visitors/DirectDrawVtblVisitor.h"
@@ -10,8 +9,6 @@
 
 namespace DDraw
 {
-	CompatPtr<IDirectDrawSurface7> createCompatibleSurface(DWORD bpp);
-	
 	template <typename TDirectDraw>
 	void* getDdObject(TDirectDraw& dd);
 

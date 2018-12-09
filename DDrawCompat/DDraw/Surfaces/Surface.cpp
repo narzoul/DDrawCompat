@@ -122,7 +122,7 @@ namespace DDraw
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
 			CompatPtr<IUnknown> dd;
-			dds->GetDDInterface(&dds, reinterpret_cast<void**>(&dd.getRef()));
+			dds.get().lpVtbl->GetDDInterface(&dds, reinterpret_cast<void**>(&dd.getRef()));
 
 			privateData->createImpl();
 			privateData->m_impl->m_data = privateData.get();

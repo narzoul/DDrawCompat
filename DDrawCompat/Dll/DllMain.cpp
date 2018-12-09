@@ -39,7 +39,7 @@ namespace
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
-			D3dDdi::installHooks();
+			D3dDdi::installHooks(g_origDDrawModule);
 			Compat::Log() << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks(g_origDDrawModule);
 			Gdi::VirtualScreen::init();

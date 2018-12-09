@@ -1,8 +1,8 @@
 #include <set>
 
 #include "DDraw/DirectDraw.h"
-#include "DDraw/Repository.h"
 #include "DDraw/ScopedThreadLock.h"
+#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Region.h"
 #include "Gdi/VirtualScreen.h"
@@ -134,8 +134,12 @@ namespace Gdi
 				(rect.top - g_bounds.top) * g_pitch +
 				(rect.left - g_bounds.left) * g_bpp / 8;
 
+			auto primary(DDraw::PrimarySurface::getPrimary());
+			CompatPtr<IUnknown> ddUnk;
+			primary.get()->lpVtbl->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
+			CompatPtr<IDirectDraw7> dd(ddUnk);
+
 			CompatPtr<IDirectDrawSurface7> surface;
-			auto dd(DDraw::Repository::getDirectDraw());
 			dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 			return surface;
 		}

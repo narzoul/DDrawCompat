@@ -9,6 +9,7 @@ namespace Gdi
 	class Region
 	{
 	public:
+		Region(HRGN rgn);
 		Region(const RECT& rect = RECT{ 0, 0, 0, 0 });
 		~Region();
 		Region(const Region& other);

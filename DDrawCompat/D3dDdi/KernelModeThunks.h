@@ -13,7 +13,7 @@ namespace D3dDdi
 		UINT getLastSubmittedFrameCount();
 		RECT getMonitorRect();
 		long long getQpcLastVerticalBlank();
-		void installHooks();
+		void installHooks(HMODULE origDDrawModule);
 		void setFlipIntervalOverride(UINT flipInterval);
 		void waitForVerticalBlank();
 	}

@@ -2,8 +2,10 @@
 #include <vector>
 
 #include "Common/CompatRef.h"
+#include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/DirectDrawClipper.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Region.h"
 
 namespace
 {
@@ -28,9 +30,16 @@ namespace
 	void updateWindowClipList(CompatRef<IDirectDrawClipper> clipper, ClipperData& data)
 	{
 		HDC dc = GetDC(data.hwnd);
-		HRGN rgn = CreateRectRgn(0, 0, 0, 0);
-
+		Gdi::Region rgn;
 		GetRandomRgn(dc, rgn, SYSRGN);
+		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);
+
+		RECT primaryRect = D3dDdi::KernelModeThunks::getMonitorRect();
+		if (0 != primaryRect.left || 0 != primaryRect.top)
+		{
+			rgn.offset(-primaryRect.left, -primaryRect.top);
+		}
+
 		DWORD rgnSize = GetRegionData(rgn, 0, nullptr);
 		std::vector<unsigned char> rgnData(rgnSize);
 		GetRegionData(rgn, rgnSize, reinterpret_cast<RGNDATA*>(rgnData.data()));
@@ -40,9 +49,6 @@ namespace
 		{
 			clipper->SetHWnd(&clipper, 0, data.hwnd);
 		}
-
-		DeleteObject(rgn);
-		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);
 	}
 
 	HRESULT STDMETHODCALLTYPE GetHWnd(IDirectDrawClipper* This, HWND* lphWnd)
@@ -115,6 +121,24 @@ namespace
 
 namespace DDraw
 {
+	HRGN DirectDrawClipper::getClipRgn(CompatRef<IDirectDrawClipper> clipper)
+	{
+		std::vector<unsigned char> rgnData;
+		DWORD size = 0;
+		clipper->GetClipList(&clipper, nullptr, nullptr, &size);
+		rgnData.resize(size);
+		clipper->GetClipList(&clipper, nullptr, reinterpret_cast<RGNDATA*>(rgnData.data()), &size);
+		return ExtCreateRegion(nullptr, size, reinterpret_cast<RGNDATA*>(rgnData.data()));
+	}
+
+	HRESULT DirectDrawClipper::setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn)
+	{
+		std::vector<unsigned char> rgnData;
+		rgnData.resize(GetRegionData(rgn, 0, nullptr));
+		GetRegionData(rgn, rgnData.size(), reinterpret_cast<RGNDATA*>(rgnData.data()));
+		return clipper->SetClipList(&clipper, reinterpret_cast<RGNDATA*>(rgnData.data()), 0);
+	}
+
 	void DirectDrawClipper::setCompatVtable(IDirectDrawClipperVtbl& vtable)
 	{
 		vtable.GetHWnd = &GetHWnd;

@@ -78,6 +78,7 @@ namespace
 	void bltToWindowViaGdi(Gdi::Region* primaryRegion)
 	{
 		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
+		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 
 		for (auto windowPair : Gdi::Window::getWindows())
 		{
@@ -110,12 +111,14 @@ namespace
 				}
 			}
 
-			Gdi::GdiAccessGuard gdiAccessGuard(Gdi::ACCESS_READ);
+			Gdi::GdiAccessGuard gdiAccessGuard(Gdi::ACCESS_READ, !primaryRegion);
 			HWND presentationWindow = windowPair.second->getPresentationWindow();
 			HDC dc = GetWindowDC(presentationWindow);
 			RECT rect = windowPair.second->getWindowRect();
-			CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top,
-				virtualScreenDc.get(), rect.left, rect.top, SRCCOPY);
+			visibleRegion.offset(-rect.left, -rect.top);
+			SelectClipRgn(dc, visibleRegion);
+			CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, virtualScreenDc.get(),
+				rect.left - virtualScreenBounds.left, rect.top - virtualScreenBounds.top, SRCCOPY);
 			CALL_ORIG_FUNC(ReleaseDC)(presentationWindow, dc);
 		}
 	}
@@ -138,6 +141,7 @@ namespace
 
 		HDC backBufferDc = nullptr;
 		backBuffer->GetDC(backBuffer, &backBufferDc);
+		RECT ddrawMonitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
 
 		for (auto it = visibleLayeredWindows.rbegin(); it != visibleLayeredWindows.rend(); ++it)
 		{
@@ -145,6 +149,12 @@ namespace
 			HRGN rgn = Gdi::getVisibleWindowRgn(*it);
 			RECT wr = {};
 			GetWindowRect(*it, &wr);
+
+			if (0 != ddrawMonitorRect.left || 0 != ddrawMonitorRect.top)
+			{
+				OffsetRect(&wr, -ddrawMonitorRect.left, -ddrawMonitorRect.top);
+				OffsetRgn(rgn, -ddrawMonitorRect.left, -ddrawMonitorRect.top);
+			}
 			
 			SelectClipRgn(backBufferDc, rgn);
 			CALL_ORIG_FUNC(BitBlt)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,

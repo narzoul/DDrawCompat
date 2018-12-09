@@ -1,5 +1,6 @@
 #include <atomic>
 #include <map>
+#include <string>
 
 #include <d3d.h>
 #include <d3dumddi.h>
@@ -34,6 +35,7 @@ namespace
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
 	AdapterInfo g_gdiAdapterInfo = {};
 	AdapterInfo g_lastOpenAdapterInfo = {};
+	std::string g_lastDDrawCreateDcDevice;
 	UINT g_lastFlipInterval = 0;
 	UINT g_flipIntervalOverride = 0;
 	D3DKMT_HANDLE g_lastPresentContext = 0;
@@ -108,6 +110,13 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	HDC WINAPI ddrawCreateDcA(LPCSTR pwszDriver, LPCSTR pwszDevice, LPCSTR pszPort, const DEVMODEA* pdm)
+	{
+		LOG_FUNC("ddrawCreateDCA", pwszDriver, pwszDevice, pszPort, pdm);
+		g_lastDDrawCreateDcDevice = pwszDevice ? pwszDevice : std::string();
+		return LOG_RESULT(CALL_ORIG_FUNC(CreateDCA)(pwszDriver, pwszDevice, pszPort, pdm));
+	}
+
 	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
 	{
 		LOG_FUNC("D3DKMTDestroyContext", pData);
@@ -123,18 +132,35 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	BOOL CALLBACK findDDrawMonitorRect(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
+	{
+		MONITORINFOEX mi = {};
+		mi.cbSize = sizeof(mi);
+		GetMonitorInfo(hMonitor, &mi);
+		if (g_lastDDrawCreateDcDevice == mi.szDevice)
+		{
+			*reinterpret_cast<RECT*>(dwData) = mi.rcMonitor;
+			return FALSE;
+		}
+		return TRUE;
+	}
+
 	AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
 	{
 		AdapterInfo adapterInfo = {};
 		adapterInfo.adapter = data.hAdapter;
 		adapterInfo.vidPnSourceId = data.VidPnSourceId;
 
-		POINT p = {};
-		GetDCOrgEx(data.hDc, &p);
-		MONITORINFO mi = {};
-		mi.cbSize = sizeof(mi);
-		GetMonitorInfo(MonitorFromPoint(p, MONITOR_DEFAULTTOPRIMARY), &mi);
-		adapterInfo.monitorRect = mi.rcMonitor;
+		EnumDisplayMonitors(nullptr, nullptr, findDDrawMonitorRect,
+			reinterpret_cast<LPARAM>(&adapterInfo.monitorRect));
+
+		if (IsRectEmpty(&adapterInfo.monitorRect))
+		{
+			MONITORINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			GetMonitorInfo(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+			adapterInfo.monitorRect = mi.rcMonitor;
+		}
 
 		return adapterInfo;
 	}
@@ -282,7 +308,7 @@ namespace D3dDdi
 			{
 				lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
 				CompatPtr<IUnknown> ddUnk;
-				primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
+				primary.get()->lpVtbl->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
 				CompatPtr<IDirectDraw7> dd7(ddUnk);
 
 				DDDEVICEIDENTIFIER2 di = {};
@@ -297,7 +323,7 @@ namespace D3dDdi
 			return g_qpcLastVerticalBlank;
 		}
 
-		void installHooks()
+		void installHooks(HMODULE origDDrawModule)
 		{
 			HOOK_FUNCTION(gdi32, D3DKMTCloseAdapter, closeAdapter);
 			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
@@ -308,6 +334,7 @@ namespace D3dDdi
 			HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, queryAdapterInfo);
 			HOOK_FUNCTION(gdi32, D3DKMTPresent, present);
 			HOOK_FUNCTION(gdi32, D3DKMTSetQueuedLimit, setQueuedLimit);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "CreateDCA", ddrawCreateDcA);
 
 			// Functions not available in Windows Vista
 			Compat::hookFunction("gdi32", "D3DKMTCreateContextVirtual",

@@ -5,7 +5,7 @@
 namespace D3dDdi
 {
 	UINT getDdiVersion();
-	void installHooks();
+	void installHooks(HMODULE origDDrawModule);
 	void onUmdFileNameQueried(const std::wstring& umdFileName);
 	void uninstallHooks();
 }

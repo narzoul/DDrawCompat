@@ -1,12 +1,69 @@
+#include "Common/CompatPtr.h"
+#include "D3dDdi/KernelModeThunks.h"
+#include "DDraw/DirectDrawClipper.h"
 #include "DDraw/DirectDrawPalette.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurfaceImpl.h"
+#include "Dll/Procs.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Region.h"
+#include "Gdi/VirtualScreen.h"
 
 namespace
 {
+	template <typename TSurface>
+	void bltToGdi(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
+		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
+	{
+		if (!lpDestRect)
+		{
+			return;
+		}
+
+		CompatPtr<IDirectDrawClipper> clipper;
+		CompatVtable<Vtable<TSurface>>::s_origVtable.GetClipper(This, &clipper.getRef());
+		if (!clipper)
+		{
+			return;
+		}
+
+		Gdi::Region clipRgn(DDraw::DirectDrawClipper::getClipRgn(*clipper));
+		RECT monitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
+		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
+		clipRgn.offset(monitorRect.left, monitorRect.top);
+		clipRgn &= virtualScreenBounds;
+		clipRgn -= monitorRect;
+		if (clipRgn.isEmpty())
+		{
+			return;
+		}
+
+		auto gdiSurface(Gdi::VirtualScreen::createSurface(virtualScreenBounds));
+		if (!gdiSurface)
+		{
+			return;
+		}
+
+		CompatPtr<IDirectDrawClipper> gdiClipper;
+		CALL_ORIG_PROC(DirectDrawCreateClipper, 0, &gdiClipper.getRef(), nullptr);
+		if (!gdiClipper)
+		{
+			return;
+		}
+
+		RECT dstRect = *lpDestRect;
+		OffsetRect(&dstRect, monitorRect.left - virtualScreenBounds.left, monitorRect.top - virtualScreenBounds.top);
+		clipRgn.offset(-virtualScreenBounds.left, -virtualScreenBounds.top);
+		DDraw::DirectDrawClipper::setClipRgn(*gdiClipper, clipRgn);
+
+		auto srcSurface(CompatPtr<IDirectDrawSurface7>::from(lpDDSrcSurface));
+		gdiSurface->SetClipper(gdiSurface, gdiClipper);
+		gdiSurface->Blt(gdiSurface, &dstRect, srcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		gdiSurface->SetClipper(gdiSurface, nullptr);
+	}
+
 	void restorePrimaryCaps(DWORD& caps)
 	{
 		caps &= ~DDSCAPS_OFFSCREENPLAIN;
@@ -41,6 +98,7 @@ namespace DDraw
 		HRESULT result = m_impl.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
 		{
+			bltToGdi(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 			RealPrimarySurface::update();
 		}
 		return result;

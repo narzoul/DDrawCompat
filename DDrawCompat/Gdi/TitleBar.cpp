@@ -1,7 +1,9 @@
 #include "Common/Hook.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/Region.h"
 #include "Gdi/TitleBar.h"
+#include "Gdi/VirtualScreen.h"
 
 namespace
 {
@@ -101,11 +103,11 @@ namespace Gdi
 			flags |= DC_GRADIENT;
 		}
 
+		RECT virtualScreenBounds = VirtualScreen::getBounds();
 		RECT clipRect = m_tbi.rcTitleBar;
-		OffsetRect(&clipRect, m_windowRect.left, m_windowRect.top);
-		HRGN clipRgn = CreateRectRgnIndirect(&clipRect);
+		OffsetRect(&clipRect, m_windowRect.left - virtualScreenBounds.left, m_windowRect.top - virtualScreenBounds.top);
+		Region clipRgn(clipRect);
 		SelectClipRgn(m_compatDc, clipRgn);
-		DeleteObject(clipRgn);
 
 		RECT textRect = m_tbi.rcTitleBar;
 		if (m_hasIcon)

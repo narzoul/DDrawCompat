@@ -14,6 +14,11 @@ namespace
 
 namespace Gdi
 {
+	Region::Region(HRGN rgn)
+		: m_region(rgn)
+	{
+	}
+
 	Region::Region(const RECT& rect)
 		: m_region(CreateRectRgnIndirect(&rect))
 	{

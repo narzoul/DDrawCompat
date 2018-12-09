@@ -81,9 +81,9 @@ namespace D3dDdi
 		return g_ddiVersion;
 	}
 
-	void installHooks()
+	void installHooks(HMODULE origDDrawModule)
 	{
-		KernelModeThunks::installHooks();
+		KernelModeThunks::installHooks(origDDrawModule);
 	}
 
 	void onUmdFileNameQueried(const std::wstring& umdFileName)

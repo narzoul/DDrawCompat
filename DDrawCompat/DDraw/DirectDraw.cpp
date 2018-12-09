@@ -28,22 +28,6 @@ namespace
 
 namespace DDraw
 {
-	CompatPtr<IDirectDrawSurface7> createCompatibleSurface(DWORD bpp)
-	{
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_CAPS | DDSD_PIXELFORMAT;
-		desc.dwWidth = 1;
-		desc.dwHeight = 1;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-		desc.ddpfPixelFormat = getRgbPixelFormat(bpp);
-
-		CompatPtr<IDirectDrawSurface7> surface;
-		auto dd = DDraw::Repository::getDirectDraw();
-		dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
-		return surface;
-	}
-
 	template <typename TDirectDraw>
 	void* getDdObject(TDirectDraw& dd)
 	{
