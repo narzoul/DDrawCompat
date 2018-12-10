@@ -18,9 +18,12 @@ namespace Gdi
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
 
+		BYTE getAlpha() const;
+		COLORREF getColorKey() const;
 		HWND getPresentationWindow() const;
 		Region getVisibleRegion() const;
 		RECT getWindowRect() const;
+		bool isLayered() const;
 		void updateWindow();
 
 		static bool add(HWND hwnd);
@@ -29,8 +32,9 @@ namespace Gdi
 
 		static std::map<HWND, std::shared_ptr<Window>> getWindows();
 		static bool isPresentationWindow(HWND hwnd);
-		static bool isTopLevelNonLayeredWindow(HWND hwnd);
+		static bool isTopLevelWindow(HWND hwnd);
 		static void updateAll();
+		static void updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha);
 
 		static void installHooks();
 		static void uninstallHooks();
@@ -44,6 +48,9 @@ namespace Gdi
 		RECT m_windowRect;
 		Region m_visibleRegion;
 		Region m_invalidatedRegion;
+		COLORREF m_colorKey;
+		BYTE m_alpha;
+		bool m_isLayered;
 		bool m_isUpdating;
 
 		static std::map<HWND, std::shared_ptr<Window>> s_windows;

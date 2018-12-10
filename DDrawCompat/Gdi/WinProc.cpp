@@ -182,10 +182,7 @@ namespace
 		disableDwmAttributes(hwnd);
 		removeDropShadow(hwnd);
 		Gdi::PaintHandlers::onCreateWindow(hwnd);
-		if (Gdi::Window::isTopLevelNonLayeredWindow(hwnd))
-		{
-			Gdi::Window::add(hwnd);
-		}
+		Gdi::Window::add(hwnd);
 	}
 
 	void onDestroyWindow(HWND hwnd)

@@ -48,26 +48,11 @@ namespace
 	CompatPtr<IDirectDrawSurface7> getBackBuffer();
 	CompatPtr<IDirectDrawSurface7> getLastSurface();
 
-	BOOL CALLBACK addVisibleLayeredWindowToVector(HWND hwnd, LPARAM lParam)
-	{
-		DWORD windowPid = 0;
-		GetWindowThreadProcessId(hwnd, &windowPid);
-		if (GetCurrentProcessId() == windowPid &&
-			IsWindowVisible(hwnd) &&
-			(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED) &&
-			!Gdi::Window::isPresentationWindow(hwnd))
-		{
-			auto& visibleLayeredWindows = *reinterpret_cast<std::vector<HWND>*>(lParam);
-			visibleLayeredWindows.push_back(hwnd);
-		}
-		return TRUE;
-	}
-
 	void bltToWindow(CompatRef<IDirectDrawSurface7> src)
 	{
 		for (auto windowPair : Gdi::Window::getWindows())
 		{
-			if (IsWindowVisible(windowPair.first))
+			if (!windowPair.second->isLayered() && !windowPair.second->getVisibleRegion().isEmpty())
 			{
 				g_clipper->SetHWnd(g_clipper, 0, windowPair.second->getPresentationWindow());
 				g_frontBuffer->Blt(g_frontBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
@@ -82,11 +67,6 @@ namespace
 
 		for (auto windowPair : Gdi::Window::getWindows())
 		{
-			if (!IsWindowVisible(windowPair.first))
-			{
-				continue;
-			}
-
 			Gdi::Region visibleRegion = windowPair.second->getVisibleRegion();
 			if (visibleRegion.isEmpty())
 			{
@@ -125,14 +105,6 @@ namespace
 
 	void bltVisibleLayeredWindowsToBackBuffer()
 	{
-		std::vector<HWND> visibleLayeredWindows;
-		EnumWindows(addVisibleLayeredWindowToVector, reinterpret_cast<LPARAM>(&visibleLayeredWindows));
-
-		if (visibleLayeredWindows.empty())
-		{
-			return;
-		}
-
 		auto backBuffer(getBackBuffer());
 		if (!backBuffer)
 		{
@@ -140,32 +112,58 @@ namespace
 		}
 
 		HDC backBufferDc = nullptr;
-		backBuffer->GetDC(backBuffer, &backBufferDc);
 		RECT ddrawMonitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
 
-		for (auto it = visibleLayeredWindows.rbegin(); it != visibleLayeredWindows.rend(); ++it)
+		for (auto windowPair : Gdi::Window::getWindows())
 		{
-			HDC windowDc = GetWindowDC(*it);
-			HRGN rgn = Gdi::getVisibleWindowRgn(*it);
-			RECT wr = {};
-			GetWindowRect(*it, &wr);
+			if (!windowPair.second->isLayered())
+			{
+				continue;
+			}
+
+			if (!backBufferDc)
+			{
+				backBuffer->GetDC(backBuffer, &backBufferDc);
+				if (!backBufferDc)
+				{
+					return;
+				}
+			}
+
+			HDC windowDc = GetWindowDC(windowPair.first);
+			Gdi::Region rgn(Gdi::getVisibleWindowRgn(windowPair.first));
+			RECT wr = windowPair.second->getWindowRect();
 
 			if (0 != ddrawMonitorRect.left || 0 != ddrawMonitorRect.top)
 			{
 				OffsetRect(&wr, -ddrawMonitorRect.left, -ddrawMonitorRect.top);
-				OffsetRgn(rgn, -ddrawMonitorRect.left, -ddrawMonitorRect.top);
+				rgn.offset(-ddrawMonitorRect.left, -ddrawMonitorRect.top);
 			}
 			
 			SelectClipRgn(backBufferDc, rgn);
-			CALL_ORIG_FUNC(BitBlt)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-				windowDc, 0, 0, SRCCOPY);
-			SelectClipRgn(backBufferDc, nullptr);
 
-			DeleteObject(rgn);
-			CALL_ORIG_FUNC(ReleaseDC)(*it, windowDc);
+			auto colorKey = windowPair.second->getColorKey();
+			if (CLR_INVALID != colorKey)
+			{
+				CALL_ORIG_FUNC(TransparentBlt)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
+			}
+			else
+			{
+				BLENDFUNCTION blend = {};
+				blend.SourceConstantAlpha = windowPair.second->getAlpha();
+				CALL_ORIG_FUNC(AlphaBlend)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
+			}
+
+			CALL_ORIG_FUNC(ReleaseDC)(windowPair.first, windowDc);
 		}
 
-		backBuffer->ReleaseDC(backBuffer, backBufferDc);
+		if (backBufferDc)
+		{
+			SelectClipRgn(backBufferDc, nullptr);
+			backBuffer->ReleaseDC(backBuffer, backBufferDc);
+		}
 	}
 
 	void bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
