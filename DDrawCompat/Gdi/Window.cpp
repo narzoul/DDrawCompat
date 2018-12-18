@@ -39,6 +39,11 @@ namespace
 				nullptr,
 				nullptr,
 				nullptr);
+
+			// Workaround for ForceSimpleWindow shim
+			SetWindowLong(presentationWindow, GWL_STYLE, WS_DISABLED | WS_POPUP);
+			SetWindowLong(presentationWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+
 			CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
 			return reinterpret_cast<LRESULT>(presentationWindow);
 		}
