@@ -6,8 +6,10 @@
 namespace D3dDdi
 {
 	OversizedResource::OversizedResource(
-		HANDLE adapter, HANDLE device, D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo)
-		: m_adapter(adapter)
+		const D3DDDI_DEVICEFUNCS& deviceFuncs, HANDLE adapter, HANDLE device,
+		D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo)
+		: m_deviceFuncs(deviceFuncs)
+		, m_adapter(adapter)
 		, m_device(device)
 		, m_format(format)
 		, m_surfaceInfo(surfaceInfo)
@@ -20,7 +22,7 @@ namespace D3dDdi
 		if (rect.right <= static_cast<LONG>(caps.dwMaxTextureWidth) &&
 			rect.bottom <= static_cast<LONG>(caps.dwMaxTextureHeight))
 		{
-			return D3dDdi::DeviceFuncs::s_origVtables.at(m_device).pfnBlt(m_device, &data);
+			return m_deviceFuncs.pfnBlt(m_device, &data);
 		}
 
 		HANDLE origResource = resource;
@@ -33,14 +35,13 @@ namespace D3dDdi
 			rect = RECT{ 0, 0, rect.right - rect.left, rect.bottom - rect.top };
 		}
 
-		const auto& deviceFuncs = D3dDdi::DeviceFuncs::s_origVtables.at(m_device);
-		HRESULT result = deviceFuncs.pfnBlt(m_device, &data);
+		HRESULT result = m_deviceFuncs.pfnBlt(m_device, &data);
 
 		if (bltResource)
 		{
 			resource = origResource;
 			rect = origRect;
-			deviceFuncs.pfnDestroyResource(m_device, bltResource);
+			m_deviceFuncs.pfnDestroyResource(m_device, bltResource);
 		}
 
 		return result;
@@ -76,14 +77,13 @@ namespace D3dDdi
 		bltResourceData.pSurfList = &bltSurfaceInfo;
 		bltResourceData.SurfCount = 1;
 
-		const auto& deviceFuncs = D3dDdi::DeviceFuncs::s_origVtables.at(m_device);
-		if (deviceFuncs.pfnCreateResource2)
+		if (m_deviceFuncs.pfnCreateResource2)
 		{
-			deviceFuncs.pfnCreateResource2(m_device, &bltResourceData);
+			m_deviceFuncs.pfnCreateResource2(m_device, &bltResourceData);
 		}
 		else
 		{
-			deviceFuncs.pfnCreateResource(m_device,
+			m_deviceFuncs.pfnCreateResource(m_device,
 				reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&bltResourceData));
 		}
 		return bltResourceData.hResource;

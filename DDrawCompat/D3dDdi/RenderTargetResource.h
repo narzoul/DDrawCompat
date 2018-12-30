@@ -11,7 +11,8 @@ namespace D3dDdi
 	class RenderTargetResource
 	{
 	public:
-		RenderTargetResource(HANDLE device, HANDLE resource, D3DDDIFORMAT format, UINT surfaceCount);
+		RenderTargetResource(const D3DDDI_DEVICEFUNCS& deviceFuncs,
+			HANDLE device, HANDLE resource, D3DDDIFORMAT format, UINT surfaceCount);
 
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
@@ -33,6 +34,7 @@ namespace D3dDdi
 
 		void prepareSubResourceForRendering(UINT subResourceIndex);
 
+		const D3DDDI_DEVICEFUNCS& m_deviceFuncs;
 		HANDLE m_device;
 		HANDLE m_resource;
 		UINT m_bytesPerPixel;

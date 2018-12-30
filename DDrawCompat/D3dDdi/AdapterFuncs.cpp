@@ -7,6 +7,7 @@
 namespace
 {
 	std::map<HANDLE, D3DNTHAL_D3DEXTENDEDCAPS> g_d3dExtendedCaps;
+	std::map<HANDLE, HMODULE> g_adapterModule;
 
 	HRESULT APIENTRY closeAdapter(HANDLE hAdapter)
 	{
@@ -15,6 +16,7 @@ namespace
 		{
 			D3dDdi::AdapterFuncs::s_origVtables.erase(hAdapter);
 			g_d3dExtendedCaps.erase(hAdapter);
+			g_adapterModule.erase(hAdapter);
 		}
 		return result;
 	}
@@ -26,7 +28,8 @@ namespace
 			hAdapter, pCreateData);
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::DeviceFuncs::hookDriverVtable(pCreateData->hDevice, pCreateData->pDeviceFuncs);
+			D3dDdi::DeviceFuncs::hookDriverVtable(
+				g_adapterModule[hAdapter], pCreateData->hDevice, pCreateData->pDeviceFuncs);
 			D3dDdi::DeviceFuncs::onCreateDevice(hAdapter, pCreateData->hDevice);
 		}
 		return result;
@@ -52,7 +55,7 @@ namespace D3dDdi
 		return it != g_d3dExtendedCaps.end() ? it->second : emptyCaps;
 	}
 
-	void AdapterFuncs::onOpenAdapter(HANDLE adapter)
+	void AdapterFuncs::onOpenAdapter(HMODULE module, HANDLE adapter)
 	{
 		D3DNTHAL_D3DEXTENDEDCAPS d3dExtendedCaps = {};
 		D3DDDIARG_GETCAPS getCaps = {};
@@ -62,6 +65,7 @@ namespace D3dDdi
 
 		D3dDdi::AdapterFuncs::s_origVtables.at(adapter).pfnGetCaps(adapter, &getCaps);
 		g_d3dExtendedCaps[adapter] = d3dExtendedCaps;
+		g_adapterModule[adapter] = module;
 	}
 
 	void AdapterFuncs::setCompatVtable(D3DDDI_ADAPTERFUNCS& vtable)

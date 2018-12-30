@@ -8,7 +8,7 @@ namespace D3dDdi
 	class OversizedResource
 	{
 	public:
-		OversizedResource(HANDLE adapter, HANDLE device,
+		OversizedResource(const D3DDDI_DEVICEFUNCS& deviceFuncs, HANDLE adapter, HANDLE device,
 			D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo);
 
 		HRESULT bltFrom(D3DDDIARG_BLT data);
@@ -20,6 +20,7 @@ namespace D3dDdi
 		HRESULT blt(D3DDDIARG_BLT& data, HANDLE& resource, RECT& rect);
 		HANDLE createBltResource(RECT bltRect);
 
+		const D3DDDI_DEVICEFUNCS& m_deviceFuncs;
 		HANDLE m_adapter;
 		HANDLE m_device;
 		D3DDDIFORMAT m_format;

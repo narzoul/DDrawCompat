@@ -26,6 +26,7 @@ namespace
 {
 	UINT g_ddiVersion = 0;
 	std::wstring g_hookedUmdFileName;
+	HMODULE g_hookedUmdModule = nullptr;
 	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
 
 	void hookOpenAdapter(const std::wstring& umdFileName);
@@ -35,12 +36,12 @@ namespace
 	void hookOpenAdapter(const std::wstring& umdFileName)
 	{
 		g_hookedUmdFileName = umdFileName;
-		HMODULE module = LoadLibraryW(umdFileName.c_str());
-		if (module)
+		g_hookedUmdModule = LoadLibraryW(umdFileName.c_str());
+		if (g_hookedUmdModule)
 		{
-			Compat::hookFunction(module, "OpenAdapter",
+			Compat::hookFunction(g_hookedUmdModule, "OpenAdapter",
 				reinterpret_cast<void*&>(g_origOpenAdapter), &openAdapter);
-			FreeLibrary(module);
+			FreeLibrary(g_hookedUmdModule);
 		}
 	}
 
@@ -58,8 +59,8 @@ namespace
 				hookedUmdFileNames.insert(g_hookedUmdFileName);
 			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			D3dDdi::AdapterFuncs::hookDriverVtable(pOpenData->hAdapter, pOpenData->pAdapterFuncs);
-			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter);
+			D3dDdi::AdapterFuncs::hookDriverVtable(g_hookedUmdModule, pOpenData->hAdapter, pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::onOpenAdapter(g_hookedUmdModule, pOpenData->hAdapter);
 		}
 		return LOG_RESULT(result);
 	}

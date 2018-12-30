@@ -162,7 +162,7 @@ namespace D3dDdi
 		if (SUCCEEDED(result))
 		{
 			m_oversizedResources.emplace(data.hResource,
-				OversizedResource(m_adapter, m_device, data.Format, origSurfList[0]));
+				OversizedResource(*m_origVtable, m_adapter, m_device, data.Format, origSurfList[0]));
 		}
 
 		return result;
@@ -191,7 +191,7 @@ namespace D3dDdi
 		if (SUCCEEDED(result) && data.Flags.RenderTarget && !data.Flags.Primary && isVidMemPool(data.Pool))
 		{
 			m_renderTargetResources.emplace(data.hResource,
-				RenderTargetResource(m_device, data.hResource, data.Format, data.SurfCount));
+				RenderTargetResource(*m_origVtable, m_device, data.hResource, data.Format, data.SurfCount));
 		}
 
 		return result;

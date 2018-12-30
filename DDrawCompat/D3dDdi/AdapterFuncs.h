@@ -14,7 +14,7 @@ namespace D3dDdi
 	{
 	public:
 		static const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps(HANDLE adapter);
-		static void onOpenAdapter(HANDLE adapter);
+		static void onOpenAdapter(HMODULE module, HANDLE adapter);
 		static void setCompatVtable(D3DDDI_ADAPTERFUNCS& vtable);
 	};
 }

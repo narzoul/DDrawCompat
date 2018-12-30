@@ -41,17 +41,25 @@ public:
 		}
 	}
 
-	static void hookDriverVtable(HANDLE context, const Vtable* vtable)
+	static void hookDriverVtable(HMODULE module, HANDLE context, const Vtable* vtable)
 	{
-		if (vtable && s_origVtables.find(context) == s_origVtables.end())
+		if (!vtable)
 		{
-			HookVisitor<DriverHook> visitor(*vtable, s_origVtables[context]);
+			return;
+		}
+
+		if (s_origModuleVtables.find(module) == s_origModuleVtables.end())
+		{
+			HookVisitor<DriverHook> visitor(*vtable, s_origModuleVtables[module]);
 			forEach<Vtable>(visitor);
 		}
+
+		s_origVtables[context] = s_origModuleVtables[module];
 	}
 
 	static Vtable s_origVtable;
 	static std::map<HANDLE, Vtable> s_origVtables;
+	static std::map<HMODULE, Vtable> s_origModuleVtables;
 	static const Vtable* s_origVtablePtr;
 
 private:
@@ -184,6 +192,9 @@ Vtable CompatVtable<Vtable>::s_origVtable = {};
 
 template <typename Vtable>
 std::map<HANDLE, Vtable> CompatVtable<Vtable>::s_origVtables;
+
+template <typename Vtable>
+std::map<HMODULE, Vtable> CompatVtable<Vtable>::s_origModuleVtables;
 
 template <typename Vtable>
 const Vtable* CompatVtable<Vtable>::s_origVtablePtr = nullptr;
