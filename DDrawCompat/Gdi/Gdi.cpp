@@ -47,7 +47,14 @@ namespace Gdi
 
 	void installHooks()
 	{
-		g_screenDc = GetDC(nullptr);
+		// Workaround for VirtualizeDesktopPainting shim, which doesn't seem to handle BitBlt
+		// from screen DC to screen DC correctly
+		auto getDc = reinterpret_cast<decltype(GetDC)*>(Compat::getProcAddress(GetModuleHandle("user32"), "GetDC"));
+		if (!getDc)
+		{
+			getDc = &GetDC;
+		}
+		g_screenDc = getDc(nullptr);
 
 		DcFunctions::installHooks();
 		PaintHandlers::installHooks();
@@ -60,7 +67,7 @@ namespace Gdi
 
 	bool isDisplayDc(HDC dc)
 	{
-		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == GetDeviceCaps(dc, TECHNOLOGY) &&
+		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == CALL_ORIG_FUNC(GetDeviceCaps)(dc, TECHNOLOGY) &&
 			!(GetWindowLongPtr(CALL_ORIG_FUNC(WindowFromDC)(dc), GWL_EXSTYLE) & WS_EX_LAYERED);
 	}
 

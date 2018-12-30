@@ -178,7 +178,7 @@ namespace Gdi
 
 		HDC getDc(HDC origDc, bool useMetaRgn)
 		{
-			if (!origDc || OBJ_DC != GetObjectType(origDc) || DT_RASDISPLAY != GetDeviceCaps(origDc, TECHNOLOGY))
+			if (!isDisplayDc(origDc))
 			{
 				return nullptr;
 			}

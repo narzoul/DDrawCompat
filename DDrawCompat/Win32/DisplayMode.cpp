@@ -5,6 +5,7 @@
 #include "Common/Hook.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/ScopedThreadLock.h"
+#include "Gdi/Gdi.h"
 #include "Win32/DisplayMode.h"
 
 BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; };
@@ -279,8 +280,7 @@ namespace
 	int WINAPI getDeviceCaps(HDC hdc, int nIndex)
 	{
 		LOG_FUNC("GetDeviceCaps", hdc, nIndex);
-		if (hdc && BITSPIXEL == nIndex &&
-			DT_RASDISPLAY == GetDeviceCaps(hdc, TECHNOLOGY) && OBJ_DC == GetObjectType(hdc))
+		if (BITSPIXEL == nIndex && Gdi::isDisplayDc(hdc))
 		{
 			return LOG_RESULT(g_currentBpp);
 		}
