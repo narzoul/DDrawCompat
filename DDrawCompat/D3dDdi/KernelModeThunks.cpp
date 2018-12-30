@@ -245,13 +245,17 @@ namespace
 				g_gdiAdapterInfo = {};
 			}
 
+			MONITORINFOEX mi = {};
+			mi.cbSize = sizeof(mi);
+			GetMonitorInfo(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+
 			D3DKMT_OPENADAPTERFROMHDC data = {};
-			data.hDc = GetDC(nullptr);
+			data.hDc = CreateDC(mi.szDevice, mi.szDevice, nullptr, nullptr);
 			if (SUCCEEDED(CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(&data)))
 			{
 				g_gdiAdapterInfo = getAdapterInfo(data);
 			}
-			CALL_ORIG_FUNC(ReleaseDC)(nullptr, data.hDc);
+			DeleteDC(data.hDc);
 
 			lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
 		}
