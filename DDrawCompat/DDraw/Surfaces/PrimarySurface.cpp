@@ -37,7 +37,6 @@ namespace DDraw
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
 		s_palette = nullptr;
-		s_surfaceBuffers.clear();
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
 		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
@@ -197,38 +196,8 @@ namespace DDraw
 		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
 		g_primarySurface->GetSurfaceDesc(g_primarySurface, &g_primarySurfaceDesc);
 
-		if (g_primarySurfaceDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
-		{
-			resizeBuffers();
-		}
-
 		g_gdiResourceHandle = getResourceHandle(*g_primarySurface);
 		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
-	}
-
-	void PrimarySurface::resizeBuffers()
-	{
-		DDSCAPS2 flipCaps = {};
-		flipCaps.dwCaps = DDSCAPS_FLIP;
-
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_LPSURFACE;
-
-		const DWORD newBufferSize = g_primarySurfaceDesc.lPitch *
-			(g_primarySurfaceDesc.dwHeight + Config::primarySurfaceExtraRows);
-
-		auto surfacePtr(CompatPtr<IDirectDrawSurface7>::from(g_primarySurface.get()));
-		do
-		{
-			s_surfaceBuffers.push_back(std::vector<unsigned char>(newBufferSize));
-			desc.lpSurface = s_surfaceBuffers.back().data();
-			surfacePtr->SetSurfaceDesc(surfacePtr, &desc, 0);
-
-			CompatPtr<IDirectDrawSurface7> nextSurface;
-			surfacePtr->GetAttachedSurface(surfacePtr, &flipCaps, &nextSurface.getRef());
-			surfacePtr.swap(nextSurface);
-		} while (surfacePtr && surfacePtr != g_primarySurface.get());
 	}
 
 	void PrimarySurface::updatePalette()
@@ -242,5 +211,4 @@ namespace DDraw
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
 	PALETTEENTRY PrimarySurface::s_paletteEntries[256] = {};
-	std::vector<std::vector<unsigned char>> PrimarySurface::s_surfaceBuffers;
 }
