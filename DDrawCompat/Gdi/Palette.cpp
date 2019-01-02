@@ -7,7 +7,6 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "DDraw/ScopedThreadLock.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Palette.h"
 #include "VirtualScreen.h"
@@ -104,7 +103,7 @@ namespace
 		}
 
 		DDraw::ScopedThreadLock lock;
-		std::memcpy(lppe, &DDraw::PrimarySurface::s_paletteEntries[iStartIndex], nEntries * sizeof(PALETTEENTRY));
+		std::memcpy(lppe, &g_systemPalette[iStartIndex], nEntries * sizeof(PALETTEENTRY));
 
 		return LOG_RESULT(nEntries);
 	}
@@ -210,7 +209,7 @@ namespace Gdi
 		{
 			HPALETTE defaultPalette = reinterpret_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
 			GetPaletteEntries(defaultPalette, 0, 10, g_systemPalette);
-			GetPaletteEntries(defaultPalette, 246, 10, &g_systemPalette[246]);
+			GetPaletteEntries(defaultPalette, 10, 10, &g_systemPalette[246]);
 			Gdi::VirtualScreen::updatePalette();
 
 			HOOK_FUNCTION(gdi32, GetSystemPaletteEntries, getSystemPaletteEntries);
