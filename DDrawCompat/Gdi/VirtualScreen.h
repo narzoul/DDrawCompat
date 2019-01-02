@@ -19,10 +19,10 @@ namespace Gdi
 		void deleteDc(HDC dc);
 
 		RECT getBounds();
-		const Region& getRegion();
+		Region getRegion();
 
 		void init();
 		bool update();
-		void updatePalette();
+		void updatePalette(PALETTEENTRY(&palette)[256]);
 	}
 }

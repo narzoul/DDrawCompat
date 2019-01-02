@@ -4,6 +4,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
+#include "Common/ScopedCriticalSection.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Dc.h"
 #include "Gdi/DcCache.h"
@@ -29,6 +30,7 @@ namespace
 
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
 
+	Compat::CriticalSection g_cs;
 	CompatDcMap g_origDcToCompatDc;
 
 	void restoreDc(const CompatDc& compatDc);
@@ -147,7 +149,7 @@ namespace Gdi
 	{
 		void dllProcessDetach()
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			for (auto& origDcToCompatDc : g_origDcToCompatDc)
 			{
 				restoreDc(origDcToCompatDc.second);
@@ -158,7 +160,7 @@ namespace Gdi
 
 		void dllThreadDetach()
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			const DWORD threadId = GetCurrentThreadId();
 			auto it = g_origDcToCompatDc.begin();
 			while (it != g_origDcToCompatDc.end())
@@ -183,7 +185,8 @@ namespace Gdi
 				return nullptr;
 			}
 
-			DDraw::ScopedThreadLock lock;
+			DDraw::ScopedThreadLock ddLock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it != g_origDcToCompatDc.end())
 			{
@@ -228,7 +231,7 @@ namespace Gdi
 
 		HDC getOrigDc(HDC dc)
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			const auto it = std::find_if(g_origDcToCompatDc.begin(), g_origDcToCompatDc.end(),
 				[dc](const CompatDcMap::value_type& compatDc) { return compatDc.second.dc == dc; });
 			return it != g_origDcToCompatDc.end() ? it->first : dc;
@@ -236,7 +239,7 @@ namespace Gdi
 
 		void releaseDc(HDC origDc)
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_origDcToCompatDc.find(origDc);
 			if (it == g_origDcToCompatDc.end())
 			{

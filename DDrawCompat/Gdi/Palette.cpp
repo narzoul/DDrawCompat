@@ -6,7 +6,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
-#include "DDraw/ScopedThreadLock.h"
+#include "Common/ScopedCriticalSection.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Palette.h"
 #include "VirtualScreen.h"
@@ -14,6 +14,7 @@
 
 namespace
 {
+	Compat::CriticalSection g_cs;
 	PALETTEENTRY g_systemPalette[256] = {};
 	UINT g_systemPaletteUse = SYSPAL_STATIC;
 	UINT g_systemPaletteFirstUnusedIndex = 10;
@@ -75,7 +76,7 @@ namespace
 			++g_systemPaletteFirstUnusedIndex;
 		}
 
-		Gdi::VirtualScreen::updatePalette();
+		Gdi::VirtualScreen::updatePalette(g_systemPalette);
 		return count;
 	}
 
@@ -102,7 +103,7 @@ namespace
 			nEntries = 256 - iStartIndex;
 		}
 
-		DDraw::ScopedThreadLock lock;
+		Compat::ScopedCriticalSection lock(g_cs);
 		std::memcpy(lppe, &g_systemPalette[iStartIndex], nEntries * sizeof(PALETTEENTRY));
 
 		return LOG_RESULT(nEntries);
@@ -115,7 +116,7 @@ namespace
 		{
 			return LOG_RESULT(SYSPAL_ERROR);
 		}
-		DDraw::ScopedThreadLock lock;
+		Compat::ScopedCriticalSection lock(g_cs);
 		return g_systemPaletteUse;
 	}
 
@@ -124,7 +125,7 @@ namespace
 		LOG_FUNC("RealizePalette", hdc);
 		if (Gdi::isDisplayDc(hdc))
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			if (g_foregroundPaletteDcs.find(hdc) != g_foregroundPaletteDcs.end())
 			{
 				g_systemPaletteFirstUnusedIndex = g_systemPaletteFirstNonReservedIndex;
@@ -137,7 +138,7 @@ namespace
 	int WINAPI releaseDc(HWND hWnd, HDC hDC)
 	{
 		LOG_FUNC("ReleaseDC", hWnd, hDC);
-		DDraw::ScopedThreadLock lock;
+		Compat::ScopedCriticalSection lock(g_cs);
 		g_foregroundPaletteDcs.erase(hDC);
 		return LOG_RESULT(CALL_ORIG_FUNC(ReleaseDC)(hWnd, hDC));
 	}
@@ -151,7 +152,7 @@ namespace
 			HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
 			if (wnd && GetDesktopWindow() != wnd)
 			{
-				DDraw::ScopedThreadLock lock;
+				Compat::ScopedCriticalSection lock(g_cs);
 				if (bForceBackground || GetStockObject(DEFAULT_PALETTE) == hpal)
 				{
 					g_foregroundPaletteDcs.erase(hdc);
@@ -173,7 +174,7 @@ namespace
 			return LOG_RESULT(SYSPAL_ERROR);
 		}
 
-		DDraw::ScopedThreadLock lock;
+		Compat::ScopedCriticalSection lock(g_cs);
 		const UINT prevUsage = g_systemPaletteUse;
 		switch (uUsage)
 		{
@@ -210,7 +211,7 @@ namespace Gdi
 			HPALETTE defaultPalette = reinterpret_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
 			GetPaletteEntries(defaultPalette, 0, 10, g_systemPalette);
 			GetPaletteEntries(defaultPalette, 10, 10, &g_systemPalette[246]);
-			Gdi::VirtualScreen::updatePalette();
+			Gdi::VirtualScreen::updatePalette(g_systemPalette);
 
 			HOOK_FUNCTION(gdi32, GetSystemPaletteEntries, getSystemPaletteEntries);
 			HOOK_FUNCTION(gdi32, GetSystemPaletteUse, getSystemPaletteUse);

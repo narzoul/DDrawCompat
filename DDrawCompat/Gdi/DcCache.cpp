@@ -3,12 +3,13 @@
 #include <memory>
 #include <vector>
 
-#include "DDraw/ScopedThreadLock.h"
+#include "Common/ScopedCriticalSection.h"
 #include "Gdi/DcCache.h"
 #include "Gdi/VirtualScreen.h"
 
 namespace
 {
+	Compat::CriticalSection g_cs;
 	std::map<DWORD, std::vector<HDC>> g_threadIdToDcCache;
 }
 
@@ -18,7 +19,7 @@ namespace Gdi
 	{
 		void deleteDc(HDC cachedDc)
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			for (auto& threadIdToDcCache : g_threadIdToDcCache)
 			{
 				auto& dcCache = threadIdToDcCache.second;
@@ -34,7 +35,7 @@ namespace Gdi
 
 		void dllProcessDetach()
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			for (auto& threadIdToDcCache : g_threadIdToDcCache)
 			{
 				for (HDC dc : threadIdToDcCache.second)
@@ -47,7 +48,7 @@ namespace Gdi
 
 		void dllThreadDetach()
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_threadIdToDcCache.find(GetCurrentThreadId());
 			if (it == g_threadIdToDcCache.end())
 			{
@@ -64,7 +65,7 @@ namespace Gdi
 
 		HDC getDc()
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			std::vector<HDC>& dcCache = g_threadIdToDcCache[GetCurrentThreadId()];
 
 			if (dcCache.empty())
@@ -79,7 +80,7 @@ namespace Gdi
 
 		void releaseDc(HDC cachedDc)
 		{
-			DDraw::ScopedThreadLock lock;
+			Compat::ScopedCriticalSection lock(g_cs);
 			g_threadIdToDcCache[GetCurrentThreadId()].push_back(cachedDc);
 		}
 	}
