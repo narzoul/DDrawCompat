@@ -28,7 +28,7 @@ namespace
 			hAdapter, pCreateData);
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::DeviceFuncs::hookDriverVtable(
+			D3dDdi::DeviceFuncs::hookVtable(
 				g_adapterModule[hAdapter], pCreateData->hDevice, pCreateData->pDeviceFuncs);
 			D3dDdi::DeviceFuncs::onCreateDevice(hAdapter, pCreateData->hDevice);
 		}

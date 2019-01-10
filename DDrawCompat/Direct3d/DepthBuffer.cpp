@@ -93,9 +93,8 @@ namespace
 
 		Compat::Log() << "Incorrect z-buffer bit depth capabilities detected for \"" <<
 			deviceIdentifier.szDescription << "\" / " <<
-			(IID_IDirect3DTnLHalDevice == d3dGuid ? "Direct3D T&L HAL" : "Direct3D HAL") << ',';
-		Compat::Log() << "  changed supported z-buffer bit depths from " <<
-			bitDepthsToString(oldBitDepths) << " to " << bitDepthsToString(newBitDepths);
+			(IID_IDirect3DTnLHalDevice == d3dGuid ? "Direct3D T&L HAL" : "Direct3D HAL") <<
+			"; changed from " << bitDepthsToString(oldBitDepths) << " to " << bitDepthsToString(newBitDepths);
 	}
 }
 

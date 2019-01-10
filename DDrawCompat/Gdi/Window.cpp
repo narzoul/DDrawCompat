@@ -260,7 +260,7 @@ namespace Gdi
 
 		if (!g_messageWindow)
 		{
-			Compat::Log() << "Failed to create a message-only window";
+			Compat::Log() << "ERROR: Failed to create a message-only window";
 		}
 	}
 

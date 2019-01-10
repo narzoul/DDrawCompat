@@ -1,9 +1,9 @@
 #include "Common/Hook.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Region.h"
 #include "Gdi/TitleBar.h"
 #include "Gdi/VirtualScreen.h"
+#include "Win32/DisplayMode.h"
 
 namespace
 {
@@ -98,7 +98,7 @@ namespace Gdi
 		{
 			flags |= DC_ACTIVE;
 		}
-		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount > 8)
+		if (Win32::DisplayMode::getBpp() > 8)
 		{
 			flags |= DC_GRADIENT;
 		}

@@ -39,14 +39,14 @@ namespace
 			reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr);
 		if (FAILED(result))
 		{
-			LOG_ONCE("Failed to create a DirectDraw object in the repository: " << result);
+			LOG_ONCE("ERROR: Failed to create a DirectDraw object in the repository: " << Compat::hex(result));
 			return nullptr;
 		}
 
 		result = dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 		if (FAILED(result))
 		{
-			LOG_ONCE("Failed to set the cooperative level in the repository: " << result);
+			LOG_ONCE("ERROR: Failed to set the cooperative level in the repository: " << Compat::hex(result));
 			return nullptr;
 		}
 

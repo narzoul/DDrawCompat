@@ -17,7 +17,6 @@ namespace DDraw
 		static HRESULT create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface);
 
 		static HRESULT flipToGdiSurface();
-		static const DDSURFACEDESC2& getDesc();
 		static CompatPtr<IDirectDrawSurface7> getGdiSurface();
 		static CompatPtr<IDirectDrawSurface7> getBackBuffer();
 		static CompatPtr<IDirectDrawSurface7> getLastSurface();

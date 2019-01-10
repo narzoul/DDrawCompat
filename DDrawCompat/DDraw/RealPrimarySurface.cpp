@@ -368,7 +368,7 @@ namespace
 		bltToWindowViaGdi(&primaryRegion);
 
 		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, DDraw::PrimarySurface::isGdiSurface(src.get()));
-		if (DDraw::PrimarySurface::getDesc().ddpfPixelFormat.dwRGBBitCount <= 8)
+		if (Win32::DisplayMode::getBpp() <= 8)
 		{
 			HDC paletteConverterDc = nullptr;
 			g_paletteConverter->GetDC(g_paletteConverter, &paletteConverterDc);
@@ -489,7 +489,7 @@ namespace DDraw
 		HRESULT result = createPaletteConverter(dd);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create the palette converter surface: " << Compat::hex(result);
+			Compat::Log() << "ERROR: Failed to create the palette converter surface: " << Compat::hex(result);
 			return result;
 		}
 
@@ -512,7 +512,7 @@ namespace DDraw
 
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create the real primary surface: " << Compat::hex(result);
+			Compat::Log() << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
 			g_paletteConverter.release();
 			return result;
 		}

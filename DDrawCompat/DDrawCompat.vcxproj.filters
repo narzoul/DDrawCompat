@@ -327,6 +327,27 @@
     <ClInclude Include="Gdi\Palette.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\D3dDdiVtable.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\ScopedCriticalSection.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\LogWrapperVisitor.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\CompatVtableInstance.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VtableHookVisitor.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VtableUpdateVisitor.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\FuncNameVisitor.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -505,6 +526,9 @@
     </ClCompile>
     <ClCompile Include="Gdi\Palette.cpp">
       <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

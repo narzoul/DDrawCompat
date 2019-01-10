@@ -41,7 +41,7 @@ namespace
 		}
 		else
 		{
-			Compat::Log() << "Failed to create a DirectDraw clipper for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a DirectDraw clipper for hooking: " << result;
 		}
 	}
 
@@ -57,7 +57,7 @@ namespace
 		}
 		else
 		{
-			Compat::Log() << "Failed to create a DirectDraw palette for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a DirectDraw palette for hooking: " << result;
 		}
 	}
 
@@ -84,7 +84,7 @@ namespace
 		}
 		else
 		{
-			Compat::Log() << "Failed to create a DirectDraw surface for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a DirectDraw surface for hooking: " << result;
 		}
 	}
 
@@ -114,21 +114,21 @@ namespace DDraw
 		CALL_ORIG_PROC(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
 		if (!dd)
 		{
-			Compat::Log() << "Failed to create a DirectDraw object for hooking";
+			Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking";
 			return;
 		}
 
 		HRESULT result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to set the cooperative level for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
 			return;
 		}
 
 		auto dd7(Repository::getDirectDraw());
 		if (!dd7)
 		{
-			Compat::Log() << "Failed to create a DirectDraw7 object for hooking";
+			Compat::Log() << "ERROR: Failed to create a DirectDraw7 object for hooking";
 			return;
 		}
 

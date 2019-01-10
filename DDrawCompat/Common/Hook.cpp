@@ -109,11 +109,11 @@ namespace
 		{
 			if (funcName)
 			{
-				Compat::LogDebug() << "Failed to hook a function: " << funcName;
+				Compat::LogDebug() << "ERROR: Failed to hook a function: " << funcName;
 			}
 			else
 			{
-				Compat::LogDebug() << "Failed to hook a function: " << origFuncPtr;
+				Compat::LogDebug() << "ERROR: Failed to hook a function: " << origFuncPtr;
 			}
 			return;
 		}
@@ -303,7 +303,7 @@ namespace Compat
 		FARPROC procAddr = getProcAddress(module, funcName);
 		if (!procAddr)
 		{
-			Compat::LogDebug() << "Failed to load the address of a function: " << funcName;
+			Compat::LogDebug() << "ERROR: Failed to load the address of a function: " << funcName;
 			return;
 		}
 

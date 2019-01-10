@@ -38,7 +38,7 @@ namespace
 			reinterpret_cast<void**>(&d3d.getRef()));
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a Direct3D object for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a Direct3D object for hooking: " << Compat::hex(result);
 		}
 		return d3d;
 	}
@@ -62,7 +62,7 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &renderTarget.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a render target for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a render target for hooking: " << Compat::hex(result);
 		}
 		return renderTarget;
 	}
@@ -99,7 +99,7 @@ namespace
 			&d3d, IID_IDirect3DRGBDevice, &renderTarget, &d3dDevice.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a Direct3D device for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a Direct3D device for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -121,7 +121,7 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &texture.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a texture for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a texture for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -149,7 +149,7 @@ namespace
 		HRESULT result = d3d->CreateViewport(&d3d, &viewport.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a Direct3D viewport for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a Direct3D viewport for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -172,7 +172,7 @@ namespace
 		HRESULT result = createVertexBuffer(desc, vertexBuffer.getRef());
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create a vertex buffer for hooking: " << result;
+			Compat::Log() << "ERROR: Failed to create a vertex buffer for hooking: " << Compat::hex(result);
 		}
 
 		hookVtable<TDirect3dVertexBuffer>(vertexBuffer);
@@ -194,7 +194,7 @@ namespace Direct3d
 		CALL_ORIG_PROC(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
 		if (!dd || !dd7 || FAILED(dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
 		{
-			Compat::Log() << "Failed to hook Direct3d interfaces";
+			Compat::Log() << "ERROR: Failed to hook Direct3d interfaces";
 			return;
 		}
 

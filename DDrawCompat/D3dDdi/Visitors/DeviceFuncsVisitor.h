@@ -175,5 +175,11 @@ struct VtableForEach<D3DDDI_DEVICEFUNCS>
 		{
 			DD_VISIT(pfnTrimResidencySet);
 		}
+
+		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_2)
+		{
+			DD_VISIT(pfnAcquireResource);
+			DD_VISIT(pfnReleaseResource);
+		}
 	}
 };

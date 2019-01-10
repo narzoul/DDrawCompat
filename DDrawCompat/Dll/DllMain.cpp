@@ -61,7 +61,7 @@ namespace
 		module = LoadLibrary(systemDllPath.c_str());
 		if (!module)
 		{
-			Compat::Log() << "Failed to load system " << dllName << " from " << systemDllPath;
+			Compat::Log() << "ERROR: Failed to load system " << dllName << " from " << systemDllPath;
 			return false;
 		}
 

@@ -10,7 +10,6 @@
 
 namespace
 {
-	DDSURFACEDESC2 g_primarySurfaceDesc = {};
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
 	HANDLE g_gdiResourceHandle = nullptr;
 	DWORD g_origCaps = 0;
@@ -38,7 +37,6 @@ namespace DDraw
 		g_origCaps = 0;
 		s_palette = nullptr;
 		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
-		ZeroMemory(&g_primarySurfaceDesc, sizeof(g_primarySurfaceDesc));
 
 		DDraw::RealPrimarySurface::release();
 	}
@@ -65,7 +63,7 @@ namespace DDraw
 		result = Surface::create(dd, desc, surface);
 		if (FAILED(result))
 		{
-			Compat::Log() << "Failed to create the compat primary surface!";
+			Compat::Log() << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
 			RealPrimarySurface::release();
 			return result;
 		}
@@ -108,11 +106,6 @@ namespace DDraw
 			return DDERR_NOTFOUND;
 		}
 		return g_primarySurface.get()->lpVtbl->Flip(g_primarySurface, gdiSurface, DDFLIP_WAIT);
-	}
-
-	const DDSURFACEDESC2& PrimarySurface::getDesc()
-	{
-		return g_primarySurfaceDesc;
 	}
 
 	CompatPtr<IDirectDrawSurface7> PrimarySurface::getGdiSurface()
@@ -192,10 +185,6 @@ namespace DDraw
 
 	void PrimarySurface::onRestore()
 	{
-		g_primarySurfaceDesc = {};
-		g_primarySurfaceDesc.dwSize = sizeof(g_primarySurfaceDesc);
-		g_primarySurface->GetSurfaceDesc(g_primarySurface, &g_primarySurfaceDesc);
-
 		g_gdiResourceHandle = getResourceHandle(*g_primarySurface);
 		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
 	}

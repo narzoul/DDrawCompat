@@ -59,7 +59,7 @@ namespace
 				hookedUmdFileNames.insert(g_hookedUmdFileName);
 			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			D3dDdi::AdapterFuncs::hookDriverVtable(g_hookedUmdModule, pOpenData->hAdapter, pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::hookVtable(g_hookedUmdModule, pOpenData->hAdapter, pOpenData->pAdapterFuncs);
 			D3dDdi::AdapterFuncs::onOpenAdapter(g_hookedUmdModule, pOpenData->hAdapter);
 		}
 		return LOG_RESULT(result);
