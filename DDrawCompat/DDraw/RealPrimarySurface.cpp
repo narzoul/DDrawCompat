@@ -318,7 +318,7 @@ namespace
 		const bool isFlippable = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP);
 		if (!isFlippable)
 		{
-			CALL_ORIG_PROC(DirectDrawCreateClipper, 0, &g_clipper.getRef(), nullptr);
+			CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
 			g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
 		}
 

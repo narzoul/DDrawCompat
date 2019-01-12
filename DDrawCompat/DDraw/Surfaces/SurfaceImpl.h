@@ -55,13 +55,5 @@ namespace DDraw
 
 	protected:
 		static const Vtable<TSurface>& s_origVtable;
-
-	private:
-		bool bltRetry(TSurface*& dstSurface, RECT*& dstRect,
-			TSurface*& srcSurface, RECT*& srcRect, bool isTransparentBlt,
-			const std::function<HRESULT()>& blt);
-		bool prepareBltRetrySurface(TSurface*& surface, RECT*& rect,
-			const TSurfaceDesc& desc, bool isTransparentBlt, bool isCopyNeeded);
-		void replaceWithVidMemSurface(TSurface*& surface, RECT*& rect, const TSurfaceDesc& desc);
 	};
 }

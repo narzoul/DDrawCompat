@@ -1,23 +1,17 @@
-#include <functional>
-
 #include <d3d.h>
 
-#include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "Common/Log.h"
-#include "DDraw/Repository.h"
 #include "Direct3d/Direct3d.h"
 #include "Direct3d/Direct3dDevice.h"
 #include "Direct3d/Direct3dTexture.h"
 #include "Direct3d/Direct3dVertexBuffer.h"
 #include "Direct3d/Direct3dViewport.h"
 #include "Direct3d/Hooks.h"
-#include "Dll/Procs.h"
 
 namespace
 {
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
-	void hookDirect3dDevice7(CompatRef<IDirect3D7> d3d, CompatRef<IDirectDrawSurface7> renderTarget);
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd);
 	void hookDirect3dVertexBuffer(CompatRef<IDirect3D3> d3d);
 	void hookDirect3dVertexBuffer7(CompatRef<IDirect3D7> d3d);
@@ -56,7 +50,7 @@ namespace
 		desc.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
 		desc.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
 		desc.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE | DDSCAPS_SYSTEMMEMORY;
+		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE;
 
 		CompatPtr<IDirectDrawSurface7> renderTarget;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &renderTarget.getRef(), nullptr);
@@ -187,17 +181,8 @@ namespace
 
 namespace Direct3d
 {
-	void installHooks()
+	void installHooks(CompatPtr<IDirectDraw> dd, CompatPtr<IDirectDraw7> dd7)
 	{
-		auto dd7(DDraw::Repository::getDirectDraw());
-		CompatPtr<IDirectDraw> dd;
-		CALL_ORIG_PROC(DirectDrawCreate, nullptr, &dd.getRef(), nullptr);
-		if (!dd || !dd7 || FAILED(dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-		{
-			Compat::Log() << "ERROR: Failed to hook Direct3d interfaces";
-			return;
-		}
-
 		CompatPtr<IDirectDrawSurface7> renderTarget7(createRenderTarget(*dd7));
 		if (renderTarget7)
 		{

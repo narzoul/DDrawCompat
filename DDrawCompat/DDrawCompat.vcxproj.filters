@@ -123,9 +123,6 @@
     <ClInclude Include="DDraw\Hooks.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
-    <ClInclude Include="DDraw\Repository.h">
-      <Filter>Header Files\DDraw</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\ScopedThreadLock.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
@@ -390,9 +387,6 @@
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\Hooks.cpp">
-      <Filter>Source Files\DDraw</Filter>
-    </ClCompile>
-    <ClCompile Include="DDraw\Repository.cpp">
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\DirectDraw.cpp">

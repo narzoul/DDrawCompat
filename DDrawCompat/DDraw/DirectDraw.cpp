@@ -2,7 +2,6 @@
 #include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
-#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Win32/DisplayMode.h"
 

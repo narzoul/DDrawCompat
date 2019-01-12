@@ -13,28 +13,6 @@ DEFINE_GUID(IID_CompatSurfacePrivateData,
 
 namespace
 {
-	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
-	HRESULT createSurface(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
-	{
-		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
-
-		if ((desc.ddsCaps.dwCaps & DDSCAPS_OFFSCREENPLAIN) &&
-			!(desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_3DDEVICE)))
-		{
-			TSurfaceDesc sysMemDesc = desc;
-			sysMemDesc.ddsCaps.dwCaps &=
-				~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
-			sysMemDesc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
-
-			if (SUCCEEDED(dd->CreateSurface(&dd, &sysMemDesc, &surface, nullptr)))
-			{
-				return DD_OK;
-			}
-		}
-
-		return dd->CreateSurface(&dd, &desc, &surface, nullptr);
-	}
-
 	void fixSurfaceDesc(DWORD& flags, DWORD& caps, DDPIXELFORMAT& pf)
 	{
 		if ((flags & DDSD_WIDTH) &&
@@ -45,12 +23,6 @@ namespace
 			{
 				flags |= DDSD_PIXELFORMAT;
 				pf = DDraw::getRgbPixelFormat(Win32::DisplayMode::getBpp());
-			}
-
-			if ((pf.dwFlags & DDPF_RGB) && pf.dwRGBBitCount <= 8)
-			{
-				caps &= ~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
-				caps |= DDSCAPS_SYSTEMMEMORY;
 			}
 
 			if (!(caps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
@@ -157,7 +129,9 @@ namespace DDraw
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT Surface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
-		HRESULT result = createSurface(dd, desc, surface);
+		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
+		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
+
 		if (SUCCEEDED(result))
 		{
 			CompatPtr<IDirectDrawSurface7> surface7(

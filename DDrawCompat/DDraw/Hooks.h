@@ -1,7 +1,11 @@
 #pragma once
 
+#include <ddraw.h>
+
+#include "Common/CompatPtr.h"
+
 namespace DDraw
 {
-	void installHooks();
+	void installHooks(CompatPtr<IDirectDraw7> dd7);
 	void uninstallHooks();
 }

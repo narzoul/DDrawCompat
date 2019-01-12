@@ -47,7 +47,7 @@ namespace
 		}
 
 		CompatPtr<IDirectDrawClipper> gdiClipper;
-		CALL_ORIG_PROC(DirectDrawCreateClipper, 0, &gdiClipper.getRef(), nullptr);
+		CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &gdiClipper.getRef(), nullptr);
 		if (!gdiClipper)
 		{
 			return;
@@ -68,13 +68,6 @@ namespace
 	{
 		caps &= ~DDSCAPS_OFFSCREENPLAIN;
 		caps |= DDSCAPS_PRIMARYSURFACE | DDSCAPS_VISIBLE;
-
-		if ((caps & DDSCAPS_SYSTEMMEMORY) &&
-			!(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY))
-		{
-			caps &= ~DDSCAPS_SYSTEMMEMORY;
-			caps |= DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
-		}
 	}
 }
 

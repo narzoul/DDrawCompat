@@ -49,7 +49,4 @@ namespace Dll
 
 #undef  ADD_FARPROC_MEMBER
 
-#define CALL_ORIG_PROC(procName, ...) \
-	(Dll::g_origProcs.procName ? \
-		reinterpret_cast<decltype(procName)*>(Dll::g_origProcs.procName)(__VA_ARGS__) : \
-		E_FAIL)
+#define CALL_ORIG_PROC(procName) reinterpret_cast<decltype(procName)*>(Dll::g_origProcs.procName)

@@ -1,8 +1,6 @@
 #include <set>
 
-#include "Common/CompatRef.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "DDraw/Repository.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
@@ -19,16 +17,6 @@ namespace
 		DWORD unknown1;
 		DWORD unknown2;
 	};
-
-	template <typename TSurface>
-	void copyColorKey(CompatRef<TSurface> dst, CompatRef<TSurface> src, DWORD ckFlag)
-	{
-		DDCOLORKEY ck = {};
-		if (SUCCEEDED(src->GetColorKey(&src, ckFlag, &ck)))
-		{
-			dst->SetColorKey(&dst, ckFlag, &ck);
-		}
-	}
 
 	template <typename TSurface>
 	bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
@@ -53,105 +41,6 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	bool SurfaceImpl<TSurface>::bltRetry(TSurface*& dstSurface, RECT*& dstRect,
-		TSurface*& srcSurface, RECT*& srcRect, bool isTransparentBlt,
-		const std::function<HRESULT()>& blt)
-	{
-		if (!dstSurface || !srcSurface)
-		{
-			return false;
-		}
-
-		TSurfaceDesc dstDesc = {};
-		dstDesc.dwSize = sizeof(dstDesc);
-		s_origVtable.GetSurfaceDesc(dstSurface, &dstDesc);
-
-		TSurfaceDesc srcDesc = {};
-		srcDesc.dwSize = sizeof(srcDesc);
-		s_origVtable.GetSurfaceDesc(srcSurface, &srcDesc);
-
-		if ((dstDesc.ddpfPixelFormat.dwFlags & DDPF_FOURCC) &&
-			(dstDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) &&
-			(srcDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
-		{
-			const bool isCopyNeeded = true;
-			return prepareBltRetrySurface(srcSurface, srcRect, srcDesc, isTransparentBlt, isCopyNeeded) &&
-				SUCCEEDED(blt());
-		}
-		else if ((srcDesc.ddpfPixelFormat.dwFlags & DDPF_FOURCC) &&
-			(srcDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY) &&
-			(dstDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
-		{
-			TSurface* origDstSurface = dstSurface;
-			RECT* origDstRect = dstRect;
-			const bool isCopyNeeded = isTransparentBlt;
-			return prepareBltRetrySurface(dstSurface, dstRect, dstDesc, isTransparentBlt, isCopyNeeded) &&
-				SUCCEEDED(blt()) &&
-				SUCCEEDED(s_origVtable.Blt(
-					origDstSurface, origDstRect, dstSurface, dstRect, DDBLT_WAIT, nullptr));
-		}
-
-		return false;
-	}
-
-	template <typename TSurface>
-	bool SurfaceImpl<TSurface>::prepareBltRetrySurface(TSurface*& surface, RECT*& rect,
-		const TSurfaceDesc& desc, bool isTransparentBlt, bool isCopyNeeded)
-	{
-		TSurface* replSurface = surface;
-		RECT* replRect = rect;
-		replaceWithVidMemSurface(replSurface, replRect, desc);
-		if (replSurface == surface)
-		{
-			return false;
-		}
-
-		if (isCopyNeeded && FAILED(s_origVtable.Blt(
-			replSurface, replRect, surface, rect, DDBLT_WAIT, nullptr)))
-		{
-			return false;
-		}
-
-		if (isTransparentBlt)
-		{
-			copyColorKey<TSurface>(*replSurface, *surface, DDCKEY_SRCBLT);
-			copyColorKey<TSurface>(*replSurface, *surface, DDCKEY_DESTBLT);
-		}
-		surface = replSurface;
-		rect = replRect;
-		return true;
-	}
-
-	template <typename TSurface>
-	void SurfaceImpl<TSurface>::replaceWithVidMemSurface(TSurface*& surface, RECT*& rect,
-		const TSurfaceDesc& desc)
-	{
-		static RECT replRect = {};
-		replRect = rect ? RECT{ 0, 0, rect->right - rect->left, rect->bottom - rect->top } :
-			RECT{ 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
-			
-		DDSURFACEDESC2 replDesc = {};
-		replDesc.dwSize = sizeof(replDesc);
-		replDesc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
-		replDesc.dwWidth = replRect.right;
-		replDesc.dwHeight = replRect.bottom;
-		replDesc.ddpfPixelFormat = desc.ddpfPixelFormat;
-		replDesc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
-
-		CompatPtr<IUnknown> ddUnk;
-		GetDDInterface(surface, reinterpret_cast<void**>(&ddUnk.getRef()));
-		CompatPtr<IDirectDraw7> dd;
-		ddUnk->QueryInterface(ddUnk, IID_IDirectDraw7, reinterpret_cast<void**>(&dd.getRef()));
-
-		DDraw::Repository::ScopedSurface replacementSurface(*dd, replDesc);
-		if (replacementSurface.surface)
-		{
-			surface = CompatPtr<TSurface>::from(replacementSurface.surface.get());
-			rect = &replRect;
-		}
-	}
-
-	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
@@ -163,19 +52,7 @@ namespace DDraw
 
 		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
 		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
-		HRESULT result = s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
-		if (DDERR_UNSUPPORTED == result || DDERR_GENERIC == result)
-		{
-			const bool isTransparentBlt = 0 !=
-				(dwFlags & (DDBLT_KEYDEST | DDBLT_KEYSRC | DDBLT_KEYDESTOVERRIDE | DDBLT_KEYSRCOVERRIDE));
-			if (bltRetry(This, lpDestRect, lpDDSrcSurface, lpSrcRect, isTransparentBlt,
-				[&]() { return s_origVtable.Blt(
-					This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx); }))
-			{
-				return DD_OK;
-			}
-		}
-		return result;
+		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 
 	template <typename TSurface>
@@ -189,35 +66,7 @@ namespace DDraw
 
 		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
 		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
-		HRESULT result = s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
-		if (DDERR_UNSUPPORTED == result || DDERR_GENERIC == result)
-		{
-			RECT dstRect = { static_cast<LONG>(dwX), static_cast<LONG>(dwY) };
-			if (lpSrcRect)
-			{
-				dstRect.right = dwX + lpSrcRect->right - lpSrcRect->left;
-				dstRect.bottom = dwY + lpSrcRect->bottom - lpSrcRect->top;
-			}
-			else
-			{
-				TSurfaceDesc desc = {};
-				desc.dwSize = sizeof(desc);
-				s_origVtable.GetSurfaceDesc(lpDDSrcSurface, &desc);
-
-				dstRect.right = dwX + desc.dwWidth;
-				dstRect.bottom = dwY + desc.dwHeight;
-			}
-
-			RECT* dstRectPtr = &dstRect;
-			const bool isTransparentBlt = 0 != (dwTrans & (DDBLTFAST_DESTCOLORKEY | DDBLTFAST_SRCCOLORKEY));
-			if (bltRetry(This, dstRectPtr, lpDDSrcSurface, lpSrcRect, isTransparentBlt,
-				[&]() { return s_origVtable.BltFast(
-					This, dstRectPtr->left, dstRectPtr->top, lpDDSrcSurface, lpSrcRect, dwTrans); }))
-			{
-				return DD_OK;
-			}
-		}
-		return result;
+		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	}
 
 	template <typename TSurface>

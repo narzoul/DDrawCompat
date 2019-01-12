@@ -43,10 +43,32 @@ namespace
 			Compat::Log() << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks(g_origDDrawModule);
 			Gdi::VirtualScreen::init();
+
+			CompatPtr<IDirectDraw> dd;
+			CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
+			CompatPtr<IDirectDraw> dd7;
+			CALL_ORIG_PROC(DirectDrawCreateEx)(nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
+			if (!dd || !dd7)
+			{
+				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking";
+				return;
+			}
+
+			HRESULT result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
+			if (SUCCEEDED(result))
+			{
+				dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL);
+			}
+			if (FAILED(result))
+			{
+				Compat::Log() << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
+				return;
+			}
+
 			Compat::Log() << "Installing DirectDraw hooks";
-			DDraw::installHooks();
+			DDraw::installHooks(dd7);
 			Compat::Log() << "Installing Direct3D hooks";
-			Direct3d::installHooks();
+			Direct3d::installHooks(dd, dd7);
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::Log() << "Finished installing hooks";
@@ -133,7 +155,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Time::init();
 
 		const DWORD disableMaxWindowedMode = 12;
-		CALL_ORIG_PROC(SetAppCompatData, disableMaxWindowedMode, 0);
+		CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
 
 		Compat::Log() << "DDrawCompat loaded successfully";
 	}
@@ -169,7 +191,7 @@ extern "C" HRESULT WINAPI DirectDrawCreate(
 	LOG_FUNC(__func__, lpGUID, lplpDD, pUnkOuter);
 	installHooks();
 	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreate, lpGUID, lplpDD, pUnkOuter));
+	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreate)(lpGUID, lplpDD, pUnkOuter));
 }
 
 extern "C" HRESULT WINAPI DirectDrawCreateEx(
@@ -181,7 +203,7 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(
 	LOG_FUNC(__func__, lpGUID, lplpDD, iid, pUnkOuter);
 	installHooks();
 	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreateEx, lpGUID, lplpDD, iid, pUnkOuter));
+	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreateEx)(lpGUID, lplpDD, iid, pUnkOuter));
 }
 
 extern "C" HRESULT WINAPI DirectInputCreateA(
@@ -191,7 +213,7 @@ extern "C" HRESULT WINAPI DirectInputCreateA(
 	LPUNKNOWN punkOuter)
 {
 	LOG_FUNC(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectInputCreateA, hinst, dwVersion, lplpDirectInput, punkOuter));
+	return LOG_RESULT(CALL_ORIG_PROC(DirectInputCreateA)(hinst, dwVersion, lplpDirectInput, punkOuter));
 }
 
 extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
@@ -199,5 +221,5 @@ extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID
 	LOG_FUNC(__func__, rclsid, riid, ppv);
 	LOG_ONCE("COM instantiation of DirectDraw detected");
 	installHooks();
-	return LOG_RESULT(CALL_ORIG_PROC(DllGetClassObject, rclsid, riid, ppv));
+	return LOG_RESULT(CALL_ORIG_PROC(DllGetClassObject)(rclsid, riid, ppv));
 }

@@ -1,6 +1,10 @@
 #pragma once
 
+#include <ddraw.h>
+
+#include "Common/CompatPtr.h"
+
 namespace Direct3d
 {
-	void installHooks();
+	void installHooks(CompatPtr<IDirectDraw> dd, CompatPtr<IDirectDraw7> dd7);
 }
