@@ -41,7 +41,7 @@ namespace
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks(g_origDDrawModule);
 			Compat::Log() << "Installing display mode hooks";
-			Win32::DisplayMode::installHooks(g_origDDrawModule);
+			Win32::DisplayMode::installHooks();
 			Gdi::VirtualScreen::init();
 
 			CompatPtr<IDirectDraw> dd;

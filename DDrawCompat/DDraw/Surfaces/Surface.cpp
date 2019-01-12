@@ -13,18 +13,12 @@ DEFINE_GUID(IID_CompatSurfacePrivateData,
 
 namespace
 {
-	void fixSurfaceDesc(DWORD& flags, DWORD& caps, DDPIXELFORMAT& pf)
+	void fixSurfaceDesc(DWORD& flags, DWORD& caps)
 	{
 		if ((flags & DDSD_WIDTH) &&
 			(flags & DDSD_HEIGHT) &&
 			!(caps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER)))
 		{
-			if (!(flags & DDSD_PIXELFORMAT))
-			{
-				flags |= DDSD_PIXELFORMAT;
-				pf = DDraw::getRgbPixelFormat(Win32::DisplayMode::getBpp());
-			}
-
 			if (!(caps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
 				DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER)))
 			{
@@ -129,7 +123,7 @@ namespace DDraw
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT Surface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
-		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps, desc.ddpfPixelFormat);
+		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps);
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
 
 		if (SUCCEEDED(result))

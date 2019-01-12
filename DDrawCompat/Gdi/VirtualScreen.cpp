@@ -184,7 +184,8 @@ namespace Gdi
 
 			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
 			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
-			if (currentDisplaySettingsUniqueness == prevDisplaySettingsUniqueness)
+			const auto bpp = Win32::DisplayMode::getBpp();
+			if (currentDisplaySettingsUniqueness == prevDisplaySettingsUniqueness && bpp == g_bpp)
 			{
 				return LOG_RESULT(false);
 			}
@@ -195,7 +196,7 @@ namespace Gdi
 			EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
 			GetRgnBox(g_region, &g_bounds);
 
-			g_bpp = Win32::DisplayMode::getBpp();
+			g_bpp = bpp;
 			g_width = g_bounds.right - g_bounds.left;
 			g_height = g_bounds.bottom - g_bounds.top;
 			g_pitch = (g_width * g_bpp / 8 + 3) & ~3;

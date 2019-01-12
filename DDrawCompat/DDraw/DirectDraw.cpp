@@ -5,26 +5,6 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Win32/DisplayMode.h"
 
-namespace
-{
-	template <typename TDirectDraw>
-	HRESULT setDisplayMode(TDirectDraw* This, DWORD width, DWORD height, DWORD bpp)
-	{
-		return DDraw::DirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(This, width, height, bpp);
-	}
-
-	template <typename TDirectDraw>
-	HRESULT setDisplayMode(TDirectDraw* This, DWORD width, DWORD height, DWORD bpp,
-		DWORD refreshRate, DWORD flags)
-	{
-		Win32::DisplayMode::setDDrawBpp(bpp);
-		HRESULT result = DDraw::DirectDraw<TDirectDraw>::s_origVtable.SetDisplayMode(
-			This, width, height, 32, refreshRate, flags);
-		Win32::DisplayMode::setDDrawBpp(0);
-		return result;
-	}
-}
-
 namespace DDraw
 {
 	template <typename TDirectDraw>
@@ -42,7 +22,7 @@ namespace DDraw
 	{
 		DDSURFACEDESC2 dm = {};
 		dm.dwSize = sizeof(dm);
-		dd.get().lpVtbl->GetDisplayMode(&dd, &dm);
+		dd->GetDisplayMode(&dd, &dm);
 		return dm;
 	}
 
@@ -97,10 +77,8 @@ namespace DDraw
 	{
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
-		vtable.GetDisplayMode = &GetDisplayMode;
 		vtable.GetGDISurface = &GetGDISurface;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
-		vtable.SetDisplayMode = &SetDisplayMode;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
 	}
 
@@ -130,18 +108,6 @@ namespace DDraw
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::FlipToGDISurface(TDirectDraw* /*This*/)
 	{
 		return PrimarySurface::flipToGdiSurface();
-	}
-
-	template <typename TDirectDraw>
-	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::GetDisplayMode(
-		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc)
-	{
-		HRESULT result = s_origVtable.GetDisplayMode(This, lpDDSurfaceDesc);
-		if (SUCCEEDED(result) && lpDDSurfaceDesc)
-		{
-			lpDDSurfaceDesc->ddpfPixelFormat = getRgbPixelFormat(Win32::DisplayMode::getBpp());
-		}
-		return result;
 	}
 
 	template <typename TDirectDraw>
@@ -180,18 +146,6 @@ namespace DDraw
 			ActivateAppHandler::setCooperativeLevel(hWnd, dwFlags);
 		}
 		return result;
-	}
-
-	template <typename TDirectDraw>
-	template <typename... Params>
-	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::SetDisplayMode(
-		TDirectDraw* This,
-		DWORD dwWidth,
-		DWORD dwHeight,
-		DWORD dwBPP,
-		Params... params)
-	{
-		return setDisplayMode(This, dwWidth, dwHeight, dwBPP, params...);
 	}
 
 	template <typename TDirectDraw>

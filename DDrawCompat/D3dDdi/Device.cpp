@@ -187,6 +187,11 @@ namespace D3dDdi
 			}
 		}
 
+		if (data.Flags.Primary)
+		{
+			data.Format = D3DDDIFMT_X8R8G8B8;
+		}
+
 		HRESULT result = origCreateResource(m_device, &data);
 		if (SUCCEEDED(result) && data.Flags.RenderTarget && !data.Flags.Primary && isVidMemPool(data.Pool))
 		{

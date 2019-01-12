@@ -6,6 +6,7 @@
 #include "DDraw/DirectDraw.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
+#include "Gdi/VirtualScreen.h"
 #include "Win32/DisplayMode.h"
 
 BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; };
@@ -32,7 +33,6 @@ namespace
 	DWORD g_origBpp = 0;
 	DWORD g_currentBpp = 0;
 	DWORD g_lastBpp = 0;
-	DWORD g_ddrawBpp = 0;
 
 	BOOL WINAPI enumDisplaySettingsExA(
 		LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags);
@@ -94,6 +94,8 @@ namespace
 				SetEvent(dwmDxFullScreenTransitionEvent);
 				CloseHandle(dwmDxFullScreenTransitionEvent);
 			}
+
+			Gdi::VirtualScreen::update();
 		}
 
 		return result;
@@ -117,85 +119,6 @@ namespace
 			CALL_ORIG_FUNC(ChangeDisplaySettingsExW),
 			CALL_ORIG_FUNC(EnumDisplaySettingsExW),
 			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
-	}
-
-	template <typename CStr, typename DevMode, typename ChangeDisplaySettingsExFunc>
-	LONG ddrawChangeDisplaySettingsEx(
-		ChangeDisplaySettingsExFunc changeDisplaySettingsEx,
-		CStr lpszDeviceName, DevMode* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
-	{
-		if (lpDevMode && 0 != lpDevMode->dmBitsPerPel)
-		{
-			lpDevMode->dmBitsPerPel = (0 != g_ddrawBpp) ? g_ddrawBpp : g_lastBpp;
-		}
-		return changeDisplaySettingsEx(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-	}
-
-	LONG WINAPI ddrawChangeDisplaySettingsA(
-		DEVMODEA* lpDevMode, DWORD dwflags)
-	{
-		return ddrawChangeDisplaySettingsEx(&changeDisplaySettingsExA,
-			nullptr, lpDevMode, nullptr, dwflags, nullptr);
-	}
-
-	LONG WINAPI ddrawChangeDisplaySettingsW(
-		DEVMODEW* lpDevMode, DWORD dwflags)
-	{
-		return ddrawChangeDisplaySettingsEx(&changeDisplaySettingsExW,
-			nullptr, lpDevMode, nullptr, dwflags, nullptr);
-	}
-
-	LONG WINAPI ddrawChangeDisplaySettingsExA(
-		LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
-	{
-		return ddrawChangeDisplaySettingsEx(&changeDisplaySettingsExA,
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-	}
-
-	LONG WINAPI ddrawChangeDisplaySettingsExW(
-		LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
-	{
-		return ddrawChangeDisplaySettingsEx(&changeDisplaySettingsExW,
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-	}
-
-	template <typename CStr, typename DevMode, typename EnumDisplaySettingsExFunc>
-	BOOL WINAPI ddrawEnumDisplaySettingsEx(
-		EnumDisplaySettingsExFunc origEnumDisplaySettingsEx,
-		EnumDisplaySettingsExFunc enumDisplaySettingsEx,
-		CStr lpszDeviceName, DWORD iModeNum, DevMode* lpDevMode, DWORD dwFlags)
-	{
-		if (ENUM_CURRENT_SETTINGS == iModeNum)
-		{
-			return origEnumDisplaySettingsEx(lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		}
-		return enumDisplaySettingsEx(lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-	}
-
-	BOOL WINAPI ddrawEnumDisplaySettingsA(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode)
-	{
-		return ddrawEnumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExA), &enumDisplaySettingsExA,
-			lpszDeviceName, iModeNum, lpDevMode, 0);
-	}
-
-	BOOL WINAPI ddrawEnumDisplaySettingsW(LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode)
-	{
-		return ddrawEnumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExW), &enumDisplaySettingsExW,
-			lpszDeviceName, iModeNum, lpDevMode, 0);
-	}
-
-	BOOL WINAPI ddrawEnumDisplaySettingsExA(
-		LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags)
-	{
-		return ddrawEnumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExA), &enumDisplaySettingsExA,
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-	}
-
-	BOOL WINAPI ddrawEnumDisplaySettingsExW(
-		LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags)
-	{
-		return ddrawEnumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExW), &enumDisplaySettingsExW,
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags);
 	}
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut()
@@ -304,17 +227,12 @@ namespace Win32
 			return ddQueryDisplaySettingsUniqueness();
 		}
 
-		void setDDrawBpp(DWORD bpp)
-		{
-			g_ddrawBpp = bpp;
-		}
-
 		void disableDwm8And16BitMitigation()
 		{
 			HOOK_FUNCTION(apphelp, DWM8And16Bit_IsShimApplied_CallOut, dwm8And16BitIsShimAppliedCallOut);
 		}
 
-		void installHooks(HMODULE origDDrawModule)
+		void installHooks()
 		{
 			DEVMODEA devMode = {};
 			devMode.dmSize = sizeof(devMode);
@@ -334,23 +252,6 @@ namespace Win32
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExA, enumDisplaySettingsExA);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExW, enumDisplaySettingsExW);
 			HOOK_FUNCTION(gdi32, GetDeviceCaps, getDeviceCaps);
-
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "ChangeDisplaySettingsA",
-				&ddrawChangeDisplaySettingsA);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "ChangeDisplaySettingsW",
-				&ddrawChangeDisplaySettingsW);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "ChangeDisplaySettingsExA",
-				&ddrawChangeDisplaySettingsExA);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "ChangeDisplaySettingsExW",
-				&ddrawChangeDisplaySettingsExW);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "EnumDisplaySettingsA",
-				&ddrawEnumDisplaySettingsA);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "EnumDisplaySettingsW",
-				&ddrawEnumDisplaySettingsW);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "EnumDisplaySettingsExA",
-				&ddrawEnumDisplaySettingsExA);
-			Compat::hookIatFunction(origDDrawModule, "user32.dll", "EnumDisplaySettingsExW",
-				&ddrawEnumDisplaySettingsExW);
 		}
 	}
 }
