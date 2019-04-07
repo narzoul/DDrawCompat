@@ -1,7 +1,7 @@
 #include <d3d.h>
 #include <../km/d3dkmthk.h>
 
-#include "D3dDdi/AdapterFuncs.h"
+#include "D3dDdi/Adapter.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/KernelModeThunks.h"
@@ -99,8 +99,8 @@ namespace D3dDdi
 	}
 
 	Device::Device(HANDLE adapter, HANDLE device)
-		: m_origVtable(&DeviceFuncs::s_origVtables.at(device))
-		, m_adapter(adapter)
+		: m_origVtable(DeviceFuncs::s_origVtables.at(device))
+		, m_adapter(Adapter::get(adapter))
 		, m_device(device)
 		, m_sharedPrimary(nullptr)
 	{
@@ -123,19 +123,19 @@ namespace D3dDdi
 			return it->second.bltTo(data);
 		}
 
-		return m_origVtable->pfnBlt(m_device, &data);
+		return m_origVtable.pfnBlt(m_device, &data);
 	}
 
 	HRESULT Device::clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnClear(m_device, &data, numRect, rect);
+		return m_origVtable.pfnClear(m_device, &data, numRect, rect);
 	}
 
 	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL& data)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE, data.hResource, data.SubResourceIndex);
-		return m_origVtable->pfnColorFill(m_device, &data);
+		return m_origVtable.pfnColorFill(m_device, &data);
 	}
 
 	template <typename CreateResourceArg, typename CreateResourceFunc>
@@ -161,8 +161,7 @@ namespace D3dDdi
 
 		if (SUCCEEDED(result))
 		{
-			m_oversizedResources.emplace(data.hResource,
-				OversizedResource(*m_origVtable, m_adapter, m_device, data.Format, origSurfList[0]));
+			m_oversizedResources.emplace(data.hResource, OversizedResource(*this, data.Format, origSurfList[0]));
 		}
 
 		return result;
@@ -175,10 +174,9 @@ namespace D3dDdi
 		if (D3DDDIPOOL_SYSTEMMEM == data.Pool &&
 			(isOffScreenPlain || data.Flags.Texture) &&
 			OversizedResource::isSupportedFormat(data.Format) &&
-			1 == data.SurfCount &&
-			m_adapter)
+			1 == data.SurfCount)
 		{
-			const auto& caps = AdapterFuncs::getD3dExtendedCaps(m_adapter);
+			const auto& caps = m_adapter.getD3dExtendedCaps();
 			const auto& surfaceInfo = data.pSurfList[0];
 			if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
 				0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
@@ -196,7 +194,7 @@ namespace D3dDdi
 		if (SUCCEEDED(result) && data.Flags.RenderTarget && !data.Flags.Primary && isVidMemPool(data.Pool))
 		{
 			m_renderTargetResources.emplace(data.hResource,
-				RenderTargetResource(*m_origVtable, m_device, data.hResource, data.Format, data.SurfCount));
+				RenderTargetResource(*this, data.hResource, data.Format, data.SurfCount));
 		}
 
 		return result;
@@ -204,12 +202,12 @@ namespace D3dDdi
 
 	HRESULT Device::createResource(D3DDDIARG_CREATERESOURCE& data)
 	{
-		return createResourceImpl(data, m_origVtable->pfnCreateResource);
+		return createResourceImpl(data, m_origVtable.pfnCreateResource);
 	}
 
 	HRESULT Device::createResource2(D3DDDIARG_CREATERESOURCE2& data)
 	{
-		return createResourceImpl(data, m_origVtable->pfnCreateResource2);
+		return createResourceImpl(data, m_origVtable.pfnCreateResource2);
 	}
 
 	HRESULT Device::destroyResource(HANDLE resource)
@@ -219,7 +217,7 @@ namespace D3dDdi
 			D3DKMTReleaseProcessVidPnSourceOwners(GetCurrentProcess());
 		}
 
-		HRESULT result = m_origVtable->pfnDestroyResource(m_device, resource);
+		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
 			m_oversizedResources.erase(resource);
@@ -242,40 +240,40 @@ namespace D3dDdi
 	HRESULT Device::drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE& data)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawIndexedPrimitive(m_device, &data);
+		return m_origVtable.pfnDrawIndexedPrimitive(m_device, &data);
 	}
 
 	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2& data,
 		UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawIndexedPrimitive2(m_device, &data, indicesSize, indexBuffer, flagBuffer);
+		return m_origVtable.pfnDrawIndexedPrimitive2(m_device, &data, indicesSize, indexBuffer, flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE& data, const UINT* flagBuffer)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawPrimitive(m_device, &data, flagBuffer);
+		return m_origVtable.pfnDrawPrimitive(m_device, &data, flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2& data)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawPrimitive2(m_device, &data);
+		return m_origVtable.pfnDrawPrimitive2(m_device, &data);
 	}
 
 	HRESULT Device::drawRectPatch(const D3DDDIARG_DRAWRECTPATCH& data, const D3DDDIRECTPATCH_INFO* info,
 		const FLOAT* patch)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawRectPatch(m_device, &data, info, patch);
+		return m_origVtable.pfnDrawRectPatch(m_device, &data, info, patch);
 	}
 
 	HRESULT Device::drawTriPatch(const D3DDDIARG_DRAWTRIPATCH& data, const D3DDDITRIPATCH_INFO* info,
 		const FLOAT* patch)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE);
-		return m_origVtable->pfnDrawTriPatch(m_device, &data, info, patch);
+		return m_origVtable.pfnDrawTriPatch(m_device, &data, info, patch);
 	}
 
 	HRESULT Device::lock(D3DDDIARG_LOCK& data)
@@ -294,12 +292,12 @@ namespace D3dDdi
 			}
 			return result;
 		}
-		return m_origVtable->pfnLock(m_device, &data);
+		return m_origVtable.pfnLock(m_device, &data);
 	}
 
 	HRESULT Device::openResource(D3DDDIARG_OPENRESOURCE& data)
 	{
-		HRESULT result = m_origVtable->pfnOpenResource(m_device, &data);
+		HRESULT result = m_origVtable.pfnOpenResource(m_device, &data);
 		if (SUCCEEDED(result) && data.Flags.Fullscreen)
 		{
 			m_sharedPrimary = data.hResource;
@@ -310,7 +308,7 @@ namespace D3dDdi
 	HRESULT Device::present(const D3DDDIARG_PRESENT& data)
 	{
 		RenderGuard renderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
-		return m_origVtable->pfnPresent(m_device, &data);
+		return m_origVtable.pfnPresent(m_device, &data);
 	}
 
 	HRESULT Device::present1(D3DDDIARG_PRESENT1& data)
@@ -328,21 +326,21 @@ namespace D3dDdi
 			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex);
 		}
 
-		return m_origVtable->pfnPresent1(m_device, &data);
+		return m_origVtable.pfnPresent1(m_device, &data);
 	}
 
 	HRESULT Device::texBlt(const D3DDDIARG_TEXBLT& data)
 	{
 		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource);
 		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource);
-		return m_origVtable->pfnTexBlt(m_device, &data);
+		return m_origVtable.pfnTexBlt(m_device, &data);
 	}
 
 	HRESULT Device::texBlt1(const D3DDDIARG_TEXBLT1& data)
 	{
 		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource);
 		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource);
-		return m_origVtable->pfnTexBlt1(m_device, &data);
+		return m_origVtable.pfnTexBlt1(m_device, &data);
 	}
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK& data)
@@ -353,7 +351,7 @@ namespace D3dDdi
 		{
 			return it->second.unlock(data);
 		}
-		return m_origVtable->pfnUnlock(m_device, &data);
+		return m_origVtable.pfnUnlock(m_device, &data);
 	}
 
 	HRESULT Device::updateWInfo(const D3DDDIARG_WINFO& data)
@@ -363,9 +361,9 @@ namespace D3dDdi
 			D3DDDIARG_WINFO wInfo = {};
 			wInfo.WNear = 0.0f;
 			wInfo.WFar = 1.0f;
-			return m_origVtable->pfnUpdateWInfo(m_device, &wInfo);
+			return m_origVtable.pfnUpdateWInfo(m_device, &wInfo);
 		}
-		return m_origVtable->pfnUpdateWInfo(m_device, &data);
+		return m_origVtable.pfnUpdateWInfo(m_device, &data);
 	}
 
 	void Device::prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex)
@@ -395,6 +393,27 @@ namespace D3dDdi
 		}
 	}
 
+	void Device::add(HANDLE adapter, HANDLE device)
+	{
+		s_devices.emplace(device, Device(adapter, device));
+	}
+
+	Device& Device::get(HANDLE device)
+	{
+		auto it = s_devices.find(device);
+		if (it != s_devices.end())
+		{
+			return it->second;
+		}
+
+		return s_devices.emplace(device, Device(nullptr, device)).first->second;
+	}
+
+	void Device::remove(HANDLE device)
+	{
+		s_devices.erase(device);
+	}
+
 	void Device::setGdiResourceHandle(HANDLE resource)
 	{
 		g_gdiResourceHandle = resource;
@@ -404,4 +423,6 @@ namespace D3dDdi
 	{
 		g_isReadOnlyGdiLockEnabled = enable;
 	}
+
+	std::map<HANDLE, Device> Device::s_devices;
 }

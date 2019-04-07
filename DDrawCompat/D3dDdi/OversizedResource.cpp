@@ -1,16 +1,11 @@
-#include "D3dDdi/AdapterFuncs.h"
+#include "D3dDdi/Adapter.h"
 #include "D3dDdi/Device.h"
-#include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/OversizedResource.h"
 
 namespace D3dDdi
 {
-	OversizedResource::OversizedResource(
-		const D3DDDI_DEVICEFUNCS& deviceFuncs, HANDLE adapter, HANDLE device,
-		D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo)
-		: m_deviceFuncs(deviceFuncs)
-		, m_adapter(adapter)
-		, m_device(device)
+	OversizedResource::OversizedResource(Device& device, D3DDDIFORMAT format, const D3DDDI_SURFACEINFO& surfaceInfo)
+		: m_device(device)
 		, m_format(format)
 		, m_surfaceInfo(surfaceInfo)
 	{
@@ -18,11 +13,11 @@ namespace D3dDdi
 
 	HRESULT OversizedResource::blt(D3DDDIARG_BLT& data, HANDLE& resource, RECT& rect)
 	{
-		const auto& caps = D3dDdi::AdapterFuncs::getD3dExtendedCaps(m_adapter);
+		const auto& caps = m_device.getAdapter().getD3dExtendedCaps();
 		if (rect.right <= static_cast<LONG>(caps.dwMaxTextureWidth) &&
 			rect.bottom <= static_cast<LONG>(caps.dwMaxTextureHeight))
 		{
-			return m_deviceFuncs.pfnBlt(m_device, &data);
+			return m_device.getOrigVtable().pfnBlt(m_device.getHandle(), &data);
 		}
 
 		HANDLE origResource = resource;
@@ -35,13 +30,13 @@ namespace D3dDdi
 			rect = RECT{ 0, 0, rect.right - rect.left, rect.bottom - rect.top };
 		}
 
-		HRESULT result = m_deviceFuncs.pfnBlt(m_device, &data);
+		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device.getHandle(), &data);
 
 		if (bltResource)
 		{
 			resource = origResource;
 			rect = origRect;
-			m_deviceFuncs.pfnDestroyResource(m_device, bltResource);
+			m_device.getOrigVtable().pfnDestroyResource(m_device.getHandle(), bltResource);
 		}
 
 		return result;
@@ -77,13 +72,13 @@ namespace D3dDdi
 		bltResourceData.pSurfList = &bltSurfaceInfo;
 		bltResourceData.SurfCount = 1;
 
-		if (m_deviceFuncs.pfnCreateResource2)
+		if (m_device.getOrigVtable().pfnCreateResource2)
 		{
-			m_deviceFuncs.pfnCreateResource2(m_device, &bltResourceData);
+			m_device.getOrigVtable().pfnCreateResource2(m_device.getHandle(), &bltResourceData);
 		}
 		else
 		{
-			m_deviceFuncs.pfnCreateResource(m_device,
+			m_device.getOrigVtable().pfnCreateResource(m_device.getHandle(),
 				reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&bltResourceData));
 		}
 		return bltResourceData.hResource;

@@ -1,27 +1,12 @@
-#include <map>
-
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
 
 namespace
 {
-	std::map<HANDLE, D3dDdi::Device> g_devices;
-
-	D3dDdi::Device& getDevice(HANDLE device)
-	{
-		auto it = g_devices.find(device);
-		if (it != g_devices.end())
-		{
-			return it->second;
-		}
-
-		return g_devices.emplace(device, D3dDdi::Device(nullptr, device)).first->second;
-	}
-
 	template <typename DeviceMethodPtr, DeviceMethodPtr deviceMethod, typename Arg, typename... Params>
 	HRESULT WINAPI deviceFunc(HANDLE device, Arg* data, Params... params)
 	{
-		return (getDevice(device).*deviceMethod)(*data, params...);
+		return (D3dDdi::Device::get(device).*deviceMethod)(*data, params...);
 	}
 
 	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
@@ -30,14 +15,14 @@ namespace
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
-			g_devices.erase(hDevice);
+			D3dDdi::Device::remove(hDevice);
 		}
 		return result;
 	}
 
 	HRESULT APIENTRY destroyResource(HANDLE hDevice, HANDLE hResource)
 	{
-		return getDevice(hDevice).destroyResource(hResource);
+		return D3dDdi::Device::get(hDevice).destroyResource(hResource);
 	}
 }
 
@@ -47,7 +32,7 @@ namespace D3dDdi
 {
 	void DeviceFuncs::onCreateDevice(HANDLE adapter, HANDLE device)
 	{
-		g_devices.emplace(device, Device(adapter, device));
+		Device::add(adapter, device);
 	}
 
 	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)

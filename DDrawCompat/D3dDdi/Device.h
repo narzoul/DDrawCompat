@@ -1,7 +1,6 @@
 #pragma once
 
 #include <map>
-#include <set>
 
 #include <d3d.h>
 #include <d3dnthal.h>
@@ -14,11 +13,11 @@ namespace D3dDdi
 {
 	UINT getBytesPerPixel(D3DDDIFORMAT format);
 
+	class Adapter;
+
 	class Device
 	{
 	public:
-		Device(HANDLE adapter, HANDLE device);
-
 		HRESULT blt(const D3DDDIARG_BLT& data);
 		HRESULT clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect);
 		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
@@ -43,13 +42,23 @@ namespace D3dDdi
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		HRESULT updateWInfo(const D3DDDIARG_WINFO& data);
 
+		Adapter& getAdapter() const { return m_adapter; }
+		HANDLE getHandle() const { return m_device; }
+		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
+
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex = UINT_MAX);
 		void prepareForRendering();
+
+		static void add(HANDLE adapter, HANDLE device);
+		static Device& get(HANDLE device);
+		static void remove(HANDLE device);
 
 		static void setGdiResourceHandle(HANDLE resource);
 		static void setReadOnlyGdiLock(bool enable);
 
 	private:
+		Device(HANDLE adapter, HANDLE device);
+
 		template <typename CreateResourceArg, typename CreateResourceFunc>
 		HRESULT createOversizedResource(
 			CreateResourceArg& data,
@@ -61,12 +70,14 @@ namespace D3dDdi
 
 		void prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex = UINT_MAX);
 
-		const D3DDDI_DEVICEFUNCS* m_origVtable;
-		HANDLE m_adapter;
+		const D3DDDI_DEVICEFUNCS& m_origVtable;
+		Adapter& m_adapter;
 		HANDLE m_device;
 		std::map<HANDLE, OversizedResource> m_oversizedResources;
 		std::map<HANDLE, RenderTargetResource> m_renderTargetResources;
 		std::map<HANDLE, RenderTargetResource&> m_lockedRenderTargetResources;
 		HANDLE m_sharedPrimary;
+
+		static std::map<HANDLE, Device> s_devices;
 	};
 }

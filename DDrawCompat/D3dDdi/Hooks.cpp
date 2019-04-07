@@ -60,7 +60,7 @@ namespace
 			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
 			D3dDdi::AdapterFuncs::hookVtable(g_hookedUmdModule, pOpenData->hAdapter, pOpenData->pAdapterFuncs);
-			D3dDdi::AdapterFuncs::onOpenAdapter(g_hookedUmdModule, pOpenData->hAdapter);
+			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter, g_hookedUmdModule);
 		}
 		return LOG_RESULT(result);
 	}

@@ -13,8 +13,7 @@ namespace D3dDdi
 	class AdapterFuncs : public D3dDdiVtable<D3DDDI_ADAPTERFUNCS>
 	{
 	public:
-		static const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps(HANDLE adapter);
-		static void onOpenAdapter(HMODULE module, HANDLE adapter);
+		static void onOpenAdapter(HANDLE adapter, HMODULE module);
 		static void setCompatVtable(D3DDDI_ADAPTERFUNCS& vtable);
 	};
 }

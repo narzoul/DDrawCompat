@@ -243,6 +243,7 @@
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
     <ClInclude Include="Config\Config.h" />
+    <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
     <ClInclude Include="D3dDdi\AdapterFuncs.h" />
     <ClInclude Include="D3dDdi\D3dDdiVtable.h" />
@@ -320,6 +321,7 @@
     <ClCompile Include="Common\Log.cpp" />
     <ClCompile Include="Common\Hook.cpp" />
     <ClCompile Include="Common\Time.cpp" />
+    <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
     <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />
     <ClCompile Include="D3dDdi\Device.cpp" />

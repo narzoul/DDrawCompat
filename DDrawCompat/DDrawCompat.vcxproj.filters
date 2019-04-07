@@ -345,6 +345,9 @@
     <ClInclude Include="Common\FuncNameVisitor.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\Adapter.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -522,6 +525,9 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Adapter.cpp">
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>

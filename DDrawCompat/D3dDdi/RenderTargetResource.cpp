@@ -1,13 +1,10 @@
 #include "D3dDdi/Device.h"
-#include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/RenderTargetResource.h"
 
 namespace D3dDdi
 {
-	RenderTargetResource::RenderTargetResource(const D3DDDI_DEVICEFUNCS& deviceFuncs,
-		HANDLE device, HANDLE resource, D3DDDIFORMAT format, UINT surfaceCount)
-		: m_deviceFuncs(deviceFuncs)
-		, m_device(device)
+	RenderTargetResource::RenderTargetResource(Device& device, HANDLE resource, D3DDDIFORMAT format, UINT surfaceCount)
+		: m_device(device)
 		, m_resource(resource)
 		, m_bytesPerPixel(getBytesPerPixel(format))
 		, m_subResources(surfaceCount, SubResource(*this))
@@ -18,7 +15,7 @@ namespace D3dDdi
 	{
 		if (data.SubResourceIndex >= m_subResources.size())
 		{
-			return m_deviceFuncs.pfnLock(m_device, &data);
+			return m_device.getOrigVtable().pfnLock(m_device.getHandle(), &data);
 		}
 
 		auto& subResource = m_subResources[data.SubResourceIndex];
@@ -37,7 +34,7 @@ namespace D3dDdi
 
 		const UINT origFlags = data.Flags.Value;
 		data.Flags.Value = 0;
-		const HRESULT result = m_deviceFuncs.pfnLock(m_device, &data);
+		const HRESULT result = m_device.getOrigVtable().pfnLock(m_device.getHandle(), &data);
 		data.Flags.Value = origFlags;
 
 		if (SUCCEEDED(result))
@@ -55,7 +52,7 @@ namespace D3dDdi
 	{
 		if (data.SubResourceIndex >= m_subResources.size())
 		{
-			return m_deviceFuncs.pfnUnlock(m_device, &data);
+			return m_device.getOrigVtable().pfnUnlock(m_device.getHandle(), &data);
 		}
 
 		m_subResources[data.SubResourceIndex].isLocked = false;
@@ -89,7 +86,7 @@ namespace D3dDdi
 			D3DDDIARG_UNLOCK data = {};
 			data.hResource = m_resource;
 			data.SubResourceIndex = subResourceIndex;
-			m_deviceFuncs.pfnUnlock(m_device, &data);
+			m_device.getOrigVtable().pfnUnlock(m_device.getHandle(), &data);
 
 			subResource.surfacePtr = nullptr;
 			subResource.pitch = 0;
