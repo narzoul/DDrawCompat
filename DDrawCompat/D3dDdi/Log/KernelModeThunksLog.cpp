@@ -45,6 +45,7 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_CREATEDCFROMMEMORY& data
 {
 	return Compat::LogStruct(os)
 		<< data.pMemory
+		<< data.Format
 		<< data.Width
 		<< data.Height
 		<< data.Pitch

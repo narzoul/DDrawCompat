@@ -7,6 +7,7 @@
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_BLT& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CLEAR& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_COLORFILL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE& val);

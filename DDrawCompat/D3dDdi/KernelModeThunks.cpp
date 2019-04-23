@@ -33,6 +33,7 @@ namespace
 	};
 
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
+	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
 	AdapterInfo g_gdiAdapterInfo = {};
 	AdapterInfo g_lastOpenAdapterInfo = {};
 	std::string g_lastDDrawCreateDcDevice;
@@ -80,8 +81,15 @@ namespace
 	NTSTATUS APIENTRY createDcFromMemory(D3DKMT_CREATEDCFROMMEMORY* pData)
 	{
 		LOG_FUNC("D3DKMTCreateDCFromMemory", pData);
+
+		auto origFormat = pData->Format;
+		if (D3DDDIFMT_UNKNOWN != g_dcFormatOverride)
+		{
+			pData->Format = g_dcFormatOverride;
+		}
+
 		NTSTATUS result = 0;
-		if (pData && D3DDDIFMT_P8 == pData->Format && !pData->pColorTable &&
+		if (D3DDDIFMT_P8 == pData->Format && !pData->pColorTable &&
 			DDraw::PrimarySurface::s_palette)
 		{
 			pData->pColorTable = DDraw::PrimarySurface::s_paletteEntries;
@@ -92,6 +100,8 @@ namespace
 		{
 			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
 		}
+
+		pData->Format = origFormat;
 		return LOG_RESULT(result);
 	}
 
@@ -348,6 +358,11 @@ namespace D3dDdi
 		void setFlipIntervalOverride(UINT flipInterval)
 		{
 			g_flipIntervalOverride = flipInterval;
+		}
+
+		void setDcFormatOverride(UINT format)
+		{
+			g_dcFormatOverride = static_cast<D3DDDIFORMAT>(format);
 		}
 
 		void waitForVerticalBlank()

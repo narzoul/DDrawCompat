@@ -19,6 +19,19 @@ std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val)
 		<< val.SysMemSlicePitch;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_BLT& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hSrcResource
+		<< val.SrcSubResourceIndex
+		<< val.SrcRect
+		<< val.hDstResource
+		<< val.DstSubResourceIndex
+		<< val.DstRect
+		<< Compat::hex(val.ColorKey)
+		<< Compat::hex(val.Flags.Value);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CLEAR& val)
 {
 	return Compat::LogStruct(os)

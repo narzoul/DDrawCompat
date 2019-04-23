@@ -1,17 +1,16 @@
 #include <d3d.h>
 #include <../km/d3dkmthk.h>
 
+#include "Common/HResultException.h"
 #include "D3dDdi/Adapter.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
 #include "D3dDdi/KernelModeThunks.h"
+#include "D3dDdi/Resource.h"
 #include "Gdi/AccessGuard.h"
 
 namespace
 {
-	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
-
-	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 	HANDLE g_gdiResourceHandle = nullptr;
 	bool g_isReadOnlyGdiLockEnabled = false;
 
@@ -35,37 +34,6 @@ namespace
 	private:
 		D3dDdi::Device & m_device;
 	};
-
-	D3DDDI_RESOURCEFLAGS getResourceTypeFlags()
-	{
-		D3DDDI_RESOURCEFLAGS flags = {};
-		flags.RenderTarget = 1;
-		flags.ZBuffer = 1;
-		flags.DMap = 1;
-		flags.Points = 1;
-		flags.RtPatches = 1;
-		flags.NPatches = 1;
-		flags.Video = 1;
-		flags.CaptureBuffer = 1;
-		flags.Primary = 1;
-		flags.Texture = 1;
-		flags.CubeMap = 1;
-		flags.VertexBuffer = 1;
-		flags.IndexBuffer = 1;
-		flags.DecodeRenderTarget = 1;
-		flags.DecodeCompressedBuffer = 1;
-		flags.VideoProcessRenderTarget = 1;
-		flags.Overlay = 1;
-		flags.TextApi = 1;
-		return flags;
-	}
-
-	bool isVidMemPool(D3DDDI_POOL pool)
-	{
-		return D3DDDIPOOL_VIDEOMEMORY == pool ||
-			D3DDDIPOOL_LOCALVIDMEM == pool ||
-			D3DDDIPOOL_NONLOCALVIDMEM == pool;
-	}
 }
 
 namespace D3dDdi
@@ -110,19 +78,11 @@ namespace D3dDdi
 	{
 		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
 		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource, data.DstSubResourceIndex);
-
-		auto it = m_oversizedResources.find(data.hSrcResource);
-		if (it != m_oversizedResources.end())
+		auto it = m_resources.find(data.hDstResource);
+		if (it != m_resources.end())
 		{
-			return it->second.bltFrom(data);
+			return it->second.blt(data);
 		}
-
-		it = m_oversizedResources.find(data.hDstResource);
-		if (it != m_oversizedResources.end())
-		{
-			return it->second.bltTo(data);
-		}
-
 		return m_origVtable.pfnBlt(m_device, &data);
 	}
 
@@ -138,76 +98,29 @@ namespace D3dDdi
 		return m_origVtable.pfnColorFill(m_device, &data);
 	}
 
-	template <typename CreateResourceArg, typename CreateResourceFunc>
-	HRESULT Device::createOversizedResource(
-		CreateResourceArg& data,
-		CreateResourceFunc origCreateResource,
-		const D3DNTHAL_D3DEXTENDEDCAPS& caps)
+	template <typename Arg>
+	HRESULT Device::createResourceImpl(Arg& data)
 	{
-		D3DDDI_SURFACEINFO compatSurfaceInfo = data.pSurfList[0];
-		if (0 != caps.dwMaxTextureWidth && compatSurfaceInfo.Width > caps.dwMaxTextureWidth)
+		try
 		{
-			compatSurfaceInfo.Width = caps.dwMaxTextureWidth;
+			Resource resource(Resource::create(*this, data));
+			m_resources.emplace(resource, resource);
+			return S_OK;
 		}
-		if (0 != caps.dwMaxTextureHeight && compatSurfaceInfo.Height > caps.dwMaxTextureHeight)
+		catch (const HResultException& e)
 		{
-			compatSurfaceInfo.Height = caps.dwMaxTextureHeight;
+			return e.getResult();
 		}
-
-		const D3DDDI_SURFACEINFO* origSurfList = data.pSurfList;
-		data.pSurfList = &compatSurfaceInfo;
-		HRESULT result = origCreateResource(m_device, &data);
-		data.pSurfList = origSurfList;
-
-		if (SUCCEEDED(result))
-		{
-			m_oversizedResources.emplace(data.hResource, OversizedResource(*this, data.Format, origSurfList[0]));
-		}
-
-		return result;
-	}
-
-	template <typename CreateResourceArg, typename CreateResourceFunc>
-	HRESULT Device::createResourceImpl(CreateResourceArg& data, CreateResourceFunc origCreateResource)
-	{
-		const bool isOffScreenPlain = 0 == (data.Flags.Value & g_resourceTypeFlags);
-		if (D3DDDIPOOL_SYSTEMMEM == data.Pool &&
-			(isOffScreenPlain || data.Flags.Texture) &&
-			OversizedResource::isSupportedFormat(data.Format) &&
-			1 == data.SurfCount)
-		{
-			const auto& caps = m_adapter.getD3dExtendedCaps();
-			const auto& surfaceInfo = data.pSurfList[0];
-			if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
-				0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
-			{
-				return createOversizedResource(data, origCreateResource, caps);
-			}
-		}
-
-		if (data.Flags.Primary)
-		{
-			data.Format = D3DDDIFMT_X8R8G8B8;
-		}
-
-		HRESULT result = origCreateResource(m_device, &data);
-		if (SUCCEEDED(result) && data.Flags.RenderTarget && !data.Flags.Primary && isVidMemPool(data.Pool))
-		{
-			m_renderTargetResources.emplace(data.hResource,
-				RenderTargetResource(*this, data.hResource, data.Format, data.SurfCount));
-		}
-
-		return result;
 	}
 
 	HRESULT Device::createResource(D3DDDIARG_CREATERESOURCE& data)
 	{
-		return createResourceImpl(data, m_origVtable.pfnCreateResource);
+		return createResourceImpl(data);
 	}
 
 	HRESULT Device::createResource2(D3DDDIARG_CREATERESOURCE2& data)
 	{
-		return createResourceImpl(data, m_origVtable.pfnCreateResource2);
+		return createResourceImpl(data);
 	}
 
 	HRESULT Device::destroyResource(HANDLE resource)
@@ -220,7 +133,7 @@ namespace D3dDdi
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
-			m_oversizedResources.erase(resource);
+			m_resources.erase(resource);
 			m_renderTargetResources.erase(resource);
 			m_lockedRenderTargetResources.erase(resource);
 
@@ -292,6 +205,13 @@ namespace D3dDdi
 			}
 			return result;
 		}
+
+		auto resourceIter = m_resources.find(data.hResource);
+		if (resourceIter != m_resources.end())
+		{
+			return resourceIter->second.lock(data);
+		}
+
 		return m_origVtable.pfnLock(m_device, &data);
 	}
 
@@ -351,6 +271,13 @@ namespace D3dDdi
 		{
 			return it->second.unlock(data);
 		}
+
+		auto resourceIter = m_resources.find(data.hResource);
+		if (resourceIter != m_resources.end())
+		{
+			return resourceIter->second.unlock(data);
+		}
+
 		return m_origVtable.pfnUnlock(m_device, &data);
 	}
 
@@ -364,6 +291,12 @@ namespace D3dDdi
 			return m_origVtable.pfnUpdateWInfo(m_device, &wInfo);
 		}
 		return m_origVtable.pfnUpdateWInfo(m_device, &data);
+	}
+
+	void Device::addRenderTargetResource(const D3DDDIARG_CREATERESOURCE& data)
+	{
+		m_renderTargetResources.emplace(data.hResource,
+			RenderTargetResource(*this, data.hResource, data.Format, data.SurfCount));
 	}
 
 	void Device::prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex)

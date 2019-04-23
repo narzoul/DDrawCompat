@@ -6,7 +6,6 @@
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
-#include "D3dDdi/OversizedResource.h"
 #include "D3dDdi/RenderTargetResource.h"
 
 namespace D3dDdi
@@ -14,10 +13,13 @@ namespace D3dDdi
 	UINT getBytesPerPixel(D3DDDIFORMAT format);
 
 	class Adapter;
+	class Resource;
 
 	class Device
 	{
 	public:
+		operator HANDLE() const { return m_device; }
+
 		HRESULT blt(const D3DDDIARG_BLT& data);
 		HRESULT clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect);
 		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
@@ -43,9 +45,10 @@ namespace D3dDdi
 		HRESULT updateWInfo(const D3DDDIARG_WINFO& data);
 
 		Adapter& getAdapter() const { return m_adapter; }
-		HANDLE getHandle() const { return m_device; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
+		std::map<HANDLE, Resource>& getResources() { return m_resources; }
 
+		void addRenderTargetResource(const D3DDDIARG_CREATERESOURCE& data);
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex = UINT_MAX);
 		void prepareForRendering();
 
@@ -59,21 +62,15 @@ namespace D3dDdi
 	private:
 		Device(HANDLE adapter, HANDLE device);
 
-		template <typename CreateResourceArg, typename CreateResourceFunc>
-		HRESULT createOversizedResource(
-			CreateResourceArg& data,
-			CreateResourceFunc origCreateResource,
-			const D3DNTHAL_D3DEXTENDEDCAPS& caps);
-
-		template <typename CreateResourceArg, typename CreateResourceFunc>
-		HRESULT createResourceImpl(CreateResourceArg& data, CreateResourceFunc origCreateResource);
+		template <typename Arg>
+		HRESULT createResourceImpl(Arg& data);
 
 		void prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex = UINT_MAX);
 
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
-		std::map<HANDLE, OversizedResource> m_oversizedResources;
+		std::map<HANDLE, Resource> m_resources;
 		std::map<HANDLE, RenderTargetResource> m_renderTargetResources;
 		std::map<HANDLE, RenderTargetResource&> m_lockedRenderTargetResources;
 		HANDLE m_sharedPrimary;

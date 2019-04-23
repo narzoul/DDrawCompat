@@ -285,9 +285,6 @@
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h">
       <Filter>Header Files\D3dDdi\Log</Filter>
     </ClInclude>
-    <ClInclude Include="D3dDdi\OversizedResource.h">
-      <Filter>Header Files\D3dDdi</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\Visitors\DirectDrawClipperVtblVisitor.h">
       <Filter>Header Files\DDraw\Visitors</Filter>
     </ClInclude>
@@ -347,6 +344,12 @@
     </ClInclude>
     <ClInclude Include="D3dDdi\Adapter.h">
       <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\Resource.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\HResultException.h">
+      <Filter>Header Files\Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -491,9 +494,6 @@
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp">
       <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
-    <ClCompile Include="D3dDdi\OversizedResource.cpp">
-      <Filter>Source Files\D3dDdi</Filter>
-    </ClCompile>
     <ClCompile Include="DDraw\DirectDrawClipper.cpp">
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
@@ -528,6 +528,9 @@
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
     <ClCompile Include="D3dDdi\Adapter.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Resource.cpp">
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>

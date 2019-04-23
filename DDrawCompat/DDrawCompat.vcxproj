@@ -234,6 +234,7 @@
     <ClInclude Include="Common\CompatVtableInstance.h" />
     <ClInclude Include="Common\CompatWeakPtr.h" />
     <ClInclude Include="Common\FuncNameVisitor.h" />
+    <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
     <ClInclude Include="Common\LogWrapperVisitor.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
@@ -256,8 +257,8 @@
     <ClInclude Include="D3dDdi\Log\DeviceCallbacksLog.h" />
     <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h" />
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h" />
-    <ClInclude Include="D3dDdi\OversizedResource.h" />
     <ClInclude Include="D3dDdi\RenderTargetResource.h" />
+    <ClInclude Include="D3dDdi\Resource.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h" />
@@ -333,8 +334,8 @@
     <ClCompile Include="D3dDdi\Log\DeviceCallbacksLog.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceFuncsLog.cpp" />
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />
-    <ClCompile Include="D3dDdi\OversizedResource.cpp" />
     <ClCompile Include="D3dDdi\RenderTargetResource.cpp" />
+    <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />

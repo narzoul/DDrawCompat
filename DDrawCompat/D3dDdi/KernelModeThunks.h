@@ -15,6 +15,7 @@ namespace D3dDdi
 		long long getQpcLastVerticalBlank();
 		void installHooks(HMODULE origDDrawModule);
 		void setFlipIntervalOverride(UINT flipInterval);
+		void setDcFormatOverride(UINT format);
 		void waitForVerticalBlank();
 	}
 }

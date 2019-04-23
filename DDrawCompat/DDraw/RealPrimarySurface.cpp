@@ -123,7 +123,9 @@ namespace
 
 			if (!backBufferDc)
 			{
+				D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_X8R8G8B8);
 				backBuffer->GetDC(backBuffer, &backBufferDc);
+				D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_UNKNOWN);
 				if (!backBufferDc)
 				{
 					return;

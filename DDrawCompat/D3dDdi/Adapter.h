@@ -13,8 +13,9 @@ namespace D3dDdi
 	public:
 		Adapter(HANDLE adapter, HMODULE module);
 
+		operator HANDLE() const { return m_adapter; }
+
 		const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps() const { return m_d3dExtendedCaps; }
-		HANDLE getHandle() const { return m_adapter; }
 		HMODULE getModule() const { return m_module; }
 
 		static void add(HANDLE adapter, HMODULE module);

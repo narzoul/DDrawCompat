@@ -15,7 +15,7 @@ namespace D3dDdi
 	{
 		if (data.SubResourceIndex >= m_subResources.size())
 		{
-			return m_device.getOrigVtable().pfnLock(m_device.getHandle(), &data);
+			return m_device.getOrigVtable().pfnLock(m_device, &data);
 		}
 
 		auto& subResource = m_subResources[data.SubResourceIndex];
@@ -34,7 +34,7 @@ namespace D3dDdi
 
 		const UINT origFlags = data.Flags.Value;
 		data.Flags.Value = 0;
-		const HRESULT result = m_device.getOrigVtable().pfnLock(m_device.getHandle(), &data);
+		const HRESULT result = m_device.getOrigVtable().pfnLock(m_device, &data);
 		data.Flags.Value = origFlags;
 
 		if (SUCCEEDED(result))
@@ -52,7 +52,7 @@ namespace D3dDdi
 	{
 		if (data.SubResourceIndex >= m_subResources.size())
 		{
-			return m_device.getOrigVtable().pfnUnlock(m_device.getHandle(), &data);
+			return m_device.getOrigVtable().pfnUnlock(m_device, &data);
 		}
 
 		m_subResources[data.SubResourceIndex].isLocked = false;
@@ -86,7 +86,7 @@ namespace D3dDdi
 			D3DDDIARG_UNLOCK data = {};
 			data.hResource = m_resource;
 			data.SubResourceIndex = subResourceIndex;
-			m_device.getOrigVtable().pfnUnlock(m_device.getHandle(), &data);
+			m_device.getOrigVtable().pfnUnlock(m_device, &data);
 
 			subResource.surfacePtr = nullptr;
 			subResource.pitch = 0;
