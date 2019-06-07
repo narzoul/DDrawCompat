@@ -52,25 +52,9 @@ namespace
 		}
 
 		auto modules = getProcessModules(GetCurrentProcess());
-		const HMODULE targetModule = GetModuleHandle(moduleName);
-
 		for (auto module : modules)
 		{
 			FARPROC func = Compat::getProcAddressFromIat(module, moduleName, funcName);
-			if (!func)
-			{
-				typedef decltype(GetProcAddress)* GetProcAddressFunc;
-				static const auto origGetProcAddressFunc = reinterpret_cast<GetProcAddressFunc>(
-					Compat::getProcAddress(GetModuleHandle("kernel32"), "GetProcAddress"));
-
-				auto getProcAddressFunc = reinterpret_cast<GetProcAddressFunc>(
-					Compat::getProcAddressFromIat(module, "kernel32", "GetProcAddress"));
-				if (getProcAddressFunc && *getProcAddressFunc != origGetProcAddressFunc)
-				{
-					func = getProcAddressFunc(targetModule, funcName);
-				}
-			}
-
 			if (func)
 			{
 				hookFunctions.insert(func);
@@ -139,6 +123,13 @@ namespace
 			reinterpret_cast<char*>(hookedFuncPtr), &module);
 		g_hookedFunctions.emplace(
 			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
+	}
+
+	FARPROC origGetProcAddress(HMODULE module, const char* procName)
+	{
+		static const auto origGetProcAddressFunc = reinterpret_cast<decltype(&GetProcAddress)>(
+			Compat::getProcAddress(GetModuleHandle("kernel32"), "GetProcAddress"));
+		return origGetProcAddressFunc(module, procName);
 	}
 
 	void unhookFunction(const std::map<void*, HookedFunctionInfo>::iterator& hookedFunc)
@@ -275,7 +266,7 @@ namespace Compat
 
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
-		FARPROC procAddr = getProcAddress(module, funcName);
+		FARPROC procAddr = origGetProcAddress(module, funcName);
 		if (!procAddr)
 		{
 			Compat::LogDebug() << "Failed to load the address of a function: " << funcName;
