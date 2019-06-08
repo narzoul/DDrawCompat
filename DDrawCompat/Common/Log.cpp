@@ -1,6 +1,8 @@
 #define WIN32_LEAN_AND_MEAN
 
+#include <codecvt>
 #include <iomanip>
+#include <locale>
 #include <vector>
 
 #include <Windows.h>
@@ -56,7 +58,7 @@ std::ostream& operator<<(std::ostream& os, const WCHAR* wstr)
 		return os << static_cast<const void*>(wstr);
 	}
 
-	return os << std::string(wstr, wstr + wcslen(wstr)).c_str();
+	return os << std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t>().to_bytes(wstr);
 }
 
 std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm)
