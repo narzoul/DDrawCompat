@@ -125,13 +125,6 @@ namespace
 			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
 	}
 
-	FARPROC origGetProcAddress(HMODULE module, const char* procName)
-	{
-		static const auto origGetProcAddressFunc = reinterpret_cast<decltype(&GetProcAddress)>(
-			Compat::getProcAddress(GetModuleHandle("kernel32"), "GetProcAddress"));
-		return origGetProcAddressFunc(module, procName);
-	}
-
 	void unhookFunction(const std::map<void*, HookedFunctionInfo>::iterator& hookedFunc)
 	{
 		DetourTransactionBegin();
@@ -237,20 +230,61 @@ namespace Compat
 		char* moduleBase = reinterpret_cast<char*>(module);
 		PIMAGE_EXPORT_DIRECTORY exportDir = reinterpret_cast<PIMAGE_EXPORT_DIRECTORY>(
 			moduleBase + ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].VirtualAddress);
+		auto exportDirSize = ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_EXPORT].Size;
 
 		DWORD* rvaOfNames = reinterpret_cast<DWORD*>(moduleBase + exportDir->AddressOfNames);
+		WORD* nameOrds = reinterpret_cast<WORD*>(moduleBase + exportDir->AddressOfNameOrdinals);
+		DWORD* rvaOfFunctions = reinterpret_cast<DWORD*>(moduleBase + exportDir->AddressOfFunctions);
 
-		for (DWORD i = 0; i < exportDir->NumberOfNames; ++i)
+		char* func = nullptr;
+		if (0 == HIWORD(procName))
 		{
-			if (0 == strcmp(procName, moduleBase + rvaOfNames[i]))
+			WORD ord = LOWORD(procName);
+			if (ord < exportDir->Base || ord >= exportDir->Base + exportDir->NumberOfFunctions)
 			{
-				WORD* nameOrds = reinterpret_cast<WORD*>(moduleBase + exportDir->AddressOfNameOrdinals);
-				DWORD* rvaOfFunctions = reinterpret_cast<DWORD*>(moduleBase + exportDir->AddressOfFunctions);
-				return reinterpret_cast<FARPROC>(moduleBase + rvaOfFunctions[nameOrds[i]]);
+				return nullptr;
+			}
+			func = moduleBase + rvaOfFunctions[ord - exportDir->Base];
+		}
+		else
+		{
+			for (DWORD i = 0; i < exportDir->NumberOfNames; ++i)
+			{
+				if (0 == strcmp(procName, moduleBase + rvaOfNames[i]))
+				{
+					func = moduleBase + rvaOfFunctions[nameOrds[i]];
+				}
 			}
 		}
 
-		return nullptr;
+		if (func &&
+			func >= reinterpret_cast<char*>(exportDir) &&
+			func < reinterpret_cast<char*>(exportDir) + exportDirSize)
+		{
+			std::string forw(func);
+			auto separatorPos = forw.find_first_of('.');
+			if (std::string::npos == separatorPos)
+			{
+				return nullptr;
+			}
+			HMODULE forwModule = GetModuleHandle(forw.substr(0, separatorPos).c_str());
+			std::string forwFuncName = forw.substr(separatorPos + 1);
+			if ('#' == forwFuncName[0])
+			{
+				int32_t ord = std::atoi(forwFuncName.substr(1).c_str());
+				if (ord < 0 || ord > 0xFFFF)
+				{
+					return nullptr;
+				}
+				return getProcAddress(forwModule, reinterpret_cast<const char*>(ord));
+			}
+			else
+			{
+				return getProcAddress(forwModule, forwFuncName.c_str());
+			}
+		}
+
+		return reinterpret_cast<FARPROC>(func);
 	}
 
 	FARPROC getProcAddressFromIat(HMODULE module, const char* importedModuleName, const char* procName)
@@ -266,7 +300,7 @@ namespace Compat
 
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
 	{
-		FARPROC procAddr = origGetProcAddress(module, funcName);
+		FARPROC procAddr = getProcAddress(module, funcName);
 		if (!procAddr)
 		{
 			Compat::LogDebug() << "Failed to load the address of a function: " << funcName;
