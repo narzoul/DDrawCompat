@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ostream>
+
 #include "Common/CompatVtable.h"
 
 template <typename Intf>
@@ -28,3 +30,9 @@ public:
 private:
 	Intf& m_intf;
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const CompatRef<T>& ref)
+{
+	return os << &ref;
+}

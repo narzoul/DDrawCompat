@@ -62,3 +62,9 @@ public:
 		std::swap(m_intf, other.m_intf);
 	}
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const CompatPtr<T>& ptr)
+{
+	return os << ptr.get();
+}

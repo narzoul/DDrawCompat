@@ -1,5 +1,7 @@
 #pragma once
 
+#include <ostream>
+
 #include "Common/CompatVtable.h"
 
 template <typename Intf>
@@ -52,3 +54,9 @@ public:
 protected:
 	Intf* m_intf;
 };
+
+template <typename T>
+std::ostream& operator<<(std::ostream& os, const CompatWeakPtr<T>& ptr)
+{
+	return os << ptr.get();
+}

@@ -356,7 +356,7 @@ namespace
 
 	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src)
 	{
-		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src.get());
+		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src);
 
 		Gdi::VirtualScreen::update();
 

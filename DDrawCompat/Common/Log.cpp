@@ -26,6 +26,11 @@ namespace
 	}
 }
 
+std::ostream& operator<<(std::ostream& os, std::nullptr_t)
+{
+	return os << "null";
+}
+
 std::ostream& operator<<(std::ostream& os, const char* str)
 {
 	if (!str)

@@ -8,17 +8,21 @@
 
 #include "Common/ScopedCriticalSection.h"
 
+#define CONCAT_(a, b) a##b
+#define CONCAT(a, b) CONCAT_(a, b)
+
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
 
 #define LOG_ONCE(msg) \
-	static bool isAlreadyLogged##__LINE__ = false; \
-	if (!isAlreadyLogged##__LINE__) \
+	static bool CONCAT(isAlreadyLogged, __LINE__) = false; \
+	if (!CONCAT(isAlreadyLogged, __LINE__)) \
 	{ \
 		Compat::Log() << msg; \
-		isAlreadyLogged##__LINE__ = true; \
+		CONCAT(isAlreadyLogged, __LINE__) = true; \
 	}
 
+std::ostream& operator<<(std::ostream& os, std::nullptr_t);
 std::ostream& operator<<(std::ostream& os, const char* str);
 std::ostream& operator<<(std::ostream& os, const unsigned char* data);
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
@@ -208,7 +212,7 @@ namespace Compat
 	public:
 		template <typename... Params>
 		LogFunc(const char* funcName, Params... params)
-			: m_printCall([=](Log& log) { log << funcName << '('; toList(log, params...); log << ')'; })
+			: m_printCall([=](Log& log) { log << funcName << '('; log.toList(params...); log << ')'; })
 		{
 			Log log;
 			log << "> ";
@@ -238,23 +242,6 @@ namespace Compat
 		}
 
 	private:
-		void toList(Log&)
-		{
-		}
-
-		template <typename Param>
-		void toList(Log& log, Param param)
-		{
-			log << param;
-		}
-
-		template <typename Param, typename... Params>
-		void toList(Log& log, Param firstParam, Params... remainingParams)
-		{
-			log << firstParam << ", ";
-			toList(log, remainingParams...);
-		}
-
 		std::function<void(Log&)> m_printCall;
 		std::function<void(Log&)> m_printResult;
 	};
