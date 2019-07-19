@@ -32,10 +32,6 @@ namespace DDraw
 		static PALETTEENTRY s_paletteEntries[256];
 
 	private:
-		PrimarySurface(Surface* surface);
-
 		virtual void createImpl() override;
-
-		std::unique_ptr<Surface> m_surface;
 	};
 }

@@ -6,6 +6,26 @@
 
 namespace
 {
+	struct AddAttachedSurfacesContext
+	{
+		IDirectDrawSurface7* rootSurface;
+		std::vector<CompatPtr<IDirectDrawSurface7>> surfaces;
+	};
+
+	HRESULT WINAPI addAttachedSurfaces(
+		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
+	{
+		CompatPtr<IDirectDrawSurface7> surface(lpDDSurface);
+		auto& context(*static_cast<AddAttachedSurfacesContext*>(lpContext));
+		if (surface == context.rootSurface)
+		{
+			return DD_OK;
+		}
+		context.surfaces.push_back(surface);
+		surface->EnumAttachedSurfaces(surface, &context, &addAttachedSurfaces);
+		return DD_OK;
+	}
+
 	template <typename CompatMethod, CompatMethod compatMethod,
 		typename OrigMethod, OrigMethod origMethod,
 		typename TSurface, typename... Params>
@@ -26,6 +46,13 @@ namespace
 
 namespace DDraw
 {
+	std::vector<CompatPtr<IDirectDrawSurface7>> getAllAttachedSurfaces(CompatRef<IDirectDrawSurface7> surface)
+	{
+		AddAttachedSurfacesContext context = { &surface };
+		surface->EnumAttachedSurfaces(&surface, &context, &addAttachedSurfaces);
+		return context.surfaces;
+	}
+
 	template <typename TSurface>
 	void DirectDrawSurface<TSurface>::setCompatVtable(Vtable<TSurface>& vtable)
 	{

@@ -548,19 +548,6 @@ namespace DDraw
 	{
 		DDraw::ScopedThreadLock lock;
 
-		auto primary(PrimarySurface::getPrimary());
-		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
-		if (isFlipEmulated && !surfaceTargetOverride)
-		{
-			surfaceTargetOverride = PrimarySurface::getBackBuffer();
-		}
-
-		HRESULT result = primary->Flip(primary, surfaceTargetOverride, DDFLIP_WAIT);
-		if (FAILED(result))
-		{
-			return result;
-		}
-
 		DWORD flipInterval = getFlipInterval(flags);
 		const auto msSinceLastUpdate = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate);
 		const bool isFlipDelayed = msSinceLastUpdate >= 0 && msSinceLastUpdate <= Config::delayedFlipModeTimeout;
@@ -572,14 +559,16 @@ namespace DDraw
 			g_isUpdatePending = true;
 		}
 
+		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
 		if (isFlipEmulated)
 		{
-			surfaceTargetOverride->Blt(surfaceTargetOverride, nullptr, primary, nullptr, DDBLT_WAIT, nullptr);
+			surfaceTargetOverride->Blt(
+				surfaceTargetOverride, nullptr, PrimarySurface::getPrimary(), nullptr, DDBLT_WAIT, nullptr);
 		}
 
 		if (!isFlipDelayed)
 		{
-			updateNow(primary, flipInterval);
+			updateNow(PrimarySurface::getPrimary(), flipInterval);
 		}
 
 		if (0 != flipInterval)

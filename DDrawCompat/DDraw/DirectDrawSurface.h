@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include "Common/CompatPtr.h"
 #include "Common/CompatRef.h"
 #include "Common/CompatVtable.h"
@@ -8,6 +10,20 @@
 
 namespace DDraw
 {
+	std::vector<CompatPtr<IDirectDrawSurface7>> getAllAttachedSurfaces(CompatRef<IDirectDrawSurface7> surface);
+
+	template <typename TSurface>
+	HANDLE getRuntimeResourceHandle(TSurface& surface)
+	{
+		return reinterpret_cast<HANDLE**>(&surface)[1][2];
+	}
+
+	template <typename TSurface>
+	HANDLE getDriverResourceHandle(TSurface& surface)
+	{
+		return *reinterpret_cast<HANDLE*>(getRuntimeResourceHandle(surface));
+	}
+
 	template <typename TSurface>
 	class DirectDrawSurface : public CompatVtable<Vtable<TSurface>>
 	{

@@ -100,7 +100,7 @@ namespace DDraw
 		}
 		else
 		{
-			return Surface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
+			return Surface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface, std::make_unique<Surface>());
 		}
 	}
 

@@ -26,27 +26,6 @@ namespace
 			}
 		}
 	}
-
-	IID getDdIidFromVtablePtr(const void* vtablePtr)
-	{
-		if (CompatVtable<IDirectDrawVtbl>::s_origVtablePtr == vtablePtr)
-		{
-			return IID_IDirectDraw;
-		}
-		if (CompatVtable<IDirectDraw2Vtbl>::s_origVtablePtr == vtablePtr)
-		{
-			return IID_IDirectDraw2;
-		}
-		if (CompatVtable<IDirectDraw4Vtbl>::s_origVtablePtr == vtablePtr)
-		{
-			return IID_IDirectDraw4;
-		}
-		if (CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr == vtablePtr)
-		{
-			return IID_IDirectDraw7;
-		}
-		return IID_IUnknown;
-	}
 }
 
 namespace DDraw
@@ -73,7 +52,6 @@ namespace DDraw
 
 	Surface::Surface()
 		: m_ddObject(nullptr)
-		, m_ddId()
 		, m_refCount(0)
 	{
 	}
@@ -82,7 +60,7 @@ namespace DDraw
 	{
 	}
 
-	void Surface::attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface>& privateData)
+	void Surface::attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData)
 	{
 		if (SUCCEEDED(dds->SetPrivateData(&dds, IID_CompatSurfacePrivateData,
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
@@ -97,45 +75,32 @@ namespace DDraw
 			privateData->m_impl4->m_data = privateData.get();
 			privateData->m_impl7->m_data = privateData.get();
 
-			privateData->m_ddId = getDdIidFromVtablePtr(reinterpret_cast<void**>(dd.get())[0]);
 			privateData->m_ddObject = DDraw::getDdObject(*CompatPtr<IDirectDraw>(dd));
 
 			privateData.release();
 		}
 	}
 
-	HRESULT WINAPI Surface::attachToLinkedSurfaces(
-		IDirectDrawSurface7* surface, DDSURFACEDESC2* /*desc*/, void* rootSurface)
-	{
-		CompatPtr<IDirectDrawSurface7> surfaceReleaser(surface);
-		if (surface == rootSurface)
-		{
-			return DDENUMRET_CANCEL;
-		}
-
-		std::unique_ptr<DDraw::Surface> privateData(new Surface());
-		attach(*surface, privateData);
-		CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.EnumAttachedSurfaces(
-			surface, rootSurface, &attachToLinkedSurfaces);
-		return DDENUMRET_OK;
-	}
-
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
-	HRESULT Surface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
+	HRESULT Surface::create(
+		CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData)
 	{
 		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps);
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
-
-		if (SUCCEEDED(result))
+		if (FAILED(result))
 		{
-			CompatPtr<IDirectDrawSurface7> surface7(
-				Compat::queryInterface<IDirectDrawSurface7>(surface));
-			std::unique_ptr<Surface> privateData(new Surface());
-			attach(*surface7, privateData);
-			if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
+			return result;
+		}
+
+		auto surface7(CompatPtr<IDirectDrawSurface7>::from(surface));
+		attach(*surface7, std::move(privateData));
+
+		if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
+		{
+			auto attachedSurfaces(getAllAttachedSurfaces(*surface7));
+			for (std::size_t i = 0; i < attachedSurfaces.size(); ++i)
 			{
-				CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable.EnumAttachedSurfaces(
-					surface7, surface7, &attachToLinkedSurfaces);
+				attach(*attachedSurfaces[i], std::make_unique<Surface>());
 			}
 		}
 
@@ -143,13 +108,13 @@ namespace DDraw
 	}
 
 	template HRESULT Surface::create(
-		CompatRef<IDirectDraw> dd, DDSURFACEDESC desc, IDirectDrawSurface*& surface);
+		CompatRef<IDirectDraw> dd, DDSURFACEDESC desc, IDirectDrawSurface*& surface, std::unique_ptr<Surface> privateData);
 	template HRESULT Surface::create(
-		CompatRef<IDirectDraw2> dd, DDSURFACEDESC desc, IDirectDrawSurface*& surface);
+		CompatRef<IDirectDraw2> dd, DDSURFACEDESC desc, IDirectDrawSurface*& surface, std::unique_ptr<Surface> privateData);
 	template HRESULT Surface::create(
-		CompatRef<IDirectDraw4> dd, DDSURFACEDESC2 desc, IDirectDrawSurface4*& surface);
+		CompatRef<IDirectDraw4> dd, DDSURFACEDESC2 desc, IDirectDrawSurface4*& surface, std::unique_ptr<Surface> privateData);
 	template HRESULT Surface::create(
-		CompatRef<IDirectDraw7> dd, DDSURFACEDESC2 desc, IDirectDrawSurface7*& surface);
+		CompatRef<IDirectDraw7> dd, DDSURFACEDESC2 desc, IDirectDrawSurface7*& surface, std::unique_ptr<Surface> privateData);
 
 	void Surface::createImpl()
 	{

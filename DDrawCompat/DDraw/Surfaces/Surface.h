@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <vector>
 
 #include <ddraw.h>
 
@@ -19,10 +20,12 @@ namespace DDraw
 		virtual ULONG STDMETHODCALLTYPE AddRef();
 		virtual ULONG STDMETHODCALLTYPE Release();
 
+		Surface();
 		virtual ~Surface();
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
-		static HRESULT create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface);
+		static HRESULT create(
+			CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData);
 
 		template <typename TSurface>
 		static Surface* getSurface(TSurface& dds);
@@ -31,9 +34,9 @@ namespace DDraw
 		SurfaceImpl<TSurface>* getImpl() const;
 
 	protected:
-		Surface();
+		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData);
 
-		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface>& privateData);
+		virtual void createImpl();
 
 		void* m_ddObject;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
@@ -44,13 +47,10 @@ namespace DDraw
 
 	private:
 		template <typename TDirectDrawSurface>
+		friend class SurfaceImpl;
+		template <typename TDirectDrawSurface>
 		friend class SurfaceImpl2;
 
-		static HRESULT WINAPI attachToLinkedSurfaces(
-			IDirectDrawSurface7* surface, DDSURFACEDESC2* desc, void* rootSurface);
-		virtual void createImpl();
-
-		IID m_ddId;
 		DWORD m_refCount;
 	};
 }

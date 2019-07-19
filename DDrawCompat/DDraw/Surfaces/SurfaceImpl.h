@@ -55,5 +55,8 @@ namespace DDraw
 
 	protected:
 		static const Vtable<TSurface>& s_origVtable;
+
+	private:
+		bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag);
 	};
 }

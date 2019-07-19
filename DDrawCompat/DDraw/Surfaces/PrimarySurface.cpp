@@ -4,6 +4,7 @@
 #include "D3dDdi/Device.h"
 #include "D3dDdi/KernelModeThunks.h"
 #include "DDraw/DirectDraw.h"
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurfaceImpl.h"
@@ -13,21 +14,10 @@ namespace
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
 	HANDLE g_gdiResourceHandle = nullptr;
 	DWORD g_origCaps = 0;
-
-	template <typename TSurface>
-	HANDLE getResourceHandle(TSurface& surface)
-	{
-		return reinterpret_cast<HANDLE**>(&surface)[1][2];
-	}
 }
 
 namespace DDraw
 {
-	PrimarySurface::PrimarySurface(Surface* surface) : m_surface(surface)
-	{
-		surface->AddRef();
-	}
-
 	PrimarySurface::~PrimarySurface()
 	{
 		LOG_FUNC("PrimarySurface::~PrimarySurface");
@@ -56,11 +46,11 @@ namespace DDraw
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
 		desc.dwHeight = dm.dwHeight;
-		desc.ddsCaps.dwCaps &= ~DDSCAPS_PRIMARYSURFACE;
-		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
+		desc.ddsCaps.dwCaps &= ~(DDSCAPS_PRIMARYSURFACE | DDSCAPS_SYSTEMMEMORY | DDSCAPS_NONLOCALVIDMEM);
+		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
 		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
 
-		result = Surface::create(dd, desc, surface);
+		result = Surface::create(dd, desc, surface, std::make_unique<PrimarySurface>());
 		if (FAILED(result))
 		{
 			Compat::Log() << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
@@ -68,11 +58,7 @@ namespace DDraw
 			return result;
 		}
 
-		CompatPtr<IDirectDrawSurface7> surface7(Compat::queryInterface<IDirectDrawSurface7>(surface));
-		std::unique_ptr<Surface> privateData(new PrimarySurface(Surface::getSurface(*surface)));
-		attach(*surface7, privateData);
-
-		g_primarySurface = surface7;
+		g_primarySurface = CompatPtr<IDirectDrawSurface7>::from(surface);
 		g_origCaps = origCaps;
 
 		onRestore();
@@ -91,11 +77,11 @@ namespace DDraw
 
 	void PrimarySurface::createImpl()
 	{
-		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>(*m_surface->getImpl<IDirectDrawSurface>()));
-		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>(*m_surface->getImpl<IDirectDrawSurface2>()));
-		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>(*m_surface->getImpl<IDirectDrawSurface3>()));
-		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>(*m_surface->getImpl<IDirectDrawSurface4>()));
-		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>(*m_surface->getImpl<IDirectDrawSurface7>()));
+		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>());
+		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>());
+		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>());
+		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>());
+		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>());
 	}
 
 	HRESULT PrimarySurface::flipToGdiSurface()
@@ -174,7 +160,7 @@ namespace DDraw
 	template <typename TSurface>
 	static bool PrimarySurface::isGdiSurface(TSurface* surface)
 	{
-		return surface && getResourceHandle(*surface) == g_gdiResourceHandle;
+		return surface && getRuntimeResourceHandle(*surface) == g_gdiResourceHandle;
 	}
 
 	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface*);
@@ -185,7 +171,7 @@ namespace DDraw
 
 	void PrimarySurface::onRestore()
 	{
-		g_gdiResourceHandle = getResourceHandle(*g_primarySurface);
+		g_gdiResourceHandle = getRuntimeResourceHandle(*g_primarySurface);
 		D3dDdi::Device::setGdiResourceHandle(*reinterpret_cast<HANDLE*>(g_gdiResourceHandle));
 	}
 

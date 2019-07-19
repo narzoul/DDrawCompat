@@ -1,5 +1,6 @@
 #include <set>
 
+#include "DDraw/DirectDrawSurface.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
@@ -17,20 +18,6 @@ namespace
 		DWORD unknown1;
 		DWORD unknown2;
 	};
-
-	template <typename TSurface>
-	bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
-	{
-		if (!This)
-		{
-			return true;
-		}
-
-		const bool wait = (flags & waitFlag) || !(flags & doNotWaitFlag) &&
-			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
-
-		return DDraw::RealPrimarySurface::waitForFlip(DDraw::Surface::getSurface(*This), wait);
-	}
 }
 
 namespace DDraw
@@ -82,7 +69,7 @@ namespace DDraw
 		if (SUCCEEDED(result) && (dwFlags & DDGBS_CANBLT))
 		{
 			const bool wait = false;
-			if (!RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
+			if (!RealPrimarySurface::waitForFlip(m_data, wait))
 			{
 				return DDERR_WASSTILLDRAWING;
 			}
@@ -95,7 +82,7 @@ namespace DDraw
 	{
 		return s_origVtable.GetCaps(This, lpDDSCaps);
 	}
-	
+
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
@@ -108,7 +95,7 @@ namespace DDraw
 
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::waitForFlip(Surface::getSurface(*This));
+			RealPrimarySurface::waitForFlip(m_data);
 		}
 
 		return result;
@@ -118,12 +105,10 @@ namespace DDraw
 	HRESULT SurfaceImpl2<TSurface>::GetDDInterface(TSurface* /*This*/, LPVOID* lplpDD)
 	{
 		DirectDrawInterface dd = {};
-		dd.vtable = IID_IDirectDraw7 == m_data->m_ddId
-			? static_cast<const void*>(CompatVtable<IDirectDrawVtbl>::s_origVtablePtr)
-			: static_cast<const void*>(CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr);
+		dd.vtable = static_cast<const void*>(CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr);
 		dd.ddObject = m_data->m_ddObject;
 		return CompatVtable<IDirectDrawVtbl>::s_origVtable.QueryInterface(
-			reinterpret_cast<IDirectDraw*>(&dd), m_data->m_ddId, lplpDD);
+			reinterpret_cast<IDirectDraw*>(&dd), IID_IDirectDraw, lplpDD);
 	}
 
 	template <typename TSurface>
@@ -133,7 +118,7 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			const bool wait = false;
-			if (!RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
+			if (!RealPrimarySurface::waitForFlip(m_data, wait))
 			{
 				return DDERR_WASSTILLDRAWING;
 			}
@@ -205,6 +190,14 @@ namespace DDraw
 	{
 		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(This));
 		return s_origVtable.Unlock(This, lpRect);
+	}
+
+	template <typename TSurface>
+	bool SurfaceImpl<TSurface>::waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
+	{
+		const bool wait = (flags & waitFlag) || !(flags & doNotWaitFlag) &&
+			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
+		return DDraw::RealPrimarySurface::waitForFlip(m_data, wait);
 	}
 
 	template <typename TSurface>
