@@ -143,7 +143,7 @@ namespace Gdi
 			CompatPtr<IDirectDraw7> dd(ddUnk);
 
 			CompatPtr<IDirectDrawSurface7> surface;
-			dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+			dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 			return surface;
 		}
 

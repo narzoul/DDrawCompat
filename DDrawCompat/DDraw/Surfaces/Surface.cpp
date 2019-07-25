@@ -1,6 +1,8 @@
 #include <initguid.h>
 
 #include "Common/CompatPtr.h"
+#include "D3dDdi/Device.h"
+#include "D3dDdi/Resource.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Surfaces/Surface.h"
@@ -10,23 +12,6 @@
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
 DEFINE_GUID(IID_CompatSurfacePrivateData,
 	0xc62d8849, 0xdfac, 0x4454, 0xa1, 0xe8, 0xda, 0x67, 0x44, 0x64, 0x26, 0xba);
-
-namespace
-{
-	void fixSurfaceDesc(DWORD& flags, DWORD& caps)
-	{
-		if ((flags & DDSD_WIDTH) &&
-			(flags & DDSD_HEIGHT) &&
-			!(caps & (DDSCAPS_ALPHA | DDSCAPS_ZBUFFER)))
-		{
-			if (!(caps & (DDSCAPS_OFFSCREENPLAIN | DDSCAPS_OVERLAY | DDSCAPS_TEXTURE |
-				DDSCAPS_FRONTBUFFER | DDSCAPS_BACKBUFFER)))
-			{
-				caps |= DDSCAPS_OFFSCREENPLAIN;
-			}
-		}
-	}
-}
 
 namespace DDraw
 {
@@ -50,14 +35,47 @@ namespace DDraw
 		return refCount;
 	}
 
-	Surface::Surface()
+	Surface::Surface(Surface* rootSurface)
 		: m_ddObject(nullptr)
 		, m_refCount(0)
+		, m_rootSurface(rootSurface ? rootSurface : this)
 	{
 	}
 
 	Surface::~Surface()
 	{
+		clearResources();
+		if (m_rootSurface != this)
+		{
+			auto it = std::find(m_rootSurface->m_attachedSurfaces.begin(),
+				m_rootSurface->m_attachedSurfaces.end(), this);
+			if (it != m_rootSurface->m_attachedSurfaces.end())
+			{
+				m_rootSurface->m_attachedSurfaces.erase(it);
+			}
+
+			if (m_rootSurface->m_lockSurface == m_surface)
+			{
+				m_rootSurface->m_lockSurface.detach();
+				m_rootSurface->m_attachedLockSurfaces.clear();
+			}
+		}
+		else
+		{
+			for (auto attachedSurface : m_attachedSurfaces)
+			{
+				attachedSurface->m_rootSurface = attachedSurface;
+			}
+
+			if (m_lockSurface)
+			{
+				auto lockSurface(getSurface(*m_lockSurface));
+				if (lockSurface)
+				{
+					lockSurface->m_rootSurface = lockSurface;
+				}
+			}
+		}
 	}
 
 	void Surface::attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData)
@@ -65,8 +83,9 @@ namespace DDraw
 		if (SUCCEEDED(dds->SetPrivateData(&dds, IID_CompatSurfacePrivateData,
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
-			CompatPtr<IUnknown> dd;
-			dds.get().lpVtbl->GetDDInterface(&dds, reinterpret_cast<void**>(&dd.getRef()));
+			CompatPtr<IUnknown> ddUnk;
+			dds.get().lpVtbl->GetDDInterface(&dds, reinterpret_cast<void**>(&ddUnk.getRef()));
+			CompatPtr<IDirectDraw7> dd(ddUnk);
 
 			privateData->createImpl();
 			privateData->m_impl->m_data = privateData.get();
@@ -75,9 +94,30 @@ namespace DDraw
 			privateData->m_impl4->m_data = privateData.get();
 			privateData->m_impl7->m_data = privateData.get();
 
-			privateData->m_ddObject = DDraw::getDdObject(*CompatPtr<IDirectDraw>(dd));
+			privateData->m_surface = &dds;
+			privateData->m_ddObject = DDraw::getDdObject(*dd);
 
 			privateData.release();
+		}
+	}
+
+	void Surface::clearResources()
+	{
+		if (!m_surface)
+		{
+			return;
+		}
+
+		auto resource = D3dDdi::Device::getResource(getDriverResourceHandle(*m_surface));
+		if (resource)
+		{
+			resource->setLockResource(nullptr);
+			resource->setRootSurface(nullptr);
+		}
+
+		for (auto attachedSurface : m_attachedSurfaces)
+		{
+			attachedSurface->clearResources();
 		}
 	}
 
@@ -85,7 +125,6 @@ namespace DDraw
 	HRESULT Surface::create(
 		CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData)
 	{
-		fixSurfaceDesc(desc.dwFlags, desc.ddsCaps.dwCaps);
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
 		if (FAILED(result))
 		{
@@ -93,16 +132,40 @@ namespace DDraw
 		}
 
 		auto surface7(CompatPtr<IDirectDrawSurface7>::from(surface));
-		attach(*surface7, std::move(privateData));
+		if (!(desc.dwFlags & DDSD_PIXELFORMAT))
+		{
+			desc.dwFlags |= DDSD_PIXELFORMAT;
+			desc.ddpfPixelFormat = {};
+			desc.ddpfPixelFormat.dwSize = sizeof(desc.ddpfPixelFormat);
+			surface7->GetPixelFormat(surface7, &desc.ddpfPixelFormat);
+		}
+
+		privateData->m_lockSurface = privateData->createLockSurface<TDirectDraw, TSurface>(dd, desc);
+		if (privateData->m_lockSurface)
+		{
+			attach(*privateData->m_lockSurface, std::make_unique<Surface>(privateData.get()));
+		}
 
 		if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
 		{
 			auto attachedSurfaces(getAllAttachedSurfaces(*surface7));
-			for (std::size_t i = 0; i < attachedSurfaces.size(); ++i)
+			if (privateData->m_lockSurface)
 			{
-				attach(*attachedSurfaces[i], std::make_unique<Surface>());
+				auto attachedLockSurfaces(getAllAttachedSurfaces(*privateData->m_lockSurface));
+				privateData->m_attachedLockSurfaces.assign(attachedLockSurfaces.begin(), attachedLockSurfaces.end());
+			}
+
+			for (DWORD i = 0; i < attachedSurfaces.size(); ++i)
+			{
+				auto data(std::make_unique<Surface>(privateData.get()));
+				privateData->m_attachedSurfaces.push_back(data.get());
+				attach(*attachedSurfaces[i], std::move(data));
 			}
 		}
+
+		Surface* rootSurface = privateData.get();
+		attach(*surface7, std::move(privateData));
+		rootSurface->restore();
 
 		return result;
 	}
@@ -136,6 +199,30 @@ namespace DDraw
 	template <>
 	SurfaceImpl<IDirectDrawSurface7>* Surface::getImpl<IDirectDrawSurface7>() const { return m_impl7.get(); }
 
+	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
+	CompatPtr<IDirectDrawSurface7> Surface::createLockSurface(CompatRef<TDirectDraw> dd, TSurfaceDesc desc)
+	{
+		LOG_FUNC("Surface::createLockSurface", dd, desc);
+
+		if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) ||
+			!(desc.ddpfPixelFormat.dwFlags & DDPF_RGB) ||
+			0 == desc.ddpfPixelFormat.dwRGBBitCount ||
+			desc.ddpfPixelFormat.dwRGBBitCount > 32 ||
+			0 != (desc.ddpfPixelFormat.dwRGBBitCount % 8))
+		{
+			return LOG_RESULT(nullptr);
+		}
+
+		desc.dwFlags |= DDSD_PIXELFORMAT;
+		desc.ddpfPixelFormat = desc.ddpfPixelFormat;
+		desc.ddsCaps.dwCaps &= ~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
+		desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
+
+		CompatPtr<TSurface> lockSurface;
+		dd->CreateSurface(&dd, &desc, &lockSurface.getRef(), nullptr);
+		return LOG_RESULT(lockSurface);
+	}
+
 	template <typename TSurface>
 	Surface* Surface::getSurface(TSurface& dds)
 	{
@@ -155,4 +242,30 @@ namespace DDraw
 	template Surface* Surface::getSurface(IDirectDrawSurface3& dds);
 	template Surface* Surface::getSurface(IDirectDrawSurface4& dds);
 	template Surface* Surface::getSurface(IDirectDrawSurface7& dds);
+
+	void Surface::restore()
+	{
+		setResources(m_lockSurface);
+		if (m_lockSurface)
+		{
+			for (std::size_t i = 0; i < m_attachedSurfaces.size(); ++i)
+			{
+				m_attachedSurfaces[i]->setResources(
+					i < m_attachedLockSurfaces.size() ? m_attachedLockSurfaces[i] : nullptr);
+			}
+		}
+	}
+
+	void Surface::setResources(CompatWeakPtr<IDirectDrawSurface7> lockSurface)
+	{
+		if (lockSurface)
+		{
+			auto resource = D3dDdi::Device::getResource(getDriverResourceHandle(*m_surface));
+			if (resource)
+			{
+				resource->setLockResource(D3dDdi::Device::getResource(getDriverResourceHandle(*lockSurface)));
+				resource->setRootSurface(m_rootSurface);
+			}
+		}
+	}
 }

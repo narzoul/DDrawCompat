@@ -95,13 +95,13 @@ namespace
 			CompatPtr<IDirectDrawClipper> clipper;
 			ddrawSurface->GetClipper(ddrawSurface, &clipper.getRef());
 			ddrawSurface->SetClipper(ddrawSurface, nullptr);
-			result = SUCCEEDED(ddrawSurface->Blt(
+			result = SUCCEEDED(ddrawSurface.get()->lpVtbl->Blt(
 				ddrawSurface, nullptr, gdiSurface, nullptr, DDBLT_WAIT, nullptr));
 			ddrawSurface->SetClipper(ddrawSurface, clipper);
 		}
 		else
 		{
-			result = SUCCEEDED(gdiSurface->BltFast(
+			result = SUCCEEDED(gdiSurface.get()->lpVtbl->BltFast(
 				gdiSurface, 0, 0, ddrawSurface, nullptr, DDBLTFAST_WAIT));
 		}
 		g_isSyncing = false;

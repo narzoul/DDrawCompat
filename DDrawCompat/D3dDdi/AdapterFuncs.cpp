@@ -37,7 +37,8 @@ namespace
 		HRESULT result = D3dDdi::AdapterFuncs::s_origVtables.at(hAdapter).pfnGetCaps(hAdapter, pData);
 		if (SUCCEEDED(result) && D3DDDICAPS_DDRAW == pData->Type)
 		{
-			static_cast<DDRAW_CAPS*>(pData->pData)->FxCaps = 0;
+			static_cast<DDRAW_CAPS*>(pData->pData)->FxCaps =
+				DDRAW_FXCAPS_BLTMIRRORLEFTRIGHT | DDRAW_FXCAPS_BLTMIRRORUPDOWN;
 		}
 		return result;
 	}

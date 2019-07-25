@@ -1,17 +1,14 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 
 #include <d3d.h>
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
-#include "D3dDdi/RenderTargetResource.h"
-
 namespace D3dDdi
 {
-	UINT getBytesPerPixel(D3DDDIFORMAT format);
-
 	class Adapter;
 	class Resource;
 
@@ -46,16 +43,20 @@ namespace D3dDdi
 
 		Adapter& getAdapter() const { return m_adapter; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
-		std::map<HANDLE, Resource>& getResources() { return m_resources; }
+		std::unordered_map<HANDLE, Resource>& getResources() { return m_resources; }
 
-		void addRenderTargetResource(const D3DDDIARG_CREATERESOURCE& data);
-		void prepareForRendering(HANDLE resource, UINT subResourceIndex = UINT_MAX);
+		void addDirtyRenderTarget(Resource& resource, UINT subResourceIndex);
+		void addDirtyTexture(Resource& resource, UINT subResourceIndex);
+		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
 		void prepareForRendering();
+		void removeDirtyRenderTarget(Resource& resource, UINT subResourceIndex);
+		void removeDirtyTexture(Resource& resource, UINT subResourceIndex);
 
 		static void add(HANDLE adapter, HANDLE device);
 		static Device& get(HANDLE device);
 		static void remove(HANDLE device);
 
+		static Resource* getResource(HANDLE resource);
 		static void setGdiResourceHandle(HANDLE resource);
 		static void setReadOnlyGdiLock(bool enable);
 
@@ -65,14 +66,14 @@ namespace D3dDdi
 		template <typename Arg>
 		HRESULT createResourceImpl(Arg& data);
 
-		void prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex = UINT_MAX);
+		void prepareForRendering(std::map<std::pair<HANDLE, UINT>, Resource&>& resources, bool isReadOnly);
 
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
-		std::map<HANDLE, Resource> m_resources;
-		std::map<HANDLE, RenderTargetResource> m_renderTargetResources;
-		std::map<HANDLE, RenderTargetResource&> m_lockedRenderTargetResources;
+		std::unordered_map<HANDLE, Resource> m_resources;
+		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyRenderTargets;
+		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyTextures;
 		HANDLE m_sharedPrimary;
 
 		static std::map<HANDLE, Device> s_devices;

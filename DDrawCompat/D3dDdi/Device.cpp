@@ -5,7 +5,6 @@
 #include "D3dDdi/Adapter.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/DeviceFuncs.h"
-#include "D3dDdi/KernelModeThunks.h"
 #include "D3dDdi/Resource.h"
 #include "Gdi/AccessGuard.h"
 
@@ -28,44 +27,33 @@ namespace
 			: Gdi::DDrawAccessGuard(access, g_gdiResourceHandle == resource)
 			, m_device(device)
 		{
-			device.prepareForRendering(resource, subResourceIndex);
+			device.prepareForRendering(resource, subResourceIndex, Gdi::ACCESS_READ == access);
 		}
 
 	private:
-		D3dDdi::Device & m_device;
+		D3dDdi::Device& m_device;
 	};
+
+	template <typename Container, typename Predicate>
+	void erase_if(Container& container, Predicate pred)
+	{
+		auto it = container.begin();
+		while (it != container.end())
+		{
+			if (pred(*it))
+			{
+				it = container.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
+	}
 }
 
 namespace D3dDdi
 {
-	UINT getBytesPerPixel(D3DDDIFORMAT format)
-	{
-		switch (format)
-		{
-		case D3DDDIFMT_A8:
-		case D3DDDIFMT_P8:
-			return 1;
-
-		case D3DDDIFMT_R5G6B5:
-		case D3DDDIFMT_X1R5G5B5:
-		case D3DDDIFMT_A1R5G5B5:
-		case D3DDDIFMT_A8P8:
-			return 2;
-
-		case D3DDDIFMT_R8G8B8:
-			return 3;
-
-		case D3DDDIFMT_A8R8G8B8:
-		case D3DDDIFMT_X8R8G8B8:
-		case D3DDDIFMT_A8B8G8R8:
-		case D3DDDIFMT_X8B8G8R8:
-			return 4;
-
-		default:
-			return 0;
-		}
-	}
-
 	Device::Device(HANDLE adapter, HANDLE device)
 		: m_origVtable(DeviceFuncs::s_origVtables.at(device))
 		, m_adapter(Adapter::get(adapter))
@@ -76,13 +64,13 @@ namespace D3dDdi
 
 	HRESULT Device::blt(const D3DDDIARG_BLT& data)
 	{
-		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
-		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource, data.DstSubResourceIndex);
 		auto it = m_resources.find(data.hDstResource);
 		if (it != m_resources.end())
 		{
 			return it->second.blt(data);
 		}
+		RenderGuard srcRenderGuard(*this, Gdi::ACCESS_READ, data.hSrcResource, data.SrcSubResourceIndex);
+		RenderGuard dstRenderGuard(*this, Gdi::ACCESS_WRITE, data.hDstResource, data.DstSubResourceIndex);
 		return m_origVtable.pfnBlt(m_device, &data);
 	}
 
@@ -104,7 +92,7 @@ namespace D3dDdi
 		try
 		{
 			Resource resource(Resource::create(*this, data));
-			m_resources.emplace(resource, resource);
+			m_resources.emplace(resource, std::move(resource));
 			return S_OK;
 		}
 		catch (const HResultException& e)
@@ -133,9 +121,17 @@ namespace D3dDdi
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
-			m_resources.erase(resource);
-			m_renderTargetResources.erase(resource);
-			m_lockedRenderTargetResources.erase(resource);
+			erase_if(m_dirtyRenderTargets,
+				[=](const decltype(m_dirtyRenderTargets)::value_type& v) { return v.first.first == resource; });
+			erase_if(m_dirtyTextures,
+				[=](const decltype(m_dirtyTextures)::value_type& v) { return v.first.first == resource; });
+
+			auto it = m_resources.find(resource);
+			if (it != m_resources.end())
+			{
+				it->second.destroy();
+				m_resources.erase(it);
+			}
 
 			if (resource == m_sharedPrimary)
 			{
@@ -195,21 +191,10 @@ namespace D3dDdi
 			(data.Flags.ReadOnly || g_isReadOnlyGdiLockEnabled) ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE,
 			data.hResource == g_gdiResourceHandle);
 
-		auto it = m_renderTargetResources.find(data.hResource);
-		if (it != m_renderTargetResources.end())
+		auto it = m_resources.find(data.hResource);
+		if (it != m_resources.end())
 		{
-			HRESULT result = it->second.lock(data);
-			if (SUCCEEDED(result))
-			{
-				m_lockedRenderTargetResources.emplace(it->first, it->second);
-			}
-			return result;
-		}
-
-		auto resourceIter = m_resources.find(data.hResource);
-		if (resourceIter != m_resources.end())
-		{
-			return resourceIter->second.lock(data);
+			return it->second.lock(data);
 		}
 
 		return m_origVtable.pfnLock(m_device, &data);
@@ -243,7 +228,8 @@ namespace D3dDdi
 
 		for (UINT i = 0; i < data.SrcResources; ++i)
 		{
-			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex);
+			const bool isReadOnly = true;
+			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex, isReadOnly);
 		}
 
 		return m_origVtable.pfnPresent1(m_device, &data);
@@ -266,16 +252,11 @@ namespace D3dDdi
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK& data)
 	{
 		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, data.hResource == g_gdiResourceHandle);
-		auto it = m_renderTargetResources.find(data.hResource);
-		if (it != m_renderTargetResources.end())
+
+		auto it = m_resources.find(data.hResource);
+		if (it != m_resources.end())
 		{
 			return it->second.unlock(data);
-		}
-
-		auto resourceIter = m_resources.find(data.hResource);
-		if (resourceIter != m_resources.end())
-		{
-			return resourceIter->second.unlock(data);
 		}
 
 		return m_origVtable.pfnUnlock(m_device, &data);
@@ -293,37 +274,52 @@ namespace D3dDdi
 		return m_origVtable.pfnUpdateWInfo(m_device, &data);
 	}
 
-	void Device::addRenderTargetResource(const D3DDDIARG_CREATERESOURCE& data)
+	void Device::addDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
 	{
-		m_renderTargetResources.emplace(data.hResource,
-			RenderTargetResource(*this, data.hResource, data.Format, data.SurfCount));
+		m_dirtyRenderTargets.emplace(std::make_pair(resource, subResourceIndex), resource);
 	}
 
-	void Device::prepareForRendering(RenderTargetResource& resource, UINT subResourceIndex)
+	void Device::addDirtyTexture(Resource& resource, UINT subResourceIndex)
 	{
-		resource.prepareForRendering(subResourceIndex);
-		if (!resource.hasLockedSubResources())
+		m_dirtyTextures.emplace(std::make_pair(resource, subResourceIndex), resource);
+	}
+
+	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
+	{
+		auto it = m_resources.find(resource);
+		if (it != m_resources.end())
 		{
-			m_lockedRenderTargetResources.erase(resource.getHandle());
+			it->second.prepareForRendering(subResourceIndex, isReadOnly);
 		}
 	}
 
-	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex)
+	void Device::prepareForRendering(std::map<std::pair<HANDLE, UINT>, Resource&>& resources, bool isReadOnly)
 	{
-		auto it = m_lockedRenderTargetResources.find(resource);
-		if (it != m_lockedRenderTargetResources.end())
+		auto it = resources.begin();
+		while (it != resources.end())
 		{
-			prepareForRendering(it->second, subResourceIndex);
+			auto& resource = it->second;
+			auto subResourceIndex = it->first.second;
+			++it;
+			resource.prepareForRendering(subResourceIndex, isReadOnly);
 		}
 	}
 
 	void Device::prepareForRendering()
 	{
-		auto it = m_lockedRenderTargetResources.begin();
-		while (it != m_lockedRenderTargetResources.end())
-		{
-			prepareForRendering((it++)->second);
-		}
+		const bool isReadOnly = true;
+		prepareForRendering(m_dirtyRenderTargets, !isReadOnly);
+		prepareForRendering(m_dirtyTextures, isReadOnly);
+	}
+
+	void Device::removeDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
+	{
+		m_dirtyRenderTargets.erase(std::make_pair(resource, subResourceIndex));
+	}
+
+	void Device::removeDirtyTexture(Resource& resource, UINT subResourceIndex)
+	{
+		m_dirtyTextures.erase(std::make_pair(resource, subResourceIndex));
 	}
 
 	void Device::add(HANDLE adapter, HANDLE device)
@@ -345,6 +341,21 @@ namespace D3dDdi
 	void Device::remove(HANDLE device)
 	{
 		s_devices.erase(device);
+	}
+
+	Resource* Device::getResource(HANDLE resource)
+	{
+		for (auto& device : s_devices)
+		{
+			for (auto& res : device.second.getResources())
+			{
+				if (resource == res.second)
+				{
+					return &res.second;
+				}
+			}
+		}
+		return nullptr;
 	}
 
 	void Device::setGdiResourceHandle(HANDLE resource)

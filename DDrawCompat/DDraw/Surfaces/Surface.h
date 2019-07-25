@@ -20,7 +20,7 @@ namespace DDraw
 		virtual ULONG STDMETHODCALLTYPE AddRef();
 		virtual ULONG STDMETHODCALLTYPE Release();
 
-		Surface();
+		Surface(Surface* rootSurface = nullptr);
 		virtual ~Surface();
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
@@ -32,6 +32,9 @@ namespace DDraw
 
 		template <typename TSurface>
 		SurfaceImpl<TSurface>* getImpl() const;
+
+		void clearResources();
+		void restore();
 
 	protected:
 		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData);
@@ -51,6 +54,16 @@ namespace DDraw
 		template <typename TDirectDrawSurface>
 		friend class SurfaceImpl2;
 
+		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
+		CompatPtr<IDirectDrawSurface7> createLockSurface(CompatRef<TDirectDraw> dd, TSurfaceDesc desc);
+
+		void setResources(CompatWeakPtr<IDirectDrawSurface7> lockSurface);
+
 		DWORD m_refCount;
+		Surface* m_rootSurface;
+		CompatWeakPtr<IDirectDrawSurface7> m_surface;
+		std::vector<Surface*> m_attachedSurfaces;
+		CompatPtr<IDirectDrawSurface7> m_lockSurface;
+		std::vector<CompatWeakPtr<IDirectDrawSurface7>> m_attachedLockSurfaces;
 	};
 }

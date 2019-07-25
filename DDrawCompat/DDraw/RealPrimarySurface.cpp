@@ -562,7 +562,7 @@ namespace DDraw
 		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
 		if (isFlipEmulated)
 		{
-			surfaceTargetOverride->Blt(
+			surfaceTargetOverride.get()->lpVtbl->Blt(
 				surfaceTargetOverride, nullptr, PrimarySurface::getPrimary(), nullptr, DDBLT_WAIT, nullptr);
 		}
 

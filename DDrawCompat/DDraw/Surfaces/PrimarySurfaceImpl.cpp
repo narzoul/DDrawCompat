@@ -60,7 +60,7 @@ namespace
 
 		auto srcSurface(CompatPtr<IDirectDrawSurface7>::from(lpDDSrcSurface));
 		gdiSurface->SetClipper(gdiSurface, gdiClipper);
-		gdiSurface->Blt(gdiSurface, &dstRect, srcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		gdiSurface.get()->lpVtbl->Blt(gdiSurface, &dstRect, srcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		gdiSurface->SetClipper(gdiSurface, nullptr);
 	}
 

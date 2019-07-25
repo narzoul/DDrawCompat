@@ -84,6 +84,7 @@
       <MinimalRebuild>false</MinimalRebuild>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
@@ -102,6 +103,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
@@ -120,6 +122,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
@@ -160,7 +163,6 @@
     <ClInclude Include="D3dDdi\Log\DeviceCallbacksLog.h" />
     <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h" />
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h" />
-    <ClInclude Include="D3dDdi\RenderTargetResource.h" />
     <ClInclude Include="D3dDdi\Resource.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
@@ -168,6 +170,7 @@
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h" />
     <ClInclude Include="DDraw\ActivateAppHandler.h" />
+    <ClInclude Include="DDraw\Blitter.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
     <ClInclude Include="DDraw\DirectDrawClipper.h" />
     <ClInclude Include="DDraw\DirectDrawGammaControl.h" />
@@ -237,10 +240,10 @@
     <ClCompile Include="D3dDdi\Log\DeviceCallbacksLog.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceFuncsLog.cpp" />
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />
-    <ClCompile Include="D3dDdi\RenderTargetResource.cpp" />
     <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
     <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
+    <ClCompile Include="DDraw\Blitter.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
     <ClCompile Include="DDraw\DirectDrawClipper.cpp" />
     <ClCompile Include="DDraw\DirectDrawGammaControl.cpp" />

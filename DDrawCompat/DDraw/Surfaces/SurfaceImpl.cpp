@@ -46,11 +46,6 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
-		if (!waitForFlip(This, dwTrans, DDBLTFAST_WAIT, DDBLTFAST_DONOTWAIT))
-		{
-			return DDERR_WASSTILLDRAWING;
-		}
-
 		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
 		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
 		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
@@ -176,7 +171,12 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Restore(TSurface* This)
 	{
-		return s_origVtable.Restore(This);
+		HRESULT result = s_origVtable.Restore(This);
+		if (SUCCEEDED(result))
+		{
+			m_data->restore();
+		}
+		return result;
 	}
 
 	template <typename TSurface>
