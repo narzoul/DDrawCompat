@@ -636,6 +636,33 @@ namespace
 		vectorizedBltFunc(dst, dstPitch, dstWidth, dstHeight,
 			src, srcPitch, offsetX, deltaX, offsetY, deltaY, dstCk, srcCk);
 	}
+
+	template <typename Pixel>
+	void colorFill(BYTE* dst, DWORD dstPitch, DWORD dstWidth, DWORD dstHeight, DWORD color)
+	{
+		DWORD c = 0;
+		memset(&c, color, sizeof(Pixel));
+		if (c == color)
+		{
+			for (DWORD i = dstHeight; i != 0; --i)
+			{
+				memset(dst, color, dstWidth * sizeof(Pixel));
+				dst += dstPitch;
+			}
+			return;
+		}
+
+		for (DWORD i = 0; i < dstWidth; ++i)
+		{
+			reinterpret_cast<Pixel*>(dst)[i] = static_cast<Pixel>(color);
+		}
+
+		for (DWORD i = dstHeight - 1; i != 0; --i)
+		{
+			memcpy(dst + dstPitch, dst, dstWidth * sizeof(Pixel));
+			dst += dstPitch;
+		}
+	}
 }
 
 namespace DDraw
@@ -649,6 +676,17 @@ namespace DDraw
 			::blt(static_cast<BYTE*>(dst), dstPitch, dstWidth, dstHeight,
 				static_cast<const BYTE*>(src), srcPitch, srcWidth, srcHeight,
 				bytesPerPixel, dstColorKey, srcColorKey);
+		}
+
+		void colorFill(void* dst, DWORD dstPitch, DWORD dstWidth, DWORD dstHeight, DWORD bytesPerPixel, DWORD color)
+		{
+			switch (bytesPerPixel)
+			{
+			case 1: return ::colorFill<BYTE>(static_cast<BYTE*>(dst), dstPitch, dstWidth, dstHeight, color);
+			case 2: return ::colorFill<WORD>(static_cast<BYTE*>(dst), dstPitch, dstWidth, dstHeight, color);
+			case 3: return ::colorFill<UInt24>(static_cast<BYTE*>(dst), dstPitch, dstWidth, dstHeight, color);
+			case 4: return ::colorFill<DWORD>(static_cast<BYTE*>(dst), dstPitch, dstWidth, dstHeight, color);
+			}
 		}
 	}
 }

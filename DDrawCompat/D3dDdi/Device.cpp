@@ -82,6 +82,11 @@ namespace D3dDdi
 
 	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL& data)
 	{
+		auto it = m_resources.find(data.hResource);
+		if (it != m_resources.end())
+		{
+			return it->second.colorFill(data);
+		}
 		RenderGuard renderGuard(*this, Gdi::ACCESS_WRITE, data.hResource, data.SubResourceIndex);
 		return m_origVtable.pfnColorFill(m_device, &data);
 	}

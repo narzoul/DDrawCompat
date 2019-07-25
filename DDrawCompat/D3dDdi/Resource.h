@@ -6,6 +6,8 @@
 #include <d3dumddi.h>
 #include <ddraw.h>
 
+#include "D3dDdi/FormatInfo.h"
+
 namespace DDraw
 {
 	class Surface;
@@ -24,6 +26,7 @@ namespace D3dDdi
 		operator HANDLE() const { return m_handle; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
+		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
 		void destroy();
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
@@ -92,7 +95,7 @@ namespace D3dDdi
 		HANDLE m_handle;
 		Data m_origData;
 		Data m_fixedData;
-		UINT m_bytesPerPixel;
+		FormatInfo m_formatInfo;
 		DDraw::Surface* m_rootSurface;
 		Resource* m_lockResource;
 		std::vector<LockData> m_lockData;

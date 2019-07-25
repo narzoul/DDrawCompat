@@ -11,7 +11,6 @@
 
 namespace
 {
-	UINT getBytesPerPixel(D3DDDIFORMAT format);
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
 	void splitToTiles(D3DDDIARG_CREATERESOURCE& data, const UINT tileWidth, const UINT tileHeight);
 
@@ -34,7 +33,7 @@ namespace
 			(isOffScreenPlain || data.Flags.Texture) &&
 			1 == data.SurfCount &&
 			0 == data.pSurfList[0].Depth &&
-			0 != getBytesPerPixel(data.Format))
+			0 != D3dDdi::getFormatInfo(data.Format).bytesPerPixel)
 		{
 			const auto& caps = device.getAdapter().getD3dExtendedCaps();
 			const auto& surfaceInfo = data.pSurfList[0];
@@ -43,40 +42,6 @@ namespace
 			{
 				splitToTiles(data, caps.dwMaxTextureWidth, caps.dwMaxTextureHeight);
 			}
-		}
-	}
-
-	UINT getBytesPerPixel(D3DDDIFORMAT format)
-	{
-		switch (format)
-		{
-		case D3DDDIFMT_R3G3B2:
-		case D3DDDIFMT_A8:
-		case D3DDDIFMT_P8:
-		case D3DDDIFMT_R8:
-			return 1;
-
-		case D3DDDIFMT_R5G6B5:
-		case D3DDDIFMT_X1R5G5B5:
-		case D3DDDIFMT_A1R5G5B5:
-		case D3DDDIFMT_A4R4G4B4:
-		case D3DDDIFMT_A8R3G3B2:
-		case D3DDDIFMT_X4R4G4B4:
-		case D3DDDIFMT_A8P8:
-		case D3DDDIFMT_G8R8:
-			return 2;
-
-		case D3DDDIFMT_R8G8B8:
-			return 3;
-
-		case D3DDDIFMT_A8R8G8B8:
-		case D3DDDIFMT_X8R8G8B8:
-		case D3DDDIFMT_A8B8G8R8:
-		case D3DDDIFMT_X8B8G8R8:
-			return 4;
-
-		default:
-			return 0;
 		}
 	}
 
@@ -109,7 +74,7 @@ namespace
 		static std::vector<D3DDDI_SURFACEINFO> tiles;
 		tiles.clear();
 
-		const UINT bytesPerPixel = getBytesPerPixel(data.Format);
+		const UINT bytesPerPixel = D3dDdi::getFormatInfo(data.Format).bytesPerPixel;
 
 		for (UINT y = 0; y < data.pSurfList[0].Height; y += tileHeight)
 		{
@@ -216,7 +181,6 @@ namespace D3dDdi
 		: m_device(device)
 		, m_handle(nullptr)
 		, m_origData(data)
-		, m_bytesPerPixel(0)
 		, m_rootSurface(nullptr)
 		, m_lockResource(nullptr)
 	{
@@ -279,7 +243,7 @@ namespace D3dDdi
 		unsigned char* ptr = static_cast<unsigned char*>(lockData.data);
 		if (data.Flags.AreaValid)
 		{
-			ptr += data.Area.top * lockData.pitch + data.Area.left * m_bytesPerPixel;
+			ptr += data.Area.top * lockData.pitch + data.Area.left * m_formatInfo.bytesPerPixel;
 		}
 
 		data.pSurfData = ptr;
@@ -301,6 +265,32 @@ namespace D3dDdi
 			--m_lockData[data.SubResourceIndex].lockCount;
 		}
 		return LOG_RESULT(S_OK);
+	}
+
+	HRESULT Resource::colorFill(const D3DDDIARG_COLORFILL& data)
+	{
+		LOG_FUNC("Resource::colorFill", data);
+		if (data.SubResourceIndex < m_lockData.size() && 0 != m_formatInfo.bytesPerPixel)
+		{
+			auto& lockData = m_lockData[data.SubResourceIndex];
+			if (lockData.isSysMemUpToDate)
+			{
+				auto dstBuf = static_cast<BYTE*>(lockData.data) +
+					data.DstRect.top * lockData.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
+
+				DDraw::Blitter::colorFill(dstBuf, lockData.pitch,
+					data.DstRect.right - data.DstRect.left, data.DstRect.bottom - data.DstRect.top,
+					m_formatInfo.bytesPerPixel, colorConvert(m_formatInfo, data.Color));
+
+				if (lockData.isVidMemUpToDate)
+				{
+					setVidMemUpToDate(data.SubResourceIndex, false);
+				}
+				return LOG_RESULT(S_OK);
+			}
+		}
+		prepareForRendering(data.SubResourceIndex, false);
+		return LOG_RESULT(m_device.getOrigVtable().pfnColorFill(m_device, &data));
 	}
 
 	HRESULT Resource::copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex)
@@ -344,7 +334,7 @@ namespace D3dDdi
 		Arg origData = data;
 		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(data));
 		resource.m_fixedData = data;
-		resource.m_bytesPerPixel = getBytesPerPixel(data.Format);
+		resource.m_formatInfo = getFormatInfo(data.Format);
 
 		HRESULT result = createResourceFunc(device, &data);
 		if (FAILED(result))
@@ -625,9 +615,9 @@ namespace D3dDdi
 				if (dstGuard.data)
 				{
 					auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
-						data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_bytesPerPixel;
+						data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
 					auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
-						data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_bytesPerPixel;
+						data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
 
 					DDraw::Blitter::blt(
 						dstBuf,
@@ -638,7 +628,7 @@ namespace D3dDdi
 						srcGuard.pitch,
 						(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
 						(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
-						m_bytesPerPixel,
+						m_formatInfo.bytesPerPixel,
 						data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
 						data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
 

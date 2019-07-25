@@ -351,6 +351,9 @@
     <ClInclude Include="DDraw\Blitter.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\FormatInfo.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -532,6 +535,9 @@
     </ClCompile>
     <ClCompile Include="DDraw\Blitter.cpp">
       <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\FormatInfo.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

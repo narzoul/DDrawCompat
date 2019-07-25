@@ -157,6 +157,7 @@
     <ClInclude Include="D3dDdi\Device.h" />
     <ClInclude Include="D3dDdi\DeviceCallbacks.h" />
     <ClInclude Include="D3dDdi\DeviceFuncs.h" />
+    <ClInclude Include="D3dDdi\FormatInfo.h" />
     <ClInclude Include="D3dDdi\Hooks.h" />
     <ClInclude Include="D3dDdi\KernelModeThunks.h" />
     <ClInclude Include="D3dDdi\Log\AdapterFuncsLog.h" />
@@ -234,6 +235,7 @@
     <ClCompile Include="D3dDdi\Device.cpp" />
     <ClCompile Include="D3dDdi\DeviceCallbacks.cpp" />
     <ClCompile Include="D3dDdi\DeviceFuncs.cpp" />
+    <ClCompile Include="D3dDdi\FormatInfo.cpp" />
     <ClCompile Include="D3dDdi\Hooks.cpp" />
     <ClCompile Include="D3dDdi\KernelModeThunks.cpp" />
     <ClCompile Include="D3dDdi\Log\AdapterFuncsLog.cpp" />
