@@ -204,6 +204,10 @@ namespace D3dDdi
 					prepareForRendering(data.DstSubResourceIndex, false);
 					return it->second.splitBlt(data, data.SrcSubResourceIndex, data.SrcRect, data.DstRect);
 				}
+				else if (m_fixedData.Flags.Primary)
+				{
+					return presentationBlt(data, it->second);
+				}
 				else
 				{
 					return sysMemPreferredBlt(data, it->second);
@@ -442,6 +446,25 @@ namespace D3dDdi
 				moveToVidMem(subResourceIndex);
 			}
 		}
+	}
+
+	HRESULT Resource::presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
+	{
+		if (data.SrcSubResourceIndex < srcResource.m_lockData.size())
+		{
+			if (srcResource.m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate)
+			{
+				if (srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
+				{
+					copySubResource(srcResource, *srcResource.m_lockResource, data.SrcSubResourceIndex);
+				}
+			}
+			else
+			{
+				srcResource.copyToVidMem(data.SrcSubResourceIndex);
+			}
+		}
+		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 
 	void Resource::setLockResource(Resource* lockResource)

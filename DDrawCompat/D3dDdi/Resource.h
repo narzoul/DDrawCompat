@@ -82,6 +82,7 @@ namespace D3dDdi
 		void moveToSysMem(UINT subResourceIndex);
 		void moveToVidMem(UINT subResourceIndex);
 		void prepareSubResourceForRendering(UINT subResourceIndex, bool isReadOnly);
+		HRESULT presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
 		void setSysMemUpToDate(UINT subResourceIndex, bool upToDate);
 		void setVidMemUpToDate(UINT subResourceIndex, bool upToDate);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
