@@ -168,7 +168,7 @@ namespace
 		LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
 		if (lpbmih && (!(fdwInit & CBM_INIT) || lpbInit && lpbmi))
 		{
-			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(lpbmih->biWidth, std::abs(lpbmih->biHeight));
+			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(lpbmih->biWidth, lpbmih->biHeight);
 			if (bitmap && (fdwInit & CBM_INIT))
 			{
 				SetDIBits(hdc, bitmap, 0, std::abs(lpbmih->biHeight), lpbInit, lpbmi, fuUsage);

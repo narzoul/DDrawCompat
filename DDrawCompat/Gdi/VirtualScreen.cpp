@@ -36,7 +36,7 @@ namespace
 		return TRUE;
 	}
 
-	HBITMAP createDibSection(DWORD width, DWORD height, HANDLE section)
+	HBITMAP createDibSection(LONG width, LONG height, HANDLE section)
 	{
 		struct BITMAPINFO256 : public BITMAPINFO
 		{
@@ -46,7 +46,7 @@ namespace
 		BITMAPINFO256 bmi = {};
 		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
 		bmi.bmiHeader.biWidth = width;
-		bmi.bmiHeader.biHeight = -static_cast<LONG>(height);
+		bmi.bmiHeader.biHeight = height;
 		bmi.bmiHeader.biPlanes = 1;
 		bmi.bmiHeader.biBitCount = static_cast<WORD>(g_bpp);
 		bmi.bmiHeader.biCompression = 8 == g_bpp ? BI_RGB : BI_BITFIELDS;
@@ -107,10 +107,10 @@ namespace Gdi
 			{
 				return nullptr;
 			}
-			return createDibSection(g_width, g_height, g_surfaceFileMapping);
+			return createDibSection(g_width, -g_height, g_surfaceFileMapping);
 		}
 
-		HBITMAP createOffScreenDib(DWORD width, DWORD height)
+		HBITMAP createOffScreenDib(LONG width, LONG height)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
 			return createDibSection(width, height, nullptr);

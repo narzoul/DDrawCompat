@@ -14,7 +14,7 @@ namespace Gdi
 	{
 		HDC createDc();
 		HBITMAP createDib();
-		HBITMAP createOffScreenDib(DWORD width, DWORD height);
+		HBITMAP createOffScreenDib(LONG width, LONG height);
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect);
 		void deleteDc(HDC dc);
 
