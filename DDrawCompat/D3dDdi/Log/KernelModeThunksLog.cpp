@@ -120,6 +120,15 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_PRESENT& data)
 		<< static_cast<UINT>(data.bOptimizeForComposition);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DKMT_QUERYADAPTERINFO& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.hAdapter)
+		<< data.Type
+		<< data.pPrivateDriverData
+		<< data.PrivateDriverDataSize;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETQUEUEDLIMIT& data)
 {
 	return Compat::LogStruct(os)

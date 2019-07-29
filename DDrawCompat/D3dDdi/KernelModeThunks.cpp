@@ -219,10 +219,36 @@ namespace
 	{
 		LOG_FUNC("D3DKMTQueryAdapterInfo", pData);
 		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTQueryAdapterInfo)(pData);
-		if (SUCCEEDED(result) && KMTQAITYPE_UMDRIVERNAME == pData->Type)
+		if (SUCCEEDED(result))
 		{
-			auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
-			D3dDdi::onUmdFileNameQueried(info->UmdFileName);
+			switch (pData->Type)
+			{
+			case KMTQAITYPE_UMDRIVERNAME:
+			{
+				auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
+				D3dDdi::onUmdFileNameQueried(info->UmdFileName);
+			}
+			break;
+
+			case KMTQAITYPE_GETSEGMENTSIZE:
+			{
+				auto info = static_cast<D3DKMT_SEGMENTSIZEINFO*>(pData->pPrivateDriverData);
+				const ULONGLONG maxMem = 0x3FFF0000;
+				if (info->DedicatedVideoMemorySize > maxMem)
+				{
+					info->DedicatedVideoMemorySize = maxMem;
+				}
+				if (info->DedicatedVideoMemorySize + info->DedicatedSystemMemorySize > maxMem)
+				{
+					info->DedicatedSystemMemorySize = maxMem - info->DedicatedVideoMemorySize;
+				}
+				if (info->SharedSystemMemorySize > maxMem)
+				{
+					info->SharedSystemMemorySize = maxMem;
+				}
+			}
+			break;
+			}
 		}
 		return LOG_RESULT(result);
 	}
