@@ -34,7 +34,7 @@ namespace DDraw
 		SurfaceImpl<TSurface>* getImpl() const;
 
 		void clearResources();
-		void restore();
+		virtual void restore();
 
 	protected:
 		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData);
@@ -47,6 +47,11 @@ namespace DDraw
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface3>> m_impl3;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface4>> m_impl4;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface7>> m_impl7;
+
+		CompatWeakPtr<IDirectDrawSurface7> m_surface;
+		std::vector<Surface*> m_attachedSurfaces;
+		CompatPtr<IDirectDrawSurface7> m_lockSurface;
+		std::vector<CompatWeakPtr<IDirectDrawSurface7>> m_attachedLockSurfaces;
 
 	private:
 		template <typename TDirectDrawSurface>
@@ -61,9 +66,5 @@ namespace DDraw
 
 		DWORD m_refCount;
 		Surface* m_rootSurface;
-		CompatWeakPtr<IDirectDrawSurface7> m_surface;
-		std::vector<Surface*> m_attachedSurfaces;
-		CompatPtr<IDirectDrawSurface7> m_lockSurface;
-		std::vector<CompatWeakPtr<IDirectDrawSurface7>> m_attachedLockSurfaces;
 	};
 }

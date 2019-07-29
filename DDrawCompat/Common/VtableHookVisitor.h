@@ -6,7 +6,9 @@
 #include "DDraw/ScopedThreadLock.h"
 
 struct _D3DDDI_ADAPTERCALLBACKS;
+struct _D3DDDI_ADAPTERFUNCS;
 struct _D3DDDI_DEVICEALLBACKS;
+struct _D3DDDI_DEVICEFUNCS;
 
 template <typename Vtable>
 class ScopedVtableFuncLock : public DDraw::ScopedThreadLock {};
@@ -15,7 +17,13 @@ template <>
 class ScopedVtableFuncLock<_D3DDDI_ADAPTERCALLBACKS> : public D3dDdi::ScopedCriticalSection {};
 
 template <>
+class ScopedVtableFuncLock<_D3DDDI_ADAPTERFUNCS> : public D3dDdi::ScopedCriticalSection {};
+
+template <>
 class ScopedVtableFuncLock<_D3DDDI_DEVICEALLBACKS> : public D3dDdi::ScopedCriticalSection {};
+
+template <>
+class ScopedVtableFuncLock<_D3DDDI_DEVICEFUNCS> : public D3dDdi::ScopedCriticalSection {};
 
 template <typename Vtable, int instanceId = 0>
 class VtableHookVisitor

@@ -105,7 +105,7 @@ namespace
 		if (hasDisplayDcArg(params...))
 		{
 			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
-			Gdi::GdiAccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
+			Gdi::AccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
 			return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...));
 		}
 
@@ -140,7 +140,7 @@ namespace
 			}
 			else
 			{
-				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx));
 			}
 		}

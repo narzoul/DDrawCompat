@@ -1,5 +1,3 @@
-#include <atomic>
-
 #include <ddraw.h>
 
 #include "Common/Hook.h"
@@ -14,8 +12,6 @@ namespace
 {
 	Win32::FontSmoothing::SystemSettings g_fontSmoothingSettings = {};
 	WNDPROC g_origDdWndProc = nullptr;
-	std::atomic<DWORD> g_activateAppThreadId = 0;
-	HWND g_delayedFocusWnd = nullptr;
 
 	void activateApp()
 	{
@@ -37,7 +33,6 @@ namespace
 		{
 		case WM_ACTIVATEAPP:
 		{
-			DDraw::RealPrimarySurface::disableUpdates();
 			isDisplayChangeNotificationEnabled = false;
 			if (TRUE == wParam)
 			{
@@ -48,17 +43,9 @@ namespace
 				deactivateApp();
 			}
 
-			g_activateAppThreadId = GetCurrentThreadId();
-			g_delayedFocusWnd = nullptr;
 			LRESULT result = g_origDdWndProc(hwnd, uMsg, wParam, lParam);
-			g_activateAppThreadId = 0;
-			if (g_delayedFocusWnd)
-			{
-				CALL_ORIG_FUNC(SetFocus)(g_delayedFocusWnd);
-			}
 
 			isDisplayChangeNotificationEnabled = true;
-			DDraw::RealPrimarySurface::enableUpdates();
 			return LOG_RESULT(result);
 		}
 
@@ -75,39 +62,12 @@ namespace
 
 		return LOG_RESULT(g_origDdWndProc(hwnd, uMsg, wParam, lParam));
 	}
-
-	HWND WINAPI setFocus(HWND hWnd)
-	{
-		if (GetCurrentThreadId() == g_activateAppThreadId && IsWindow(hWnd))
-		{
-			g_delayedFocusWnd = hWnd;
-			return GetFocus();
-		}
-		return CALL_ORIG_FUNC(SetFocus)(hWnd);
-	}
-
-	BOOL WINAPI showWindow(HWND hWnd, int  nCmdShow)
-	{
-		if (GetCurrentThreadId() == g_activateAppThreadId && IsWindow(hWnd))
-		{
-			BOOL result = IsWindowVisible(hWnd);
-			ShowWindowAsync(hWnd, nCmdShow);
-			return result;
-		}
-		return CALL_ORIG_FUNC(ShowWindow)(hWnd, nCmdShow);
-	}
 }
 
 namespace DDraw
 {
 	namespace ActivateAppHandler
 	{
-		void installHooks()
-		{
-			HOOK_FUNCTION(user32, SetFocus, setFocus);
-			HOOK_FUNCTION(user32, ShowWindow, showWindow);
-		}
-
 		void setCooperativeLevel(HWND hwnd, DWORD flags)
 		{
 			static bool isDdWndProcHooked = false;

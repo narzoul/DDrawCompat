@@ -213,8 +213,6 @@ namespace DDraw
 			return LOG_RESULT(nullptr);
 		}
 
-		desc.dwFlags |= DDSD_PIXELFORMAT;
-		desc.ddpfPixelFormat = desc.ddpfPixelFormat;
 		desc.ddsCaps.dwCaps &= ~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
 		desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
 

@@ -21,12 +21,16 @@ namespace DDraw
 		static CompatPtr<IDirectDrawSurface7> getBackBuffer();
 		static CompatPtr<IDirectDrawSurface7> getLastSurface();
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
+		static HANDLE getFrontResource();
 		static DWORD getOrigCaps();
-		static void onRestore();
 		static void updatePalette();
 
 		template <typename TSurface>
 		static bool isGdiSurface(TSurface* surface);
+
+		static void updateFrontResource();
+
+		virtual void restore();
 
 		static CompatWeakPtr<IDirectDrawPalette> s_palette;
 		static PALETTEENTRY s_paletteEntries[256];

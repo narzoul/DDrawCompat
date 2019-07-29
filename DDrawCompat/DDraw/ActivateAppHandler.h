@@ -8,7 +8,6 @@ namespace DDraw
 {
 	namespace ActivateAppHandler
 	{
-		void installHooks();
 		void setCooperativeLevel(HWND hwnd, DWORD flags);
 	}
 }

@@ -30,6 +30,7 @@ namespace D3dDdi
 		void destroy();
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
+		void resync();
 		void setLockResource(Resource* lockResource);
 		void setRootSurface(DDraw::Surface* rootSurface);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);

@@ -134,6 +134,7 @@ namespace DDraw
 			return result;
 		}
 
+		PrimarySurface::updateFrontResource();
 		return RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
 	}
 
@@ -208,11 +209,7 @@ namespace DDraw
 			result = RealPrimarySurface::restore();
 			if (SUCCEEDED(result))
 			{
-				result = SurfaceImpl::Restore(This);
-				if (SUCCEEDED(result))
-				{
-					PrimarySurface::onRestore();
-				}
+				return SurfaceImpl::Restore(This);
 			}
 		}
 		return result;

@@ -1,6 +1,5 @@
 #include "Common/CompatRef.h"
 #include "Common/Log.h"
-#include "DDraw/ActivateAppHandler.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawClipper.h"
 #include "DDraw/DirectDrawGammaControl.h"
@@ -95,7 +94,6 @@ namespace DDraw
 	void installHooks(CompatPtr<IDirectDraw7> dd7)
 	{
 		RealPrimarySurface::init();
-		ActivateAppHandler::installHooks();
 
 		Win32::Registry::unsetValue(
 			HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\DirectDraw", "EmulationOnly");

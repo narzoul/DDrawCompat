@@ -1,7 +1,7 @@
 #include "Common/Hook.h"
 #include "Common/Log.h"
+#include "D3dDdi/ScopedCriticalSection.h"
 #include "DDraw/RealPrimarySurface.h"
-#include "DDraw/ScopedThreadLock.h"
 #include "Gdi/Gdi.h"
 #include "Gdi/Window.h"
 
@@ -155,7 +155,7 @@ namespace Gdi
 	{
 		if (isTopLevelWindow(hwnd) && !get(hwnd))
 		{
-			DDraw::ScopedThreadLock lock;
+			D3dDdi::ScopedCriticalSection lock;
 			s_windows.emplace(hwnd, std::make_shared<Window>(hwnd));
 			return true;
 		}
@@ -196,20 +196,20 @@ namespace Gdi
 
 	std::shared_ptr<Window> Window::get(HWND hwnd)
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		auto it = s_windows.find(hwnd);
 		return it != s_windows.end() ? it->second : nullptr;
 	}
 
 	BYTE Window::getAlpha() const
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		return m_alpha;
 	}
 
 	COLORREF Window::getColorKey() const
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		return m_colorKey;
 	}
 
@@ -220,19 +220,19 @@ namespace Gdi
 
 	Region Window::getVisibleRegion() const
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		return m_visibleRegion;
 	}
 
 	RECT Window::getWindowRect() const
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		return m_windowRect;
 	}
 
 	std::map<HWND, std::shared_ptr<Window>> Window::getWindows()
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		return s_windows;
 	}
 
@@ -282,7 +282,7 @@ namespace Gdi
 
 	void Window::remove(HWND hwnd)
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		s_windows.erase(hwnd);
 	}
 
@@ -301,7 +301,7 @@ namespace Gdi
 
 	void Window::update()
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		if (m_isUpdating)
 		{
 			return;
@@ -364,13 +364,13 @@ namespace Gdi
 
 	void Window::updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha)
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		auto window(get(hwnd));
 		if (window)
 		{
 			window->m_colorKey = colorKey;
 			window->m_alpha = alpha;
-			DDraw::RealPrimarySurface::update();
+			DDraw::RealPrimarySurface::gdiUpdate();
 		}
 	}
 

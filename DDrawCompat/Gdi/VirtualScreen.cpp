@@ -1,6 +1,8 @@
 #include <set>
 
 #include "Common/ScopedCriticalSection.h"
+#include "D3dDdi/Device.h"
+#include "D3dDdi/ScopedCriticalSection.h"
 #include "DDraw/DirectDraw.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
@@ -119,23 +121,11 @@ namespace Gdi
 			DDraw::ScopedThreadLock ddLock;
 			Compat::ScopedCriticalSection lock(g_cs);
 
-			if (rect.left < g_bounds.left || rect.top < g_bounds.top ||
-				rect.right > g_bounds.right || rect.bottom > g_bounds.bottom)
+			auto desc = getSurfaceDesc(rect);
+			if (!desc.lpSurface)
 			{
 				return nullptr;
 			}
-
-			DDSURFACEDESC2 desc = {};
-			desc.dwSize = sizeof(desc);
-			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
-			desc.dwWidth = rect.right - rect.left;
-			desc.dwHeight = rect.bottom - rect.top;
-			desc.ddpfPixelFormat = DDraw::getRgbPixelFormat(g_bpp);
-			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-			desc.lPitch = g_pitch;
-			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) +
-				(rect.top - g_bounds.top) * g_pitch +
-				(rect.left - g_bounds.left) * g_bpp / 8;
 
 			auto primary(DDraw::PrimarySurface::getPrimary());
 			CompatPtr<IUnknown> ddUnk;
@@ -172,6 +162,29 @@ namespace Gdi
 			return g_region;
 		}
 
+		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			if (rect.left < g_bounds.left || rect.top < g_bounds.top ||
+				rect.right > g_bounds.right || rect.bottom > g_bounds.bottom)
+			{
+				return {};
+			}
+
+			DDSURFACEDESC2 desc = {};
+			desc.dwSize = sizeof(desc);
+			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
+			desc.dwWidth = rect.right - rect.left;
+			desc.dwHeight = rect.bottom - rect.top;
+			desc.ddpfPixelFormat = DDraw::getRgbPixelFormat(g_bpp);
+			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
+			desc.lPitch = g_pitch;
+			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) +
+				(rect.top - g_bounds.top) * g_pitch +
+				(rect.left - g_bounds.left) * g_bpp / 8;
+			return desc;
+		}
+
 		void init()
 		{
 			update();
@@ -191,6 +204,11 @@ namespace Gdi
 			}
 
 			prevDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
+
+			{
+				D3dDdi::ScopedCriticalSection driverLock;
+				D3dDdi::Device::setGdiResourceHandle(nullptr);
+			}
 
 			g_region = Region();
 			EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));

@@ -4,7 +4,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Time.h"
-#include "DDraw/ScopedThreadLock.h"
+#include "D3dDdi/ScopedCriticalSection.h"
 #include "Gdi/Caret.h"
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
@@ -34,7 +34,6 @@ namespace
 	{
 		if (OBJID_CARET == idObject)
 		{
-			DDraw::ScopedThreadLock lock;
 			updateCaret(GetWindowThreadProcessId(hwnd, nullptr));
 		}
 	}
@@ -64,7 +63,7 @@ namespace
 
 	void updateCaret(DWORD threadId)
 	{
-		DDraw::ScopedThreadLock lock;
+		D3dDdi::ScopedCriticalSection lock;
 		if (g_caret.isDrawn)
 		{
 			drawCaret();
@@ -87,7 +86,7 @@ namespace Gdi
 	{
 		void blink()
 		{
-			DDraw::ScopedThreadLock lock;
+			D3dDdi::ScopedCriticalSection lock;
 			if (!g_caret.isVisible)
 			{
 				return;

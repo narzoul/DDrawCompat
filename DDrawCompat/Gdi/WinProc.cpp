@@ -139,7 +139,7 @@ namespace
 			HDC compatDc = Gdi::Dc::getDc(windowDc);
 			if (compatDc)
 			{
-				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				if (OBJID_TITLEBAR == idObject)
 				{
 					Gdi::TitleBar(hwnd, compatDc).drawButtons();

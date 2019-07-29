@@ -467,6 +467,18 @@ namespace D3dDdi
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 
+	void Resource::resync()
+	{
+		if (!m_lockData.empty() && m_lockData[0].isSysMemUpToDate)
+		{
+			copySubResource(*this, *m_lockResource, 0);
+			if (!m_lockData[0].isVidMemUpToDate)
+			{
+				setVidMemUpToDate(0, true);
+			}
+		}
+	}
+
 	void Resource::setLockResource(Resource* lockResource)
 	{
 		if (!m_lockResource == !lockResource)

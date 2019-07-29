@@ -56,6 +56,7 @@ namespace D3dDdi
 		static Device& get(HANDLE device);
 		static void remove(HANDLE device);
 
+		static Resource* getGdiResource();
 		static Resource* getResource(HANDLE resource);
 		static void setGdiResourceHandle(HANDLE resource);
 		static void setReadOnlyGdiLock(bool enable);

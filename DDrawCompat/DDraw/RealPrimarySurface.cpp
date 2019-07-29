@@ -34,7 +34,7 @@ namespace
 
 	bool g_stopUpdateThread = false;
 	HANDLE g_updateThread = nullptr;
-	unsigned int g_disableUpdateCount = 0;
+	bool g_isGdiUpdatePending = false;
 	bool g_isFlipPending = false;
 	bool g_isPresentPending = false;
 	bool g_isUpdatePending = false;
@@ -91,7 +91,7 @@ namespace
 				}
 			}
 
-			Gdi::GdiAccessGuard gdiAccessGuard(Gdi::ACCESS_READ, !primaryRegion);
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_READ, !primaryRegion);
 			HWND presentationWindow = windowPair.second->getPresentationWindow();
 			HDC dc = GetWindowDC(presentationWindow);
 			RECT rect = windowPair.second->getWindowRect();
@@ -369,7 +369,6 @@ namespace
 		Gdi::Region primaryRegion(D3dDdi::KernelModeThunks::getMonitorRect());
 		bltToWindowViaGdi(&primaryRegion);
 
-		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, DDraw::PrimarySurface::isGdiSurface(src.get()));
 		if (Win32::DisplayMode::getBpp() <= 8)
 		{
 			HDC paletteConverterDc = nullptr;
@@ -437,12 +436,19 @@ namespace
 
 	void updateNowIfNotBusy()
 	{
+		if (g_isGdiUpdatePending)
+		{
+			g_qpcLastUpdate = Time::queryPerformanceCounter();
+			g_isUpdatePending = true;
+			g_isGdiUpdatePending = false;
+		}
+
 		auto primary(DDraw::PrimarySurface::getPrimary());
 		RECT emptyRect = {};
 		HRESULT result = primary ? primary->BltFast(primary, 0, 0, primary, &emptyRect, DDBLTFAST_WAIT) : DD_OK;
 		g_waitingForPrimaryUnlock = DDERR_SURFACEBUSY == result || DDERR_LOCKEDSURFACES == result;
 
-		if (!g_waitingForPrimaryUnlock && DDERR_SURFACELOST != result)
+		if (!g_waitingForPrimaryUnlock)
 		{
 			const auto msSinceLastUpdate = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate);
 			updateNow(primary, msSinceLastUpdate > Config::delayedFlipModeTimeout ? 0 : 1);
@@ -472,7 +478,7 @@ namespace
 			waitForVBlank = Time::qpcToMs(Time::queryPerformanceCounter() -
 				D3dDdi::KernelModeThunks::getQpcLastVerticalBlank()) >= msPresentDelayAfterVBlank;
 
-			if (waitForVBlank && g_isUpdatePending && 0 == g_disableUpdateCount && !isPresentPending())
+			if (waitForVBlank && (g_isUpdatePending || g_isGdiUpdatePending) && !isPresentPending())
 			{
 				updateNowIfNotBusy();
 			}
@@ -532,18 +538,6 @@ namespace DDraw
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw4>);
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw7>);
 
-	void RealPrimarySurface::disableUpdates()
-	{
-		DDraw::ScopedThreadLock lock;
-		--g_disableUpdateCount;
-	}
-
-	void RealPrimarySurface::enableUpdates()
-	{
-		DDraw::ScopedThreadLock lock;
-		++g_disableUpdateCount;
-	}
-
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
 		DDraw::ScopedThreadLock lock;
@@ -585,6 +579,11 @@ namespace DDraw
 		}
 
 		return DD_OK;
+	}
+
+	void RealPrimarySurface::gdiUpdate()
+	{
+		g_isGdiUpdatePending = true;
 	}
 
 	HRESULT RealPrimarySurface::getGammaRamp(DDGAMMARAMP* rampData)

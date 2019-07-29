@@ -5,7 +5,6 @@
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
-#include "Gdi/AccessGuard.h"
 
 namespace
 {
@@ -36,9 +35,6 @@ namespace DDraw
 		{
 			return DDERR_WASSTILLDRAWING;
 		}
-
-		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
-		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
 		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 
@@ -46,8 +42,6 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
-		Gdi::DDrawAccessGuard dstAccessGuard(Gdi::ACCESS_WRITE, PrimarySurface::isGdiSurface(This));
-		Gdi::DDrawAccessGuard srcAccessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(lpDDSrcSurface));
 		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	}
 
@@ -81,18 +75,11 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
-		HRESULT result = DD_OK;
-
-		{
-			Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			result = s_origVtable.GetDC(This, lphDC);
-		}
-
+		HRESULT result = s_origVtable.GetDC(This, lphDC);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::waitForFlip(m_data);
 		}
-
 		return result;
 	}
 
@@ -143,8 +130,6 @@ namespace DDraw
 			return DDERR_WASSTILLDRAWING;
 		}
 
-		Gdi::DDrawAccessGuard accessGuard((dwFlags & DDLOCK_READONLY) ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE,
-			PrimarySurface::isGdiSurface(This));
 		HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (DDERR_SURFACELOST == result)
 		{
@@ -164,7 +149,6 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
-		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(This));
 		return s_origVtable.ReleaseDC(This, hDC);
 	}
 
@@ -188,7 +172,6 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 	{
-		Gdi::DDrawAccessGuard accessGuard(Gdi::ACCESS_READ, PrimarySurface::isGdiSurface(This));
 		return s_origVtable.Unlock(This, lpRect);
 	}
 

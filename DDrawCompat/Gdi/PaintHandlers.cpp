@@ -2,6 +2,7 @@
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
+#include "D3dDdi/ScopedCriticalSection.h"
 #include "DDraw/RealPrimarySurface.h"
 #include "Gdi/AccessGuard.h"
 #include "Gdi/Dc.h"
@@ -254,7 +255,7 @@ namespace
 			HDC compatDc = Gdi::Dc::getDc(dc);
 			if (compatDc)
 			{
-				Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
 				Gdi::Dc::releaseDc(dc);
 				return result;
@@ -276,7 +277,7 @@ namespace
 
 		if (compatDc)
 		{
-			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			Gdi::TitleBar titleBar(hwnd, compatDc);
 			titleBar.drawAll();
 			titleBar.excludeFromClipRegion();
@@ -301,14 +302,13 @@ namespace
 			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
 		}
 
-		DDraw::ScopedThreadLock lock;
 		PAINTSTRUCT paint = {};
 		HDC dc = BeginPaint(hwnd, &paint);
 		HDC compatDc = Gdi::Dc::getDc(dc);
 
 		if (compatDc)
 		{
-			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
 				reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
 			Gdi::Dc::releaseDc(dc);
@@ -329,7 +329,7 @@ namespace
 		HDC compatDc = Gdi::Dc::getDc(dc);
 		if (compatDc)
 		{
-			Gdi::GdiAccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
 			Gdi::Dc::releaseDc(dc);
 		}

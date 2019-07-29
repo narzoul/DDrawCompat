@@ -20,6 +20,7 @@ namespace Gdi
 
 		RECT getBounds();
 		Region getRegion();
+		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect);
 
 		void init();
 		bool update();
