@@ -1,5 +1,6 @@
 #include <set>
 
+#include "Config/Config.h"
 #include "Common/ScopedCriticalSection.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/ScopedCriticalSection.h"
@@ -229,8 +230,8 @@ namespace Gdi
 				CloseHandle(g_surfaceFileMapping);
 			}
 
-			g_surfaceFileMapping = CreateFileMapping(
-				INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0, g_pitch * g_height, nullptr);
+			g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
+				g_pitch * (g_height + Config::virtualScreenBufferExtraRows), nullptr);
 			g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
 
 			for (HDC dc : g_dcs)
