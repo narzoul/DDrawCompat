@@ -33,7 +33,6 @@ namespace DDraw
 		virtual void restore();
 
 		static CompatWeakPtr<IDirectDrawPalette> s_palette;
-		static PALETTEENTRY s_paletteEntries[256];
 
 	private:
 		virtual void createImpl() override;

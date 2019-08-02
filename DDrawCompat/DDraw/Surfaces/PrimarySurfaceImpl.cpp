@@ -222,10 +222,6 @@ namespace DDraw
 		{
 			DirectDrawPalette::waitForNextUpdate();
 		}
-		if (lpDDPalette == PrimarySurface::s_palette)
-		{
-			return DD_OK;
-		}
 
 		HRESULT result = SurfaceImpl::SetPalette(This, lpDDPalette);
 		if (SUCCEEDED(result))

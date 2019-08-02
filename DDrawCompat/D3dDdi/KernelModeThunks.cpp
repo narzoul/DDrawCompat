@@ -10,10 +10,15 @@
 #include "Common/Hook.h"
 #include "Common/ScopedCriticalSection.h"
 #include "Common/Time.h"
+#include "D3dDdi/Device.h"
 #include "D3dDdi/Hooks.h"
 #include "D3dDdi/KernelModeThunks.h"
 #include "D3dDdi/Log/KernelModeThunksLog.h"
+#include "D3dDdi/Resource.h"
+#include "D3dDdi/ScopedCriticalSection.h"
+#include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
+#include "Gdi/Palette.h"
 #include "Win32/DisplayMode.h"
 
 namespace
@@ -34,6 +39,7 @@ namespace
 
 	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
 	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
+	bool g_dcPaletteOverride = false;
 	AdapterInfo g_gdiAdapterInfo = {};
 	AdapterInfo g_lastOpenAdapterInfo = {};
 	std::string g_lastDDrawCreateDcDevice;
@@ -88,20 +94,50 @@ namespace
 			pData->Format = g_dcFormatOverride;
 		}
 
-		NTSTATUS result = 0;
-		if (D3DDDIFMT_P8 == pData->Format && !pData->pColorTable &&
-			DDraw::PrimarySurface::s_palette)
+		std::vector<PALETTEENTRY> palette;
+		auto origColorTable = pData->pColorTable;
+
+		if (D3DDDIFMT_P8 == pData->Format)
 		{
-			pData->pColorTable = DDraw::PrimarySurface::s_paletteEntries;
-			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
-			pData->pColorTable = nullptr;
-		}
-		else
-		{
-			result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
+			if (g_dcPaletteOverride)
+			{
+				palette = Gdi::Palette::getHardwarePalette();
+				pData->pColorTable = palette.data();
+			}
+			else
+			{
+				DDraw::ScopedThreadLock ddLock;
+				D3dDdi::ScopedCriticalSection driverLock;
+				auto primaryResource = D3dDdi::Device::getResource(DDraw::PrimarySurface::getFrontResource());
+				if (primaryResource && pData->pMemory == primaryResource->getLockPtr(0) &&
+					(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_COMPLEX))
+				{
+					pData->pColorTable = Gdi::Palette::getDefaultPalette();
+				}
+				else if (pData->pColorTable)
+				{
+					palette.assign(pData->pColorTable, pData->pColorTable + 256);
+					auto sysPal = Gdi::Palette::getSystemPalette();
+					for (UINT i = 0; i < 256; ++i)
+					{
+						if (palette[i].peFlags & PC_EXPLICIT)
+						{
+							palette[i] = sysPal[palette[i].peRed];
+						}
+					}
+					pData->pColorTable = palette.data();
+				}
+				else
+				{
+					palette = Gdi::Palette::getHardwarePalette();
+					pData->pColorTable = palette.data();
+				}
+			}
 		}
 
+		auto result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
 		pData->Format = origFormat;
+		pData->pColorTable = origColorTable;
 		return LOG_RESULT(result);
 	}
 
@@ -389,6 +425,11 @@ namespace D3dDdi
 		void setDcFormatOverride(UINT format)
 		{
 			g_dcFormatOverride = static_cast<D3DDDIFORMAT>(format);
+		}
+
+		void setDcPaletteOverride(bool enable)
+		{
+			g_dcPaletteOverride = enable;
 		}
 
 		void waitForVerticalBlank()

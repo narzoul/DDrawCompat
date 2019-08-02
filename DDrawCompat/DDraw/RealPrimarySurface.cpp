@@ -375,7 +375,9 @@ namespace
 			g_paletteConverter->GetDC(g_paletteConverter, &paletteConverterDc);
 			HDC srcDc = nullptr;
 			D3dDdi::Device::setReadOnlyGdiLock(true);
+			D3dDdi::KernelModeThunks::setDcPaletteOverride(true);
 			src->GetDC(src, &srcDc);
+			D3dDdi::KernelModeThunks::setDcPaletteOverride(false);
 			D3dDdi::Device::setReadOnlyGdiLock(false);
 
 			if (paletteConverterDc && srcDc)

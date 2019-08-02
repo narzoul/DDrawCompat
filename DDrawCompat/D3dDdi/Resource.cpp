@@ -371,6 +371,19 @@ namespace D3dDdi
 		}
 	}
 
+	void* Resource::getLockPtr(UINT subResourceIndex)
+	{
+		if (subResourceIndex < m_lockData.size())
+		{
+			return m_lockData[subResourceIndex].data;
+		}
+		else if (subResourceIndex < m_fixedData.SurfCount)
+		{
+			return const_cast<void*>(m_fixedData.pSurfList[subResourceIndex].pSysMem);
+		}
+		return nullptr;
+	}
+
 	bool Resource::isOversized() const
 	{
 		return m_fixedData.SurfCount != m_origData.SurfCount;

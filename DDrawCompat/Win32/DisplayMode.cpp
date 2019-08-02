@@ -203,9 +203,21 @@ namespace
 	int WINAPI getDeviceCaps(HDC hdc, int nIndex)
 	{
 		LOG_FUNC("GetDeviceCaps", hdc, nIndex);
-		if (BITSPIXEL == nIndex && Gdi::isDisplayDc(hdc))
+		switch (nIndex)
 		{
-			return LOG_RESULT(g_currentBpp);
+		case BITSPIXEL:
+			if (Gdi::isDisplayDc(hdc))
+			{
+				return LOG_RESULT(g_currentBpp);
+			}
+			break;
+
+		case RASTERCAPS:
+			if (8 == g_currentBpp && Gdi::isDisplayDc(hdc))
+			{
+				return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex) | RC_PALETTE);
+			}
+			break;
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex));
 	}

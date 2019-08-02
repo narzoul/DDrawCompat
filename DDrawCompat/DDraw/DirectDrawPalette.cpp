@@ -24,16 +24,10 @@ namespace DDraw
 		if (This == PrimarySurface::s_palette)
 		{
 			waitForNextUpdate();
-			if (lpEntries && dwStartingEntry + dwCount <= 256 &&
-				0 == std::memcmp(&PrimarySurface::s_paletteEntries[dwStartingEntry],
-					lpEntries, dwCount * sizeof(PALETTEENTRY)))
-			{
-				return DD_OK;
-			}
 		}
 
 		HRESULT result = s_origVtable.SetEntries(This, dwFlags, dwStartingEntry, dwCount, lpEntries);
-		if (This == PrimarySurface::s_palette && SUCCEEDED(result))
+		if (SUCCEEDED(result) && This == PrimarySurface::s_palette)
 		{
 			PrimarySurface::updatePalette();
 		}

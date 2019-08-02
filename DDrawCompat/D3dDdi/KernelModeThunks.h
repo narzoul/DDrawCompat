@@ -16,6 +16,7 @@ namespace D3dDdi
 		void installHooks(HMODULE origDDrawModule);
 		void setFlipIntervalOverride(UINT flipInterval);
 		void setDcFormatOverride(UINT format);
+		void setDcPaletteOverride(bool enable);
 		void waitForVerticalBlank();
 	}
 }

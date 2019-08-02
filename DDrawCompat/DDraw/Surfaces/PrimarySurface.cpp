@@ -8,6 +8,7 @@
 #include "DDraw/RealPrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "DDraw/Surfaces/PrimarySurfaceImpl.h"
+#include "Gdi/Palette.h"
 #include "Gdi/VirtualScreen.h"
 
 namespace
@@ -30,7 +31,6 @@ namespace DDraw
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
 		s_palette = nullptr;
-		ZeroMemory(&s_paletteEntries, sizeof(s_paletteEntries));
 
 		for (auto& lockBuffer : g_lockBackBuffers)
 		{
@@ -233,13 +233,28 @@ namespace DDraw
 
 	void PrimarySurface::updatePalette()
 	{
+		PALETTEENTRY entries[256] = {};
 		if (s_palette)
 		{
-			PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, s_paletteEntries);
-			RealPrimarySurface::update();
+			PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, entries);
 		}
+
+		if (RealPrimarySurface::isFullScreen())
+		{
+			if (!s_palette)
+			{
+				auto sysPalEntries(Gdi::Palette::getSystemPalette());
+				std::memcpy(entries, sysPalEntries.data(), sizeof(entries));
+			}
+			Gdi::Palette::setHardwarePalette(entries);
+		}
+		else if (s_palette)
+		{
+			Gdi::Palette::setSystemPalette(entries, 256, false);
+		}
+
+		RealPrimarySurface::update();
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
-	PALETTEENTRY PrimarySurface::s_paletteEntries[256] = {};
 }

@@ -5,6 +5,7 @@
 #include "D3dDdi/Device.h"
 #include "D3dDdi/ScopedCriticalSection.h"
 #include "DDraw/DirectDraw.h"
+#include "DDraw/RealPrimarySurface.h"
 #include "DDraw/ScopedThreadLock.h"
 #include "DDraw/Surfaces/PrimarySurface.h"
 #include "Gdi/Gdi.h"
@@ -263,6 +264,8 @@ namespace Gdi
 					SetDIBColorTable(dc, 0, 256, systemPalette);
 				}
 			}
+
+			DDraw::RealPrimarySurface::gdiUpdate();
 		}
 	}
 }

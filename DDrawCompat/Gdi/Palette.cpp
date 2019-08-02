@@ -1,8 +1,4 @@
-#define WIN32_LEAN_AND_MEAN
-
 #include <set>
-
-#include <Windows.h>
 
 #include "Common/Hook.h"
 #include "Common/Log.h"
@@ -15,6 +11,8 @@
 namespace
 {
 	Compat::CriticalSection g_cs;
+	PALETTEENTRY g_defaultPalette[256] = {};
+	PALETTEENTRY g_hardwarePalette[256] = {};
 	PALETTEENTRY g_systemPalette[256] = {};
 	UINT g_systemPaletteUse = SYSPAL_STATIC;
 	UINT g_systemPaletteFirstUnusedIndex = 10;
@@ -51,33 +49,18 @@ namespace
 		return false;
 	}
 
-	UINT fillSystemPalette(HDC dc)
+	void updateStaticSysPalEntries()
 	{
-		HPALETTE palette = reinterpret_cast<HPALETTE>(GetCurrentObject(dc, OBJ_PAL));
-		if (!palette || GetStockObject(DEFAULT_PALETTE) == palette)
+		const UINT count = g_systemPaletteFirstNonReservedIndex;
+		if (0 == count)
 		{
-			return 0;
+			return;
 		}
 
-		PALETTEENTRY entries[256] = {};
-		UINT count = GetPaletteEntries(palette, 0, 256, entries);
-		for (UINT i = 0;
-			i < count && g_systemPaletteFirstUnusedIndex <= g_systemPaletteLastNonReservedIndex;
-			++i)
-		{
-			if ((entries[i].peFlags & PC_EXPLICIT) ||
-				0 == (entries[i].peFlags & (PC_NOCOLLAPSE | PC_RESERVED)) && exactMatch(entries[i]))
-			{
-				continue;
-			}
-
-			g_systemPalette[g_systemPaletteFirstUnusedIndex] = entries[i];
-			g_systemPalette[g_systemPaletteFirstUnusedIndex].peFlags = 0;
-			++g_systemPaletteFirstUnusedIndex;
-		}
-
+		memcpy(g_systemPalette, g_defaultPalette, count * sizeof(g_systemPalette[0]));
+		memcpy(&g_systemPalette[256 - count], &g_defaultPalette[256 - count], count * sizeof(g_systemPalette[0]));
+		Gdi::Palette::setHardwarePalette(g_systemPalette);
 		Gdi::VirtualScreen::updatePalette(g_systemPalette);
-		return count;
 	}
 
 	UINT WINAPI getSystemPaletteEntries(HDC hdc, UINT iStartIndex, UINT nEntries, LPPALETTEENTRY lppe)
@@ -117,7 +100,7 @@ namespace
 			return LOG_RESULT(SYSPAL_ERROR);
 		}
 		Compat::ScopedCriticalSection lock(g_cs);
-		return g_systemPaletteUse;
+		return LOG_RESULT(g_systemPaletteUse);
 	}
 
 	UINT WINAPI realizePalette(HDC hdc)
@@ -126,11 +109,18 @@ namespace
 		if (Gdi::isDisplayDc(hdc))
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			if (g_foregroundPaletteDcs.find(hdc) != g_foregroundPaletteDcs.end())
+
+			HPALETTE palette = reinterpret_cast<HPALETTE>(GetCurrentObject(hdc, OBJ_PAL));
+			if (!palette || GetStockObject(DEFAULT_PALETTE) == palette)
 			{
-				g_systemPaletteFirstUnusedIndex = g_systemPaletteFirstNonReservedIndex;
+				return 0;
 			}
-			return LOG_RESULT(fillSystemPalette(hdc));
+
+			PALETTEENTRY entries[256] = {};
+			UINT count = GetPaletteEntries(palette, 0, 256, entries);
+			Gdi::Palette::setSystemPalette(entries, count,
+				g_foregroundPaletteDcs.find(hdc) == g_foregroundPaletteDcs.end());
+			return LOG_RESULT(count);
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(RealizePalette)(hdc));
 	}
@@ -175,6 +165,11 @@ namespace
 		}
 
 		Compat::ScopedCriticalSection lock(g_cs);
+		if (uUsage == g_systemPaletteUse)
+		{
+			return LOG_RESULT(g_systemPaletteUse);
+		}
+
 		const UINT prevUsage = g_systemPaletteUse;
 		switch (uUsage)
 		{
@@ -198,6 +193,7 @@ namespace
 		}
 
 		g_systemPaletteUse = uUsage;
+		updateStaticSysPalEntries();
 		return LOG_RESULT(prevUsage);
 	}
 }
@@ -206,12 +202,30 @@ namespace Gdi
 {
 	namespace Palette
 	{
+		PALETTEENTRY* getDefaultPalette()
+		{
+			return g_defaultPalette;
+		}
+
+		std::vector<PALETTEENTRY> getHardwarePalette()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			return std::vector<PALETTEENTRY>(g_hardwarePalette, g_hardwarePalette + 256);
+		}
+
+		std::vector<PALETTEENTRY> getSystemPalette()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			return std::vector<PALETTEENTRY>(g_systemPalette, g_systemPalette + 256);
+		}
+
 		void installHooks()
 		{
 			HPALETTE defaultPalette = reinterpret_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
-			GetPaletteEntries(defaultPalette, 0, 10, g_systemPalette);
-			GetPaletteEntries(defaultPalette, 10, 10, &g_systemPalette[246]);
-			Gdi::VirtualScreen::updatePalette(g_systemPalette);
+			GetPaletteEntries(defaultPalette, 0, 10, g_defaultPalette);
+			GetPaletteEntries(defaultPalette, 10, 10, &g_defaultPalette[246]);
+
+			updateStaticSysPalEntries();
 
 			HOOK_FUNCTION(gdi32, GetSystemPaletteEntries, getSystemPaletteEntries);
 			HOOK_FUNCTION(gdi32, GetSystemPaletteUse, getSystemPaletteUse);
@@ -219,6 +233,37 @@ namespace Gdi
 			HOOK_FUNCTION(user32, ReleaseDC, releaseDc);
 			HOOK_FUNCTION(gdi32, SelectPalette, selectPalette);
 			HOOK_FUNCTION(gdi32, SetSystemPaletteUse, setSystemPaletteUse);
+		}
+
+		void setHardwarePalette(PALETTEENTRY* entries)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			std::memcpy(g_hardwarePalette, entries, sizeof(g_hardwarePalette));
+		}
+
+		void setSystemPalette(PALETTEENTRY* entries, DWORD count, bool forceBackground)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			if (!forceBackground)
+			{
+				g_systemPaletteFirstUnusedIndex = g_systemPaletteFirstNonReservedIndex;
+			}
+
+			for (UINT i = 0; i < count && g_systemPaletteFirstUnusedIndex <= g_systemPaletteLastNonReservedIndex; ++i)
+			{
+				if ((entries[i].peFlags & PC_EXPLICIT) ||
+					0 == (entries[i].peFlags & (PC_NOCOLLAPSE | PC_RESERVED)) && exactMatch(entries[i]))
+				{
+					continue;
+				}
+
+				g_systemPalette[g_systemPaletteFirstUnusedIndex] = entries[i];
+				g_systemPalette[g_systemPaletteFirstUnusedIndex].peFlags = 0;
+				++g_systemPaletteFirstUnusedIndex;
+			}
+
+			Gdi::Palette::setHardwarePalette(g_systemPalette);
+			Gdi::VirtualScreen::updatePalette(g_systemPalette);
 		}
 	}
 }

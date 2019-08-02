@@ -28,6 +28,7 @@ namespace D3dDdi
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
 		void destroy();
+		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
 		void resync();
