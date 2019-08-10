@@ -1,7 +1,8 @@
 #pragma once
 
-#include "Common/CompatVtable.h"
-#include "Direct3d/Visitors/Direct3dVertexBufferVtblVisitor.h"
+#include <Common/CompatVtable.h>
+#include <Direct3d/Log.h>
+#include <Direct3d/Visitors/Direct3dVertexBufferVtblVisitor.h>
 
 namespace Direct3d
 {

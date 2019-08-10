@@ -54,6 +54,8 @@ namespace D3dDdi
 		vtable.pfnOpenResource = &DEVICE_FUNC(openResource);
 		vtable.pfnPresent = &DEVICE_FUNC(present);
 		vtable.pfnPresent1 = &DEVICE_FUNC(present1);
+		vtable.pfnSetStreamSource = &DEVICE_FUNC(setStreamSource);
+		vtable.pfnSetStreamSourceUm = &DEVICE_FUNC(setStreamSourceUm);
 		vtable.pfnTexBlt = &DEVICE_FUNC(texBlt);
 		vtable.pfnTexBlt1 = &DEVICE_FUNC(texBlt1);
 		vtable.pfnUnlock = &DEVICE_FUNC(unlock);

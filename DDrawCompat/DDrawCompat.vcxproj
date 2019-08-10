@@ -198,6 +198,7 @@
     <ClInclude Include="Direct3d\Direct3dVertexBuffer.h" />
     <ClInclude Include="Direct3d\Direct3dViewport.h" />
     <ClInclude Include="Direct3d\Hooks.h" />
+    <ClInclude Include="Direct3d\Log.h" />
     <ClInclude Include="Direct3d\Types.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dTextureVtblVisitor.h" />
@@ -265,6 +266,7 @@
     <ClCompile Include="Direct3d\Direct3dVertexBuffer.cpp" />
     <ClCompile Include="Direct3d\Direct3dViewport.cpp" />
     <ClCompile Include="Direct3d\Hooks.cpp" />
+    <ClCompile Include="Direct3d\Log.cpp" />
     <ClCompile Include="Dll\Procs.cpp" />
     <ClCompile Include="Dll\DllMain.cpp" />
     <ClCompile Include="Dll\UnmodifiedProcs.cpp" />

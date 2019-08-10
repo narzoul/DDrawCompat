@@ -38,6 +38,8 @@ namespace D3dDdi
 		, m_adapter(Adapter::get(adapter))
 		, m_device(device)
 		, m_sharedPrimary(nullptr)
+		, m_streamSourceData{}
+		, m_streamSource(nullptr)
 	{
 	}
 
@@ -135,6 +137,10 @@ namespace D3dDdi
 				g_gdiResourceHandle = nullptr;
 				g_gdiResource = nullptr;
 			}
+			if (resource == m_streamSource)
+			{
+				m_streamSource = nullptr;
+			}
 		}
 
 		return result;
@@ -155,6 +161,11 @@ namespace D3dDdi
 
 	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE& data, const UINT* flagBuffer)
 	{
+		if (m_streamSource && 0 != m_streamSourceData.Stride)
+		{
+			m_streamSource->fixVertexData(m_streamSourceData.Offset + data.VStart * m_streamSourceData.Stride,
+				data.PrimitiveCount, m_streamSourceData.Stride);
+		}
 		prepareForRendering();
 		return m_origVtable.pfnDrawPrimitive(m_device, &data, flagBuffer);
 	}
@@ -212,6 +223,28 @@ namespace D3dDdi
 			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex, true);
 		}
 		return m_origVtable.pfnPresent1(m_device, &data);
+	}
+
+	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data)
+	{
+		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, &data);
+		if (SUCCEEDED(result) && 0 == data.Stream)
+		{
+			m_streamSourceData = data;
+			m_streamSource = getResource(data.hVertexBuffer);
+		}
+		return result;
+	}
+
+	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer)
+	{
+		HRESULT result = m_origVtable.pfnSetStreamSourceUm(m_device, &data, umBuffer);
+		if (SUCCEEDED(result) && 0 == data.Stream)
+		{
+			m_streamSourceData = {};
+			m_streamSource = nullptr;
+		}
+		return result;
 	}
 
 	HRESULT Device::texBlt(const D3DDDIARG_TEXBLT& data)

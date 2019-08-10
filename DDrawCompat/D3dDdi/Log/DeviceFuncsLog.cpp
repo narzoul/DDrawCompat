@@ -88,6 +88,44 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE2& val)
 		<< Compat::hex(val.Flags2.Value);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.PrimitiveType
+		<< val.BaseVertexIndex
+		<< val.MinIndex
+		<< val.NumVertices
+		<< val.StartIndex
+		<< val.PrimitiveCount;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE2& val)
+{
+	return Compat::LogStruct(os)
+		<< val.PrimitiveType
+		<< val.BaseVertexOffset
+		<< val.MinIndex
+		<< val.NumVertices
+		<< val.StartIndexOffset
+		<< val.PrimitiveCount;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWPRIMITIVE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.PrimitiveType
+		<< val.VStart
+		<< val.PrimitiveCount;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWPRIMITIVE2& val)
+{
+	return Compat::LogStruct(os)
+		<< val.PrimitiveType
+		<< val.FirstVertexOffset
+		<< val.PrimitiveCount;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_LOCK& val)
 {
 	return Compat::LogStruct(os)
@@ -148,6 +186,38 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENTSURFACE& val)
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_RENDERSTATE& val)
 {
 	return Compat::LogStruct(os)
+		<< val.State
+		<< val.Value;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETRENDERTARGET& val)
+{
+	return Compat::LogStruct(os)
+		<< val.RenderTargetIndex
+		<< val.hRenderTarget
+		<< val.SubResourceIndex;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Stream
+		<< val.hVertexBuffer
+		<< val.Offset
+		<< val.Stride;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCEUM& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Stream
+		<< val.Stride;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Stage
 		<< val.State
 		<< val.Value;
 }

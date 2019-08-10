@@ -7,7 +7,7 @@
 
 struct _D3DDDI_ADAPTERCALLBACKS;
 struct _D3DDDI_ADAPTERFUNCS;
-struct _D3DDDI_DEVICEALLBACKS;
+struct _D3DDDI_DEVICECALLBACKS;
 struct _D3DDDI_DEVICEFUNCS;
 
 template <typename Vtable>
@@ -20,7 +20,7 @@ template <>
 class ScopedVtableFuncLock<_D3DDDI_ADAPTERFUNCS> : public D3dDdi::ScopedCriticalSection {};
 
 template <>
-class ScopedVtableFuncLock<_D3DDDI_DEVICEALLBACKS> : public D3dDdi::ScopedCriticalSection {};
+class ScopedVtableFuncLock<_D3DDDI_DEVICECALLBACKS> : public D3dDdi::ScopedCriticalSection {};
 
 template <>
 class ScopedVtableFuncLock<_D3DDDI_DEVICEFUNCS> : public D3dDdi::ScopedCriticalSection {};
@@ -42,9 +42,7 @@ public:
 		m_origVtable.*ptr = m_srcVtable.*ptr;
 		if (m_origVtable.*ptr && s_compatVtable.*ptr)
 		{
-#ifdef DEBUGLOGS
-			Compat::Log() << "Hooking function: " << FuncNameVisitor<Vtable>::getFuncName<MemberDataPtr, ptr>();
-#endif
+			Compat::LogDebug() << "Hooking function: " << FuncNameVisitor<Vtable>::getFuncName<MemberDataPtr, ptr>();
 			Compat::hookFunction(reinterpret_cast<void*&>(m_origVtable.*ptr), 
 				getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr));
 		}

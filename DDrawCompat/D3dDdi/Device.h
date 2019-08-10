@@ -36,6 +36,8 @@ namespace D3dDdi
 		HRESULT openResource(D3DDDIARG_OPENRESOURCE& data);
 		HRESULT present(const D3DDDIARG_PRESENT& data);
 		HRESULT present1(D3DDDIARG_PRESENT1& data);
+		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data);
+		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
 		HRESULT texBlt(const D3DDDIARG_TEXBLT& data);
 		HRESULT texBlt1(const D3DDDIARG_TEXBLT1& data);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
@@ -76,6 +78,8 @@ namespace D3dDdi
 		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyRenderTargets;
 		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyTextures;
 		HANDLE m_sharedPrimary;
+		D3DDDIARG_SETSTREAMSOURCE m_streamSourceData;
+		Resource* m_streamSource;
 
 		static std::map<HANDLE, Device> s_devices;
 	};
