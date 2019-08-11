@@ -31,9 +31,6 @@ namespace DDraw
 		typedef typename Types<TSurface>::TSurfaceDesc TSurfaceDesc;
 
 		static void setCompatVtable(Vtable<TSurface>& vtable);
-
-	private:
-		static void setCompatVtable2(Vtable<TSurface>& vtable);
 	};
 }
 

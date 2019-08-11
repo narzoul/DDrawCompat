@@ -12,27 +12,14 @@ namespace DDraw
 	class Surface;
 
 	template <typename TSurface>
-	class SurfaceImpl2
-	{
-	public:
-		SurfaceImpl2() : m_data(nullptr) {}
-
-		virtual HRESULT GetDDInterface(TSurface* This, LPVOID* lplpDD);
-
-	protected:
-		friend class Surface;
-
-		Surface* m_data;
-	};
-
-	template <typename TSurface>
-	class SurfaceImpl : public SurfaceImpl2<TSurface>
+	class SurfaceImpl
 	{
 	public:
 		typedef typename Types<TSurface>::TSurfaceDesc TSurfaceDesc;
 		typedef typename Types<TSurface>::TDdsCaps TDdsCaps;
 		typedef typename Types<TSurface>::TUnlockParam TUnlockParam;
 
+		SurfaceImpl(Surface* data);
 		virtual ~SurfaceImpl();
 
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
@@ -58,5 +45,7 @@ namespace DDraw
 
 	private:
 		bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag);
+
+		Surface* m_data;
 	};
 }

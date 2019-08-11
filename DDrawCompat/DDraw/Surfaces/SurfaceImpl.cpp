@@ -6,21 +6,14 @@
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
 
-namespace
-{
-	struct DirectDrawInterface
-	{
-		const void* vtable;
-		void* ddObject;
-		DirectDrawInterface* next;
-		DWORD refCount;
-		DWORD unknown1;
-		DWORD unknown2;
-	};
-}
-
 namespace DDraw
 {
+	template <typename TSurface>
+	SurfaceImpl<TSurface>::SurfaceImpl(Surface* data)
+		: m_data(data)
+	{
+	}
+
 	template <typename TSurface>
 	SurfaceImpl<TSurface>::~SurfaceImpl()
 	{
@@ -81,16 +74,6 @@ namespace DDraw
 			RealPrimarySurface::waitForFlip(m_data);
 		}
 		return result;
-	}
-
-	template <typename TSurface>
-	HRESULT SurfaceImpl2<TSurface>::GetDDInterface(TSurface* /*This*/, LPVOID* lplpDD)
-	{
-		DirectDrawInterface dd = {};
-		dd.vtable = static_cast<const void*>(CompatVtable<IDirectDraw7Vtbl>::s_origVtablePtr);
-		dd.ddObject = m_data->m_ddObject;
-		return CompatVtable<IDirectDrawVtbl>::s_origVtable.QueryInterface(
-			reinterpret_cast<IDirectDraw*>(&dd), IID_IDirectDraw, lplpDD);
 	}
 
 	template <typename TSurface>

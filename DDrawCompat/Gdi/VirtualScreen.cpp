@@ -131,7 +131,7 @@ namespace Gdi
 
 			auto primary(DDraw::PrimarySurface::getPrimary());
 			CompatPtr<IUnknown> ddUnk;
-			primary.get()->lpVtbl->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
+			primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
 			CompatPtr<IDirectDraw7> dd(ddUnk);
 
 			CompatPtr<IDirectDrawSurface7> surface;

@@ -74,6 +74,12 @@ namespace
 namespace DDraw
 {
 	template <typename TSurface>
+	PrimarySurfaceImpl<TSurface>::PrimarySurfaceImpl(Surface* data)
+		: SurfaceImpl(data)
+	{
+	}
+
+	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)

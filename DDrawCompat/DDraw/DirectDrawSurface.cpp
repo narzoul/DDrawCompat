@@ -70,19 +70,6 @@ namespace DDraw
 		SET_COMPAT_METHOD(Restore);
 		SET_COMPAT_METHOD(SetPalette);
 		SET_COMPAT_METHOD(Unlock);
-
-		setCompatVtable2(vtable);
-	}
-
-	template <typename TSurface>
-	void DirectDrawSurface<TSurface>::setCompatVtable2(Vtable<TSurface>& vtable)
-	{
-		SET_COMPAT_METHOD(GetDDInterface);
-	}
-
-	template <>
-	void DirectDrawSurface<IDirectDrawSurface>::setCompatVtable2(Vtable<IDirectDrawSurface>&)
-	{
 	}
 
 	template DirectDrawSurface<IDirectDrawSurface>;

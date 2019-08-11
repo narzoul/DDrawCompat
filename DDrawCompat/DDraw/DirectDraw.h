@@ -9,9 +9,6 @@
 
 namespace DDraw
 {
-	template <typename TDirectDraw>
-	void* getDdObject(TDirectDraw& dd);
-
 	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
 	DDPIXELFORMAT getRgbPixelFormat(DWORD bpp);
 	void suppressEmulatedDirectDraw(GUID*& guid);

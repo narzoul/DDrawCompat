@@ -7,17 +7,6 @@
 
 namespace DDraw
 {
-	template <typename TDirectDraw>
-	void* getDdObject(TDirectDraw& dd)
-	{
-		return reinterpret_cast<void**>(&dd)[1];
-	}
-
-	template void* getDdObject(IDirectDraw&);
-	template void* getDdObject(IDirectDraw2&);
-	template void* getDdObject(IDirectDraw4&);
-	template void* getDdObject(IDirectDraw7&);
-
 	DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
 	{
 		DDSURFACEDESC2 dm = {};

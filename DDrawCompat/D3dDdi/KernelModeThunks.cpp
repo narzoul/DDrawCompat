@@ -384,7 +384,7 @@ namespace D3dDdi
 			{
 				lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
 				CompatPtr<IUnknown> ddUnk;
-				primary.get()->lpVtbl->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
+				primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
 				CompatPtr<IDirectDraw7> dd7(ddUnk);
 
 				DDDEVICEIDENTIFIER2 di = {};

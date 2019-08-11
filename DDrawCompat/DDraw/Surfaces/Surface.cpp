@@ -3,11 +3,9 @@
 #include "Common/CompatPtr.h"
 #include "D3dDdi/Device.h"
 #include "D3dDdi/Resource.h"
-#include "DDraw/DirectDraw.h"
 #include "DDraw/DirectDrawSurface.h"
 #include "DDraw/Surfaces/Surface.h"
 #include "DDraw/Surfaces/SurfaceImpl.h"
-#include "Win32/DisplayMode.h"
 
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
 DEFINE_GUID(IID_CompatSurfacePrivateData,
@@ -36,8 +34,7 @@ namespace DDraw
 	}
 
 	Surface::Surface(Surface* rootSurface)
-		: m_ddObject(nullptr)
-		, m_refCount(0)
+		: m_refCount(0)
 		, m_rootSurface(rootSurface ? rootSurface : this)
 	{
 	}
@@ -83,20 +80,8 @@ namespace DDraw
 		if (SUCCEEDED(dds->SetPrivateData(&dds, IID_CompatSurfacePrivateData,
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
-			CompatPtr<IUnknown> ddUnk;
-			dds.get().lpVtbl->GetDDInterface(&dds, reinterpret_cast<void**>(&ddUnk.getRef()));
-			CompatPtr<IDirectDraw7> dd(ddUnk);
-
 			privateData->createImpl();
-			privateData->m_impl->m_data = privateData.get();
-			privateData->m_impl2->m_data = privateData.get();
-			privateData->m_impl3->m_data = privateData.get();
-			privateData->m_impl4->m_data = privateData.get();
-			privateData->m_impl7->m_data = privateData.get();
-
 			privateData->m_surface = &dds;
-			privateData->m_ddObject = DDraw::getDdObject(*dd);
-
 			privateData.release();
 		}
 	}
@@ -181,11 +166,11 @@ namespace DDraw
 
 	void Surface::createImpl()
 	{
-		m_impl.reset(new SurfaceImpl<IDirectDrawSurface>());
-		m_impl2.reset(new SurfaceImpl<IDirectDrawSurface2>());
-		m_impl3.reset(new SurfaceImpl<IDirectDrawSurface3>());
-		m_impl4.reset(new SurfaceImpl<IDirectDrawSurface4>());
-		m_impl7.reset(new SurfaceImpl<IDirectDrawSurface7>());
+		m_impl.reset(new SurfaceImpl<IDirectDrawSurface>(this));
+		m_impl2.reset(new SurfaceImpl<IDirectDrawSurface2>(this));
+		m_impl3.reset(new SurfaceImpl<IDirectDrawSurface3>(this));
+		m_impl4.reset(new SurfaceImpl<IDirectDrawSurface4>(this));
+		m_impl7.reset(new SurfaceImpl<IDirectDrawSurface7>(this));
 	}
 
 	template <>

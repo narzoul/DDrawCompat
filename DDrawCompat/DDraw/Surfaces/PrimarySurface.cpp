@@ -110,11 +110,11 @@ namespace DDraw
 
 	void PrimarySurface::createImpl()
 	{
-		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>());
-		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>());
-		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>());
-		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>());
-		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>());
+		m_impl.reset(new PrimarySurfaceImpl<IDirectDrawSurface>(this));
+		m_impl2.reset(new PrimarySurfaceImpl<IDirectDrawSurface2>(this));
+		m_impl3.reset(new PrimarySurfaceImpl<IDirectDrawSurface3>(this));
+		m_impl4.reset(new PrimarySurfaceImpl<IDirectDrawSurface4>(this));
+		m_impl7.reset(new PrimarySurfaceImpl<IDirectDrawSurface7>(this));
 	}
 
 	HRESULT PrimarySurface::flipToGdiSurface()
