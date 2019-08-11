@@ -14,7 +14,6 @@
 namespace
 {
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
-	std::vector<CompatWeakPtr<IDirectDrawSurface7>> g_lockBackBuffers;
 	HANDLE g_gdiResourceHandle = nullptr;
 	HANDLE g_frontResource = nullptr;
 	DWORD g_origCaps = 0;
@@ -31,12 +30,6 @@ namespace DDraw
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
 		s_palette = nullptr;
-
-		for (auto& lockBuffer : g_lockBackBuffers)
-		{
-			lockBuffer.release();
-		}
-		g_lockBackBuffers.clear();
 
 		DDraw::RealPrimarySurface::release();
 	}
@@ -71,30 +64,6 @@ namespace DDraw
 		}
 
 		g_origCaps = origCaps;
-
-		data->m_lockSurface.release();
-		data->m_attachedLockSurfaces.clear();
-
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-		CompatPtr<TSurface> lockSurface;
-		dd->CreateSurface(&dd, &desc, &lockSurface.getRef(), nullptr);
-		data->m_lockSurface = lockSurface;
-
-		if (g_origCaps & DDSCAPS_FLIP)
-		{
-			for (std::size_t i = 0; i < desc.dwBackBufferCount; ++i)
-			{
-				CompatPtr<TSurface> lockBuffer;
-				dd->CreateSurface(&dd, &desc, &lockBuffer.getRef(), nullptr);
-				if (lockBuffer)
-				{
-					g_lockBackBuffers.push_back(CompatPtr<IDirectDrawSurface7>::from(lockBuffer.get()).detach());
-					data->m_attachedLockSurfaces.push_back(g_lockBackBuffers.back());
-				}
-			}
-		}
-
 		data->restore();
 		return DD_OK;
 	}
@@ -211,13 +180,7 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::restore");
 
-		clearResources();
-
 		Gdi::VirtualScreen::update();
-		auto desc = Gdi::VirtualScreen::getSurfaceDesc(D3dDdi::KernelModeThunks::getMonitorRect());
-		desc.dwFlags &= ~DDSD_CAPS;
-		m_lockSurface->SetSurfaceDesc(m_lockSurface, &desc, 0);
-
 		g_primarySurface = m_surface;
 		g_gdiResourceHandle = getRuntimeResourceHandle(*g_primarySurface);
 		updateFrontResource();

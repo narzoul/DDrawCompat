@@ -12,23 +12,6 @@ namespace
 	HANDLE g_gdiResourceHandle = nullptr;
 	D3dDdi::Resource* g_gdiResource = nullptr;
 	bool g_isReadOnlyGdiLockEnabled = false;
-
-	template <typename Container, typename Predicate>
-	void erase_if(Container& container, Predicate pred)
-	{
-		auto it = container.begin();
-		while (it != container.end())
-		{
-			if (pred(*it))
-			{
-				it = container.erase(it);
-			}
-			else
-			{
-				++it;
-			}
-		}
-	}
 }
 
 namespace D3dDdi
@@ -116,15 +99,10 @@ namespace D3dDdi
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
-			erase_if(m_dirtyRenderTargets,
-				[=](const decltype(m_dirtyRenderTargets)::value_type& v) { return v.first.first == resource; });
-			erase_if(m_dirtyTextures,
-				[=](const decltype(m_dirtyTextures)::value_type& v) { return v.first.first == resource; });
-
 			auto it = m_resources.find(resource);
 			if (it != m_resources.end())
 			{
-				it->second.destroy();
+				it->second.destroyLockResource();
 				m_resources.erase(it);
 			}
 
@@ -374,11 +352,23 @@ namespace D3dDdi
 
 	void Device::setGdiResourceHandle(HANDLE resource)
 	{
-		g_gdiResourceHandle = resource;
-		g_gdiResource = getResource(resource);
+		if ((!resource && !g_gdiResource) ||
+			(g_gdiResource && resource == *g_gdiResource))
+		{
+			return;
+		}
+
 		if (g_gdiResource)
 		{
-			g_gdiResource->resync();
+			g_gdiResource->setAsGdiResource(false);
+		}
+
+		g_gdiResourceHandle = resource;
+		g_gdiResource = getResource(resource);
+
+		if (g_gdiResource)
+		{
+			g_gdiResource->setAsGdiResource(true);
 		}
 	}
 

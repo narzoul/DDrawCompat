@@ -210,34 +210,34 @@ namespace Gdi
 			{
 				D3dDdi::ScopedCriticalSection driverLock;
 				D3dDdi::Device::setGdiResourceHandle(nullptr);
-			}
 
-			g_region = Region();
-			EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
-			GetRgnBox(g_region, &g_bounds);
+				g_region = Region();
+				EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
+				GetRgnBox(g_region, &g_bounds);
 
-			g_bpp = bpp;
-			g_width = g_bounds.right - g_bounds.left;
-			g_height = g_bounds.bottom - g_bounds.top;
-			g_pitch = (g_width * g_bpp / 8 + 3) & ~3;
+				g_bpp = bpp;
+				g_width = g_bounds.right - g_bounds.left;
+				g_height = g_bounds.bottom - g_bounds.top;
+				g_pitch = (g_width * g_bpp / 8 + 3) & ~3;
 
-			if (g_surfaceFileMapping)
-			{
+				if (g_surfaceFileMapping)
+				{
+					for (HDC dc : g_dcs)
+					{
+						DeleteObject(SelectObject(dc, g_stockBitmap));
+					}
+					UnmapViewOfFile(g_surfaceView);
+					CloseHandle(g_surfaceFileMapping);
+				}
+
+				g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
+					g_pitch * (g_height + Config::virtualScreenBufferExtraRows), nullptr);
+				g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
+
 				for (HDC dc : g_dcs)
 				{
-					DeleteObject(SelectObject(dc, g_stockBitmap));
+					SelectObject(dc, createDib());
 				}
-				UnmapViewOfFile(g_surfaceView);
-				CloseHandle(g_surfaceFileMapping);
-			}
-
-			g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
-				g_pitch * (g_height + Config::virtualScreenBufferExtraRows), nullptr);
-			g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
-
-			for (HDC dc : g_dcs)
-			{
-				SelectObject(dc, createDib());
 			}
 
 			Gdi::redraw(nullptr);

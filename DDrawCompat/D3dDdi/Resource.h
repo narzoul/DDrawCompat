@@ -4,14 +4,8 @@
 
 #include <d3d.h>
 #include <d3dumddi.h>
-#include <ddraw.h>
 
 #include "D3dDdi/FormatInfo.h"
-
-namespace DDraw
-{
-	class Surface;
-}
 
 namespace D3dDdi
 {
@@ -27,14 +21,12 @@ namespace D3dDdi
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
-		void destroy();
+		void destroyLockResource();
 		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
-		void resync();
-		void setLockResource(Resource* lockResource);
-		void setRootSurface(DDraw::Surface* rootSurface);
+		void setAsGdiResource(bool isGdiResource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 
 	private:
@@ -72,15 +64,17 @@ namespace D3dDdi
 		Resource(Device& device, const D3DDDIARG_CREATERESOURCE& data);
 		Resource(Device& device, const D3DDDIARG_CREATERESOURCE2& data);
 
-		static HRESULT copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex);
-
 		template <typename Arg>
 		static Resource create(Device& device, Arg& data, HRESULT(APIENTRY *createResourceFunc)(HANDLE, Arg*));
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltUnlock(const D3DDDIARG_UNLOCK& data);
+		HRESULT copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex);
 		void copyToSysMem(UINT subResourceIndex);
 		void copyToVidMem(UINT subResourceIndex);
+		void createGdiLockResource();
+		void createLockResource();
+		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		bool isOversized() const;
 		void moveToSysMem(UINT subResourceIndex);
 		void moveToVidMem(UINT subResourceIndex);
@@ -100,8 +94,9 @@ namespace D3dDdi
 		Data m_origData;
 		Data m_fixedData;
 		FormatInfo m_formatInfo;
-		DDraw::Surface* m_rootSurface;
-		Resource* m_lockResource;
+		HANDLE m_lockResource;
 		std::vector<LockData> m_lockData;
+		std::vector<std::vector<BYTE>> m_lockBuffers;
+		bool m_canCreateLockResource;
 	};
 }

@@ -1,13 +1,14 @@
 #include <type_traits>
 
-#include "Common/HResultException.h"
-#include "Common/Log.h"
-#include "D3dDdi/Adapter.h"
-#include "D3dDdi/Device.h"
-#include "D3dDdi/Log/DeviceFuncsLog.h"
-#include "D3dDdi/Resource.h"
-#include "DDraw/Blitter.h"
-#include "DDraw/Surfaces/Surface.h"
+#include <Common/HResultException.h>
+#include <Common/Log.h>
+#include <D3dDdi/Adapter.h>
+#include <D3dDdi/Device.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/Log/DeviceFuncsLog.h>
+#include <D3dDdi/Resource.h>
+#include <DDraw/Blitter.h>
+#include <Gdi/VirtualScreen.h>
 
 namespace
 {
@@ -181,8 +182,8 @@ namespace D3dDdi
 		: m_device(device)
 		, m_handle(nullptr)
 		, m_origData(data)
-		, m_rootSurface(nullptr)
 		, m_lockResource(nullptr)
+		, m_canCreateLockResource(false)
 	{
 	}
 
@@ -297,11 +298,11 @@ namespace D3dDdi
 		return LOG_RESULT(m_device.getOrigVtable().pfnColorFill(m_device, &data));
 	}
 
-	HRESULT Resource::copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex)
+	HRESULT Resource::copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex)
 	{
 		RECT rect = {};
-		rect.right = dstResource.m_fixedData.pSurfList[subResourceIndex].Width;
-		rect.bottom = dstResource.m_fixedData.pSurfList[subResourceIndex].Height;
+		rect.right = m_fixedData.pSurfList[subResourceIndex].Width;
+		rect.bottom = m_fixedData.pSurfList[subResourceIndex].Height;
 
 		D3DDDIARG_BLT data = {};
 		data.hSrcResource = srcResource;
@@ -311,7 +312,7 @@ namespace D3dDdi
 		data.DstSubResourceIndex = subResourceIndex;
 		data.DstRect = rect;
 
-		HRESULT result = dstResource.m_device.getOrigVtable().pfnBlt(dstResource.m_device, &data);
+		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
 		if (FAILED(result))
 		{
 			LOG_ONCE("ERROR: Resource::copySubResource failed: " << Compat::hex(result));
@@ -321,13 +322,97 @@ namespace D3dDdi
 
 	void Resource::copyToSysMem(UINT subResourceIndex)
 	{
-		copySubResource(*m_lockResource, *this, subResourceIndex);
+		copySubResource(m_lockResource, m_handle, subResourceIndex);
 		setSysMemUpToDate(subResourceIndex, true);
+	}
+
+	void Resource::createGdiLockResource()
+	{
+		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(D3dDdi::KernelModeThunks::getMonitorRect()));
+		if (!gdiSurfaceDesc.lpSurface)
+		{
+			return;
+		}
+
+		D3DDDI_SURFACEINFO surfaceInfo = {};
+		surfaceInfo.Width = gdiSurfaceDesc.dwWidth;
+		surfaceInfo.Height = gdiSurfaceDesc.dwHeight;
+		surfaceInfo.pSysMem = gdiSurfaceDesc.lpSurface;
+		surfaceInfo.SysMemPitch = gdiSurfaceDesc.lPitch;
+
+		createSysMemResource({ surfaceInfo });
+		if (m_lockResource)
+		{
+			copySubResource(m_handle, m_lockResource, 0);
+			m_canCreateLockResource = false;
+		}
+	}
+
+	void Resource::createLockResource()
+	{
+		std::vector<D3DDDI_SURFACEINFO> surfaceInfo(m_fixedData.SurfCount);
+		m_lockBuffers.resize(m_fixedData.SurfCount);
+
+		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+		{
+			auto width = m_fixedData.pSurfList[i].Width;
+			auto height = m_fixedData.pSurfList[i].Height;
+			auto pitch = divCeil(width * m_formatInfo.bytesPerPixel, 8) * 8;
+			m_lockBuffers[i].resize(pitch * height);
+
+			surfaceInfo[i].Width = width;
+			surfaceInfo[i].Height = height;
+			surfaceInfo[i].pSysMem = m_lockBuffers[i].data();
+			surfaceInfo[i].SysMemPitch = pitch;
+		}
+
+		createSysMemResource(surfaceInfo);
+		if (!m_lockResource)
+		{
+			m_lockBuffers.clear();
+		}
+	}
+
+	void Resource::createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo)
+	{
+		D3DDDIARG_CREATERESOURCE2 data = {};
+		data.Format = m_fixedData.Format;
+		data.Pool = D3DDDIPOOL_SYSTEMMEM;
+		data.pSurfList = surfaceInfo.data();
+		data.SurfCount = surfaceInfo.size();
+		data.Rotation = D3DDDI_ROTATION_IDENTITY;
+		data.Flags.Texture = m_fixedData.Flags.Texture;
+
+		HRESULT result = S_OK;
+		if (m_device.getOrigVtable().pfnCreateResource2)
+		{
+			result = m_device.getOrigVtable().pfnCreateResource2(m_device, &data);
+		}
+		else
+		{
+			result = m_device.getOrigVtable().pfnCreateResource(m_device,
+				reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
+		}
+
+		if (FAILED(result))
+		{
+			return;
+		}
+
+		m_lockResource = data.hResource;
+		m_lockData.resize(surfaceInfo.size());
+		for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
+		{
+			m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
+			m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
+			m_lockData[i].isSysMemUpToDate = false;
+			m_lockData[i].isVidMemUpToDate = true;
+		}
 	}
 
 	void Resource::copyToVidMem(UINT subResourceIndex)
 	{
-		copySubResource(*this, *m_lockResource, subResourceIndex);
+		copySubResource(m_handle, m_lockResource, subResourceIndex);
 		setVidMemUpToDate(subResourceIndex, true);
 	}
 
@@ -357,6 +442,9 @@ namespace D3dDdi
 		}
 
 		resource.m_handle = data.hResource;
+		resource.m_canCreateLockResource = D3DDDIPOOL_SYSTEMMEM != data.Pool &&
+			0 != resource.m_formatInfo.bytesPerPixel &&
+			!data.Flags.Primary;
 		data = origData;
 		data.hResource = resource.m_handle;
 		return resource;
@@ -372,11 +460,19 @@ namespace D3dDdi
 		return create(device, data, device.getOrigVtable().pfnCreateResource2);
 	}
 
-	void Resource::destroy()
+	void Resource::destroyLockResource()
 	{
-		if (m_rootSurface)
+		if (m_lockResource)
 		{
-			m_rootSurface->clearResources();
+			for (UINT i = 0; i < m_lockData.size(); ++i)
+			{
+				setSysMemUpToDate(i, false);
+				setVidMemUpToDate(i, true);
+			}
+			m_device.getOrigVtable().pfnDestroyResource(m_device, m_lockResource);
+			m_lockResource = nullptr;
+			m_lockData.clear();
+			m_lockBuffers.clear();
 		}
 	}
 
@@ -435,7 +531,14 @@ namespace D3dDdi
 			}
 			return splitLock(data, m_device.getOrigVtable().pfnLock);
 		}
-		else if (m_lockResource)
+
+		if (m_canCreateLockResource)
+		{
+			createLockResource();
+			m_canCreateLockResource = false;
+		}
+
+		if (m_lockResource)
 		{
 			return bltLock(data);
 		}
@@ -445,14 +548,14 @@ namespace D3dDdi
 
 	void Resource::moveToSysMem(UINT subResourceIndex)
 	{
-		copySubResource(*m_lockResource, *this, subResourceIndex);
+		copySubResource(m_lockResource, m_handle, subResourceIndex);
 		setSysMemUpToDate(subResourceIndex, true);
 		setVidMemUpToDate(subResourceIndex, false);
 	}
 
 	void Resource::moveToVidMem(UINT subResourceIndex)
 	{
-		copySubResource(*this, *m_lockResource, subResourceIndex);
+		copySubResource(m_handle, m_lockResource, subResourceIndex);
 		setVidMemUpToDate(subResourceIndex, true);
 		setSysMemUpToDate(subResourceIndex, false);
 	}
@@ -503,7 +606,7 @@ namespace D3dDdi
 			{
 				if (srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 				{
-					copySubResource(srcResource, *srcResource.m_lockResource, data.SrcSubResourceIndex);
+					copySubResource(srcResource.m_handle, srcResource.m_lockResource, data.SrcSubResourceIndex);
 				}
 			}
 			else
@@ -514,81 +617,13 @@ namespace D3dDdi
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 
-	void Resource::resync()
+	void Resource::setAsGdiResource(bool isGdiResource)
 	{
-		if (!m_lockData.empty() && m_lockData[0].isSysMemUpToDate)
+		destroyLockResource();
+		if (isGdiResource)
 		{
-			copySubResource(*this, *m_lockResource, 0);
-			if (!m_lockData[0].isVidMemUpToDate)
-			{
-				setVidMemUpToDate(0, true);
-			}
+			createGdiLockResource();
 		}
-	}
-
-	void Resource::setLockResource(Resource* lockResource)
-	{
-		if (!m_lockResource == !lockResource)
-		{
-			return;
-		}
-
-		if (lockResource)
-		{
-			if (lockResource->m_fixedData.SurfCount != m_fixedData.SurfCount)
-			{
-				LOG_ONCE("ERROR: Lock surface count mismatch: " <<
-					m_fixedData.surfaceData << " vs " << lockResource->m_fixedData.SurfCount);
-				return;
-			}
-			m_lockData.resize(m_fixedData.SurfCount);
-			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
-			{
-				m_lockData[i].data = const_cast<void*>(lockResource->m_fixedData.pSurfList[i].pSysMem);
-				m_lockData[i].pitch = lockResource->m_fixedData.pSurfList[i].SysMemPitch;
-				m_lockData[i].isSysMemUpToDate = true;
-				m_lockData[i].isVidMemUpToDate = true;
-			}
-
-			m_lockResource = lockResource;
-			if (m_fixedData.Flags.RenderTarget)
-			{
-				for (std::size_t i = 0; i < m_lockData.size(); ++i)
-				{
-					m_device.addDirtyRenderTarget(*this, i);
-				}
-			}
-		}
-		else
-		{
-			if (m_fixedData.Flags.RenderTarget)
-			{
-				for (std::size_t i = 0; i < m_lockData.size(); ++i)
-				{
-					if (m_lockData[i].isSysMemUpToDate)
-					{
-						m_device.removeDirtyRenderTarget(*this, i);
-					}
-				}
-			}
-			if (m_fixedData.Flags.Texture)
-			{
-				for (std::size_t i = 0; i < m_lockData.size(); ++i)
-				{
-					if (!m_lockData[i].isVidMemUpToDate)
-					{
-						m_device.removeDirtyTexture(*this, i);
-					}
-				}
-			}
-			m_lockResource = nullptr;
-			m_lockData.clear();
-		}
-	}
-
-	void Resource::setRootSurface(DDraw::Surface* rootSurface)
-	{
-		m_rootSurface = rootSurface;
 	}
 
 	void Resource::setSysMemUpToDate(UINT subResourceIndex, bool upToDate)
