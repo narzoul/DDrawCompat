@@ -35,6 +35,7 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
+			SetProcessDPIAware();
 			Win32::DisplayMode::disableDwm8And16BitMitigation();
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
