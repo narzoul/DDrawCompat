@@ -300,6 +300,7 @@ namespace D3dDdi
 
 	HRESULT Resource::copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex)
 	{
+		LOG_FUNC("Resource::copySubResource", dstResource, srcResource, subResourceIndex);
 		RECT rect = {};
 		rect.right = m_fixedData.pSurfList[subResourceIndex].Width;
 		rect.bottom = m_fixedData.pSurfList[subResourceIndex].Height;
@@ -317,7 +318,7 @@ namespace D3dDdi
 		{
 			LOG_ONCE("ERROR: Resource::copySubResource failed: " << Compat::hex(result));
 		}
-		return result;
+		return LOG_RESULT(result);
 	}
 
 	void Resource::copyToSysMem(UINT subResourceIndex)
@@ -358,11 +359,18 @@ namespace D3dDdi
 			auto width = m_fixedData.pSurfList[i].Width;
 			auto height = m_fixedData.pSurfList[i].Height;
 			auto pitch = divCeil(width * m_formatInfo.bytesPerPixel, 8) * 8;
-			m_lockBuffers[i].resize(pitch * height);
+			m_lockBuffers[i].resize(pitch * height + 8);
 
 			surfaceInfo[i].Width = width;
 			surfaceInfo[i].Height = height;
-			surfaceInfo[i].pSysMem = m_lockBuffers[i].data();
+			if (reinterpret_cast<std::uintptr_t>(m_lockBuffers[i].data()) % 16 == 0)
+			{
+				surfaceInfo[i].pSysMem = m_lockBuffers[i].data() + 8;
+			}
+			else
+			{
+				surfaceInfo[i].pSysMem = m_lockBuffers[i].data();
+			}
 			surfaceInfo[i].SysMemPitch = pitch;
 		}
 
@@ -375,6 +383,7 @@ namespace D3dDdi
 
 	void Resource::createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo)
 	{
+		LOG_FUNC("Resource::createSysMemResource", Compat::array(surfaceInfo.data(), surfaceInfo.size()));
 		D3DDDIARG_CREATERESOURCE2 data = {};
 		data.Format = m_fixedData.Format;
 		data.Pool = D3DDDIPOOL_SYSTEMMEM;
@@ -396,6 +405,7 @@ namespace D3dDdi
 
 		if (FAILED(result))
 		{
+			LOG_RESULT(nullptr);
 			return;
 		}
 
@@ -408,6 +418,7 @@ namespace D3dDdi
 			m_lockData[i].isSysMemUpToDate = false;
 			m_lockData[i].isVidMemUpToDate = true;
 		}
+		LOG_RESULT(m_lockResource);
 	}
 
 	void Resource::copyToVidMem(UINT subResourceIndex)

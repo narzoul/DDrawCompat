@@ -66,7 +66,7 @@ namespace
 		}
 
 		void* bits = nullptr;
-		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, 0);
+		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, 8);
 	}
 }
 
@@ -181,7 +181,7 @@ namespace Gdi
 			desc.ddpfPixelFormat = DDraw::getRgbPixelFormat(g_bpp);
 			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 			desc.lPitch = g_pitch;
-			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) +
+			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + 8 +
 				(rect.top - g_bounds.top) * g_pitch +
 				(rect.left - g_bounds.left) * g_bpp / 8;
 			return desc;
@@ -231,7 +231,7 @@ namespace Gdi
 				}
 
 				g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
-					g_pitch * (g_height + Config::virtualScreenBufferExtraRows), nullptr);
+					g_pitch * g_height + 8, nullptr);
 				g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
 
 				for (HDC dc : g_dcs)
