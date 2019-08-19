@@ -45,7 +45,7 @@ namespace D3dDdi
 
 		Adapter& getAdapter() const { return m_adapter; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
-		std::unordered_map<HANDLE, Resource>& getResources() { return m_resources; }
+		Resource* getResource(HANDLE resource);
 
 		void addDirtyRenderTarget(Resource& resource, UINT subResourceIndex);
 		void addDirtyTexture(Resource& resource, UINT subResourceIndex);
@@ -58,8 +58,8 @@ namespace D3dDdi
 		static Device& get(HANDLE device);
 		static void remove(HANDLE device);
 
+		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
-		static Resource* getResource(HANDLE resource);
 		static void setGdiResourceHandle(HANDLE resource);
 		static void setReadOnlyGdiLock(bool enable);
 

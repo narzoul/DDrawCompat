@@ -59,7 +59,7 @@ namespace D3dDdi
 		try
 		{
 			Resource resource(Resource::create(*this, data));
-			m_resources.emplace(resource, std::move(resource));
+			m_resources.emplace(resource, std::move(resource)).first->second.initialize();
 			return S_OK;
 		}
 		catch (const HResultException& e)
@@ -337,14 +337,18 @@ namespace D3dDdi
 
 	Resource* Device::getResource(HANDLE resource)
 	{
+		auto it = m_resources.find(resource);
+		return it != m_resources.end() ? &it->second : nullptr;
+	}
+
+	Resource* Device::findResource(HANDLE resource)
+	{
 		for (auto& device : s_devices)
 		{
-			for (auto& res : device.second.getResources())
+			auto res = device.second.getResource(resource);
+			if (res)
 			{
-				if (resource == res.second)
-				{
-					return &res.second;
-				}
+				return res;
 			}
 		}
 		return nullptr;
@@ -364,7 +368,7 @@ namespace D3dDdi
 		}
 
 		g_gdiResourceHandle = resource;
-		g_gdiResource = getResource(resource);
+		g_gdiResource = findResource(resource);
 
 		if (g_gdiResource)
 		{

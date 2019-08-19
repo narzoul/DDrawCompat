@@ -151,7 +151,7 @@ namespace D3dDdi
 			data = const_cast<void*>(resource.m_fixedData.pSurfList[subResourceIndex].pSysMem);
 			pitch = resource.m_fixedData.pSurfList[subResourceIndex].SysMemPitch;
 		}
-		else if (subResourceIndex < resource.m_lockData.size())
+		else if (resource.m_lockResource)
 		{
 			if (!resource.m_lockData[subResourceIndex].isSysMemUpToDate)
 			{
@@ -189,30 +189,33 @@ namespace D3dDdi
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
+		auto srcResource = m_device.getResource(data.hSrcResource);
+		if (srcResource &&
+			D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
+			D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
+		{
+			return m_device.getOrigVtable().pfnBlt(m_device, &data);
+		}
+
 		if (isOversized())
 		{
 			m_device.prepareForRendering(data.hSrcResource, data.SrcSubResourceIndex, true);
 			return splitBlt(data, data.DstSubResourceIndex, data.DstRect, data.SrcRect);
 		}
-		else
+		else if (srcResource)
 		{
-			auto& resources = m_device.getResources();
-			auto it = resources.find(data.hSrcResource);
-			if (it != resources.end())
+			if (srcResource->isOversized())
 			{
-				if (it->second.isOversized())
-				{
-					prepareForRendering(data.DstSubResourceIndex, false);
-					return it->second.splitBlt(data, data.SrcSubResourceIndex, data.SrcRect, data.DstRect);
-				}
-				else if (m_fixedData.Flags.Primary)
-				{
-					return presentationBlt(data, it->second);
-				}
-				else
-				{
-					return sysMemPreferredBlt(data, it->second);
-				}
+				prepareForRendering(data.DstSubResourceIndex, false);
+				return srcResource->splitBlt(data, data.SrcSubResourceIndex, data.SrcRect, data.DstRect);
+			}
+			else if (m_fixedData.Flags.Primary)
+			{
+				return presentationBlt(data, *srcResource);
+			}
+			else
+			{
+				return sysMemPreferredBlt(data, *srcResource);
 			}
 		}
 		prepareForRendering(data.DstSubResourceIndex, false);
@@ -222,13 +225,8 @@ namespace D3dDdi
 	HRESULT Resource::bltLock(D3DDDIARG_LOCK& data)
 	{
 		LOG_FUNC("Resource::bltLock", data);
-		if (data.SubResourceIndex >= m_lockData.size())
-		{
-			return LOG_RESULT(m_device.getOrigVtable().pfnLock(m_device, &data));
-		}
 
 		auto& lockData = m_lockData[data.SubResourceIndex];
-
 		if (!lockData.isSysMemUpToDate)
 		{
 			if (data.Flags.ReadOnly)
@@ -260,11 +258,6 @@ namespace D3dDdi
 	HRESULT Resource::bltUnlock(const D3DDDIARG_UNLOCK& data)
 	{
 		LOG_FUNC("Resource::bltUnlock", data);
-		if (data.SubResourceIndex >= m_lockData.size())
-		{
-			return LOG_RESULT(m_device.getOrigVtable().pfnUnlock(m_device, &data));
-		}
-
 		if (0 != m_lockData[data.SubResourceIndex].lockCount)
 		{
 			--m_lockData[data.SubResourceIndex].lockCount;
@@ -275,7 +268,7 @@ namespace D3dDdi
 	HRESULT Resource::colorFill(const D3DDDIARG_COLORFILL& data)
 	{
 		LOG_FUNC("Resource::colorFill", data);
-		if (data.SubResourceIndex < m_lockData.size() && 0 != m_formatInfo.bytesPerPixel)
+		if (m_lockResource && 0 != m_formatInfo.bytesPerPixel)
 		{
 			auto& lockData = m_lockData[data.SubResourceIndex];
 			if (lockData.isSysMemUpToDate)
@@ -341,11 +334,16 @@ namespace D3dDdi
 		surfaceInfo.pSysMem = gdiSurfaceDesc.lpSurface;
 		surfaceInfo.SysMemPitch = gdiSurfaceDesc.lPitch;
 
+		m_lockData.resize(m_fixedData.SurfCount);
 		createSysMemResource({ surfaceInfo });
 		if (m_lockResource)
 		{
-			copySubResource(m_handle, m_lockResource, 0);
-			m_canCreateLockResource = false;
+			setSysMemUpToDate(0, true);
+			setVidMemUpToDate(0, false);
+		}
+		else
+		{
+			m_lockData.clear();
 		}
 	}
 
@@ -378,6 +376,7 @@ namespace D3dDdi
 		if (!m_lockResource)
 		{
 			m_lockBuffers.clear();
+			m_lockData.clear();
 		}
 	}
 
@@ -403,21 +402,17 @@ namespace D3dDdi
 				reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
 		}
 
-		if (FAILED(result))
+		if (SUCCEEDED(result))
 		{
-			LOG_RESULT(nullptr);
-			return;
+			m_lockResource = data.hResource;
+			for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
+			{
+				m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
+				m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
+			}
 		}
 
-		m_lockResource = data.hResource;
-		m_lockData.resize(surfaceInfo.size());
-		for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
-		{
-			m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
-			m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
-			m_lockData[i].isSysMemUpToDate = false;
-			m_lockData[i].isVidMemUpToDate = true;
-		}
+		m_canCreateLockResource = false;
 		LOG_RESULT(m_lockResource);
 	}
 
@@ -453,9 +448,6 @@ namespace D3dDdi
 		}
 
 		resource.m_handle = data.hResource;
-		resource.m_canCreateLockResource = D3DDDIPOOL_SYSTEMMEM != data.Pool &&
-			0 != resource.m_formatInfo.bytesPerPixel &&
-			!data.Flags.Primary;
 		data = origData;
 		data.hResource = resource.m_handle;
 		return resource;
@@ -482,7 +474,6 @@ namespace D3dDdi
 			}
 			m_device.getOrigVtable().pfnDestroyResource(m_device, m_lockResource);
 			m_lockResource = nullptr;
-			m_lockData.clear();
 			m_lockBuffers.clear();
 		}
 	}
@@ -514,15 +505,25 @@ namespace D3dDdi
 
 	void* Resource::getLockPtr(UINT subResourceIndex)
 	{
-		if (subResourceIndex < m_lockData.size())
+		return m_lockResource ? m_lockData[subResourceIndex].data
+			: const_cast<void*>(m_fixedData.pSurfList[subResourceIndex].pSysMem);
+	}
+
+	void Resource::initialize()
+	{
+		m_canCreateLockResource = D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
+			0 != m_formatInfo.bytesPerPixel &&
+			!m_fixedData.Flags.Primary;
+
+		if (m_canCreateLockResource)
 		{
-			return m_lockData[subResourceIndex].data;
+			m_lockData.resize(m_fixedData.SurfCount);
+			for (std::size_t i = 0; i < m_fixedData.SurfCount; ++i)
+			{
+				setSysMemUpToDate(i, true);
+				setVidMemUpToDate(i, true);
+			}
 		}
-		else if (subResourceIndex < m_fixedData.SurfCount)
-		{
-			return const_cast<void*>(m_fixedData.pSurfList[subResourceIndex].pSysMem);
-		}
-		return nullptr;
 	}
 
 	bool Resource::isOversized() const
@@ -546,7 +547,6 @@ namespace D3dDdi
 		if (m_canCreateLockResource)
 		{
 			createLockResource();
-			m_canCreateLockResource = false;
 		}
 
 		if (m_lockResource)
@@ -611,18 +611,13 @@ namespace D3dDdi
 
 	HRESULT Resource::presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
-		if (data.SrcSubResourceIndex < srcResource.m_lockData.size())
+		if (srcResource.m_lockResource &&
+			srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 		{
-			if (srcResource.m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate)
+			copySubResource(srcResource.m_handle, srcResource.m_lockResource, data.SrcSubResourceIndex);
+			if (!srcResource.m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate)
 			{
-				if (srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
-				{
-					copySubResource(srcResource.m_handle, srcResource.m_lockResource, data.SrcSubResourceIndex);
-				}
-			}
-			else
-			{
-				srcResource.copyToVidMem(data.SrcSubResourceIndex);
+				srcResource.setVidMemUpToDate(data.SrcSubResourceIndex, true);
 			}
 		}
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
@@ -733,34 +728,49 @@ namespace D3dDdi
 	HRESULT Resource::sysMemPreferredBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
 		if (m_fixedData.Format == srcResource.m_fixedData.Format &&
-			(D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-				(data.DstSubResourceIndex < m_lockData.size() && m_lockData[data.DstSubResourceIndex].isSysMemUpToDate)))
+			0 != m_formatInfo.bytesPerPixel)
 		{
-			SysMemBltGuard srcGuard(srcResource, data.SrcSubResourceIndex, true);
-			if (srcGuard.data)
+			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
 			{
-				SysMemBltGuard dstGuard(*this, data.DstSubResourceIndex, false);
-				if (dstGuard.data)
+				if (m_canCreateLockResource)
 				{
-					auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
-						data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
-					auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
-						data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
+					createLockResource();
+				}
+				if (srcResource.m_canCreateLockResource)
+				{
+					srcResource.createLockResource();
+				}
+			}
 
-					DDraw::Blitter::blt(
-						dstBuf,
-						dstGuard.pitch,
-						data.DstRect.right - data.DstRect.left,
-						data.DstRect.bottom - data.DstRect.top,
-						srcBuf,
-						srcGuard.pitch,
-						(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
-						(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
-						m_formatInfo.bytesPerPixel,
-						data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
-						data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
+			if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
+				(m_lockResource && m_lockData[data.DstSubResourceIndex].isSysMemUpToDate))
+			{
+				SysMemBltGuard srcGuard(srcResource, data.SrcSubResourceIndex, true);
+				if (srcGuard.data)
+				{
+					SysMemBltGuard dstGuard(*this, data.DstSubResourceIndex, false);
+					if (dstGuard.data)
+					{
+						auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
+							data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
+						auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
+							data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
 
-					return S_OK;
+						DDraw::Blitter::blt(
+							dstBuf,
+							dstGuard.pitch,
+							data.DstRect.right - data.DstRect.left,
+							data.DstRect.bottom - data.DstRect.top,
+							srcBuf,
+							srcGuard.pitch,
+							(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
+							(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
+							m_formatInfo.bytesPerPixel,
+							data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
+							data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
+
+						return S_OK;
+					}
 				}
 			}
 		}

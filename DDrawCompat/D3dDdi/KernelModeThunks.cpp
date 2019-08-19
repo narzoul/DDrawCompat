@@ -108,7 +108,7 @@ namespace
 			{
 				DDraw::ScopedThreadLock ddLock;
 				D3dDdi::ScopedCriticalSection driverLock;
-				auto primaryResource = D3dDdi::Device::getResource(DDraw::PrimarySurface::getFrontResource());
+				auto primaryResource = D3dDdi::Device::findResource(DDraw::PrimarySurface::getFrontResource());
 				if (primaryResource && pData->pMemory == primaryResource->getLockPtr(0) &&
 					(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_COMPLEX))
 				{

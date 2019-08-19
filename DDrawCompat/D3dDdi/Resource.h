@@ -24,6 +24,7 @@ namespace D3dDdi
 		void destroyLockResource();
 		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
+		void initialize();
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
 		void setAsGdiResource(bool isGdiResource);
