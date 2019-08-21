@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <vector>
 
 #include <d3d.h>
@@ -97,7 +98,7 @@ namespace D3dDdi
 		FormatInfo m_formatInfo;
 		HANDLE m_lockResource;
 		std::vector<LockData> m_lockData;
-		std::vector<std::vector<BYTE>> m_lockBuffers;
+		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
 		bool m_canCreateLockResource;
 	};
 }

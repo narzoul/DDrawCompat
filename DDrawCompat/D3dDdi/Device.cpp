@@ -263,12 +263,12 @@ namespace D3dDdi
 
 	void Device::addDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
 	{
-		m_dirtyRenderTargets.emplace(std::make_pair(resource, subResourceIndex), resource);
+		m_dirtyRenderTargets.emplace(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex), resource);
 	}
 
 	void Device::addDirtyTexture(Resource& resource, UINT subResourceIndex)
 	{
-		m_dirtyTextures.emplace(std::make_pair(resource, subResourceIndex), resource);
+		m_dirtyTextures.emplace(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex), resource);
 	}
 
 	Resource* Device::getGdiResource()
@@ -306,12 +306,12 @@ namespace D3dDdi
 
 	void Device::removeDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
 	{
-		m_dirtyRenderTargets.erase(std::make_pair(resource, subResourceIndex));
+		m_dirtyRenderTargets.erase(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex));
 	}
 
 	void Device::removeDirtyTexture(Resource& resource, UINT subResourceIndex)
 	{
-		m_dirtyTextures.erase(std::make_pair(resource, subResourceIndex));
+		m_dirtyTextures.erase(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex));
 	}
 
 	void Device::add(HANDLE adapter, HANDLE device)

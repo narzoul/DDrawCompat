@@ -70,6 +70,11 @@ namespace
 		return flags;
 	}
 
+	void heapFree(void* p)
+	{
+		HeapFree(GetProcessHeap(), 0, p);
+	}
+
 	void splitToTiles(D3DDDIARG_CREATERESOURCE& data, const UINT tileWidth, const UINT tileHeight)
 	{
 		static std::vector<D3DDDI_SURFACEINFO> tiles;
@@ -183,6 +188,7 @@ namespace D3dDdi
 		, m_handle(nullptr)
 		, m_origData(data)
 		, m_lockResource(nullptr)
+		, m_lockBuffer(nullptr, &heapFree)
 		, m_canCreateLockResource(false)
 	{
 	}
@@ -350,32 +356,38 @@ namespace D3dDdi
 	void Resource::createLockResource()
 	{
 		std::vector<D3DDDI_SURFACEINFO> surfaceInfo(m_fixedData.SurfCount);
-		m_lockBuffers.resize(m_fixedData.SurfCount);
+		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+		{
+			surfaceInfo[i].Width = m_fixedData.pSurfList[i].Width;
+			surfaceInfo[i].Height = m_fixedData.pSurfList[i].Height;
+			surfaceInfo[i].SysMemPitch = (surfaceInfo[i].Width * m_formatInfo.bytesPerPixel + 7) & ~7;
+			if (i != 0)
+			{
+				std::uintptr_t offset = reinterpret_cast<std::uintptr_t>(surfaceInfo[i - 1].pSysMem) +
+					((surfaceInfo[i - 1].SysMemPitch * surfaceInfo[i - 1].Height + 15) & ~15);
+				surfaceInfo[i].pSysMem = reinterpret_cast<void*>(offset);
+			}
+		}
+
+		std::uintptr_t bufferSize = reinterpret_cast<std::uintptr_t>(surfaceInfo.back().pSysMem) +
+			surfaceInfo.back().SysMemPitch * surfaceInfo.back().Height + 8;
+		m_lockBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bufferSize));
+
+		BYTE* bufferStart = static_cast<BYTE*>(m_lockBuffer.get());
+		if (0 == reinterpret_cast<std::uintptr_t>(bufferStart) % 16)
+		{
+			bufferStart += 8;
+		}
 
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
-			auto width = m_fixedData.pSurfList[i].Width;
-			auto height = m_fixedData.pSurfList[i].Height;
-			auto pitch = divCeil(width * m_formatInfo.bytesPerPixel, 8) * 8;
-			m_lockBuffers[i].resize(pitch * height + 8);
-
-			surfaceInfo[i].Width = width;
-			surfaceInfo[i].Height = height;
-			if (reinterpret_cast<std::uintptr_t>(m_lockBuffers[i].data()) % 16 == 0)
-			{
-				surfaceInfo[i].pSysMem = m_lockBuffers[i].data() + 8;
-			}
-			else
-			{
-				surfaceInfo[i].pSysMem = m_lockBuffers[i].data();
-			}
-			surfaceInfo[i].SysMemPitch = pitch;
+			surfaceInfo[i].pSysMem = bufferStart + reinterpret_cast<uintptr_t>(surfaceInfo[i].pSysMem);
 		}
 
 		createSysMemResource(surfaceInfo);
 		if (!m_lockResource)
 		{
-			m_lockBuffers.clear();
+			m_lockBuffer.reset();
 			m_lockData.clear();
 		}
 	}
@@ -465,17 +477,19 @@ namespace D3dDdi
 
 	void Resource::destroyLockResource()
 	{
+		for (UINT i = 0; i < m_lockData.size(); ++i)
+		{
+			setSysMemUpToDate(i, false);
+			setVidMemUpToDate(i, true);
+		}
+
 		if (m_lockResource)
 		{
-			for (UINT i = 0; i < m_lockData.size(); ++i)
-			{
-				setSysMemUpToDate(i, false);
-				setVidMemUpToDate(i, true);
-			}
 			m_device.getOrigVtable().pfnDestroyResource(m_device, m_lockResource);
 			m_lockResource = nullptr;
-			m_lockBuffers.clear();
 		}
+
+		m_lockBuffer.reset();
 	}
 
 	void Resource::fixVertexData(UINT offset, UINT count, UINT stride)
