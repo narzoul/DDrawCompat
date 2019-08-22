@@ -36,10 +36,9 @@ namespace D3dDdi
 		HRESULT openResource(D3DDDIARG_OPENRESOURCE& data);
 		HRESULT present(const D3DDDIARG_PRESENT& data);
 		HRESULT present1(D3DDDIARG_PRESENT1& data);
+		HRESULT setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
-		HRESULT texBlt(const D3DDDIARG_TEXBLT& data);
-		HRESULT texBlt1(const D3DDDIARG_TEXBLT1& data);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		HRESULT updateWInfo(const D3DDDIARG_WINFO& data);
 
@@ -47,12 +46,8 @@ namespace D3dDdi
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		Resource* getResource(HANDLE resource);
 
-		void addDirtyRenderTarget(Resource& resource, UINT subResourceIndex);
-		void addDirtyTexture(Resource& resource, UINT subResourceIndex);
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
 		void prepareForRendering();
-		void removeDirtyRenderTarget(Resource& resource, UINT subResourceIndex);
-		void removeDirtyTexture(Resource& resource, UINT subResourceIndex);
 
 		static void add(HANDLE adapter, HANDLE device);
 		static Device& get(HANDLE device);
@@ -69,14 +64,12 @@ namespace D3dDdi
 		template <typename Arg>
 		HRESULT createResourceImpl(Arg& data);
 
-		void prepareForRendering(std::map<std::pair<HANDLE, UINT>, Resource&>& resources, bool isReadOnly);
-
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
 		std::unordered_map<HANDLE, Resource> m_resources;
-		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyRenderTargets;
-		std::map<std::pair<HANDLE, UINT>, Resource&> m_dirtyTextures;
+		Resource* m_renderTarget;
+		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;
 		D3DDDIARG_SETSTREAMSOURCE m_streamSourceData;
 		Resource* m_streamSource;

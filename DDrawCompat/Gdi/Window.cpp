@@ -182,13 +182,15 @@ namespace Gdi
 
 			if (!preservedRegion.isEmpty())
 			{
-				HDC screenDc = Gdi::getScreenDc();
-				SelectClipRgn(screenDc, preservedRegion);
-				BitBlt(screenDc, m_windowRect.left, m_windowRect.top,
-					oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
-					screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
-				SelectClipRgn(screenDc, nullptr);
-
+				if (m_windowRect.left != oldWindowRect.left || m_windowRect.top != oldWindowRect.top)
+				{
+					HDC screenDc = Gdi::getScreenDc();
+					SelectClipRgn(screenDc, preservedRegion);
+					BitBlt(screenDc, m_windowRect.left, m_windowRect.top,
+						oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
+						screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
+					SelectClipRgn(screenDc, nullptr);
+				}
 				m_invalidatedRegion -= preservedRegion;
 			}
 		}

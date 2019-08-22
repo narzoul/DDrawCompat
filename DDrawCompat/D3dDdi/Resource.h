@@ -18,14 +18,18 @@ namespace D3dDdi
 		static Resource create(Device& device, D3DDDIARG_CREATERESOURCE& data);
 		static Resource create(Device& device, D3DDDIARG_CREATERESOURCE2& data);
 
+		Resource(const Resource&) = delete;
+		Resource& operator=(const Resource&) = delete;
+
+		Resource(Resource&&) = default;
+		Resource& operator=(Resource&&) = default;
+
 		operator HANDLE() const { return m_handle; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
-		void destroyLockResource();
 		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
-		void initialize();
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
 		void setAsGdiResource(bool isGdiResource);
@@ -55,6 +59,16 @@ namespace D3dDdi
 			bool isVidMemUpToDate;
 		};
 
+		class ResourceDeleter
+		{
+		public:
+			ResourceDeleter(Device& device) : m_device(device) {}
+			void operator()(HANDLE resource) { m_device.getOrigVtable().pfnDestroyResource(m_device, resource); }
+
+		private:
+			Device& m_device;
+		};
+
 		struct SysMemBltGuard
 		{
 			void* data;
@@ -78,12 +92,8 @@ namespace D3dDdi
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		bool isOversized() const;
-		void moveToSysMem(UINT subResourceIndex);
-		void moveToVidMem(UINT subResourceIndex);
-		void prepareSubResourceForRendering(UINT subResourceIndex, bool isReadOnly);
+		bool isInSysMem(UINT subResourceIndex) const;
 		HRESULT presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
-		void setSysMemUpToDate(UINT subResourceIndex, bool upToDate);
-		void setVidMemUpToDate(UINT subResourceIndex, bool upToDate);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
 		template <typename Arg>
@@ -96,9 +106,8 @@ namespace D3dDdi
 		Data m_origData;
 		Data m_fixedData;
 		FormatInfo m_formatInfo;
-		HANDLE m_lockResource;
-		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
-		bool m_canCreateLockResource;
+		std::vector<LockData> m_lockData;
+		std::unique_ptr<void, ResourceDeleter> m_lockResource;
 	};
 }

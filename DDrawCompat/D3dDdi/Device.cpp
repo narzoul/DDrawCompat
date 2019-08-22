@@ -20,6 +20,8 @@ namespace D3dDdi
 		: m_origVtable(DeviceFuncs::s_origVtables.at(device))
 		, m_adapter(Adapter::get(adapter))
 		, m_device(device)
+		, m_renderTarget(nullptr)
+		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
 		, m_streamSourceData{}
 		, m_streamSource(nullptr)
@@ -39,7 +41,10 @@ namespace D3dDdi
 
 	HRESULT Device::clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect)
 	{
-		prepareForRendering();
+		if (data.Flags & D3DCLEAR_TARGET)
+		{
+			prepareForRendering();
+		}
 		return m_origVtable.pfnClear(m_device, &data, numRect, rect);
 	}
 
@@ -59,7 +64,7 @@ namespace D3dDdi
 		try
 		{
 			Resource resource(Resource::create(*this, data));
-			m_resources.emplace(resource, std::move(resource)).first->second.initialize();
+			m_resources.emplace(resource, std::move(resource));
 			return S_OK;
 		}
 		catch (const HResultException& e)
@@ -99,13 +104,7 @@ namespace D3dDdi
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
-			auto it = m_resources.find(resource);
-			if (it != m_resources.end())
-			{
-				it->second.destroyLockResource();
-				m_resources.erase(it);
-			}
-
+			m_resources.erase(resource);
 			if (resource == m_sharedPrimary)
 			{
 				m_sharedPrimary = nullptr;
@@ -203,6 +202,17 @@ namespace D3dDdi
 		return m_origVtable.pfnPresent1(m_device, &data);
 	}
 
+	HRESULT Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data)
+	{
+		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, &data);
+		if (SUCCEEDED(result) && 0 == data.RenderTargetIndex)
+		{
+			m_renderTarget = getResource(data.hRenderTarget);
+			m_renderTargetSubResourceIndex = data.SubResourceIndex;
+		}
+		return result;
+	}
+
 	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data)
 	{
 		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, &data);
@@ -223,20 +233,6 @@ namespace D3dDdi
 			m_streamSource = nullptr;
 		}
 		return result;
-	}
-
-	HRESULT Device::texBlt(const D3DDDIARG_TEXBLT& data)
-	{
-		prepareForRendering(data.hDstResource, UINT_MAX, false);
-		prepareForRendering(data.hSrcResource, UINT_MAX, true);
-		return m_origVtable.pfnTexBlt(m_device, &data);
-	}
-
-	HRESULT Device::texBlt1(const D3DDDIARG_TEXBLT1& data)
-	{
-		prepareForRendering(data.hDstResource, UINT_MAX, false);
-		prepareForRendering(data.hSrcResource, UINT_MAX, true);
-		return m_origVtable.pfnTexBlt1(m_device, &data);
 	}
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK& data)
@@ -261,16 +257,6 @@ namespace D3dDdi
 		return m_origVtable.pfnUpdateWInfo(m_device, &data);
 	}
 
-	void Device::addDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
-	{
-		m_dirtyRenderTargets.emplace(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex), resource);
-	}
-
-	void Device::addDirtyTexture(Resource& resource, UINT subResourceIndex)
-	{
-		m_dirtyTextures.emplace(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex), resource);
-	}
-
 	Resource* Device::getGdiResource()
 	{
 		return g_gdiResource;
@@ -285,33 +271,12 @@ namespace D3dDdi
 		}
 	}
 
-	void Device::prepareForRendering(std::map<std::pair<HANDLE, UINT>, Resource&>& resources, bool isReadOnly)
-	{
-		auto it = resources.begin();
-		while (it != resources.end())
-		{
-			auto& resource = it->second;
-			auto subResourceIndex = it->first.second;
-			++it;
-			resource.prepareForRendering(subResourceIndex, isReadOnly);
-		}
-	}
-
 	void Device::prepareForRendering()
 	{
-		const bool isReadOnly = true;
-		prepareForRendering(m_dirtyRenderTargets, !isReadOnly);
-		prepareForRendering(m_dirtyTextures, isReadOnly);
-	}
-
-	void Device::removeDirtyRenderTarget(Resource& resource, UINT subResourceIndex)
-	{
-		m_dirtyRenderTargets.erase(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex));
-	}
-
-	void Device::removeDirtyTexture(Resource& resource, UINT subResourceIndex)
-	{
-		m_dirtyTextures.erase(std::make_pair(static_cast<HANDLE>(resource), subResourceIndex));
+		if (m_renderTarget)
+		{
+			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
+		}
 	}
 
 	void Device::add(HANDLE adapter, HANDLE device)

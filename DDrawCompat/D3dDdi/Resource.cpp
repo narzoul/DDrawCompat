@@ -160,19 +160,9 @@ namespace D3dDdi
 		{
 			if (!resource.m_lockData[subResourceIndex].isSysMemUpToDate)
 			{
-				if (isReadOnly)
-				{
-					resource.copyToSysMem(subResourceIndex);
-				}
-				else
-				{
-					resource.moveToSysMem(subResourceIndex);
-				}
+				resource.copyToSysMem(subResourceIndex);
 			}
-			else if (!isReadOnly && resource.m_lockData[subResourceIndex].isVidMemUpToDate)
-			{
-				resource.setVidMemUpToDate(subResourceIndex, false);
-			}
+			resource.m_lockData[subResourceIndex].isVidMemUpToDate &= isReadOnly;
 			data = resource.m_lockData[subResourceIndex].data;
 			pitch = resource.m_lockData[subResourceIndex].pitch;
 		}
@@ -187,9 +177,8 @@ namespace D3dDdi
 		: m_device(device)
 		, m_handle(nullptr)
 		, m_origData(data)
-		, m_lockResource(nullptr)
 		, m_lockBuffer(nullptr, &heapFree)
-		, m_canCreateLockResource(false)
+		, m_lockResource(nullptr, ResourceDeleter(device))
 	{
 	}
 
@@ -235,19 +224,9 @@ namespace D3dDdi
 		auto& lockData = m_lockData[data.SubResourceIndex];
 		if (!lockData.isSysMemUpToDate)
 		{
-			if (data.Flags.ReadOnly)
-			{
-				copyToSysMem(data.SubResourceIndex);
-			}
-			else
-			{
-				moveToSysMem(data.SubResourceIndex);
-			}
+			copyToSysMem(data.SubResourceIndex);
 		}
-		else if (!data.Flags.ReadOnly && lockData.isVidMemUpToDate)
-		{
-			setVidMemUpToDate(data.SubResourceIndex, false);
-		}
+		lockData.isVidMemUpToDate &= data.Flags.ReadOnly;
 
 		unsigned char* ptr = static_cast<unsigned char*>(lockData.data);
 		if (data.Flags.AreaValid)
@@ -274,7 +253,7 @@ namespace D3dDdi
 	HRESULT Resource::colorFill(const D3DDDIARG_COLORFILL& data)
 	{
 		LOG_FUNC("Resource::colorFill", data);
-		if (m_lockResource && 0 != m_formatInfo.bytesPerPixel)
+		if (m_lockResource)
 		{
 			auto& lockData = m_lockData[data.SubResourceIndex];
 			if (lockData.isSysMemUpToDate)
@@ -286,10 +265,7 @@ namespace D3dDdi
 					data.DstRect.right - data.DstRect.left, data.DstRect.bottom - data.DstRect.top,
 					m_formatInfo.bytesPerPixel, colorConvert(m_formatInfo, data.Color));
 
-				if (lockData.isVidMemUpToDate)
-				{
-					setVidMemUpToDate(data.SubResourceIndex, false);
-				}
+				m_lockData[data.SubResourceIndex].isVidMemUpToDate = false;
 				return LOG_RESULT(S_OK);
 			}
 		}
@@ -322,8 +298,14 @@ namespace D3dDdi
 
 	void Resource::copyToSysMem(UINT subResourceIndex)
 	{
-		copySubResource(m_lockResource, m_handle, subResourceIndex);
-		setSysMemUpToDate(subResourceIndex, true);
+		copySubResource(m_lockResource.get(), m_handle, subResourceIndex);
+		m_lockData[subResourceIndex].isSysMemUpToDate = true;
+	}
+
+	void Resource::copyToVidMem(UINT subResourceIndex)
+	{
+		copySubResource(m_handle, m_lockResource.get(), subResourceIndex);
+		m_lockData[subResourceIndex].isVidMemUpToDate = true;
 	}
 
 	void Resource::createGdiLockResource()
@@ -344,8 +326,7 @@ namespace D3dDdi
 		createSysMemResource({ surfaceInfo });
 		if (m_lockResource)
 		{
-			setSysMemUpToDate(0, true);
-			setVidMemUpToDate(0, false);
+			m_lockData[0].isVidMemUpToDate = false;
 		}
 		else
 		{
@@ -355,6 +336,16 @@ namespace D3dDdi
 
 	void Resource::createLockResource()
 	{
+		D3DDDI_RESOURCEFLAGS flags = {};
+		flags.Value = g_resourceTypeFlags;
+		flags.RenderTarget = 0;
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
+			0 == m_formatInfo.bytesPerPixel ||
+			0 != (m_fixedData.Flags.Value & flags.Value))
+		{
+			return;
+		}
+
 		std::vector<D3DDDI_SURFACEINFO> surfaceInfo(m_fixedData.SurfCount);
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
@@ -401,7 +392,6 @@ namespace D3dDdi
 		data.pSurfList = surfaceInfo.data();
 		data.SurfCount = surfaceInfo.size();
 		data.Rotation = D3DDDI_ROTATION_IDENTITY;
-		data.Flags.Texture = m_fixedData.Flags.Texture;
 
 		HRESULT result = S_OK;
 		if (m_device.getOrigVtable().pfnCreateResource2)
@@ -416,22 +406,18 @@ namespace D3dDdi
 
 		if (SUCCEEDED(result))
 		{
-			m_lockResource = data.hResource;
+			m_lockResource.reset(data.hResource);
+			m_lockData.resize(surfaceInfo.size());
 			for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
 			{
 				m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
 				m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
+				m_lockData[i].isSysMemUpToDate = true;
+				m_lockData[i].isVidMemUpToDate = true;
 			}
 		}
 
-		m_canCreateLockResource = false;
-		LOG_RESULT(m_lockResource);
-	}
-
-	void Resource::copyToVidMem(UINT subResourceIndex)
-	{
-		copySubResource(m_handle, m_lockResource, subResourceIndex);
-		setVidMemUpToDate(subResourceIndex, true);
+		LOG_RESULT(m_lockResource.get());
 	}
 
 	template <typename Arg>
@@ -460,6 +446,7 @@ namespace D3dDdi
 		}
 
 		resource.m_handle = data.hResource;
+		resource.createLockResource();
 		data = origData;
 		data.hResource = resource.m_handle;
 		return resource;
@@ -473,23 +460,6 @@ namespace D3dDdi
 	Resource Resource::create(Device& device, D3DDDIARG_CREATERESOURCE2& data)
 	{
 		return create(device, data, device.getOrigVtable().pfnCreateResource2);
-	}
-
-	void Resource::destroyLockResource()
-	{
-		for (UINT i = 0; i < m_lockData.size(); ++i)
-		{
-			setSysMemUpToDate(i, false);
-			setVidMemUpToDate(i, true);
-		}
-
-		if (m_lockResource)
-		{
-			m_device.getOrigVtable().pfnDestroyResource(m_device, m_lockResource);
-			m_lockResource = nullptr;
-		}
-
-		m_lockBuffer.reset();
 	}
 
 	void Resource::fixVertexData(UINT offset, UINT count, UINT stride)
@@ -523,21 +493,10 @@ namespace D3dDdi
 			: const_cast<void*>(m_fixedData.pSurfList[subResourceIndex].pSysMem);
 	}
 
-	void Resource::initialize()
+	bool Resource::isInSysMem(UINT subResourceIndex) const
 	{
-		m_canCreateLockResource = D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-			0 != m_formatInfo.bytesPerPixel &&
-			!m_fixedData.Flags.Primary;
-
-		if (m_canCreateLockResource)
-		{
-			m_lockData.resize(m_fixedData.SurfCount);
-			for (std::size_t i = 0; i < m_fixedData.SurfCount; ++i)
-			{
-				setSysMemUpToDate(i, true);
-				setVidMemUpToDate(i, true);
-			}
-		}
+		return D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
+			(m_lockResource && m_lockData[subResourceIndex].isSysMemUpToDate);
 	}
 
 	bool Resource::isOversized() const
@@ -558,11 +517,6 @@ namespace D3dDdi
 			return splitLock(data, m_device.getOrigVtable().pfnLock);
 		}
 
-		if (m_canCreateLockResource)
-		{
-			createLockResource();
-		}
-
 		if (m_lockResource)
 		{
 			return bltLock(data);
@@ -571,55 +525,15 @@ namespace D3dDdi
 		return m_device.getOrigVtable().pfnLock(m_device, &data);
 	}
 
-	void Resource::moveToSysMem(UINT subResourceIndex)
-	{
-		copySubResource(m_lockResource, m_handle, subResourceIndex);
-		setSysMemUpToDate(subResourceIndex, true);
-		setVidMemUpToDate(subResourceIndex, false);
-	}
-
-	void Resource::moveToVidMem(UINT subResourceIndex)
-	{
-		copySubResource(m_handle, m_lockResource, subResourceIndex);
-		setVidMemUpToDate(subResourceIndex, true);
-		setSysMemUpToDate(subResourceIndex, false);
-	}
-
 	void Resource::prepareForRendering(UINT subResourceIndex, bool isReadOnly)
 	{
-		if (subResourceIndex < m_lockData.size())
+		if (m_lockResource && 0 == m_lockData[subResourceIndex].lockCount)
 		{
-			prepareSubResourceForRendering(subResourceIndex, isReadOnly);
-		}
-		else if (UINT_MAX == subResourceIndex)
-		{
-			for (UINT i = 0; i < m_lockData.size(); ++i)
+			if (!m_lockData[subResourceIndex].isVidMemUpToDate)
 			{
-				prepareSubResourceForRendering(i, isReadOnly);
+				copyToVidMem(subResourceIndex);
 			}
-		}
-	}
-
-	void Resource::prepareSubResourceForRendering(UINT subResourceIndex, bool isReadOnly)
-	{
-		auto& lockData = m_lockData[subResourceIndex];
-		if (0 == lockData.lockCount)
-		{
-			if (isReadOnly)
-			{
-				if (!lockData.isVidMemUpToDate)
-				{
-					copyToVidMem(subResourceIndex);
-				}
-			}
-			else if (lockData.isVidMemUpToDate)
-			{
-				setSysMemUpToDate(subResourceIndex, false);
-			}
-			else
-			{
-				moveToVidMem(subResourceIndex);
-			}
+			m_lockData[subResourceIndex].isSysMemUpToDate &= isReadOnly;
 		}
 	}
 
@@ -628,53 +542,19 @@ namespace D3dDdi
 		if (srcResource.m_lockResource &&
 			srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 		{
-			copySubResource(srcResource.m_handle, srcResource.m_lockResource, data.SrcSubResourceIndex);
-			if (!srcResource.m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate)
-			{
-				srcResource.setVidMemUpToDate(data.SrcSubResourceIndex, true);
-			}
+			srcResource.copyToVidMem(data.SrcSubResourceIndex);
 		}
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 
 	void Resource::setAsGdiResource(bool isGdiResource)
 	{
-		destroyLockResource();
+		m_lockResource.reset();
+		m_lockData.clear();
+		m_lockBuffer.reset();
 		if (isGdiResource)
 		{
 			createGdiLockResource();
-		}
-	}
-
-	void Resource::setSysMemUpToDate(UINT subResourceIndex, bool upToDate)
-	{
-		m_lockData[subResourceIndex].isSysMemUpToDate = upToDate;
-		if (m_fixedData.Flags.RenderTarget)
-		{
-			if (upToDate)
-			{
-				m_device.addDirtyRenderTarget(*this, subResourceIndex);
-			}
-			else
-			{
-				m_device.removeDirtyRenderTarget(*this, subResourceIndex);
-			}
-		}
-	}
-
-	void Resource::setVidMemUpToDate(UINT subResourceIndex, bool upToDate)
-	{
-		m_lockData[subResourceIndex].isVidMemUpToDate = upToDate;
-		if (m_fixedData.Flags.Texture)
-		{
-			if (upToDate)
-			{
-				m_device.removeDirtyTexture(*this, subResourceIndex);
-			}
-			else
-			{
-				m_device.addDirtyTexture(*this, subResourceIndex);
-			}
 		}
 	}
 
@@ -742,49 +622,36 @@ namespace D3dDdi
 	HRESULT Resource::sysMemPreferredBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
 		if (m_fixedData.Format == srcResource.m_fixedData.Format &&
-			0 != m_formatInfo.bytesPerPixel)
+			0 != m_formatInfo.bytesPerPixel &&
+			(data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
+				(isInSysMem(data.DstSubResourceIndex) &&
+				(!srcResource.m_fixedData.Flags.RenderTarget || srcResource.isInSysMem(data.SrcSubResourceIndex)))))
 		{
-			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
+			SysMemBltGuard srcGuard(srcResource, data.SrcSubResourceIndex, true);
+			if (srcGuard.data)
 			{
-				if (m_canCreateLockResource)
+				SysMemBltGuard dstGuard(*this, data.DstSubResourceIndex, false);
+				if (dstGuard.data)
 				{
-					createLockResource();
-				}
-				if (srcResource.m_canCreateLockResource)
-				{
-					srcResource.createLockResource();
-				}
-			}
+					auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
+						data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
+					auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
+						data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
 
-			if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
-				(m_lockResource && m_lockData[data.DstSubResourceIndex].isSysMemUpToDate))
-			{
-				SysMemBltGuard srcGuard(srcResource, data.SrcSubResourceIndex, true);
-				if (srcGuard.data)
-				{
-					SysMemBltGuard dstGuard(*this, data.DstSubResourceIndex, false);
-					if (dstGuard.data)
-					{
-						auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
-							data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
-						auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
-							data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
+					DDraw::Blitter::blt(
+						dstBuf,
+						dstGuard.pitch,
+						data.DstRect.right - data.DstRect.left,
+						data.DstRect.bottom - data.DstRect.top,
+						srcBuf,
+						srcGuard.pitch,
+						(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
+						(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
+						m_formatInfo.bytesPerPixel,
+						data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
+						data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
 
-						DDraw::Blitter::blt(
-							dstBuf,
-							dstGuard.pitch,
-							data.DstRect.right - data.DstRect.left,
-							data.DstRect.bottom - data.DstRect.top,
-							srcBuf,
-							srcGuard.pitch,
-							(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
-							(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
-							m_formatInfo.bytesPerPixel,
-							data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
-							data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
-
-						return S_OK;
-					}
+					return S_OK;
 				}
 			}
 		}
