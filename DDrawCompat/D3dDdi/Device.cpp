@@ -63,7 +63,7 @@ namespace D3dDdi
 	{
 		try
 		{
-			Resource resource(Resource::create(*this, data));
+			Resource resource(*this, data);
 			m_resources.emplace(resource, std::move(resource));
 			return S_OK;
 		}

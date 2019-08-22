@@ -15,8 +15,8 @@ namespace D3dDdi
 	class Resource
 	{
 	public:
-		static Resource create(Device& device, D3DDDIARG_CREATERESOURCE& data);
-		static Resource create(Device& device, D3DDDIARG_CREATERESOURCE2& data);
+		Resource(Device& device, D3DDDIARG_CREATERESOURCE& data);
+		Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data);
 
 		Resource(const Resource&) = delete;
 		Resource& operator=(const Resource&) = delete;
@@ -42,8 +42,10 @@ namespace D3dDdi
 			Data();
 			Data(const D3DDDIARG_CREATERESOURCE& data);
 			Data(const D3DDDIARG_CREATERESOURCE2& data);
-			Data(const Data& other);
-			Data& operator=(const Data& other);
+
+			Data(const Data&) = delete;
+			Data& operator=(const Data&) = delete;
+
 			Data(Data&&) = default;
 			Data& operator=(Data&&) = default;
 
@@ -55,6 +57,7 @@ namespace D3dDdi
 			void* data;
 			UINT pitch;
 			UINT lockCount;
+			long long qpcLastForcedLock;
 			bool isSysMemUpToDate;
 			bool isVidMemUpToDate;
 		};
@@ -69,19 +72,8 @@ namespace D3dDdi
 			Device& m_device;
 		};
 
-		struct SysMemBltGuard
-		{
-			void* data;
-			UINT pitch;
-
-			SysMemBltGuard(Resource& resource, UINT subResourceIndex, bool isReadOnly);
-		};
-
-		Resource(Device& device, const D3DDDIARG_CREATERESOURCE& data);
-		Resource(Device& device, const D3DDDIARG_CREATERESOURCE2& data);
-
 		template <typename Arg>
-		static Resource create(Device& device, Arg& data, HRESULT(APIENTRY *createResourceFunc)(HANDLE, Arg*));
+		Resource(Device& device, Arg& data, HRESULT(APIENTRY *createResourceFunc)(HANDLE, Arg*));
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltUnlock(const D3DDDIARG_UNLOCK& data);
@@ -92,7 +84,6 @@ namespace D3dDdi
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		bool isOversized() const;
-		bool isInSysMem(UINT subResourceIndex) const;
 		HRESULT presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 

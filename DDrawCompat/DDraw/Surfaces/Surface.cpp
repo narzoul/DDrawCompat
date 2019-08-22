@@ -64,14 +64,6 @@ namespace DDraw
 		}
 
 		auto surface7(CompatPtr<IDirectDrawSurface7>::from(surface));
-		if (!(desc.dwFlags & DDSD_PIXELFORMAT))
-		{
-			desc.dwFlags |= DDSD_PIXELFORMAT;
-			desc.ddpfPixelFormat = {};
-			desc.ddpfPixelFormat.dwSize = sizeof(desc.ddpfPixelFormat);
-			surface7->GetPixelFormat(surface7, &desc.ddpfPixelFormat);
-		}
-
 		if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
 		{
 			auto attachedSurfaces(getAllAttachedSurfaces(*surface7));

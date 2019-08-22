@@ -2,6 +2,8 @@
 
 #include <Common/HResultException.h>
 #include <Common/Log.h>
+#include <Common/Time.h>
+#include <Config/Config.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
@@ -132,53 +134,57 @@ namespace D3dDdi
 		pSurfList = surfaceData.data();
 	}
 
-	Resource::Data::Data(const Data& other)
-		: D3DDDIARG_CREATERESOURCE2(other)
-		, surfaceData(other.surfaceData)
-	{
-		pSurfList = surfaceData.data();
-	}
-
-	Resource::Data& Resource::Data::operator=(const Data& other)
-	{
-		static_cast<D3DDDIARG_CREATERESOURCE2&>(*this) = other;
-		surfaceData = other.surfaceData;
-		pSurfList = surfaceData.data();
-		return *this;
-	}
-
-	Resource::SysMemBltGuard::SysMemBltGuard(Resource& resource, UINT subResourceIndex, bool isReadOnly)
-		: data(nullptr)
-		, pitch(0)
-	{
-		if (D3DDDIPOOL_SYSTEMMEM == resource.m_fixedData.Pool)
-		{
-			data = const_cast<void*>(resource.m_fixedData.pSurfList[subResourceIndex].pSysMem);
-			pitch = resource.m_fixedData.pSurfList[subResourceIndex].SysMemPitch;
-		}
-		else if (resource.m_lockResource)
-		{
-			if (!resource.m_lockData[subResourceIndex].isSysMemUpToDate)
-			{
-				resource.copyToSysMem(subResourceIndex);
-			}
-			resource.m_lockData[subResourceIndex].isVidMemUpToDate &= isReadOnly;
-			data = resource.m_lockData[subResourceIndex].data;
-			pitch = resource.m_lockData[subResourceIndex].pitch;
-		}
-	}
-
-	Resource::Resource(Device& device, const D3DDDIARG_CREATERESOURCE& data)
-		: Resource(device, upgradeResourceData(data))
-	{
-	}
-
-	Resource::Resource(Device& device, const D3DDDIARG_CREATERESOURCE2& data)
+	template <typename Arg>
+	Resource::Resource(Device& device, Arg& data, HRESULT(APIENTRY* createResourceFunc)(HANDLE, Arg*))
 		: m_device(device)
 		, m_handle(nullptr)
 		, m_origData(data)
+		, m_fixedData(data)
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device))
+	{
+		if (D3DDDIFMT_VERTEXDATA == data.Format &&
+			data.Flags.VertexBuffer &&
+			data.Flags.MightDrawFromLocked &&
+			D3DDDIPOOL_SYSTEMMEM != data.Pool)
+		{
+			const HRESULT D3DERR_NOTAVAILABLE = 0x8876086A;
+			throw HResultException(D3DERR_NOTAVAILABLE);
+		}
+
+		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(m_fixedData));
+		m_formatInfo = getFormatInfo(m_fixedData.Format);
+
+		HRESULT result = createResourceFunc(device, reinterpret_cast<Arg*>(&m_fixedData));
+		if (FAILED(result))
+		{
+			throw HResultException(result);
+		}
+		m_handle = m_fixedData.hResource;
+
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
+			0 != m_formatInfo.bytesPerPixel)
+		{
+			m_lockData.resize(m_fixedData.SurfCount);
+			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+			{
+				m_lockData[i].data = const_cast<void*>(m_fixedData.pSurfList[i].pSysMem);
+				m_lockData[i].pitch = m_fixedData.pSurfList[i].SysMemPitch;
+				m_lockData[i].isSysMemUpToDate = true;
+			}
+		}
+
+		createLockResource();
+		data.hResource = m_fixedData.hResource;
+	}
+
+	Resource::Resource(Device& device, D3DDDIARG_CREATERESOURCE& data)
+		: Resource(device, data, device.getOrigVtable().pfnCreateResource)
+	{
+	}
+
+	Resource::Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data)
+		: Resource(device, data, device.getOrigVtable().pfnCreateResource2)
 	{
 	}
 
@@ -227,6 +233,7 @@ namespace D3dDdi
 			copyToSysMem(data.SubResourceIndex);
 		}
 		lockData.isVidMemUpToDate &= data.Flags.ReadOnly;
+		lockData.qpcLastForcedLock = Time::queryPerformanceCounter();
 
 		unsigned char* ptr = static_cast<unsigned char*>(lockData.data);
 		if (data.Flags.AreaValid)
@@ -408,58 +415,18 @@ namespace D3dDdi
 		{
 			m_lockResource.reset(data.hResource);
 			m_lockData.resize(surfaceInfo.size());
+			auto qpcLastForcedLock = Time::queryPerformanceCounter() - Time::msToQpc(Config::evictionTimeout);
 			for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
 			{
 				m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
 				m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
+				m_lockData[i].qpcLastForcedLock = qpcLastForcedLock;
 				m_lockData[i].isSysMemUpToDate = true;
 				m_lockData[i].isVidMemUpToDate = true;
 			}
 		}
 
 		LOG_RESULT(m_lockResource.get());
-	}
-
-	template <typename Arg>
-	Resource Resource::create(Device& device, Arg& data, HRESULT(APIENTRY *createResourceFunc)(HANDLE, Arg*))
-	{
-		if (D3DDDIFMT_VERTEXDATA == data.Format &&
-			data.Flags.VertexBuffer &&
-			data.Flags.MightDrawFromLocked &&
-			D3DDDIPOOL_SYSTEMMEM != data.Pool)
-		{
-			const HRESULT D3DERR_NOTAVAILABLE = 0x8876086A;
-			throw HResultException(D3DERR_NOTAVAILABLE);
-		}
-
-		Resource resource(device, data);
-		Arg origData = data;
-		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(data));
-		resource.m_fixedData = data;
-		resource.m_formatInfo = getFormatInfo(data.Format);
-
-		HRESULT result = createResourceFunc(device, &data);
-		if (FAILED(result))
-		{
-			data = origData;
-			throw HResultException(result);
-		}
-
-		resource.m_handle = data.hResource;
-		resource.createLockResource();
-		data = origData;
-		data.hResource = resource.m_handle;
-		return resource;
-	}
-
-	Resource Resource::create(Device& device, D3DDDIARG_CREATERESOURCE& data)
-	{
-		return create(device, data, device.getOrigVtable().pfnCreateResource);
-	}
-
-	Resource Resource::create(Device& device, D3DDDIARG_CREATERESOURCE2& data)
-	{
-		return create(device, data, device.getOrigVtable().pfnCreateResource2);
 	}
 
 	void Resource::fixVertexData(UINT offset, UINT count, UINT stride)
@@ -489,14 +456,7 @@ namespace D3dDdi
 
 	void* Resource::getLockPtr(UINT subResourceIndex)
 	{
-		return m_lockResource ? m_lockData[subResourceIndex].data
-			: const_cast<void*>(m_fixedData.pSurfList[subResourceIndex].pSysMem);
-	}
-
-	bool Resource::isInSysMem(UINT subResourceIndex) const
-	{
-		return D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
-			(m_lockResource && m_lockData[subResourceIndex].isSysMemUpToDate);
+		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
 	}
 
 	bool Resource::isOversized() const
@@ -622,37 +582,52 @@ namespace D3dDdi
 	HRESULT Resource::sysMemPreferredBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
 		if (m_fixedData.Format == srcResource.m_fixedData.Format &&
-			0 != m_formatInfo.bytesPerPixel &&
-			(data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-				(isInSysMem(data.DstSubResourceIndex) &&
-				(!srcResource.m_fixedData.Flags.RenderTarget || srcResource.isInSysMem(data.SrcSubResourceIndex)))))
+			!m_lockData.empty() &&
+			!srcResource.m_lockData.empty())
 		{
-			SysMemBltGuard srcGuard(srcResource, data.SrcSubResourceIndex, true);
-			if (srcGuard.data)
+			auto& dstLockData = m_lockData[data.DstSubResourceIndex];
+			auto& srcLockData = srcResource.m_lockData[data.SrcSubResourceIndex];
+
+			bool isSysMemBltPreferred = true;
+			auto now = Time::queryPerformanceCounter();
+			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
 			{
-				SysMemBltGuard dstGuard(*this, data.DstSubResourceIndex, false);
-				if (dstGuard.data)
+				dstLockData.qpcLastForcedLock = now;
+				srcLockData.qpcLastForcedLock = now;
+			}
+			else if (m_lockResource)
+			{
+				isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
+					Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
+			}
+
+			if (isSysMemBltPreferred)
+			{
+				dstLockData.isVidMemUpToDate = false;
+				if (!srcLockData.isSysMemUpToDate)
 				{
-					auto dstBuf = static_cast<BYTE*>(dstGuard.data) +
-						data.DstRect.top * dstGuard.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
-					auto srcBuf = static_cast<const BYTE*>(srcGuard.data) +
-						data.SrcRect.top * srcGuard.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
-
-					DDraw::Blitter::blt(
-						dstBuf,
-						dstGuard.pitch,
-						data.DstRect.right - data.DstRect.left,
-						data.DstRect.bottom - data.DstRect.top,
-						srcBuf,
-						srcGuard.pitch,
-						(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
-						(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
-						m_formatInfo.bytesPerPixel,
-						data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
-						data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
-
-					return S_OK;
+					srcResource.copyToSysMem(data.SrcSubResourceIndex);
 				}
+
+				auto dstBuf = static_cast<BYTE*>(dstLockData.data) +
+					data.DstRect.top * dstLockData.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
+				auto srcBuf = static_cast<const BYTE*>(srcLockData.data) +
+					data.SrcRect.top * srcLockData.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
+
+				DDraw::Blitter::blt(
+					dstBuf,
+					dstLockData.pitch,
+					data.DstRect.right - data.DstRect.left,
+					data.DstRect.bottom - data.DstRect.top,
+					srcBuf,
+					srcLockData.pitch,
+					(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
+					(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
+					m_formatInfo.bytesPerPixel,
+					data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
+					data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
+
+				return S_OK;
 			}
 		}
 
