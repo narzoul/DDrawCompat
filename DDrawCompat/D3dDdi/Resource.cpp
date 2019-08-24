@@ -190,12 +190,24 @@ namespace D3dDdi
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
-		auto srcResource = m_device.getResource(data.hSrcResource);
-		if (srcResource &&
-			D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
-			D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
+		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
 		{
-			return m_device.getOrigVtable().pfnBlt(m_device, &data);
+			return S_OK;
+		}
+
+		auto srcResource = m_device.getResource(data.hSrcResource);
+		if (srcResource)
+		{
+			if (!srcResource->isValidRect(data.SrcSubResourceIndex, data.SrcRect))
+			{
+				return S_OK;
+			}
+
+			if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
+				D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
+			{
+				return m_device.getOrigVtable().pfnBlt(m_device, &data);
+			}
 		}
 
 		if (isOversized())
@@ -257,9 +269,23 @@ namespace D3dDdi
 		return LOG_RESULT(S_OK);
 	}
 
-	HRESULT Resource::colorFill(const D3DDDIARG_COLORFILL& data)
+	void Resource::clipRect(UINT subResourceIndex, RECT& rect)
+	{
+		rect.left = std::max<LONG>(rect.left, 0);
+		rect.top = std::max<LONG>(rect.top, 0);
+		rect.right = std::min<LONG>(rect.right, m_fixedData.pSurfList[subResourceIndex].Width);
+		rect.bottom = std::min<LONG>(rect.bottom, m_fixedData.pSurfList[subResourceIndex].Height);
+	}
+
+	HRESULT Resource::colorFill(D3DDDIARG_COLORFILL data)
 	{
 		LOG_FUNC("Resource::colorFill", data);
+		clipRect(data.SubResourceIndex, data.DstRect);
+		if (data.DstRect.left >= data.DstRect.right || data.DstRect.top >= data.DstRect.bottom)
+		{
+			return S_OK;
+		}
+
 		if (m_lockResource)
 		{
 			auto& lockData = m_lockData[data.SubResourceIndex];
@@ -462,6 +488,13 @@ namespace D3dDdi
 	bool Resource::isOversized() const
 	{
 		return m_fixedData.SurfCount != m_origData.SurfCount;
+	}
+
+	bool Resource::isValidRect(UINT subResourceIndex, const RECT& rect)
+	{
+		return rect.left >= 0 && rect.top >= 0 && rect.left < rect.right && rect.top < rect.bottom &&
+			rect.right <= static_cast<LONG>(m_fixedData.pSurfList[subResourceIndex].Width) &&
+			rect.bottom <= static_cast<LONG>(m_fixedData.pSurfList[subResourceIndex].Height);
 	}
 
 	HRESULT Resource::lock(D3DDDIARG_LOCK& data)

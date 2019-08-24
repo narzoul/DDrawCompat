@@ -27,7 +27,7 @@ namespace D3dDdi
 		operator HANDLE() const { return m_handle; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
-		HRESULT colorFill(const D3DDDIARG_COLORFILL& data);
+		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
@@ -77,6 +77,7 @@ namespace D3dDdi
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltUnlock(const D3DDDIARG_UNLOCK& data);
+		void clipRect(UINT subResourceIndex, RECT& rect);
 		HRESULT copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex);
 		void copyToSysMem(UINT subResourceIndex);
 		void copyToVidMem(UINT subResourceIndex);
@@ -84,6 +85,7 @@ namespace D3dDdi
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		bool isOversized() const;
+		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		HRESULT presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
