@@ -1,10 +1,5 @@
 #pragma once
 
-namespace D3dDdi
-{
-	class Resource;
-}
-
 namespace Gdi
 {
 	enum Access

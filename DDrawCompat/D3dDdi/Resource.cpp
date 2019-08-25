@@ -188,6 +188,18 @@ namespace D3dDdi
 	{
 	}
 
+	void Resource::beginGdiAccess(bool isReadOnly)
+	{
+		if (m_lockResource)
+		{
+			if (!m_lockData[0].isSysMemUpToDate)
+			{
+				copyToSysMem(0);
+			}
+			m_lockData[0].isVidMemUpToDate &= isReadOnly;
+		}
+	}
+
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
 		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
@@ -453,6 +465,14 @@ namespace D3dDdi
 		}
 
 		LOG_RESULT(m_lockResource.get());
+	}
+
+	void Resource::endGdiAccess(bool isReadOnly)
+	{
+		if (m_lockResource && !isReadOnly && m_lockData[0].isSysMemUpToDate)
+		{
+			m_lockData[0].isVidMemUpToDate = false;
+		}
 	}
 
 	void Resource::fixVertexData(UINT offset, UINT count, UINT stride)

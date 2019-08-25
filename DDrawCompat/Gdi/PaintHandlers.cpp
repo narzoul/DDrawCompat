@@ -217,7 +217,10 @@ namespace
 			return onNcPaint(hwnd, wParam, origWndProc);
 
 		case WM_PAINT:
+		{
+			D3dDdi::ScopedCriticalSection lock;
 			return onPaint(hwnd, origWndProc);
+		}
 
 		case WM_PRINTCLIENT:
 		{
@@ -238,7 +241,8 @@ namespace
 		case 0x1e5:
 			if (-1 == wParam)
 			{
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
+				D3dDdi::ScopedCriticalSection lock;
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
 			}
 			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 

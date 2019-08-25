@@ -16,25 +16,23 @@ namespace Gdi
 			auto gdiResource = D3dDdi::Device::getGdiResource();
 			if (gdiResource)
 			{
-				D3DDDIARG_LOCK lockData = {};
-				lockData.hResource = gdiResource;
-				lockData.Flags.ReadOnly = ACCESS_READ == access;
-				gdiResource->lock(lockData);
-
-				D3DDDIARG_UNLOCK unlockData = {};
-				unlockData.hResource = gdiResource;
-				gdiResource->unlock(unlockData);
+				gdiResource->beginGdiAccess(ACCESS_READ == m_access);
 			}
 		}
 	}
 
 	AccessGuard::~AccessGuard()
 	{
-		if (m_condition && ACCESS_WRITE == m_access)
+		if (m_condition)
 		{
 			D3dDdi::ScopedCriticalSection lock;
 			auto gdiResource = D3dDdi::Device::getGdiResource();
-			if (!gdiResource || DDraw::PrimarySurface::getFrontResource() == *gdiResource)
+			if (gdiResource)
+			{
+				gdiResource->endGdiAccess(ACCESS_READ == m_access);
+			}
+			if (ACCESS_WRITE == m_access &&
+				(!gdiResource || DDraw::PrimarySurface::getFrontResource() == *gdiResource))
 			{
 				DDraw::RealPrimarySurface::gdiUpdate();
 			}

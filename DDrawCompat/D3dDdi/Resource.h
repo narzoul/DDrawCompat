@@ -26,8 +26,10 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_handle; }
 
+		void beginGdiAccess(bool isReadOnly);
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
+		void endGdiAccess(bool isReadOnly);
 		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
