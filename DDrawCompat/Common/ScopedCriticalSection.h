@@ -24,27 +24,17 @@ namespace Compat
 	{
 	public:
 		ScopedCriticalSection(CRITICAL_SECTION& cs)
-			: m_cs(cs), m_isLocked(true)
+			: m_cs(cs)
 		{
 			EnterCriticalSection(&m_cs);
 		}
 
 		~ScopedCriticalSection()
 		{
-			unlock();
-		}
-
-		void unlock()
-		{
-			if (m_isLocked)
-			{
-				LeaveCriticalSection(&m_cs);
-				m_isLocked = false;
-			}
+			LeaveCriticalSection(&m_cs);
 		}
 
 	private:
 		CRITICAL_SECTION& m_cs;
-		bool m_isLocked;
 	};
 };

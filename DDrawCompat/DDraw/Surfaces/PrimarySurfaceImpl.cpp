@@ -1,15 +1,16 @@
-#include "Common/CompatPtr.h"
-#include "D3dDdi/KernelModeThunks.h"
-#include "DDraw/DirectDrawClipper.h"
-#include "DDraw/DirectDrawPalette.h"
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurfaceImpl.h"
-#include "Dll/Procs.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
-#include "Gdi/VirtualScreen.h"
+#include <Common/CompatPtr.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/DirectDrawClipper.h>
+#include <DDraw/DirectDrawPalette.h>
+#include <DDraw/DirectDrawSurface.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurfaceImpl.h>
+#include <Dll/Procs.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
+#include <Gdi/VirtualScreen.h>
 
 namespace
 {
@@ -29,6 +30,7 @@ namespace
 			return;
 		}
 
+		D3dDdi::ScopedCriticalSection lock;
 		Gdi::Region clipRgn(DDraw::DirectDrawClipper::getClipRgn(*clipper));
 		RECT monitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
 		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();

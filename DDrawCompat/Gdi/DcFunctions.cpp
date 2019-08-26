@@ -104,6 +104,7 @@ namespace
 
 		if (hasDisplayDcArg(params...))
 		{
+			D3dDdi::ScopedCriticalSection lock;
 			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
 			Gdi::AccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
 			return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...));
@@ -140,6 +141,7 @@ namespace
 			}
 			else
 			{
+				D3dDdi::ScopedCriticalSection lock;
 				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 				return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx));
 			}

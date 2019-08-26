@@ -62,6 +62,7 @@ namespace
 
 	void bltToWindowViaGdi(Gdi::Region* primaryRegion)
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
 		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 

@@ -121,6 +121,7 @@ namespace Gdi
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect)
 		{
 			DDraw::ScopedThreadLock ddLock;
+			D3dDdi::ScopedCriticalSection driverLock;
 			Compat::ScopedCriticalSection lock(g_cs);
 
 			auto desc = getSurfaceDesc(rect);
