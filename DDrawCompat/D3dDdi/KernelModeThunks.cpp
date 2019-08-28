@@ -59,13 +59,13 @@ namespace
 		{
 			g_lastOpenAdapterInfo = {};
 		}
-		return CALL_ORIG_FUNC(D3DKMTCloseAdapter)(pData);
+		return D3DKMTCloseAdapter(pData);
 	}
 
 	NTSTATUS APIENTRY createContext(D3DKMT_CREATECONTEXT* pData)
 	{
 		LOG_FUNC("D3DKMTCreateContext", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateContext)(pData);
+		NTSTATUS result = D3DKMTCreateContext(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts[pData->hContext].device = pData->hDevice;
@@ -76,7 +76,9 @@ namespace
 	NTSTATUS APIENTRY createContextVirtual(D3DKMT_CREATECONTEXTVIRTUAL* pData)
 	{
 		LOG_FUNC("D3DKMTCreateContextVirtual", pData);
-		NTSTATUS result = g_origD3dKmtCreateContextVirtual(pData);
+		static auto d3dKmtCreateContextVirtual = reinterpret_cast<decltype(D3DKMTCreateContextVirtual)*>(
+			GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTCreateContextVirtual"));
+		NTSTATUS result = d3dKmtCreateContextVirtual(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts[pData->hContext].device = pData->hDevice;
@@ -135,24 +137,9 @@ namespace
 			}
 		}
 
-		auto result = CALL_ORIG_FUNC(D3DKMTCreateDCFromMemory)(pData);
+		auto result = D3DKMTCreateDCFromMemory(pData);
 		pData->Format = origFormat;
 		pData->pColorTable = origColorTable;
-		return LOG_RESULT(result);
-	}
-
-	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
-	{
-		LOG_FUNC("D3DKMTCreateDevice", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTCreateDevice)(pData);
-		if (SUCCEEDED(result))
-		{
-			D3DKMT_SETQUEUEDLIMIT limit = {};
-			limit.hDevice = pData->hDevice;
-			limit.Type = D3DKMT_SET_QUEUEDLIMIT_PRESENT;
-			limit.QueuedPresentLimit = 2;
-			CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(&limit);
-		}
 		return LOG_RESULT(result);
 	}
 
@@ -160,13 +147,13 @@ namespace
 	{
 		LOG_FUNC("ddrawCreateDCA", pwszDriver, pwszDevice, pszPort, pdm);
 		g_lastDDrawCreateDcDevice = pwszDevice ? pwszDevice : std::string();
-		return LOG_RESULT(CALL_ORIG_FUNC(CreateDCA)(pwszDriver, pwszDevice, pszPort, pdm));
+		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
 
 	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
 	{
 		LOG_FUNC("D3DKMTDestroyContext", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTDestroyContext)(pData);
+		NTSTATUS result = D3DKMTDestroyContext(pData);
 		if (SUCCEEDED(result))
 		{
 			g_contexts.erase(pData->hContext);
@@ -214,7 +201,7 @@ namespace
 	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
 	{
 		LOG_FUNC("D3DKMTOpenAdapterFromHdc", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(pData);
+		NTSTATUS result = D3DKMTOpenAdapterFromHdc(pData);
 		if (SUCCEEDED(result))
 		{
 			Compat::ScopedCriticalSection lock(g_vblankCs);
@@ -248,13 +235,13 @@ namespace
 			pData->FlipInterval = static_cast<D3DDDI_FLIPINTERVAL_TYPE>(g_flipIntervalOverride);
 		}
 
-		return LOG_RESULT(CALL_ORIG_FUNC(D3DKMTPresent)(pData));
+		return LOG_RESULT(D3DKMTPresent(pData));
 	}
 
 	NTSTATUS APIENTRY queryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
 	{
 		LOG_FUNC("D3DKMTQueryAdapterInfo", pData);
-		NTSTATUS result = CALL_ORIG_FUNC(D3DKMTQueryAdapterInfo)(pData);
+		NTSTATUS result = D3DKMTQueryAdapterInfo(pData);
 		if (SUCCEEDED(result))
 		{
 			switch (pData->Type)
@@ -289,20 +276,6 @@ namespace
 		return LOG_RESULT(result);
 	}
 
-	NTSTATUS APIENTRY setQueuedLimit(const D3DKMT_SETQUEUEDLIMIT* pData)
-	{
-		LOG_FUNC("D3DKMTSetQueuedLimit", pData);
-		if (D3DKMT_SET_QUEUEDLIMIT_PRESENT == pData->Type)
-		{
-			const UINT origLimit = pData->QueuedPresentLimit;
-			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = 2;
-			NTSTATUS result = CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData);
-			const_cast<D3DKMT_SETQUEUEDLIMIT*>(pData)->QueuedPresentLimit = origLimit;
-			return LOG_RESULT(result);
-		}
-		return LOG_RESULT(CALL_ORIG_FUNC(D3DKMTSetQueuedLimit)(pData));
-	}
-
 	void updateGdiAdapterInfo()
 	{
 		static auto lastDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
@@ -313,7 +286,7 @@ namespace
 			{
 				D3DKMT_CLOSEADAPTER data = {};
 				data.hAdapter = g_gdiAdapterInfo.adapter;
-				CALL_ORIG_FUNC(D3DKMTCloseAdapter)(&data);
+				D3DKMTCloseAdapter(&data);
 				g_gdiAdapterInfo = {};
 			}
 
@@ -323,7 +296,7 @@ namespace
 
 			D3DKMT_OPENADAPTERFROMHDC data = {};
 			data.hDc = CreateDC(mi.szDevice, mi.szDevice, nullptr, nullptr);
-			if (SUCCEEDED(CALL_ORIG_FUNC(D3DKMTOpenAdapterFromHdc)(&data)))
+			if (SUCCEEDED(D3DKMTOpenAdapterFromHdc(&data)))
 			{
 				g_gdiAdapterInfo = getAdapterInfo(data);
 			}
@@ -401,20 +374,15 @@ namespace D3dDdi
 
 		void installHooks(HMODULE origDDrawModule)
 		{
-			HOOK_FUNCTION(gdi32, D3DKMTCloseAdapter, closeAdapter);
-			HOOK_FUNCTION(gdi32, D3DKMTCreateContext, createContext);
-			HOOK_FUNCTION(gdi32, D3DKMTCreateDevice, createDevice);
-			HOOK_FUNCTION(gdi32, D3DKMTCreateDCFromMemory, createDcFromMemory);
-			HOOK_FUNCTION(gdi32, D3DKMTDestroyContext, destroyContext);
-			HOOK_FUNCTION(gdi32, D3DKMTOpenAdapterFromHdc, openAdapterFromHdc);
-			HOOK_FUNCTION(gdi32, D3DKMTQueryAdapterInfo, queryAdapterInfo);
-			HOOK_FUNCTION(gdi32, D3DKMTPresent, present);
-			HOOK_FUNCTION(gdi32, D3DKMTSetQueuedLimit, setQueuedLimit);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "CreateDCA", ddrawCreateDcA);
-
-			// Functions not available in Windows Vista
-			Compat::hookFunction("gdi32", "D3DKMTCreateContextVirtual",
-				reinterpret_cast<void*&>(g_origD3dKmtCreateContextVirtual), createContextVirtual);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCloseAdapter", closeAdapter);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateContext", createContext);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateContextVirtual", createContextVirtual);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateDCFromMemory", createDcFromMemory);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTDestroyContext", destroyContext);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTQueryAdapterInfo", queryAdapterInfo);
+			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTPresent", present);
 		}
 
 		void setFlipIntervalOverride(UINT flipInterval)

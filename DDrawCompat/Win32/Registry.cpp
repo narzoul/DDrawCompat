@@ -166,7 +166,7 @@ namespace Win32
 	{
 		void installHooks()
 		{
-			HOOK_FUNCTION(KernelBase, RegGetValueW, regGetValueW);
+			HOOK_SHIM_FUNCTION(RegGetValueW, regGetValueW);
 			HOOK_SHIM_FUNCTION(RegQueryValueExA, regQueryValueExA);
 		}
 
