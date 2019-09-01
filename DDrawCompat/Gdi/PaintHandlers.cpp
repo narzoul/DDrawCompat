@@ -21,17 +21,12 @@ namespace
 
 	struct User32WndProc
 	{
-		WNDPROC oldWndProcTrampoline;
 		WNDPROC oldWndProc;
+		WNDPROC oldWndProcTrampoline;
 		WNDPROC newWndProc;
-		std::string name;
-	
-		User32WndProc()
-			: oldWndProcTrampoline(nullptr)
-			, oldWndProc(nullptr)
-			, newWndProc(nullptr)
-		{
-		}
+		std::string procName;
+		std::string className;
+		bool isUnicode;
 	};
 
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
@@ -42,12 +37,8 @@ namespace
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 
-	int g_menuWndProcIndex = 0;
-	int g_scrollBarWndProcIndex = 0;
-
-	std::vector<User32WndProc> g_user32WndProcA;
-	std::vector<User32WndProc> g_user32WndProcW;
-	std::vector<WndProcHook> g_user32WndProcHook;
+	User32WndProc* g_currentUser32WndProc = nullptr;
+	std::vector<std::string> g_failedHooks;
 
 	LRESULT buttonWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
@@ -69,6 +60,38 @@ namespace
 		default:
 			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
+	}
+
+	LRESULT CALLBACK cbtProc(int nCode, WPARAM wParam, LPARAM lParam)
+	{
+		if (HCBT_CREATEWND == nCode && g_currentUser32WndProc)
+		{
+			const auto hwnd = reinterpret_cast<HWND>(wParam);
+			const bool isUnicode = IsWindowUnicode(hwnd);
+			char className[32] = {};
+			GetClassName(hwnd, className, sizeof(className));
+
+			if (0 == _stricmp(className, g_currentUser32WndProc->className.c_str()) &&
+				isUnicode == g_currentUser32WndProc->isUnicode &&
+				!g_currentUser32WndProc->oldWndProc)
+			{
+				decltype(&GetWindowLong) getWindowLong = isUnicode ? GetWindowLongW : GetWindowLongA;
+				auto wndProc = reinterpret_cast<WNDPROC>(getWindowLong(hwnd, GWL_WNDPROC));
+				HMODULE wndProcModule = nullptr;
+				GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+					reinterpret_cast<const char*>(wndProc), &wndProcModule);
+
+				if (wndProcModule && wndProcModule == GetModuleHandle("user32"))
+				{
+					g_currentUser32WndProc->oldWndProc = wndProc;
+					g_currentUser32WndProc->oldWndProcTrampoline = wndProc;
+					Compat::hookFunction(reinterpret_cast<void*&>(g_currentUser32WndProc->oldWndProcTrampoline),
+						g_currentUser32WndProc->newWndProc);
+				}
+			}
+		}
+
+		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
 
 	LRESULT comboBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -163,39 +186,66 @@ namespace
 		return result;
 	}
 
-	void hookUser32WndProc(const std::string& wndProcName, HWND hwnd, WNDPROC newWndProc,
-		decltype(GetWindowLongPtr)* getWindowLong, std::vector<User32WndProc>& user32WndProc)
+	template <WndProcHook>
+	User32WndProc& getUser32WndProcA()
 	{
-		User32WndProc wndProc;
-		wndProc.oldWndProc =
-			reinterpret_cast<WNDPROC>(getWindowLong(hwnd, GWL_WNDPROC));
-		wndProc.oldWndProcTrampoline = wndProc.oldWndProc;
-		wndProc.newWndProc = newWndProc;
-		wndProc.name = wndProcName;
-		user32WndProc.push_back(wndProc);
+		static User32WndProc user32WndProcA = {};
+		return user32WndProcA;
+	}
 
-		if (reinterpret_cast<DWORD>(wndProc.oldWndProcTrampoline) < 0xFFFF0000)
+	template <WndProcHook>
+	User32WndProc& getUser32WndProcW()
+	{
+		static User32WndProc user32WndProcW = {};
+		return user32WndProcW;
+	}
+
+	void hookUser32WndProc(User32WndProc& user32WndProc, WNDPROC newWndProc,
+		const std::string& procName, const std::string& className, bool isUnicode)
+	{
+		CLIENTCREATESTRUCT ccs = {};
+		user32WndProc.newWndProc = newWndProc;
+		user32WndProc.procName = procName;
+		user32WndProc.className = className;
+		user32WndProc.isUnicode = isUnicode;
+
+		g_currentUser32WndProc = &user32WndProc;
+		if (isUnicode)
 		{
-			Compat::hookFunction(
-				reinterpret_cast<void*&>(user32WndProc.back().oldWndProcTrampoline), newWndProc);
+			DestroyWindow(CreateWindowW(std::wstring(className.begin(), className.end()).c_str(), L"", 0, 0, 0, 0, 0,
+				nullptr, nullptr, nullptr, &ccs));
+		}
+		else
+		{
+			DestroyWindow(CreateWindowA(className.c_str(), "", 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, &ccs));
+		}
+		g_currentUser32WndProc = nullptr;
+
+		if (user32WndProc.oldWndProc == user32WndProc.oldWndProcTrampoline)
+		{
+			g_failedHooks.push_back(user32WndProc.procName);
 		}
 	}
 
-	void hookUser32WndProcA(const char* className, WNDPROC newWndProc, const std::string& wndProcName)
+	template <WndProcHook wndProcHook>
+	void hookUser32WndProcA(const std::string& className, const std::string& procName)
 	{
-		CLIENTCREATESTRUCT ccs = {};
-		HWND hwnd = CreateWindowA(className, "", 0, 0, 0, 0, 0, 0, 0, 0, &ccs);
-		hookUser32WndProc(wndProcName + 'A', hwnd, newWndProc, CALL_ORIG_FUNC(GetWindowLongA), g_user32WndProcA);
-		DestroyWindow(hwnd);
+		hookUser32WndProc(getUser32WndProcA<wndProcHook>(), user32WndProcA<wndProcHook>,
+			procName + 'A', className, false);
 	}
 
-	void hookUser32WndProcW(const char* name, WNDPROC newWndProc, const std::string& wndProcName)
+	template <WndProcHook wndProcHook>
+	void hookUser32WndProcW(const std::string& className, const std::string& procName)
 	{
-		CLIENTCREATESTRUCT ccs = {};
-		HWND hwnd = CreateWindowW(
-			std::wstring(name, name + std::strlen(name)).c_str(), L"", 0, 0, 0, 0, 0, 0, 0, 0, &ccs);
-		hookUser32WndProc(wndProcName + 'W', hwnd, newWndProc, CALL_ORIG_FUNC(GetWindowLongW), g_user32WndProcW);
-		DestroyWindow(hwnd);
+		hookUser32WndProc(getUser32WndProcW<wndProcHook>(), user32WndProcW<wndProcHook>,
+			procName + 'W', className, true);
+	}
+
+	template <WndProcHook wndProcHook>
+	void hookUser32WndProc(const std::string& className, const std::string& procName)
+	{
+		hookUser32WndProcA<wndProcHook>(className, procName);
+		hookUser32WndProcW<wndProcHook>(className, procName);
 	}
 
 	LRESULT listBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -369,22 +419,24 @@ namespace
 	}
 
 	LRESULT CALLBACK user32WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
-		const User32WndProc& user32WndProc, WndProcHook wndProcHook)
+		const std::string& procName, WndProcHook wndProcHook, WNDPROC oldWndProcTrampoline)
 	{
-		LOG_FUNC(user32WndProc.name.c_str(), hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
-		return LOG_RESULT(wndProcHook(hwnd, uMsg, wParam, lParam, user32WndProc.oldWndProcTrampoline));
+		LOG_FUNC(procName.c_str(), hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		return LOG_RESULT(wndProcHook(hwnd, uMsg, wParam, lParam, oldWndProcTrampoline));
 	}
 
-	template <int index>
+	template <WndProcHook wndProcHook>
 	LRESULT CALLBACK user32WndProcA(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		return user32WndProc(hwnd, uMsg, wParam, lParam, g_user32WndProcA[index], g_user32WndProcHook[index]);
+		auto& wp = getUser32WndProcA<wndProcHook>();
+		return user32WndProc(hwnd, uMsg, wParam, lParam, wp.procName, wndProcHook, wp.oldWndProcTrampoline);
 	}
 
-	template <int index>
+	template <WndProcHook wndProcHook>
 	LRESULT CALLBACK user32WndProcW(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		return user32WndProc(hwnd, uMsg, wParam, lParam, g_user32WndProcW[index], g_user32WndProcHook[index]);
+		auto& wp = getUser32WndProcW<wndProcHook>();
+		return user32WndProc(hwnd, uMsg, wParam, lParam, wp.procName, wndProcHook, wp.oldWndProcTrampoline);
 	}
 }
 
@@ -396,28 +448,33 @@ namespace Gdi
 		{
 			disableImmersiveContextMenus();
 
-#define HOOK_USER32_WNDPROC(index, name, wndProcHook) \
-	g_user32WndProcHook.push_back(wndProcHook); \
-	hookUser32WndProcA(name, user32WndProcA<index>, #wndProcHook); \
-	hookUser32WndProcW(name, user32WndProcW<index>, #wndProcHook)
+#define HOOK_USER32_WNDPROC(className, wndProcHook) hookUser32WndProc<wndProcHook>(className, #wndProcHook)
+#define HOOK_USER32_WNDPROCW(className, wndProcHook) hookUser32WndProcW<wndProcHook>(className, #wndProcHook)
 
-			g_user32WndProcA.reserve(9);
-			g_user32WndProcW.reserve(9);
+			auto hook = SetWindowsHookEx(WH_CBT, cbtProc, nullptr, GetCurrentThreadId());
 
-			HOOK_USER32_WNDPROC(0, "Button", buttonWndProc);
-			HOOK_USER32_WNDPROC(1, "ComboBox", comboBoxWndProc);
-			HOOK_USER32_WNDPROC(2, "Edit", editWndProc);
-			HOOK_USER32_WNDPROC(3, "ListBox", listBoxWndProc);
-			HOOK_USER32_WNDPROC(4, "MDIClient", mdiClientWndProc);
-			HOOK_USER32_WNDPROC(5, "ScrollBar", scrollBarWndProc);
-			HOOK_USER32_WNDPROC(6, "Static", staticWndProc);
-			HOOK_USER32_WNDPROC(7, "ComboLBox", comboListBoxWndProc);
-			HOOK_USER32_WNDPROC(8, "#32768", menuWndProc);
+			HOOK_USER32_WNDPROC("Button", buttonWndProc);
+			HOOK_USER32_WNDPROC("ComboBox", comboBoxWndProc);
+			HOOK_USER32_WNDPROC("Edit", editWndProc);
+			HOOK_USER32_WNDPROC("ListBox", listBoxWndProc);
+			HOOK_USER32_WNDPROC("MDIClient", mdiClientWndProc);
+			HOOK_USER32_WNDPROC("Static", staticWndProc);
+			HOOK_USER32_WNDPROC("ComboLBox", comboListBoxWndProc);
 
-			g_scrollBarWndProcIndex = 5;
-			g_menuWndProcIndex = 8;
+			HOOK_USER32_WNDPROCW("ScrollBar", scrollBarWndProc);
+			HOOK_USER32_WNDPROCW("#32768", menuWndProc);
+
+			UnhookWindowsHookEx(hook);
 
 #undef HOOK_USER32_WNDPROC
+#undef HOOK_USER32_WNDPROCW
+
+			if (!g_failedHooks.empty())
+			{
+				Compat::Log() << "Warning: Failed to hook the following user32 window procedures: " <<
+					Compat::array(g_failedHooks.data(), g_failedHooks.size());
+				g_failedHooks.clear();
+			}
 
 			HOOK_FUNCTION(user32, DefWindowProcA, defWindowProcA);
 			HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
@@ -427,33 +484,25 @@ namespace Gdi
 
 		void onCreateWindow(HWND hwnd)
 		{
-			WNDPROC wndProcA = reinterpret_cast<WNDPROC>(GetWindowLongA(hwnd, GWL_WNDPROC));
-			WNDPROC wndProcW = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
-
-			int index = -1;
-			if (wndProcA == g_user32WndProcA[g_menuWndProcIndex].oldWndProc ||
-				wndProcW == g_user32WndProcW[g_menuWndProcIndex].oldWndProc)
+			if (!IsWindowUnicode(hwnd))
 			{
-				index = g_menuWndProcIndex;
-			}
-			else if (wndProcA == g_user32WndProcA[g_scrollBarWndProcIndex].oldWndProc ||
-				wndProcW == g_user32WndProcW[g_scrollBarWndProcIndex].oldWndProc)
-			{
-				index = g_scrollBarWndProcIndex;
+				return;
 			}
 
-			if (-1 != index)
+			const auto wndProc = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
+			User32WndProc* user32WndProc = nullptr;
+			if (getUser32WndProcW<menuWndProc>().oldWndProc == wndProc)
 			{
-				if (IsWindowUnicode(hwnd))
-				{
-					CALL_ORIG_FUNC(SetWindowLongW)(hwnd, GWL_WNDPROC,
-						reinterpret_cast<LONG>(g_user32WndProcW[index].newWndProc));
-				}
-				else
-				{
-					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC,
-						reinterpret_cast<LONG>(g_user32WndProcA[index].newWndProc));
-				}
+				user32WndProc = &getUser32WndProcW<menuWndProc>();
+			}
+			else if (getUser32WndProcW<scrollBarWndProc>().oldWndProc == wndProc)
+			{
+				user32WndProc = &getUser32WndProcW<scrollBarWndProc>();
+			}
+
+			if (user32WndProc)
+			{
+				SetWindowLongW(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(user32WndProc->newWndProc));
 			}
 		}
 	}
