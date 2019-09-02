@@ -9,10 +9,9 @@ namespace
 {
 	HRESULT APIENTRY closeAdapter(HANDLE hAdapter)
 	{
-		HRESULT result = D3dDdi::AdapterFuncs::s_origVtables.at(hAdapter).pfnCloseAdapter(hAdapter);
+		HRESULT result = D3dDdi::AdapterFuncs::s_origVtablePtr->pfnCloseAdapter(hAdapter);
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::AdapterFuncs::s_origVtables.erase(hAdapter);
 			D3dDdi::Adapter::remove(hAdapter);
 		}
 		return result;
@@ -21,12 +20,11 @@ namespace
 	HRESULT APIENTRY createDevice(HANDLE hAdapter, D3DDDIARG_CREATEDEVICE* pCreateData)
 	{
 		D3dDdi::DeviceCallbacks::hookVtable(pCreateData->pCallbacks);
-		HRESULT result = D3dDdi::AdapterFuncs::s_origVtables.at(hAdapter).pfnCreateDevice(
-			hAdapter, pCreateData);
+		HRESULT result = D3dDdi::AdapterFuncs::s_origVtablePtr->pfnCreateDevice(hAdapter, pCreateData);
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::DeviceFuncs::hookVtable(
-				D3dDdi::Adapter::get(hAdapter).getModule(), pCreateData->hDevice, pCreateData->pDeviceFuncs);
+				D3dDdi::Adapter::get(hAdapter).getModule(), pCreateData->pDeviceFuncs);
 			D3dDdi::DeviceFuncs::onCreateDevice(hAdapter, pCreateData->hDevice);
 		}
 		return result;
@@ -34,7 +32,7 @@ namespace
 
 	HRESULT APIENTRY getCaps(HANDLE hAdapter, const D3DDDIARG_GETCAPS* pData)
 	{
-		HRESULT result = D3dDdi::AdapterFuncs::s_origVtables.at(hAdapter).pfnGetCaps(hAdapter, pData);
+		HRESULT result = D3dDdi::AdapterFuncs::s_origVtablePtr->pfnGetCaps(hAdapter, pData);
 		if (SUCCEEDED(result) && D3DDDICAPS_DDRAW == pData->Type)
 		{
 			static_cast<DDRAW_CAPS*>(pData->pData)->FxCaps =

@@ -47,6 +47,7 @@ namespace
 
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		LOG_FUNC("openAdapter", pOpenData);
 		D3dDdi::AdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
 		HRESULT result = g_origOpenAdapter(pOpenData);
@@ -59,7 +60,7 @@ namespace
 				hookedUmdFileNames.insert(g_hookedUmdFileName);
 			}
 			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			D3dDdi::AdapterFuncs::hookVtable(g_hookedUmdModule, pOpenData->hAdapter, pOpenData->pAdapterFuncs);
+			D3dDdi::AdapterFuncs::hookVtable(g_hookedUmdModule, pOpenData->pAdapterFuncs);
 			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter, g_hookedUmdModule);
 		}
 		return LOG_RESULT(result);

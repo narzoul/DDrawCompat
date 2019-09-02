@@ -17,7 +17,7 @@ namespace
 namespace D3dDdi
 {
 	Device::Device(HANDLE adapter, HANDLE device)
-		: m_origVtable(DeviceFuncs::s_origVtables.at(device))
+		: m_origVtable(*DeviceFuncs::s_origVtablePtr)
 		, m_adapter(Adapter::get(adapter))
 		, m_device(device)
 		, m_renderTarget(nullptr)

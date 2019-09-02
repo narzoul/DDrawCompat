@@ -62,6 +62,7 @@ private:
 	static Result STDMETHODCALLTYPE threadSafeFunc(Params... params)
 	{
 		ScopedVtableFuncLock<Vtable> lock;
+		CompatVtableInstanceBase<Vtable>::s_origVtablePtr = &CompatVtableInstance<Vtable, instanceId>::s_origVtable;
 		return (s_compatVtable.*ptr)(params...);
 	}
 

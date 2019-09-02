@@ -11,10 +11,9 @@ namespace
 
 	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
 	{
-		HRESULT result = D3dDdi::DeviceFuncs::s_origVtables.at(hDevice).pfnDestroyDevice(hDevice);
+		HRESULT result = D3dDdi::DeviceFuncs::s_origVtablePtr->pfnDestroyDevice(hDevice);
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::DeviceFuncs::s_origVtables.erase(hDevice);
 			D3dDdi::Device::remove(hDevice);
 		}
 		return result;

@@ -13,7 +13,7 @@ namespace D3dDdi
 	class D3dDdiVtable
 	{
 	public:
-		static void hookVtable(HMODULE module, HANDLE context, const Vtable* vtable)
+		static void hookVtable(HMODULE module, const Vtable* vtable)
 		{
 			if (!vtable)
 			{
@@ -25,12 +25,10 @@ namespace D3dDdi
 			{
 				it = s_origModuleVtables.emplace(module, hookVtableInstance(*vtable, InstanceId<0>())).first;
 			}
-
-			s_origVtables.emplace(context, it->second);
 		}
 
 		static std::map<HMODULE, const Vtable&> s_origModuleVtables;
-		static std::map<HANDLE, const Vtable&> s_origVtables;
+		static Vtable*& s_origVtablePtr;
 
 	private:
 		template <int instanceId> struct InstanceId {};
@@ -66,5 +64,5 @@ namespace D3dDdi
 	std::map<HMODULE, const Vtable&> D3dDdiVtable<Vtable>::s_origModuleVtables;
 
 	template <typename Vtable>
-	std::map<HANDLE, const Vtable&> D3dDdiVtable<Vtable>::s_origVtables;
+	Vtable*& D3dDdiVtable<Vtable>::s_origVtablePtr = CompatVtableInstanceBase<Vtable>::s_origVtablePtr;
 }
