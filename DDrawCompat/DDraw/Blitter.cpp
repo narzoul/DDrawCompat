@@ -1,4 +1,5 @@
 #include <array>
+#include <type_traits>
 #include <vector>
 
 #include <intrin.h>
@@ -146,7 +147,7 @@ namespace
 	}
 
 	template <int pixelsPerVector, int count>
-	__forceinline void loadSrcVectorRemainder(__m128i& vec,
+	__forceinline typename std::enable_if<0 != count>::type loadSrcVectorRemainder(__m128i& vec,
 		const WORD* src, int& offset, int delta, std::integral_constant<int, count>)
 	{
 		vec = _mm_insert_epi16(vec, *(src + (offset >> 16)), pixelsPerVector - count);
@@ -161,7 +162,7 @@ namespace
 	}
 
 	template <int pixelsPerVector, int count>
-	__forceinline void loadSrcVectorRemainder(__m128i& vec,
+	__forceinline typename std::enable_if<0 != count>::type loadSrcVectorRemainder(__m128i& vec,
 		const DWORD* src, int& offset, int delta, std::integral_constant<int, count>)
 	{
 		__m128i pixel = _mm_loadu_si32(src + (offset >> 16));
