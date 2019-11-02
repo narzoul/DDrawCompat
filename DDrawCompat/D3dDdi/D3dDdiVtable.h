@@ -6,6 +6,7 @@
 #include "Common/Log.h"
 #include "Common/VtableVisitor.h"
 #include "Config/Config.h"
+#include "D3dDdi/ScopedCriticalSection.h"
 
 namespace D3dDdi
 {
@@ -31,6 +32,35 @@ namespace D3dDdi
 		static Vtable*& s_origVtablePtr;
 
 	private:
+		template <int instanceId>
+		class Visitor
+		{
+		public:
+			Visitor(Vtable& compatVtable)
+				: m_compatVtable(compatVtable)
+			{
+			}
+
+			template <typename MemberDataPtr, MemberDataPtr ptr>
+			void visit(const char* /*funcName*/)
+			{
+				if (!(m_compatVtable.*ptr))
+				{
+					m_compatVtable.*ptr = &threadSafeFunc<MemberDataPtr, ptr>;
+				}
+			}
+
+		private:
+			template <typename MemberDataPtr, MemberDataPtr ptr, typename Result, typename... Params>
+			static Result APIENTRY threadSafeFunc(Params... params)
+			{
+				D3dDdi::ScopedCriticalSection lock;
+				return (CompatVtableInstance<Vtable, instanceId>::s_origVtable.*ptr)(params...);
+			}
+
+			Vtable& m_compatVtable;
+		};
+
 		template <int instanceId> struct InstanceId {};
 
 		template <int instanceId>
@@ -44,6 +74,11 @@ namespace D3dDdi
 
 			Vtable compatVtable = {};
 			Compat::setCompatVtable(compatVtable);
+
+#ifndef DEBUGLOGS
+			Visitor<instanceId> visitor(compatVtable);
+			forEach<Vtable>(visitor);
+#endif
 
 			isHooked = true;
 			CompatVtableInstance<Vtable, instanceId>::hookVtable(vtable, compatVtable);
