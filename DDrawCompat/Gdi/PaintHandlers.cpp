@@ -86,7 +86,8 @@ namespace
 					g_currentUser32WndProc->oldWndProc = wndProc;
 					g_currentUser32WndProc->oldWndProcTrampoline = wndProc;
 					Compat::hookFunction(reinterpret_cast<void*&>(g_currentUser32WndProc->oldWndProcTrampoline),
-						g_currentUser32WndProc->newWndProc);
+						g_currentUser32WndProc->newWndProc,
+						g_currentUser32WndProc->procName.c_str());
 				}
 			}
 		}

@@ -74,7 +74,7 @@ namespace DDraw
 			if ((flags & DDSCL_FULLSCREEN) && !isDdWndProcHooked)
 			{
 				g_origDdWndProc = reinterpret_cast<WNDPROC>(GetWindowLongPtr(hwnd, GWLP_WNDPROC));
-				Compat::hookFunction(reinterpret_cast<void*&>(g_origDdWndProc), ddWndProc);
+				Compat::hookFunction(reinterpret_cast<void*&>(g_origDdWndProc), ddWndProc, "ddWndProc");
 				isDdWndProcHooked = true;
 			}
 		}

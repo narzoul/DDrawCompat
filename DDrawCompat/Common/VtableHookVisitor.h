@@ -42,9 +42,9 @@ public:
 		m_origVtable.*ptr = m_srcVtable.*ptr;
 		if (m_origVtable.*ptr && s_compatVtable.*ptr)
 		{
-			Compat::LogDebug() << "Hooking function: " << FuncNameVisitor<Vtable>::getFuncName<MemberDataPtr, ptr>();
 			Compat::hookFunction(reinterpret_cast<void*&>(m_origVtable.*ptr), 
-				getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr));
+				getThreadSafeFuncPtr<MemberDataPtr, ptr>(s_compatVtable.*ptr),
+				FuncNameVisitor<Vtable>::getFuncName<MemberDataPtr, ptr>());
 		}
 	}
 

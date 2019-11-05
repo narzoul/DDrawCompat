@@ -1,9 +1,11 @@
 #define WIN32_LEAN_AND_MEAN
 
 #include <algorithm>
+#include <filesystem>
 #include <list>
 #include <map>
 #include <set>
+#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -82,16 +84,25 @@ namespace
 		return ntHeaders;
 	}
 
-	std::string getModuleBaseName(HMODULE module)
+	std::filesystem::path getModulePath(HMODULE module)
 	{
 		char path[MAX_PATH] = {};
 		GetModuleFileName(module, path, sizeof(path));
-		const char* lastBackSlash = strrchr(path, '\\');
-		const char* baseName = lastBackSlash ? lastBackSlash + 1 : path;
-		return baseName;
+		return path;
 	}
 
-	void hookFunction(const char* funcName, void*& origFuncPtr, void* newFuncPtr)
+	std::string funcAddrToStr(void* funcPtr)
+	{
+		std::ostringstream oss;
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			static_cast<char*>(funcPtr), &module);
+		oss << getModulePath(module).string() << "+0x" << std::hex <<
+			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
+		return oss.str();
+	}
+
+	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
 		const auto it = findOrigFunc(origFuncPtr);
 		if (it != g_hookedFunctions.end())
@@ -100,27 +111,29 @@ namespace
 			return;
 		}
 
+		char origFuncPtrStr[20] = {};
+		if (!funcName)
+		{
+			sprintf_s(origFuncPtrStr, "%p", origFuncPtr);
+			funcName = origFuncPtrStr;
+		}
+
 		void* const hookedFuncPtr = origFuncPtr;
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
+			static_cast<char*>(hookedFuncPtr), &module);
+
+		Compat::LogDebug() << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
 
 		DetourTransactionBegin();
 		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
 		const bool commitSuccessful = NO_ERROR == DetourTransactionCommit();
 		if (!attachSuccessful || !commitSuccessful)
 		{
-			if (funcName)
-			{
-				Compat::LogDebug() << "ERROR: Failed to hook a function: " << funcName;
-			}
-			else
-			{
-				Compat::LogDebug() << "ERROR: Failed to hook a function: " << origFuncPtr;
-			}
+			Compat::LogDebug() << "ERROR: Failed to hook a function: " << funcName;
 			return;
 		}
 
-		HMODULE module = nullptr;
-		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-			reinterpret_cast<char*>(hookedFuncPtr), &module);
 		g_hookedFunctions.emplace(
 			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
 	}
@@ -155,13 +168,13 @@ namespace Compat
 				continue;
 			}
 
-			std::string moduleBaseName(getModuleBaseName(module));
+			std::string moduleBaseName(getModulePath(module).filename().string());
 			if (0 != _stricmp(moduleBaseName.c_str(), moduleName))
 			{
 				Compat::Log() << "Disabling external hook to " << funcName << " in " << moduleBaseName;
 				static std::list<void*> origFuncs;
 				origFuncs.push_back(hookFunc);
-				hookFunction(origFuncs.back(), newFunc);
+				hookFunction(origFuncs.back(), newFunc, funcName);
 			}
 		}
 	}
@@ -293,9 +306,9 @@ namespace Compat
 		return proc ? *proc : nullptr;
 	}
 
-	void hookFunction(void*& origFuncPtr, void* newFuncPtr)
+	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
-		::hookFunction(nullptr, origFuncPtr, newFuncPtr);
+		::hookFunction(origFuncPtr, newFuncPtr, funcName);
 	}
 
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
@@ -308,7 +321,7 @@ namespace Compat
 		}
 
 		origFuncPtr = procAddr;
-		::hookFunction(funcName, origFuncPtr, newFuncPtr);
+		::hookFunction(origFuncPtr, newFuncPtr, funcName);
 	}
 
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr)
@@ -327,7 +340,7 @@ namespace Compat
 		FARPROC* func = findProcAddressInIat(module, importedModuleName, funcName);
 		if (func)
 		{
-			Compat::LogDebug() << "Hooking function via IAT: " << funcName;
+			Compat::LogDebug() << "Hooking function via IAT: " << funcName << " (" << funcAddrToStr(*func) << ')';
 			DWORD oldProtect = 0;
 			VirtualProtect(func, sizeof(func), PAGE_READWRITE, &oldProtect);
 			*func = static_cast<FARPROC>(newFuncPtr);

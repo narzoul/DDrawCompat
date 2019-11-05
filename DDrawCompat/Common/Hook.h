@@ -10,7 +10,7 @@
 	Compat::hookFunction<decltype(&func), &func>(#module, #func, &newFunc)
 #define HOOK_SHIM_FUNCTION(func, newFunc) \
 	Compat::hookFunction( \
-		reinterpret_cast<void*&>(Compat::getOrigFuncPtr<decltype(&func), &func>()), newFunc);
+		reinterpret_cast<void*&>(Compat::getOrigFuncPtr<decltype(&func), &func>()), newFunc, #func);
 
 
 namespace Compat
@@ -27,7 +27,7 @@ namespace Compat
 	FARPROC* findProcAddressInIat(HMODULE module, const char* importedModuleName, const char* procName);
 	FARPROC getProcAddress(HMODULE module, const char* procName);
 	FARPROC getProcAddressFromIat(HMODULE module, const char* importedModuleName, const char* procName);
-	void hookFunction(void*& origFuncPtr, void* newFuncPtr);
+	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName);
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookIatFunction(HMODULE module, const char* importedModuleName, const char* funcName, void* newFuncPtr);
