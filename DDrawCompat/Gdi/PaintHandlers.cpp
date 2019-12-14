@@ -269,6 +269,7 @@ namespace
 		case WM_PAINT:
 		{
 			D3dDdi::ScopedCriticalSection lock;
+			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME);
 			return onPaint(hwnd, origWndProc);
 		}
 
