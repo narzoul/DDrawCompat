@@ -13,7 +13,23 @@
 #include "Gdi/TitleBar.h"
 #include "Gdi/VirtualScreen.h"
 #include "Gdi/Window.h"
-#include "Win32/Registry.h"
+
+std::ostream& operator<<(std::ostream& os, const MENUITEMINFOW& val)
+{
+	return Compat::LogStruct(os)
+		<< val.cbSize
+		<< Compat::hex(val.fMask)
+		<< Compat::hex(val.fType)
+		<< Compat::hex(val.fState)
+		<< val.wID
+		<< val.hSubMenu
+		<< val.hbmpChecked
+		<< val.hbmpUnchecked
+		<< Compat::hex(val.dwItemData)
+		<< val.dwTypeData
+		<< val.cch
+		<< (val.cbSize > offsetof(MENUITEMINFOW, hbmpItem) ? val.hbmpItem : nullptr);
+}
 
 namespace
 {
@@ -158,23 +174,6 @@ namespace
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
 		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
-	}
-
-	void disableImmersiveContextMenus()
-	{
-		// Immersive context menus don't display properly (empty items) when theming is disabled
-		Win32::Registry::setValue(
-			HKEY_LOCAL_MACHINE,
-			"Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\FlightedFeatures",
-			"ImmersiveContextMenu",
-			0);
-
-		// An update in Windows 10 seems to have moved the key from the above location
-		Win32::Registry::setValue(
-			HKEY_LOCAL_MACHINE,
-			"Software\\Microsoft\\Windows\\CurrentVersion\\FlightedFeatures",
-			"ImmersiveContextMenu",
-			0);
 	}
 
 	LRESULT editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -414,6 +413,17 @@ namespace
 		}
 	}
 
+	BOOL WINAPI setMenuItemInfoW(HMENU hmenu, UINT item, BOOL fByPositon, LPCMENUITEMINFOW lpmii)
+	{
+		LOG_FUNC("SetMenuItemInfoW", hmenu, item, fByPositon, lpmii);
+		if (lpmii && (lpmii->fMask & (MIIM_TYPE | MIIM_FTYPE)) && MFT_OWNERDRAW == lpmii->fType)
+		{
+			SetLastError(ERROR_NOT_SUPPORTED);
+			return LOG_RESULT(FALSE);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(SetMenuItemInfoW)(hmenu, item, fByPositon, lpmii));
+	}
+
 	LRESULT staticWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
 		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
@@ -447,8 +457,6 @@ namespace Gdi
 	{
 		void installHooks()
 		{
-			disableImmersiveContextMenus();
-
 #define HOOK_USER32_WNDPROC(className, wndProcHook) hookUser32WndProc<wndProcHook>(className, #wndProcHook)
 #define HOOK_USER32_WNDPROCW(className, wndProcHook) hookUser32WndProcW<wndProcHook>(className, #wndProcHook)
 
@@ -481,6 +489,7 @@ namespace Gdi
 			HOOK_FUNCTION(user32, DefWindowProcW, defWindowProcW);
 			HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
 			HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
+			HOOK_FUNCTION(user32, SetMenuItemInfoW, setMenuItemInfoW);
 		}
 
 		void onCreateWindow(HWND hwnd)
