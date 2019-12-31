@@ -82,6 +82,16 @@ namespace
 		return hasDisplayDcArg(t) || hasDisplayDcArg(params...);
 	}
 
+	bool lpToScreen(HWND hwnd, HDC dc, POINT& p)
+	{
+		LPtoDP(dc, &p, 1);
+		RECT wr = {};
+		GetWindowRect(hwnd, &wr);
+		p.x += wr.left;
+		p.y += wr.top;
+		return true;
+	}
+
 	template <typename T>
 	T replaceDc(T t)
 	{
@@ -129,7 +139,7 @@ namespace
 				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
 			}
 			else if (GetCurrentThreadId() == GetWindowThreadProcessId(hwnd, nullptr) &&
-				LPtoDP(hdc, &p, 1) &&
+				lpToScreen(hwnd, hdc, p) &&
 				HTMENU == SendMessage(hwnd, WM_NCHITTEST, 0, (p.y << 16) | (p.x & 0xFFFF)))
 			{
 				WINDOWINFO wi = {};
