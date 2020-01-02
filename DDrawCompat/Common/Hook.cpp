@@ -84,6 +84,14 @@ namespace
 		return ntHeaders;
 	}
 
+	HMODULE getModuleHandleFromAddress(void* address)
+	{
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			static_cast<char*>(address), &module);
+		return module;
+	}
+
 	std::filesystem::path getModulePath(HMODULE module)
 	{
 		char path[MAX_PATH] = {};
@@ -94,9 +102,7 @@ namespace
 	std::string funcAddrToStr(void* funcPtr)
 	{
 		std::ostringstream oss;
-		HMODULE module = nullptr;
-		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			static_cast<char*>(funcPtr), &module);
+		HMODULE module = getModuleHandleFromAddress(funcPtr);
 		oss << getModulePath(module).string() << "+0x" << std::hex <<
 			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
 		return oss.str();
@@ -160,10 +166,8 @@ namespace Compat
 
 		for (auto hookFunc : hookFunctions)
 		{
-			HMODULE module = nullptr;
-			if (!GetModuleHandleEx(
-				GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-				static_cast<LPCSTR>(hookFunc), &module))
+			HMODULE module = getModuleHandleFromAddress(hookFunc);
+			if (!module)
 			{
 				continue;
 			}
@@ -294,6 +298,18 @@ namespace Compat
 			else
 			{
 				return getProcAddress(forwModule, forwFuncName.c_str());
+			}
+		}
+
+		// Avoid hooking ntdll stubs (e.g. ntdll/NtdllDialogWndProc_A instead of user32/DefDlgProcA)
+		if (func && getModuleHandleFromAddress(func) != module &&
+			0xFF == static_cast<BYTE>(func[0]) &&
+			0x25 == static_cast<BYTE>(func[1]))
+		{
+			FARPROC jmpTarget = **reinterpret_cast<FARPROC**>(func + 2);
+			if (getModuleHandleFromAddress(jmpTarget) == module)
+			{
+				return jmpTarget;
 			}
 		}
 
