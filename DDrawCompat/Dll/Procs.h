@@ -1,7 +1,5 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-
 #include <Windows.h>
 
 #define VISIT_UNMODIFIED_PROCS(visit) \

@@ -1,4 +1,5 @@
 #include <d3d.h>
+#include <winternl.h>
 #include <../km/d3dkmthk.h>
 
 #include "Common/HResultException.h"

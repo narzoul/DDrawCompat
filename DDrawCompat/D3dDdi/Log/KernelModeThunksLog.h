@@ -4,6 +4,7 @@
 
 #include <d3d.h>
 #include <d3dumddi.h>
+#include <winternl.h>
 #include <../km/d3dkmthk.h>
 
 std::ostream& operator<<(std::ostream& os, const LUID& luid);

@@ -1,7 +1,5 @@
 #pragma once
 
-#define WIN32_LEAN_AND_MEAN
-
 #include <Windows.h>
 
 #define CALL_ORIG_FUNC(func) Compat::getOrigFuncPtr<decltype(&func), &func>()

@@ -1,5 +1,3 @@
-#define WIN32_LEAN_AND_MEAN
-
 #include <algorithm>
 #include <filesystem>
 #include <list>
