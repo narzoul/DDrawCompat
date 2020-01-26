@@ -357,6 +357,12 @@
     <ClInclude Include="Direct3d\Log.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\Log.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Log.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -544,6 +550,12 @@
     </ClCompile>
     <ClCompile Include="Direct3d\Log.cpp">
       <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\Log.cpp">
+      <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Log.cpp">
+      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

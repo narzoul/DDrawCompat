@@ -24,7 +24,7 @@ namespace
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		LOG_FUNC("messageWindowProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		LOG_FUNC("messageWindowProc", hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		switch (uMsg)
 		{
 		case WM_CREATEPRESENTATIONWINDOW:
@@ -59,7 +59,7 @@ namespace
 
 	LRESULT CALLBACK presentationWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		LOG_FUNC("presentationWindowProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		LOG_FUNC("presentationWindowProc", hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 

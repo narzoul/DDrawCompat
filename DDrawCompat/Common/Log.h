@@ -1,44 +1,33 @@
 #pragma once
 
-#include <ddraw.h>
 #include <fstream>
 #include <functional>
 #include <ostream>
 #include <type_traits>
 
-#include "Common/ScopedCriticalSection.h"
+#include <Windows.h>
 
-#define CONCAT_(a, b) a##b
-#define CONCAT(a, b) CONCAT_(a, b)
+#include <Common/ScopedCriticalSection.h>
+#include <DDraw/Log.h>
+#include <Win32/Log.h>
 
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
 
 #define LOG_ONCE(msg) \
-	static bool CONCAT(isAlreadyLogged, __LINE__) = false; \
-	if (!CONCAT(isAlreadyLogged, __LINE__)) \
 	{ \
-		Compat::Log() << msg; \
-		CONCAT(isAlreadyLogged, __LINE__) = true; \
+		static bool isAlreadyLogged = false; \
+		if (!isAlreadyLogged) \
+		{ \
+			Compat::Log() << msg; \
+			isAlreadyLogged = true; \
+		} \
 	}
 
 std::ostream& operator<<(std::ostream& os, std::nullptr_t);
 std::ostream& operator<<(std::ostream& os, const char* str);
 std::ostream& operator<<(std::ostream& os, const unsigned char* data);
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
-std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm);
-std::ostream& operator<<(std::ostream& os, const DEVMODEW& dm);
-std::ostream& operator<<(std::ostream& os, const RECT& rect);
-std::ostream& operator<<(std::ostream& os, HDC__& dc);
-std::ostream& operator<<(std::ostream& os, HRGN__& rgn);
-std::ostream& operator<<(std::ostream& os, HWND__& hwnd);
-std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps);
-std::ostream& operator<<(std::ostream& os, const DDSCAPS2& caps);
-std::ostream& operator<<(std::ostream& os, const DDPIXELFORMAT& pf);
-std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC& sd);
-std::ostream& operator<<(std::ostream& os, const DDSURFACEDESC2& sd);
-std::ostream& operator<<(std::ostream& os, const CWPSTRUCT& cwrp);
-std::ostream& operator<<(std::ostream& os, const CWPRETSTRUCT& cwrp);
 
 namespace Compat
 {
@@ -191,10 +180,10 @@ namespace Compat
 		ScopedCriticalSection m_lock;
 
 		static thread_local DWORD s_indent;
+		static thread_local DWORD s_outParamDepth;
+		static thread_local bool s_isLeaveLog;
 
 		static std::ofstream s_logFile;
-		static DWORD s_outParamDepth;
-		static bool s_isLeaveLog;
 	};
 
 	class LogStruct : public detail::LogFirstParam
@@ -222,6 +211,7 @@ namespace Compat
 
 		~LogFunc()
 		{
+			Log::s_isLeaveLog = true;
 			Log::s_indent -= 2;
 			Log log;
 			log << "< ";
@@ -232,6 +222,7 @@ namespace Compat
 				log << " = ";
 				m_printResult(log);
 			}
+			Log::s_isLeaveLog = false;
 		}
 
 		template <typename T>

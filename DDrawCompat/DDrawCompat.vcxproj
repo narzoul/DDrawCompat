@@ -178,6 +178,7 @@
     <ClInclude Include="DDraw\DirectDrawPalette.h" />
     <ClInclude Include="DDraw\DirectDrawSurface.h" />
     <ClInclude Include="DDraw\Hooks.h" />
+    <ClInclude Include="DDraw\Log.h" />
     <ClInclude Include="DDraw\ScopedThreadLock.h" />
     <ClInclude Include="DDraw\Surfaces\PrimarySurface.h" />
     <ClInclude Include="DDraw\Surfaces\PrimarySurfaceImpl.h" />
@@ -223,6 +224,7 @@
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\FontSmoothing.h" />
+    <ClInclude Include="Win32\Log.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
   </ItemGroup>
@@ -254,6 +256,7 @@
     <ClCompile Include="DDraw\DirectDrawSurface.cpp" />
     <ClCompile Include="DDraw\Hooks.cpp" />
     <ClCompile Include="DDraw\IReleaseNotifier.cpp" />
+    <ClCompile Include="DDraw\Log.cpp" />
     <ClCompile Include="DDraw\RealPrimarySurface.cpp" />
     <ClCompile Include="DDraw\Surfaces\PrimarySurface.cpp" />
     <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp" />
@@ -287,6 +290,7 @@
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\FontSmoothing.cpp" />
+    <ClCompile Include="Win32\Log.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
   </ItemGroup>

@@ -26,7 +26,7 @@ namespace
 
 	LRESULT CALLBACK ddWndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		LOG_FUNC("ddWndProc", hwnd, Compat::hex(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		LOG_FUNC("ddWndProc", hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		static bool isDisplayChangeNotificationEnabled = true;
 
 		switch (uMsg)
