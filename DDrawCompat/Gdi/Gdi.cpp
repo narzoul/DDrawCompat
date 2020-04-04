@@ -12,8 +12,6 @@
 
 namespace
 {
-	HDC g_screenDc = nullptr;
-
 	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
 	{
 		DWORD windowPid = 0;
@@ -35,11 +33,6 @@ namespace Gdi
 		DcCache::dllThreadDetach();
 	}
 
-	HDC getScreenDc()
-	{
-		return g_screenDc;
-	}
-
 	HRGN getVisibleWindowRgn(HWND hwnd)
 	{
 		return DcFunctions::getVisibleWindowRgn(hwnd);
@@ -47,15 +40,6 @@ namespace Gdi
 
 	void installHooks()
 	{
-		// Workaround for VirtualizeDesktopPainting shim, which doesn't seem to handle BitBlt
-		// from screen DC to screen DC correctly
-		auto getDc = reinterpret_cast<decltype(GetDC)*>(Compat::getProcAddress(GetModuleHandle("user32"), "GetDC"));
-		if (!getDc)
-		{
-			getDc = &GetDC;
-		}
-		g_screenDc = getDc(nullptr);
-
 		DcFunctions::installHooks();
 		PaintHandlers::installHooks();
 		Palette::installHooks();
@@ -112,7 +96,6 @@ namespace Gdi
 		Window::uninstallHooks();
 		Dc::dllProcessDetach();
 		DcCache::dllProcessDetach();
-		CALL_ORIG_FUNC(ReleaseDC)(nullptr, g_screenDc);
 	}
 
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)

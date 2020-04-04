@@ -187,6 +187,15 @@ namespace
 
 	void onCreateWindow(HWND hwnd)
 	{
+		char className[64] = {};
+		GetClassName(hwnd, className, sizeof(className));
+		if (std::string(className) == "CompatWindowDesktopReplacement")
+		{
+			// Disable VirtualizeDesktopPainting shim
+			SendNotifyMessage(hwnd, WM_CLOSE, 0, 0);
+			return;
+		}
+
 		hookThread(GetWindowThreadProcessId(hwnd, nullptr));
 		disableDwmAttributes(hwnd);
 		removeDropShadow(hwnd);
