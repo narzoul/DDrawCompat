@@ -41,25 +41,36 @@ namespace
 
 		if (HC_ACTION == nCode && !Gdi::Window::isPresentationWindow(ret->hwnd))
 		{
-			if (WM_DESTROY == ret->message)
+			switch (ret->message)
 			{
-				onDestroyWindow(ret->hwnd);
-			}
-			else if (WM_WINDOWPOSCHANGED == ret->message)
-			{
-				onWindowPosChanged(ret->hwnd);
-			}
-			else if (WM_ACTIVATE == ret->message)
-			{
+			case WM_ACTIVATE:
 				onActivate(ret->hwnd);
-			}
-			else if (WM_COMMAND == ret->message)
+				break;
+
+			case WM_COMMAND:
 			{
 				auto notifCode = HIWORD(ret->wParam);
 				if (ret->lParam && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
 				{
 					Gdi::ScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(ret->lParam));
 				}
+				break;
+			}
+
+			case WM_DESTROY:
+				onDestroyWindow(ret->hwnd);
+				break;
+			
+			case WM_STYLECHANGED:
+				if (GWL_EXSTYLE == ret->wParam)
+				{
+					onWindowPosChanged(ret->hwnd);
+				}
+				break;
+
+			case WM_WINDOWPOSCHANGED:
+				onWindowPosChanged(ret->hwnd);
+				break;
 			}
 		}
 
@@ -192,7 +203,12 @@ namespace
 	{
 		if (Gdi::MENU_ATOM == GetClassLongPtr(hwnd, GCW_ATOM))
 		{
-			SetWindowLongPtr(hwnd, GWL_EXSTYLE, GetWindowLongPtr(hwnd, GWL_EXSTYLE) & ~WS_EX_LAYERED);
+			auto exStyle = GetWindowLongPtr(hwnd, GWL_EXSTYLE);
+			if (exStyle & WS_EX_LAYERED)
+			{
+				SetWindowLongPtr(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
+				return;
+			}
 		}
 
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)

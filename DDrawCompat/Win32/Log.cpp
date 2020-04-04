@@ -49,48 +49,65 @@ std::ostream& operator<<(std::ostream& os, const DEVMODEW& dm)
 
 std::ostream& operator<<(std::ostream& os, HDC dc)
 {
+	os << "DC";
 	if (!dc)
 	{
-		return os << "DC(null)";
+		return os << "(null)";
 	}
-	return os << "DC(" << static_cast<void*>(dc) << ',' << CALL_ORIG_FUNC(WindowFromDC)(dc) << ')';
+	return Compat::LogStruct(os)
+		<< static_cast<void*>(dc)
+		<< CALL_ORIG_FUNC(WindowFromDC)(dc);
 }
 
 std::ostream& operator<<(std::ostream& os, HRGN rgn)
 {
+	os << "RGN";
 	if (!rgn)
 	{
-		return os << "RGN(null)";
+		return os << "(null)";
 	}
 
 	DWORD size = GetRegionData(rgn, 0, nullptr);
 	if (0 == size)
 	{
-		return os << "RGN[]";
+		return os << "[]";
 	}
 
 	std::vector<unsigned char> rgnDataBuf(size);
 	auto& rgnData = *reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
 	GetRegionData(rgn, size, &rgnData);
 
-	return os << "RGN" << Compat::array(reinterpret_cast<RECT*>(rgnData.Buffer), rgnData.rdh.nCount);
+	return os << Compat::array(reinterpret_cast<RECT*>(rgnData.Buffer), rgnData.rdh.nCount);
 }
 
 std::ostream& operator<<(std::ostream& os, HWND hwnd)
 {
+	os << "WND";
 	if (!hwnd)
 	{
-		return os << "WND(null)";
+		return os << "(null)";
 	}
 
-	char name[256] = "INVALID";
-	RECT rect = {};
-	if (IsWindow(hwnd))
+	if (!IsWindow(hwnd))
 	{
-		GetClassName(hwnd, name, sizeof(name));
-		GetWindowRect(hwnd, &rect);
+		return Compat::LogStruct(os)
+			<< static_cast<void*>(hwnd)
+			<< "INVALID";
 	}
-	return os << "WND(" << static_cast<void*>(hwnd) << ',' << name << ',' << rect << ')';
+
+	char name[256] = {};
+	RECT rect = {};
+	GetClassName(hwnd, name, sizeof(name));
+	GetWindowRect(hwnd, &rect);
+
+	return Compat::LogStruct(os)
+		<< static_cast<void*>(hwnd)
+		<< static_cast<void*>(GetParent(hwnd))
+		<< name
+		<< Compat::hex(GetClassLong(hwnd, GCL_STYLE))
+		<< rect
+		<< Compat::hex(GetWindowLong(hwnd, GWL_STYLE))
+		<< Compat::hex(GetWindowLong(hwnd, GWL_EXSTYLE));
 }
 
 std::ostream& operator<<(std::ostream& os, const MSG& msg)

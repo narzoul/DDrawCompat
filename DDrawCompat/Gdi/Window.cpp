@@ -10,11 +10,13 @@ extern "C" IMAGE_DOS_HEADER __ImageBase;
 namespace
 {
 	const UINT WM_CREATEPRESENTATIONWINDOW = WM_USER;
+	const UINT WM_DESTROYPRESENTATIONWINDOW = WM_USER + 1;
+	const UINT WM_SETPRESENTATIONWINDOWPOS = WM_USER + 2;
 
 	HANDLE g_presentationWindowThread = nullptr;
 	DWORD g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
-	
+
 	ATOM getComboLBoxAtom()
 	{
 		WNDCLASS wc = {};
@@ -29,23 +31,37 @@ namespace
 		{
 		case WM_CREATEPRESENTATIONWINDOW:
 		{
-			HWND presentationWindow = CreateWindowEx(
-				WS_EX_LAYERED | WS_EX_TRANSPARENT,
+			D3dDdi::ScopedCriticalSection lock;
+			HWND origWindow = reinterpret_cast<HWND>(lParam);
+			auto window = Gdi::Window::get(origWindow);
+			if (!window)
+			{
+				return 0;
+			}
+
+			// Workaround for ForceSimpleWindow shim
+			static auto origCreateWindowExA = reinterpret_cast<decltype(&CreateWindowExA)>(
+				Compat::getProcAddress(GetModuleHandle("user32"), "CreateWindowExA"));
+
+			HWND presentationWindow = origCreateWindowExA(
+				WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | WS_EX_TOOLWINDOW,
 				"DDrawCompatPresentationWindow",
 				nullptr,
 				WS_DISABLED | WS_POPUP,
 				0, 0, 1, 1,
-				reinterpret_cast<HWND>(wParam),
+				nullptr,
 				nullptr,
 				nullptr,
 				nullptr);
 
-			// Workaround for ForceSimpleWindow shim
-			SetWindowLong(presentationWindow, GWL_STYLE, WS_DISABLED | WS_POPUP);
-			SetWindowLong(presentationWindow, GWL_EXSTYLE, WS_EX_LAYERED | WS_EX_TRANSPARENT);
+			if (presentationWindow)
+			{
+				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
+				SendMessage(presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(origWindow));
+				window->setPresentationWindow(presentationWindow);
+			}
 
-			CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
-			return reinterpret_cast<LRESULT>(presentationWindow);
+			return 0;
 		}
 
 		case WM_DESTROY:
@@ -60,11 +76,53 @@ namespace
 	LRESULT CALLBACK presentationWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		LOG_FUNC("presentationWindowProc", hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+
+		switch (uMsg)
+		{
+		case WM_DESTROYPRESENTATIONWINDOW:
+			DestroyWindow(hwnd);
+			return 0;
+
+		case WM_SETPRESENTATIONWINDOWPOS:
+		{
+			HWND owner = reinterpret_cast<HWND>(lParam);
+			if (IsWindowVisible(owner) && !IsIconic(owner))
+			{
+				RECT wr = {};
+				GetWindowRect(owner, &wr);
+				DWORD flags = SWP_SHOWWINDOW | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW;
+
+				HWND insertAfter = HWND_TOP;
+				HWND prev = GetWindow(owner, GW_HWNDPREV);
+				if (prev)
+				{
+					if (hwnd == prev)
+					{
+						flags = flags | SWP_NOZORDER;
+					}
+					else
+					{
+						insertAfter = prev;
+					}
+				}
+
+				SetWindowPos(hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
+			}
+			else
+			{
+				ShowWindow(hwnd, SW_HIDE);
+			}
+			return 0;
+		}
+		}
+
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
 	DWORD WINAPI presentationWindowThreadProc(LPVOID /*lpParameter*/)
 	{
+		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
+
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
@@ -92,7 +150,7 @@ namespace
 	{
 		LOG_FUNC("SetLayeredWindowAttributes", hwnd, crKey, bAlpha, dwFlags);
 		BOOL result = CALL_ORIG_FUNC(SetLayeredWindowAttributes)(hwnd, crKey, bAlpha, dwFlags);
-		if (SUCCEEDED(result))
+		if (result)
 		{
 			Gdi::Window::updateLayeredWindowInfo(hwnd,
 				(dwFlags & LWA_COLORKEY) ? crKey : CLR_INVALID,
@@ -107,7 +165,7 @@ namespace
 		LOG_FUNC("UpdateLayeredWindow", hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
 		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindow)(
 			hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
-		if (SUCCEEDED(result) && hdcSrc)
+		if (result && hdcSrc)
 		{
 			Gdi::Window::updateLayeredWindowInfo(hWnd,
 				(dwFlags & ULW_COLORKEY) ? crKey : CLR_INVALID,
@@ -120,7 +178,7 @@ namespace
 	{
 		LOG_FUNC("UpdateLayeredWindowIndirect", hwnd, pULWInfo);
 		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindowIndirect)(hwnd, pULWInfo);
-		if (SUCCEEDED(result) && pULWInfo)
+		if (result && pULWInfo)
 		{
 			Gdi::Window::updateLayeredWindowInfo(hwnd,
 				(pULWInfo->dwFlags & ULW_COLORKEY) ? pULWInfo->crKey : CLR_INVALID,
@@ -138,17 +196,23 @@ namespace Gdi
 		, m_windowRect{ 0, 0, 0, 0 }
 		, m_colorKey(CLR_INVALID)
 		, m_alpha(255)
-		, m_isLayered(GetWindowLong(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED)
+		, m_isLayered(GetWindowLong(m_hwnd, GWL_EXSTYLE)& WS_EX_LAYERED)
 		, m_isUpdating(false)
 	{
-		const ATOM atom = static_cast<ATOM>(GetClassLong(hwnd, GCW_ATOM));
-		if (!m_isLayered && MENU_ATOM != atom && getComboLBoxAtom() != atom)
+		if (!m_isLayered)
 		{
-			m_presentationWindow = reinterpret_cast<HWND>(SendMessage(
-				g_messageWindow, WM_CREATEPRESENTATIONWINDOW, reinterpret_cast<WPARAM>(hwnd), 0));
+			SendNotifyMessage(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, 0, reinterpret_cast<WPARAM>(hwnd));
 		}
 
 		update();
+	}
+
+	Window::~Window()
+	{
+		if (m_presentationWindow)
+		{
+			DestroyWindow(m_presentationWindow);
+		}
 	}
 
 	bool Window::add(HWND hwnd)
@@ -279,7 +343,7 @@ namespace Gdi
 	bool Window::isTopLevelWindow(HWND hwnd)
 	{
 		return !(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow() ||
-				getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM);
+			getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM);
 	}
 
 	void Window::remove(HWND hwnd)
@@ -301,6 +365,21 @@ namespace Gdi
 		}
 	}
 
+	void Window::setPresentationWindow(HWND hwnd)
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		if (m_isLayered)
+		{
+			SendNotifyMessage(hwnd, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
+		}
+		else
+		{
+			m_presentationWindow = hwnd;
+			SendNotifyMessage(m_presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(m_hwnd));
+			DDraw::RealPrimarySurface::gdiUpdate();
+		}
+	}
+
 	void Window::update()
 	{
 		D3dDdi::ScopedCriticalSection lock;
@@ -309,6 +388,21 @@ namespace Gdi
 			return;
 		}
 		m_isUpdating = true;
+
+		const bool isLayered = GetWindowLong(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
+		if (isLayered != m_isLayered)
+		{
+			if (!isLayered)
+			{
+				SendNotifyMessage(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, 0, reinterpret_cast<WPARAM>(m_hwnd));
+			}
+			else if (m_presentationWindow)
+			{
+				SendNotifyMessage(m_presentationWindow, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
+				m_presentationWindow = nullptr;
+			}
+		}
+		m_isLayered = isLayered;
 
 		RECT newWindowRect = {};
 		Region newVisibleRegion;
@@ -322,17 +416,11 @@ namespace Gdi
 				GetRandomRgn(windowDc, newVisibleRegion, SYSRGN);
 				CALL_ORIG_FUNC(ReleaseDC)(m_hwnd, windowDc);
 			}
-
-			if (m_presentationWindow)
-			{
-				SetWindowPos(m_presentationWindow, nullptr, newWindowRect.left, newWindowRect.top,
-					newWindowRect.right - newWindowRect.left, newWindowRect.bottom - newWindowRect.top,
-					SWP_SHOWWINDOW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW);
-			}
 		}
-		else if (m_presentationWindow && GetCurrentThreadId() == GetWindowThreadProcessId(m_hwnd, nullptr))
+
+		if (m_presentationWindow)
 		{
-			ShowWindow(m_presentationWindow, SW_HIDE);
+			SendNotifyMessage(m_presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(m_hwnd));
 		}
 
 		std::swap(m_windowRect, newWindowRect);

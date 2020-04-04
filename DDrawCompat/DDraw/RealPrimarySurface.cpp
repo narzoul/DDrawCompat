@@ -68,6 +68,12 @@ namespace
 
 		for (auto windowPair : Gdi::Window::getWindows())
 		{
+			HWND presentationWindow = windowPair.second->getPresentationWindow();
+			if (!presentationWindow)
+			{
+				continue;
+			}
+
 			Gdi::Region visibleRegion = windowPair.second->getVisibleRegion();
 			if (visibleRegion.isEmpty())
 			{
@@ -93,7 +99,6 @@ namespace
 			}
 
 			Gdi::AccessGuard accessGuard(Gdi::ACCESS_READ, !primaryRegion);
-			HWND presentationWindow = windowPair.second->getPresentationWindow();
 			HDC dc = GetWindowDC(presentationWindow);
 			RECT rect = windowPair.second->getWindowRect();
 			visibleRegion.offset(-rect.left, -rect.top);

@@ -15,6 +15,7 @@ namespace Gdi
 		Window(HWND hwnd);
 		Window(const Window&) = delete;
 		Window& operator=(const Window&) = delete;
+		~Window();
 
 		BYTE getAlpha() const;
 		COLORREF getColorKey() const;
@@ -22,6 +23,7 @@ namespace Gdi
 		Region getVisibleRegion() const;
 		RECT getWindowRect() const;
 		bool isLayered() const;
+		void setPresentationWindow(HWND hwnd);
 		void updateWindow();
 
 		static bool add(HWND hwnd);
