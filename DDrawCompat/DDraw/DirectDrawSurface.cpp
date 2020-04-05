@@ -66,6 +66,7 @@ namespace DDraw
 		SET_COMPAT_METHOD(GetSurfaceDesc);
 		SET_COMPAT_METHOD(IsLost);
 		SET_COMPAT_METHOD(Lock);
+		SET_COMPAT_METHOD(QueryInterface);
 		SET_COMPAT_METHOD(ReleaseDC);
 		SET_COMPAT_METHOD(Restore);
 		SET_COMPAT_METHOD(SetPalette);

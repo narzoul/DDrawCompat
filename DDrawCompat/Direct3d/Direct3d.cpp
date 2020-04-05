@@ -14,17 +14,19 @@ namespace
 		void* userArg;
 	};
 
+	template <typename TDirect3d, typename TDirectDrawSurface, typename TDirect3dDevice, typename... Params>
 	HRESULT STDMETHODCALLTYPE createDevice(
-		IDirect3D7* This,
+		TDirect3d* This,
 		REFCLSID rclsid,
-		LPDIRECTDRAWSURFACE7 lpDDS,
-		LPDIRECT3DDEVICE7* lplpD3DDevice)
+		TDirectDrawSurface* lpDDS,
+		TDirect3dDevice** lplpD3DDevice,
+		Params... params)
 	{
-		HRESULT result = CompatVtable<IDirect3D7Vtbl>::s_origVtable.CreateDevice(
-			This, rclsid, lpDDS, lplpD3DDevice);
+		HRESULT result = CompatVtable<Vtable<TDirect3d>>::s_origVtable.CreateDevice(
+			This, (IID_IDirect3DRampDevice == rclsid) ? IID_IDirect3DRGBDevice : rclsid, lpDDS, lplpD3DDevice, params...);
 		if (SUCCEEDED(result))
 		{
-			CompatVtable<IDirect3DDevice7Vtbl>::hookVtable((*lplpD3DDevice)->lpVtbl);
+			CompatVtable<Vtable<TDirect3dDevice>>::hookVtable((*lplpD3DDevice)->lpVtbl);
 		}
 		return result;
 	}
@@ -73,12 +75,12 @@ namespace
 			This, &d3dEnumDevicesCallback, &params);
 	}
 
-	template <typename TDirect3dVtbl>
-	void setCompatVtable7(TDirect3dVtbl& /*vtable*/)
+	void setCompatVtable2(IDirect3DVtbl& /*vtable*/)
 	{
 	}
 
-	void setCompatVtable7(IDirect3D7Vtbl& vtable)
+	template <typename TDirect3dVtbl>
+	void setCompatVtable2(TDirect3dVtbl& vtable)
 	{
 		vtable.CreateDevice = &createDevice;
 	}
@@ -91,7 +93,7 @@ namespace Direct3d
 	{
 		vtable.EnumDevices = &enumDevices;
 		// No need to fix FindDevice since it uses EnumDevices
-		setCompatVtable7(vtable);
+		setCompatVtable2(vtable);
 	}
 
 	template Direct3d<IDirect3D>;

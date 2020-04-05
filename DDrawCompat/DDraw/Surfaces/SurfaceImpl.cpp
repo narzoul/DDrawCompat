@@ -130,6 +130,12 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
+	{
+		return s_origVtable.QueryInterface(This, (IID_IDirect3DRampDevice == riid ? IID_IDirect3DRGBDevice : riid), obp);
+	}
+
+	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
 		return s_origVtable.ReleaseDC(This, hDC);
