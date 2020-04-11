@@ -1,11 +1,11 @@
 #include <dwmapi.h>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Window.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Window.h>
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
@@ -101,7 +101,8 @@ namespace
 					}
 				}
 
-				SetWindowPos(hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
+				CALL_ORIG_FUNC(SetWindowPos)(
+					hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
 
 				HRGN rgn = CreateRectRgn(0, 0, 0, 0);
 				if (ERROR != GetWindowRgn(owner, rgn))
@@ -271,7 +272,7 @@ namespace Gdi
 						oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
 						screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
 					SelectClipRgn(screenDc, nullptr);
-					ReleaseDC(nullptr, screenDc);
+					CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
 				}
 				m_invalidatedRegion -= preservedRegion;
 			}
@@ -423,9 +424,7 @@ namespace Gdi
 			GetWindowRect(m_hwnd, &newWindowRect);
 			if (!IsRectEmpty(&newWindowRect) && !m_isLayered)
 			{
-				HDC windowDc = GetWindowDC(m_hwnd);
-				GetRandomRgn(windowDc, newVisibleRegion, SYSRGN);
-				CALL_ORIG_FUNC(ReleaseDC)(m_hwnd, windowDc);
+				newVisibleRegion = m_hwnd;
 			}
 		}
 

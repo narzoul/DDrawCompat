@@ -3,23 +3,33 @@
 
 #include <Windows.h>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Common/ScopedCriticalSection.h"
-#include "Gdi/AccessGuard.h"
-#include "Gdi/Dc.h"
-#include "Win32/DisplayMode.h"
-#include "Gdi/PaintHandlers.h"
-#include "Gdi/ScrollBar.h"
-#include "Gdi/ScrollFunctions.h"
-#include "Gdi/TitleBar.h"
-#include "Gdi/Window.h"
-#include "Gdi/WinProc.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Common/ScopedCriticalSection.h>
+#include <Gdi/AccessGuard.h>
+#include <Gdi/Dc.h>
+#include <Win32/DisplayMode.h>
+#include <Gdi/PaintHandlers.h>
+#include <Gdi/ScrollBar.h>
+#include <Gdi/ScrollFunctions.h>
+#include <Gdi/TitleBar.h>
+#include <Gdi/Window.h>
+#include <Gdi/WinProc.h>
 
 extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace
 {
+	const char* PROP_DDRAWCOMPAT = "DDrawCompat";
+
+	struct ChildWindowInfo
+	{
+		RECT rect;
+		Gdi::Region visibleRegion;
+
+		ChildWindowInfo() : rect{} {}
+	};
+
 	std::multimap<DWORD, HHOOK> g_threadIdToHook;
 	Compat::CriticalSection g_threadIdToHookCs;
 	HWINEVENTHOOK g_objectCreateEventHook = nullptr;
@@ -30,6 +40,7 @@ namespace
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onWindowPosChanged(HWND hwnd);
+	void onWindowPosChanging(HWND hwnd, const WINDOWPOS& wp);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -67,6 +78,10 @@ namespace
 
 			case WM_WINDOWPOSCHANGED:
 				onWindowPosChanged(ret->hwnd);
+				break;
+
+			case WM_WINDOWPOSCHANGING:
+				onWindowPosChanging(ret->hwnd, *reinterpret_cast<WINDOWPOS*>(ret->lParam));
 				break;
 			}
 		}
@@ -190,6 +205,7 @@ namespace
 	void onDestroyWindow(HWND hwnd)
 	{
 		Gdi::Window::remove(hwnd);
+		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT));
 	}
 
 	void onWindowPosChanged(HWND hwnd)
@@ -209,10 +225,71 @@ namespace
 			notifyFunc();
 		}
 
-		if (Gdi::Window::get(hwnd) || Gdi::Window::add(hwnd))
+		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
+			Gdi::Window::add(hwnd);
 			Gdi::Window::updateAll();
 		}
+		else
+		{
+			std::unique_ptr<ChildWindowInfo> cwi(reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT)));
+			if (cwi && IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
+			{
+				RECT rect = {};
+				GetWindowRect(hwnd, &rect);
+				if (rect.left != cwi->rect.left || rect.top != cwi->rect.top)
+				{
+					Gdi::Region clipRegion(hwnd);
+					cwi->visibleRegion.offset(rect.left - cwi->rect.left, rect.top - cwi->rect.top);
+					clipRegion &= cwi->visibleRegion;
+
+					HDC screenDc = GetDC(nullptr);
+					SelectClipRgn(screenDc, clipRegion);
+					BitBlt(screenDc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+						screenDc, cwi->rect.left, cwi->rect.top, SRCCOPY);
+					SelectClipRgn(screenDc, nullptr);
+					CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+				}
+			}
+		}
+	}
+
+	void onWindowPosChanging(HWND hwnd, const WINDOWPOS& wp)
+	{
+		if (!Gdi::Window::isTopLevelWindow(hwnd))
+		{
+			std::unique_ptr<ChildWindowInfo> cwi(reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT)));
+			if (!(wp.flags & SWP_NOMOVE) && IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
+			{
+				cwi.reset(new ChildWindowInfo());
+				GetWindowRect(hwnd, &cwi->rect);
+				cwi->visibleRegion = hwnd;
+				if (!cwi->visibleRegion.isEmpty())
+				{
+					SetProp(hwnd, PROP_DDRAWCOMPAT, cwi.release());
+				}
+			}
+		}
+	}
+
+	BOOL WINAPI setWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
+	{
+		LOG_FUNC("SetWindowPos", hWnd, hWndInsertAfter, X, Y, cx, cy, Compat::hex(uFlags));
+		if (uFlags & SWP_NOSENDCHANGING)
+		{
+			WINDOWPOS wp = {};
+			wp.hwnd = hWnd;
+			wp.hwndInsertAfter = hWndInsertAfter;
+			wp.x = X;
+			wp.y = Y;
+			wp.cx = cx;
+			wp.cy = cy;
+			wp.flags = uFlags;
+			onWindowPosChanging(hWnd, wp);
+		}
+		BOOL result = CALL_ORIG_FUNC(SetWindowPos)(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
+		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hWnd, PROP_DDRAWCOMPAT));
+		return LOG_RESULT(result);
 	}
 }
 
@@ -236,6 +313,8 @@ namespace Gdi
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+
 			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				reinterpret_cast<HMODULE>(&__ImageBase), &objectCreateEvent,
 				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
