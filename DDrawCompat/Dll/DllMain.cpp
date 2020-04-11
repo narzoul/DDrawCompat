@@ -4,29 +4,26 @@
 #include <timeapi.h>
 #include <Uxtheme.h>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Common/Time.h"
-#include "D3dDdi/Hooks.h"
-#include "DDraw/DirectDraw.h"
-#include "DDraw/Hooks.h"
-#include "Direct3d/Hooks.h"
-#include "Dll/Procs.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/VirtualScreen.h"
-#include "Win32/DisplayMode.h"
-#include "Win32/FontSmoothing.h"
-#include "Win32/MsgHooks.h"
-#include "Win32/Registry.h"
-
-struct IDirectInput;
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Common/Time.h>
+#include <D3dDdi/Hooks.h>
+#include <DDraw/DirectDraw.h>
+#include <DDraw/Hooks.h>
+#include <Direct3d/Hooks.h>
+#include <Dll/Procs.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/VirtualScreen.h>
+#include <Win32/DisplayMode.h>
+#include <Win32/FontSmoothing.h>
+#include <Win32/MsgHooks.h>
+#include <Win32/Registry.h>
 
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
 namespace
 {
 	HMODULE g_origDDrawModule = nullptr;
-	HMODULE g_origDInputModule = nullptr;
 
 	void installHooks()
 	{
@@ -130,14 +127,12 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			return FALSE;
 		}
 
-		if (!loadLibrary(systemDirectory, "ddraw.dll", g_origDDrawModule) ||
-			!loadLibrary(systemDirectory, "dinput.dll", g_origDInputModule))
+		if (!loadLibrary(systemDirectory, "ddraw.dll", g_origDDrawModule))
 		{
 			return FALSE;
 		}
 
 		VISIT_ALL_PROCS(LOAD_ORIGINAL_PROC);
-		Dll::g_origProcs.DirectInputCreateA = GetProcAddress(g_origDInputModule, "DirectInputCreateA");
 
 		const BOOL disablePriorityBoost = TRUE;
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
@@ -167,7 +162,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			D3dDdi::uninstallHooks();
 			Gdi::uninstallHooks();
 			Compat::unhookAllFunctions();
-			FreeLibrary(g_origDInputModule);
 			FreeLibrary(g_origDDrawModule);
 		}
 		Win32::FontSmoothing::setSystemSettingsForced(Win32::FontSmoothing::g_origSystemSettings);
@@ -203,16 +197,6 @@ extern "C" HRESULT WINAPI DirectDrawCreateEx(
 	installHooks();
 	DDraw::suppressEmulatedDirectDraw(lpGUID);
 	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreateEx)(lpGUID, lplpDD, iid, pUnkOuter));
-}
-
-extern "C" HRESULT WINAPI DirectInputCreateA(
-	HINSTANCE hinst,
-	DWORD dwVersion,
-	IDirectInput** lplpDirectInput,
-	LPUNKNOWN punkOuter)
-{
-	LOG_FUNC(__func__, hinst, dwVersion, lplpDirectInput, punkOuter);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectInputCreateA)(hinst, dwVersion, lplpDirectInput, punkOuter));
 }
 
 extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)

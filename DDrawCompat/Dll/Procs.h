@@ -39,7 +39,6 @@ namespace Dll
 	struct Procs
 	{
 		VISIT_ALL_PROCS(ADD_FARPROC_MEMBER);
-		FARPROC DirectInputCreateA;
 	};
 
 	extern Procs g_origProcs;

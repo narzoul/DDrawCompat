@@ -23,4 +23,3 @@ EXPORTS
 	RegisterSpecialCase
 	ReleaseDDThreadLock
 	SetAppCompatData
-	DirectInputCreateA
