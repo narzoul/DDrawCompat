@@ -102,6 +102,17 @@ namespace
 				}
 
 				SetWindowPos(hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
+
+				HRGN rgn = CreateRectRgn(0, 0, 0, 0);
+				if (ERROR != GetWindowRgn(owner, rgn))
+				{
+					SetWindowRgn(hwnd, rgn, FALSE);
+				}
+				else
+				{
+					SetWindowRgn(hwnd, nullptr, FALSE);
+					DeleteObject(rgn);
+				}
 			}
 			else
 			{
