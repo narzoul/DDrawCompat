@@ -1,7 +1,6 @@
 #include <map>
 #include <set>
 
-#include <dwmapi.h>
 #include <Windows.h>
 
 #include "Common/Hook.h"
@@ -27,12 +26,10 @@ namespace
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
-	void disableDwmAttributes(HWND hwnd);
 	void onActivate(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onWindowPosChanged(HWND hwnd);
-	void removeDropShadow(HWND hwnd);
 
 	LRESULT CALLBACK callWndRetProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
@@ -75,17 +72,6 @@ namespace
 		}
 
 		return LOG_RESULT(CallNextHookEx(nullptr, nCode, wParam, lParam));
-	}
-
-	void disableDwmAttributes(HWND hwnd)
-	{
-		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
-		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY,
-			&ncRenderingPolicy, sizeof(ncRenderingPolicy));
-
-		BOOL disableTransitions = TRUE;
-		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED,
-			&disableTransitions, sizeof(disableTransitions));
 	}
 
 	void hookThread(DWORD threadId)
@@ -197,8 +183,6 @@ namespace
 		}
 
 		hookThread(GetWindowThreadProcessId(hwnd, nullptr));
-		disableDwmAttributes(hwnd);
-		removeDropShadow(hwnd);
 		Gdi::PaintHandlers::onCreateWindow(hwnd);
 		Gdi::Window::add(hwnd);
 	}
@@ -225,18 +209,9 @@ namespace
 			notifyFunc();
 		}
 
-		if (Gdi::Window::get(hwnd))
+		if (Gdi::Window::get(hwnd) || Gdi::Window::add(hwnd))
 		{
 			Gdi::Window::updateAll();
-		}
-	}
-
-	void removeDropShadow(HWND hwnd)
-	{
-		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
-		if (style & CS_DROPSHADOW)
-		{
-			SetClassLongPtr(hwnd, GCL_STYLE, style ^ CS_DROPSHADOW);
 		}
 	}
 }
@@ -269,6 +244,7 @@ namespace Gdi
 				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 
 			EnumWindows(initTopLevelWindow, 0);
+			Gdi::Window::updateAll();
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)

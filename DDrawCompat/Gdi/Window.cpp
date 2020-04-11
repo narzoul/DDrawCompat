@@ -1,3 +1,5 @@
+#include <dwmapi.h>
+
 #include "Common/Hook.h"
 #include "Common/Log.h"
 #include "D3dDdi/ScopedCriticalSection.h"
@@ -16,13 +18,6 @@ namespace
 	HANDLE g_presentationWindowThread = nullptr;
 	DWORD g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
-
-	ATOM getComboLBoxAtom()
-	{
-		WNDCLASS wc = {};
-		static ATOM comboLBoxAtom = static_cast<ATOM>(GetClassInfo(nullptr, "ComboLBox", &wc));
-		return comboLBoxAtom;
-	}
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -197,8 +192,19 @@ namespace Gdi
 		, m_colorKey(CLR_INVALID)
 		, m_alpha(255)
 		, m_isLayered(GetWindowLong(m_hwnd, GWL_EXSTYLE)& WS_EX_LAYERED)
-		, m_isUpdating(false)
 	{
+		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
+		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
+
+		BOOL disableTransitions = TRUE;
+		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
+
+		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
+		if (style & CS_DROPSHADOW)
+		{
+			SetClassLongPtr(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
+		}
+
 		if (!m_isLayered)
 		{
 			SendNotifyMessage(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, 0, reinterpret_cast<WPARAM>(hwnd));
@@ -343,8 +349,7 @@ namespace Gdi
 
 	bool Window::isTopLevelWindow(HWND hwnd)
 	{
-		return !(GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CHILD) || GetParent(hwnd) == GetDesktopWindow() ||
-			getComboLBoxAtom() == GetClassLong(hwnd, GCW_ATOM);
+		return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
 	}
 
 	void Window::remove(HWND hwnd)
@@ -384,12 +389,6 @@ namespace Gdi
 	void Window::update()
 	{
 		D3dDdi::ScopedCriticalSection lock;
-		if (m_isUpdating)
-		{
-			return;
-		}
-		m_isUpdating = true;
-
 		const bool isLayered = GetWindowLong(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
 		if (isLayered != m_isLayered)
 		{
@@ -428,8 +427,6 @@ namespace Gdi
 		swap(m_visibleRegion, newVisibleRegion);
 
 		calcInvalidatedRegion(newWindowRect, newVisibleRegion);
-
-		m_isUpdating = false;
 	}
 
 	void Window::updateAll()

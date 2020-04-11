@@ -51,7 +51,6 @@ namespace Gdi
 		COLORREF m_colorKey;
 		BYTE m_alpha;
 		bool m_isLayered;
-		bool m_isUpdating;
 
 		static std::map<HWND, std::shared_ptr<Window>> s_windows;
 	};
