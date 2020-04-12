@@ -363,6 +363,12 @@
     <ClInclude Include="DDraw\Log.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\WaitFunctions.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32\TimeFunctions.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -556,6 +562,12 @@
     </ClCompile>
     <ClCompile Include="DDraw\Log.cpp">
       <Filter>Source Files\DDraw</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\WaitFunctions.cpp">
+      <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\TimeFunctions.cpp">
+      <Filter>Source Files\Win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

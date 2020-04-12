@@ -18,6 +18,8 @@
 #include <Win32/FontSmoothing.h>
 #include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
+#include <Win32/TimeFunctions.h>
+#include <Win32/WaitFunctions.h>
 
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
@@ -30,7 +32,6 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
-			SetProcessDPIAware();
 			Win32::DisplayMode::disableDwm8And16BitMitigation();
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
@@ -38,6 +39,8 @@ namespace
 			D3dDdi::installHooks(g_origDDrawModule);
 			Compat::Log() << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks();
+			Win32::TimeFunctions::installHooks();
+			Win32::WaitFunctions::installHooks();
 			Gdi::VirtualScreen::init();
 
 			CompatPtr<IDirectDraw> dd;
@@ -138,6 +141,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		timeBeginPeriod(1);
+		SetProcessDPIAware();
 		SetThemeAppProperties(0);
 
 		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreate",
