@@ -49,9 +49,15 @@ namespace DDraw
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
 		desc.dwHeight = dm.dwHeight;
-		desc.ddsCaps.dwCaps &= ~(DDSCAPS_PRIMARYSURFACE | DDSCAPS_SYSTEMMEMORY | DDSCAPS_NONLOCALVIDMEM);
-		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
+		desc.ddsCaps.dwCaps &= ~(DDSCAPS_PRIMARYSURFACE | DDSCAPS_SYSTEMMEMORY |
+			DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
+		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
 		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
+		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8 && (desc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE))
+		{
+			desc.ddsCaps.dwCaps &= ~DDSCAPS_3DDEVICE;
+			desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
+		}
 
 		auto privateData(std::make_unique<PrimarySurface>());
 		auto data = privateData.get();
@@ -183,6 +189,19 @@ namespace DDraw
 		Gdi::VirtualScreen::update();
 		g_primarySurface = m_surface;
 		g_gdiResourceHandle = getRuntimeResourceHandle(*g_primarySurface);
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		m_surface->GetSurfaceDesc(m_surface, &desc);
+		if (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
+		{
+			DDSURFACEDESC2 gdiDesc = Gdi::VirtualScreen::getSurfaceDesc(D3dDdi::KernelModeThunks::getMonitorRect());
+			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH | DDSD_LPSURFACE;
+			desc.lPitch = gdiDesc.lPitch;
+			desc.lpSurface = gdiDesc.lpSurface;
+			m_surface->SetSurfaceDesc(m_surface, &desc, 0);
+		}
+
 		updateFrontResource();
 		D3dDdi::Device::setGdiResourceHandle(g_frontResource);
 
