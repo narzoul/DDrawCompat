@@ -212,10 +212,32 @@ namespace
 			}
 			break;
 
+		case COLORRES:
+			if (8 == g_currentBpp && Gdi::isDisplayDc(hdc))
+			{
+				return 24;
+			}
+			break;
+
+		case NUMCOLORS:
+		case NUMRESERVED:
+			if (8 == g_currentBpp && Gdi::isDisplayDc(hdc))
+			{
+				return 20;
+			}
+			break;
+
 		case RASTERCAPS:
 			if (8 == g_currentBpp && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex) | RC_PALETTE);
+			}
+			break;
+
+		case SIZEPALETTE:
+			if (8 == g_currentBpp && Gdi::isDisplayDc(hdc))
+			{
+				return 256;
 			}
 			break;
 		}
