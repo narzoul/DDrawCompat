@@ -46,6 +46,8 @@ namespace Compat
 	DEFINE_BASE_INTF(IDirect3D7, IDirectDraw);
 	DEFINE_BASE_INTF(IDirect3DDevice2, IDirect3DDevice);
 	DEFINE_BASE_INTF(IDirect3DDevice3, IDirect3DDevice);
+	DEFINE_BASE_INTF(IDirect3DMaterial2, IDirect3DMaterial);
+	DEFINE_BASE_INTF(IDirect3DMaterial3, IDirect3DMaterial);
 	DEFINE_BASE_INTF(IDirect3DTexture, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirect3DTexture2, IDirectDrawSurface);
 	DEFINE_BASE_INTF(IDirect3DViewport2, IDirect3DViewport);
@@ -81,6 +83,9 @@ namespace Compat
 	DEFINE_INTF_ID(IDirect3DDevice2);
 	DEFINE_INTF_ID(IDirect3DDevice3);
 	DEFINE_INTF_ID(IDirect3DDevice7);
+	DEFINE_INTF_ID(IDirect3DMaterial);
+	DEFINE_INTF_ID(IDirect3DMaterial2);
+	DEFINE_INTF_ID(IDirect3DMaterial3);
 	DEFINE_INTF_ID(IDirect3DTexture);
 	DEFINE_INTF_ID(IDirect3DTexture2);
 	DEFINE_INTF_ID(IDirect3DViewport);

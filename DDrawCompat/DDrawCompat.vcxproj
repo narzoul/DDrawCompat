@@ -195,6 +195,8 @@
     <ClInclude Include="Direct3d\DepthBuffer.h" />
     <ClInclude Include="Direct3d\Direct3d.h" />
     <ClInclude Include="Direct3d\Direct3dDevice.h" />
+    <ClInclude Include="Direct3d\Direct3dLight.h" />
+    <ClInclude Include="Direct3d\Direct3dMaterial.h" />
     <ClInclude Include="Direct3d\Direct3dTexture.h" />
     <ClInclude Include="Direct3d\Direct3dVertexBuffer.h" />
     <ClInclude Include="Direct3d\Direct3dViewport.h" />
@@ -202,6 +204,8 @@
     <ClInclude Include="Direct3d\Log.h" />
     <ClInclude Include="Direct3d\Types.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h" />
+    <ClInclude Include="Direct3d\Visitors\Direct3dLightVtblVisitor.h" />
+    <ClInclude Include="Direct3d\Visitors\Direct3dMaterialVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dTextureVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVertexBufferVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h" />
@@ -267,6 +271,8 @@
     <ClCompile Include="Direct3d\DepthBuffer.cpp" />
     <ClCompile Include="Direct3d\Direct3d.cpp" />
     <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
+    <ClCompile Include="Direct3d\Direct3dLight.cpp" />
+    <ClCompile Include="Direct3d\Direct3dMaterial.cpp" />
     <ClCompile Include="Direct3d\Direct3dTexture.cpp" />
     <ClCompile Include="Direct3d\Direct3dVertexBuffer.cpp" />
     <ClCompile Include="Direct3d\Direct3dViewport.cpp" />
