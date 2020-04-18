@@ -4,6 +4,7 @@
 #include <Common/Log.h>
 #include <Direct3d/Direct3d.h>
 #include <Direct3d/Direct3dDevice.h>
+#include <Direct3d/Direct3dExecuteBuffer.h>
 #include <Direct3d/Direct3dLight.h>
 #include <Direct3d/Direct3dMaterial.h>
 #include <Direct3d/Direct3dTexture.h>
@@ -14,6 +15,7 @@
 namespace
 {
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
+	void hookDirect3dExecuteBuffer(CompatRef<IDirect3DDevice> dev);
 	void hookDirect3dLight(CompatRef<IDirect3D3> d3d);
 	void hookDirect3dMaterial(CompatRef<IDirect3D3> d3d);
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd);
@@ -106,6 +108,30 @@ namespace
 		hookVtable<IDirect3DDevice>(d3dDevice);
 		hookVtable<IDirect3DDevice2>(d3dDevice);
 		hookVtable<IDirect3DDevice3>(d3dDevice);
+
+		CompatPtr<IDirect3DDevice> dev(d3dDevice);
+		if (dev)
+		{
+			hookDirect3dExecuteBuffer(*dev);
+		}
+	}
+
+	void hookDirect3dExecuteBuffer(CompatRef<IDirect3DDevice> dev)
+	{
+		D3DEXECUTEBUFFERDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = D3DDEB_BUFSIZE;
+		desc.dwBufferSize = 1;
+
+		CompatPtr<IDirect3DExecuteBuffer> buffer;
+		HRESULT result = dev->CreateExecuteBuffer(&dev, &desc, &buffer.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			Compat::Log() << "ERROR: Failed to create an execute buffer for hooking: " << Compat::hex(result);
+			return;
+		}
+
+		hookVtable<IDirect3DExecuteBuffer>(buffer);
 	}
 
 	void hookDirect3dLight(CompatRef<IDirect3D3> d3d)

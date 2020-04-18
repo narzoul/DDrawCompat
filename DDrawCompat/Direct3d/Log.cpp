@@ -26,6 +26,26 @@ std::ostream& operator<<(std::ostream& os, const D3DDRAWPRIMITIVESTRIDEDDATA& da
 		<< Compat::array(data.textureCoords, D3DDP_MAXTEXCOORD);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DEXECUTEBUFFERDESC& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.dwFlags)
+		<< Compat::hex(data.dwCaps)
+		<< data.dwBufferSize
+		<< data.lpData;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DEXECUTEDATA& data)
+{
+	return Compat::LogStruct(os)
+		<< data.dwVertexOffset
+		<< data.dwVertexCount
+		<< data.dwInstructionOffset
+		<< data.dwInstructionLength
+		<< data.dwHVertexOffset
+		<< data.dsStatus;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DLIGHT& data)
 {
 	D3DLIGHT2 light = {};
@@ -85,6 +105,23 @@ std::ostream& operator<<(std::ostream& os, const D3DMATERIAL7& data)
 	D3DMATERIAL material = {};
 	reinterpret_cast<D3DMATERIAL7&>(material) = data;
 	return os << material;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DRECT& data)
+{
+	return Compat::LogStruct(os)
+		<< data.x1
+		<< data.y1
+		<< data.x2
+		<< data.y2;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DSTATUS& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.dwFlags)
+		<< Compat::hex(data.dwStatus)
+		<< data.drExtent;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DVERTEXBUFFERDESC& data)

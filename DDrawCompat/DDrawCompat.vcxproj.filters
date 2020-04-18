@@ -381,6 +381,12 @@
     <ClInclude Include="Direct3d\Direct3dLight.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="Direct3d\Visitors\Direct3dExecuteBufferVtblVisitor.h">
+      <Filter>Header Files\Direct3d\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Direct3dExecuteBuffer.h">
+      <Filter>Header Files\Direct3d</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -585,6 +591,9 @@
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dLight.cpp">
+      <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Direct3d\Direct3dExecuteBuffer.cpp">
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
   </ItemGroup>
