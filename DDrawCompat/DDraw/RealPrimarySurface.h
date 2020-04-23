@@ -16,6 +16,7 @@ namespace DDraw
 		static HRESULT create(CompatRef<DirectDraw> dd);
 
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
+		static void flush();
 		static void gdiUpdate();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
