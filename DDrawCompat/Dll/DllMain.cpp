@@ -32,13 +32,13 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
-			Win32::DisplayMode::disableDwm8And16BitMitigation();
+			Compat::Log() << "Installing display mode hooks";
+			Win32::DisplayMode::installHooks();
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks(g_origDDrawModule);
-			Compat::Log() << "Installing display mode hooks";
-			Win32::DisplayMode::installHooks();
+			Compat::Log() << "Installing Win32 hooks";
 			Win32::TimeFunctions::installHooks();
 			Win32::WaitFunctions::installHooks();
 			Gdi::VirtualScreen::init();
@@ -144,10 +144,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		SetProcessDPIAware();
 		SetThemeAppProperties(0);
 
-		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreate",
-			Compat::getProcAddress(hinstDLL, "DirectDrawCreate"));
-		Compat::redirectIatHooks("ddraw.dll", "DirectDrawCreateEx",
-			Compat::getProcAddress(hinstDLL, "DirectDrawCreateEx"));
 		Win32::FontSmoothing::g_origSystemSettings = Win32::FontSmoothing::getSystemSettings();
 		Win32::MsgHooks::installHooks();
 		Time::init();

@@ -2,7 +2,6 @@
 #include <filesystem>
 #include <list>
 #include <map>
-#include <set>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -12,8 +11,8 @@
 #include <detours.h>
 #include <Psapi.h>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
 
 namespace
 {
@@ -26,10 +25,71 @@ namespace
 
 	std::map<void*, HookedFunctionInfo> g_hookedFunctions;
 
+	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
+	HMODULE getModuleHandleFromAddress(void* address);
+	std::filesystem::path getModulePath(HMODULE module);
+
 	std::map<void*, HookedFunctionInfo>::iterator findOrigFunc(void* origFunc)
 	{
 		return std::find_if(g_hookedFunctions.begin(), g_hookedFunctions.end(),
 			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.origFunction; });
+	}
+
+	FARPROC* findProcAddressInIat(HMODULE module, const char* importedModuleName, const char* procName)
+	{
+		if (!module || !importedModuleName || !procName)
+		{
+			return nullptr;
+		}
+
+		PIMAGE_NT_HEADERS ntHeaders = getImageNtHeaders(module);
+		if (!ntHeaders)
+		{
+			return nullptr;
+		}
+
+		char* moduleBase = reinterpret_cast<char*>(module);
+		PIMAGE_IMPORT_DESCRIPTOR importDesc = reinterpret_cast<PIMAGE_IMPORT_DESCRIPTOR>(moduleBase +
+			ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
+
+		for (PIMAGE_IMPORT_DESCRIPTOR desc = importDesc;
+			0 != desc->Characteristics && 0xFFFF != desc->Name;
+			++desc)
+		{
+			if (0 != _stricmp(moduleBase + desc->Name, importedModuleName))
+			{
+				continue;
+			}
+
+			auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->FirstThunk);
+			auto origThunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->OriginalFirstThunk);
+			while (0 != thunk->u1.AddressOfData && 0 != origThunk->u1.AddressOfData)
+			{
+				auto origImport = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(
+					moduleBase + origThunk->u1.AddressOfData);
+
+				if (0 == strcmp(origImport->Name, procName))
+				{
+					return reinterpret_cast<FARPROC*>(&thunk->u1.Function);
+				}
+
+				++thunk;
+				++origThunk;
+			}
+
+			break;
+		}
+
+		return nullptr;
+	}
+
+	std::string funcAddrToStr(void* funcPtr)
+	{
+		std::ostringstream oss;
+		HMODULE module = getModuleHandleFromAddress(funcPtr);
+		oss << getModulePath(module).string() << "+0x" << std::hex <<
+			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
+		return oss.str();
 	}
 
 	std::vector<HMODULE> getProcessModules(HANDLE process)
@@ -41,27 +101,6 @@ namespace
 			modules.resize(bytesNeeded / sizeof(modules[0]));
 		}
 		return modules;
-	}
-
-	std::set<void*> getIatHookFunctions(const char* moduleName, const char* funcName)
-	{
-		std::set<void*> hookFunctions;
-		if (!moduleName || !funcName)
-		{
-			return hookFunctions;
-		}
-
-		auto modules = getProcessModules(GetCurrentProcess());
-		for (auto module : modules)
-		{
-			FARPROC func = Compat::getProcAddressFromIat(module, moduleName, funcName);
-			if (func)
-			{
-				hookFunctions.insert(func);
-			}
-		}
-
-		return hookFunctions;
 	}
 
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module)
@@ -95,15 +134,6 @@ namespace
 		char path[MAX_PATH] = {};
 		GetModuleFileName(module, path, sizeof(path));
 		return path;
-	}
-
-	std::string funcAddrToStr(void* funcPtr)
-	{
-		std::ostringstream oss;
-		HMODULE module = getModuleHandleFromAddress(funcPtr);
-		oss << getModulePath(module).string() << "+0x" << std::hex <<
-			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
-		return oss.str();
 	}
 
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
@@ -158,77 +188,6 @@ namespace
 
 namespace Compat
 {
-	void redirectIatHooks(const char* moduleName, const char* funcName, void* newFunc)
-	{
-		auto hookFunctions(getIatHookFunctions(moduleName, funcName));
-
-		for (auto hookFunc : hookFunctions)
-		{
-			HMODULE module = getModuleHandleFromAddress(hookFunc);
-			if (!module)
-			{
-				continue;
-			}
-
-			std::string moduleBaseName(getModulePath(module).filename().string());
-			if (0 != _stricmp(moduleBaseName.c_str(), moduleName))
-			{
-				Compat::Log() << "Disabling external hook to " << funcName << " in " << moduleBaseName;
-				static std::list<void*> origFuncs;
-				origFuncs.push_back(hookFunc);
-				hookFunction(origFuncs.back(), newFunc, funcName);
-			}
-		}
-	}
-
-	FARPROC* findProcAddressInIat(HMODULE module, const char* importedModuleName, const char* procName)
-	{
-		if (!module || !importedModuleName || !procName)
-		{
-			return nullptr;
-		}
-
-		PIMAGE_NT_HEADERS ntHeaders = getImageNtHeaders(module);
-		if (!ntHeaders)
-		{
-			return nullptr;
-		}
-
-		char* moduleBase = reinterpret_cast<char*>(module);
-		PIMAGE_IMPORT_DESCRIPTOR importDesc = reinterpret_cast<PIMAGE_IMPORT_DESCRIPTOR>(moduleBase +
-			ntHeaders->OptionalHeader.DataDirectory[IMAGE_DIRECTORY_ENTRY_IMPORT].VirtualAddress);
-
-		for (PIMAGE_IMPORT_DESCRIPTOR desc = importDesc;
-			0 != desc->Characteristics && 0xFFFF != desc->Name;
-			++desc)
-		{
-			if (0 != _stricmp(moduleBase + desc->Name, importedModuleName))
-			{
-				continue;
-			}
-
-			auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->FirstThunk);
-			auto origThunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->OriginalFirstThunk);
-			while (0 != thunk->u1.AddressOfData && 0 != origThunk->u1.AddressOfData)
-			{
-				auto origImport = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(
-					moduleBase + origThunk->u1.AddressOfData);
-
-				if (0 == strcmp(origImport->Name, procName))
-				{
-					return reinterpret_cast<FARPROC*>(&thunk->u1.Function);
-				}
-
-				++thunk;
-				++origThunk;
-			}
-
-			break;
-		}
-
-		return nullptr;
-	}
-
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
 		if (!module || !procName)
@@ -314,12 +273,6 @@ namespace Compat
 		return reinterpret_cast<FARPROC>(func);
 	}
 
-	FARPROC getProcAddressFromIat(HMODULE module, const char* importedModuleName, const char* procName)
-	{
-		FARPROC* proc = findProcAddressInIat(module, importedModuleName, procName);
-		return proc ? *proc : nullptr;
-	}
-
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
 		::hookFunction(origFuncPtr, newFuncPtr, funcName);
@@ -360,6 +313,23 @@ namespace Compat
 			*func = static_cast<FARPROC>(newFuncPtr);
 			DWORD dummy = 0;
 			VirtualProtect(func, sizeof(func), oldProtect, &dummy);
+		}
+	}
+
+	void removeShim(HMODULE module, const char* funcName)
+	{
+		void* shimFunc = GetProcAddress(module, funcName);
+		if (shimFunc)
+		{
+			void* realFunc = getProcAddress(module, funcName);
+			if (realFunc && shimFunc != realFunc)
+			{
+				static std::list<void*> shimFuncs;
+				shimFuncs.push_back(shimFunc);
+				std::string shimFuncName("[shim]");
+				shimFuncName += funcName;
+				hookFunction(shimFuncs.back(), realFunc, shimFuncName.c_str());
+			}
 		}
 	}
 
