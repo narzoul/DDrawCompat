@@ -1,15 +1,16 @@
 #include <unordered_map>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Gdi/AccessGuard.h"
-#include "Gdi/Dc.h"
-#include "Gdi/DcFunctions.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
-#include "Gdi/VirtualScreen.h"
-#include "Gdi/Window.h"
-#include "Win32/DisplayMode.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Gdi/AccessGuard.h>
+#include <Gdi/Dc.h>
+#include <Gdi/DcFunctions.h>
+#include <Gdi/Font.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
+#include <Gdi/VirtualScreen.h>
+#include <Gdi/Window.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -164,6 +165,13 @@ namespace
 		return LOG_RESULT(TRUE);
 	}
 
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	Result WINAPI compatGdiTextDcFunc(HDC dc, Params... params)
+	{
+		Gdi::Font::Mapper fontMapper(dc);
+		return compatGdiDcFunc<OrigFuncPtr, origFunc, Result>(dc, params...);
+	}
+
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 	{
 		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
@@ -230,6 +238,12 @@ namespace
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
 
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	OrigFuncPtr getCompatGdiTextDcFuncPtr(FuncPtr<Result, HDC, Params...>)
+	{
+		return &compatGdiTextDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
+	}
+
 	HDC getFirstDc()
 	{
 		return nullptr;
@@ -289,6 +303,17 @@ namespace
 			moduleName, funcName, getCompatGdiDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
 	}
 
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
+	void hookGdiTextDcFunction(const char* moduleName, const char* funcName)
+	{
+#ifdef DEBUGLOGS
+		g_funcNames[origFunc] = funcName;
+#endif
+
+		Compat::hookFunction<OrigFuncPtr, origFunc>(
+			moduleName, funcName, getCompatGdiTextDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
+	}
+
 	int WINAPI getRandomRgn(HDC hdc, HRGN hrgn, INT iNum)
 	{
 		int result = CALL_ORIG_FUNC(GetRandomRgn)(hdc, hrgn, iNum);
@@ -319,8 +344,8 @@ namespace
 	hookGdiDcFunction<decltype(&func), &func>(#module, #func)
 
 #define HOOK_GDI_TEXT_DC_FUNCTION(module, func) \
-	HOOK_GDI_DC_FUNCTION(module, func##A); \
-	HOOK_GDI_DC_FUNCTION(module, func##W)
+	hookGdiTextDcFunction<decltype(&func##A), &func##A>(#module, #func "A"); \
+	hookGdiTextDcFunction<decltype(&func##W), &func##W>(#module, #func "W")
 
 namespace Gdi
 {

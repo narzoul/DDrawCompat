@@ -1,14 +1,15 @@
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "Gdi/Caret.h"
-#include "Gdi/Dc.h"
-#include "Gdi/DcCache.h"
-#include "Gdi/DcFunctions.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/PaintHandlers.h"
-#include "Gdi/Palette.h"
-#include "Gdi/ScrollFunctions.h"
-#include "Gdi/Window.h"
-#include "Gdi/WinProc.h"
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <Gdi/Caret.h>
+#include <Gdi/Dc.h>
+#include <Gdi/DcCache.h>
+#include <Gdi/DcFunctions.h>
+#include <Gdi/Font.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/PaintHandlers.h>
+#include <Gdi/Palette.h>
+#include <Gdi/ScrollFunctions.h>
+#include <Gdi/Window.h>
+#include <Gdi/WinProc.h>
 
 namespace
 {
@@ -47,6 +48,7 @@ namespace Gdi
 		Window::installHooks();
 		WinProc::installHooks();
 		Caret::installHooks();
+		Font::installHooks();
 	}
 
 	bool isDisplayDc(HDC dc)

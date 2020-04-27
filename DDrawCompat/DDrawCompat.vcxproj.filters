@@ -117,9 +117,6 @@
     <ClInclude Include="DDraw\RealPrimarySurface.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
-    <ClInclude Include="DDraw\ActivateAppHandler.h">
-      <Filter>Header Files\DDraw</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\Hooks.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
@@ -224,9 +221,6 @@
     </ClInclude>
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h">
       <Filter>Header Files\Direct3d\Visitors</Filter>
-    </ClInclude>
-    <ClInclude Include="Win32\FontSmoothing.h">
-      <Filter>Header Files\Win32</Filter>
     </ClInclude>
     <ClInclude Include="Win32\MsgHooks.h">
       <Filter>Header Files\Win32</Filter>
@@ -387,6 +381,9 @@
     <ClInclude Include="Direct3d\Direct3dExecuteBuffer.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\Font.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -423,9 +420,6 @@
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\RealPrimarySurface.cpp">
-      <Filter>Source Files\DDraw</Filter>
-    </ClCompile>
-    <ClCompile Include="DDraw\ActivateAppHandler.cpp">
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\Hooks.cpp">
@@ -475,9 +469,6 @@
     </ClCompile>
     <ClCompile Include="Common\Log.cpp">
       <Filter>Source Files\Common</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\FontSmoothing.cpp">
-      <Filter>Source Files\Win32</Filter>
     </ClCompile>
     <ClCompile Include="Win32\MsgHooks.cpp">
       <Filter>Source Files\Win32</Filter>
@@ -595,6 +586,9 @@
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dExecuteBuffer.cpp">
       <Filter>Source Files\Direct3d</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\Font.cpp">
+      <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

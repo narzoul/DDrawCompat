@@ -1,9 +1,8 @@
-#include "Common/CompatPtr.h"
-#include "D3dDdi/KernelModeThunks.h"
-#include "DDraw/ActivateAppHandler.h"
-#include "DDraw/DirectDraw.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "Win32/DisplayMode.h"
+#include <Common/CompatPtr.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <DDraw/DirectDraw.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <Win32/DisplayMode.h>
 
 namespace DDraw
 {
@@ -67,7 +66,6 @@ namespace DDraw
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
 		vtable.GetGDISurface = &GetGDISurface;
-		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
 	}
 
@@ -123,18 +121,6 @@ namespace DDraw
 	{
 		suppressEmulatedDirectDraw(lpGUID);
 		return s_origVtable.Initialize(This, lpGUID);
-	}
-
-	template <typename TDirectDraw>
-	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::SetCooperativeLevel(
-		TDirectDraw* This, HWND hWnd, DWORD dwFlags)
-	{
-		HRESULT result = s_origVtable.SetCooperativeLevel(This, hWnd, dwFlags);
-		if (SUCCEEDED(result))
-		{
-			ActivateAppHandler::setCooperativeLevel(hWnd, dwFlags);
-		}
-		return result;
 	}
 
 	template <typename TDirectDraw>

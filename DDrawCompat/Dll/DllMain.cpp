@@ -15,7 +15,6 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
-#include <Win32/FontSmoothing.h>
 #include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
 #include <Win32/TimeFunctions.h>
@@ -144,7 +143,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		SetProcessDPIAware();
 		SetThemeAppProperties(0);
 
-		Win32::FontSmoothing::g_origSystemSettings = Win32::FontSmoothing::getSystemSettings();
 		Win32::MsgHooks::installHooks();
 		Time::init();
 
@@ -164,7 +162,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			Compat::unhookAllFunctions();
 			FreeLibrary(g_origDDrawModule);
 		}
-		Win32::FontSmoothing::setSystemSettingsForced(Win32::FontSmoothing::g_origSystemSettings);
 		timeEndPeriod(1);
 		Compat::Log() << "DDrawCompat detached successfully";
 	}

@@ -2,10 +2,10 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatRef.h"
-#include "Common/CompatVtable.h"
-#include "DDraw/Visitors/DirectDrawVtblVisitor.h"
-#include "DDraw/Types.h"
+#include <Common/CompatRef.h>
+#include <Common/CompatVtable.h>
+#include <DDraw/Visitors/DirectDrawVtblVisitor.h>
+#include <DDraw/Types.h>
 
 namespace DDraw
 {
@@ -31,7 +31,6 @@ namespace DDraw
 		static HRESULT STDMETHODCALLTYPE FlipToGDISurface(TDirectDraw* This);
 		static HRESULT STDMETHODCALLTYPE GetGDISurface(TDirectDraw* This, TSurface** lplpGDIDDSSurface);
 		static HRESULT STDMETHODCALLTYPE Initialize(TDirectDraw* This, GUID* lpGUID);
-		static HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags);
 		static HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent);
 	};
 }

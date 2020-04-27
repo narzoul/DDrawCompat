@@ -170,7 +170,6 @@
     <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h" />
-    <ClInclude Include="DDraw\ActivateAppHandler.h" />
     <ClInclude Include="DDraw\Blitter.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
     <ClInclude Include="DDraw\DirectDrawClipper.h" />
@@ -214,6 +213,7 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
     <ClInclude Include="Dll\Procs.h" />
     <ClInclude Include="Gdi\AccessGuard.h" />
+    <ClInclude Include="Gdi\Font.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
     <ClInclude Include="Gdi\Dc.h" />
@@ -229,7 +229,6 @@
     <ClInclude Include="Gdi\Window.h" />
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
-    <ClInclude Include="Win32\FontSmoothing.h" />
     <ClInclude Include="Win32\Log.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
@@ -255,7 +254,6 @@
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />
     <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
-    <ClCompile Include="DDraw\ActivateAppHandler.cpp" />
     <ClCompile Include="DDraw\Blitter.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
     <ClCompile Include="DDraw\DirectDrawClipper.cpp" />
@@ -285,6 +283,7 @@
     <ClCompile Include="Dll\DllMain.cpp" />
     <ClCompile Include="Dll\UnmodifiedProcs.cpp" />
     <ClCompile Include="Gdi\AccessGuard.cpp" />
+    <ClCompile Include="Gdi\Font.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />
     <ClCompile Include="Gdi\Dc.cpp" />
@@ -300,7 +299,6 @@
     <ClCompile Include="Gdi\Window.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
-    <ClCompile Include="Win32\FontSmoothing.cpp" />
     <ClCompile Include="Win32\Log.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
