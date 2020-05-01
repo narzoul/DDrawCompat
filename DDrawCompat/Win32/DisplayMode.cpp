@@ -9,7 +9,8 @@
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
 
-BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; };
+BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; }
+BOOL WINAPI SE_COM_HookInterface(CLSID*, GUID*, DWORD, DWORD) { return 0; }
 
 namespace
 {
@@ -35,8 +36,7 @@ namespace
 	DWORD g_lastBpp = 0;
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut();
-	BOOL WINAPI enumDisplaySettingsExA(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags);
-	BOOL WINAPI enumDisplaySettingsExW(LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags);
+	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2);
 
 	template <typename CStr, typename DevMode, typename ChangeDisplaySettingsExFunc, typename EnumDisplaySettingsExFunc>
 	LONG changeDisplaySettingsEx(
@@ -132,11 +132,13 @@ namespace
 		Compat::removeShim(user32, "EnumDisplaySettingsExW");
 
 		HOOK_FUNCTION(apphelp, DWM8And16Bit_IsShimApplied_CallOut, dwm8And16BitIsShimAppliedCallOut);
+		HOOK_FUNCTION(apphelp, SE_COM_HookInterface, seComHookInterface);
 	}
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut()
 	{
-		return FALSE;
+		LOG_FUNC("DWM8And16Bit_IsShimApplied_CallOut");
+		return LOG_RESULT(FALSE);
 	}
 
 	template <typename Char, typename DevMode, typename EnumDisplaySettingsExFunc>
@@ -255,6 +257,16 @@ namespace
 			break;
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex));
+	}
+
+	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2)
+	{
+		LOG_FUNC("SE_COM_HookInterface", clsid, iid, unk1, unk2);
+		if (clsid && (CLSID_DirectDraw == *clsid || CLSID_DirectDraw7 == *clsid))
+		{
+			return LOG_RESULT(0);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(SE_COM_HookInterface)(clsid, iid, unk1, unk2));
 	}
 }
 
