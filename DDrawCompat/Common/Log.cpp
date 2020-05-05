@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include <Common/Log.h>
 
 namespace
@@ -74,9 +76,30 @@ namespace Compat
 		s_logFile << std::endl;
 	}
 
-	void Log::initLogging()
+	void Log::initLogging(std::string processName)
 	{
-		s_logFile.open("ddraw.log");
+		if (processName.length() >= 4 &&
+			0 == _strcmpi(processName.substr(processName.length() - 4).c_str(), ".exe"))
+		{
+			processName.resize(processName.length() - 4);
+		}
+
+		for (int i = 1; i < 100; ++i)
+		{
+			std::ostringstream logFileName;
+			logFileName << "DDrawCompat-" << processName;
+			if (i > 1)
+			{
+				logFileName << '[' << i << ']';
+			}
+			logFileName << ".log";
+
+			s_logFile.open(logFileName.str(), std::ios_base::out, SH_DENYWR);
+			if (!s_logFile.fail())
+			{
+				return;
+			}
+		}
 	}
 
 	thread_local DWORD Log::s_indent = 0;

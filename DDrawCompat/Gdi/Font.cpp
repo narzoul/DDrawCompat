@@ -7,7 +7,7 @@ namespace
 	BOOL g_isFontSmoothingEnabled = FALSE;
 
 	BOOL WINAPI systemParametersInfo(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni,
-		decltype(&SystemParametersInfoA) origSystemParametersInfo, const char* origFuncName)
+		decltype(&SystemParametersInfoA) origSystemParametersInfo, [[maybe_unused]] const char* origFuncName)
 	{
 		LOG_FUNC(origFuncName, Compat::hex(uiAction), uiParam, pvParam, fWinIni);
 		switch (uiAction)

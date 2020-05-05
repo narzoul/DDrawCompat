@@ -3,6 +3,7 @@
 #include <fstream>
 #include <functional>
 #include <ostream>
+#include <string>
 #include <type_traits>
 
 #include <Windows.h>
@@ -11,8 +12,15 @@
 #include <DDraw/Log.h>
 #include <Win32/Log.h>
 
+#ifdef DEBUGLOGS
+#define LOG_DEBUG Compat::Log()
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
+#else
+#define LOG_DEBUG if (false) Compat::Log()
+#define LOG_FUNC(...)
+#define LOG_RESULT(...) __VA_ARGS__
+#endif
 
 #define LOG_ONCE(msg) \
 	{ \
@@ -145,7 +153,7 @@ namespace Compat
 			return *this;
 		}
 
-		static void initLogging();
+		static void initLogging(std::string processName);
 		static bool isPointerDereferencingAllowed() { return s_isLeaveLog || 0 == s_outParamDepth; }
 
 	protected:
@@ -187,16 +195,6 @@ namespace Compat
 		static std::ofstream s_logFile;
 	};
 
-	class LogStruct : public detail::LogFirstParam
-	{
-	public:
-		LogStruct(std::ostream& os) : detail::LogFirstParam(os) { m_os << '{'; }
-		~LogStruct() { m_os << '}'; }
-	};
-
-#ifdef DEBUGLOGS
-	typedef Log LogDebug;
-
 	class LogFunc
 	{
 	public:
@@ -237,28 +235,13 @@ namespace Compat
 		std::function<void(Log&)> m_printCall;
 		std::function<void(Log&)> m_printResult;
 	};
-#else
-	class LogDebug
+
+	class LogStruct : public detail::LogFirstParam
 	{
 	public:
-		template <typename T> LogDebug& operator<<(const T&) { return *this; }
+		LogStruct(std::ostream& os) : detail::LogFirstParam(os) { m_os << '{'; }
+		~LogStruct() { m_os << '}'; }
 	};
-
-	class LogFunc
-	{
-	public:
-		template <typename... Params>
-		LogFunc(const char* /*funcName*/, Params...)
-		{
-		}
-
-		template <typename T>
-		T setResult(T result)
-		{
-			return result;
-		}
-	};
-#endif
 }
 
 template <typename T>

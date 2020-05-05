@@ -144,14 +144,14 @@ namespace
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
 			static_cast<char*>(hookedFuncPtr), &module);
 
-		Compat::LogDebug() << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
+		LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
 
 		DetourTransactionBegin();
 		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
 		const bool commitSuccessful = NO_ERROR == DetourTransactionCommit();
 		if (!attachSuccessful || !commitSuccessful)
 		{
-			Compat::LogDebug() << "ERROR: Failed to hook a function: " << funcName;
+			LOG_DEBUG << "ERROR: Failed to hook a function: " << funcName;
 			return;
 		}
 
@@ -270,7 +270,7 @@ namespace Compat
 		FARPROC procAddr = getProcAddress(module, funcName);
 		if (!procAddr)
 		{
-			Compat::LogDebug() << "ERROR: Failed to load the address of a function: " << funcName;
+			LOG_DEBUG << "ERROR: Failed to load the address of a function: " << funcName;
 			return;
 		}
 
@@ -294,7 +294,7 @@ namespace Compat
 		FARPROC* func = findProcAddressInIat(module, importedModuleName, funcName);
 		if (func)
 		{
-			Compat::LogDebug() << "Hooking function via IAT: " << funcName << " (" << funcAddrToStr(*func) << ')';
+			LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcAddrToStr(*func) << ')';
 			DWORD oldProtect = 0;
 			VirtualProtect(func, sizeof(func), PAGE_READWRITE, &oldProtect);
 			*func = static_cast<FARPROC>(newFuncPtr);

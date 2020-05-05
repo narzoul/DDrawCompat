@@ -214,8 +214,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			return TRUE;
 		}
 
-		Compat::Log::initLogging();
-		Compat::Log() << "Process path: " << getModulePath(nullptr);
+		auto processPath = getModulePath(nullptr);
+		Compat::Log::initLogging(getFileName(processPath));
+
+		Compat::Log() << "Process path: " << processPath;
 		printEnvironmentVariable("__COMPAT_LAYER");
 		auto currentDllPath = getModulePath(hinstDLL);
 		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath;

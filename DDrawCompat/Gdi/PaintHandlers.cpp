@@ -160,7 +160,7 @@ namespace
 	}
 
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
-		const char* origWndProcName)
+		[[maybe_unused]] const char* origWndProcName)
 	{
 		LOG_FUNC(origWndProcName, hwnd, Compat::logWm(msg), Compat::hex(wParam), Compat::hex(lParam));
 		return LOG_RESULT(defPaintProc(hwnd, msg, wParam, lParam, origWndProc));
@@ -431,7 +431,7 @@ namespace
 	}
 
 	LRESULT CALLBACK user32WndProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
-		const std::string& procName, WndProcHook wndProcHook, WNDPROC oldWndProcTrampoline)
+		[[maybe_unused]] const std::string& procName, WndProcHook wndProcHook, WNDPROC oldWndProcTrampoline)
 	{
 		LOG_FUNC(procName.c_str(), hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
 		return LOG_RESULT(wndProcHook(hwnd, uMsg, wParam, lParam, oldWndProcTrampoline));

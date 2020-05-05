@@ -464,7 +464,9 @@ namespace D3dDdi
 			}
 		}
 
+#ifdef DEBUGLOGS
 		LOG_RESULT(m_lockResource.get());
+#endif
 	}
 
 	void Resource::endGdiAccess(bool isReadOnly)
