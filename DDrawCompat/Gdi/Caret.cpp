@@ -1,11 +1,10 @@
 #include <Windows.h>
 
-#include "Common/Hook.h"
-#include "Common/Time.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "Gdi/Caret.h"
-
-extern "C" IMAGE_DOS_HEADER __ImageBase;
+#include <Common/Hook.h>
+#include <Common/Time.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <Dll/Dll.h>
+#include <Gdi/Caret.h>
 
 namespace
 {
@@ -114,14 +113,10 @@ namespace Gdi
 
 		void installHooks()
 		{
-			g_caretGeneralEventHook = SetWinEventHook(
-				EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
-				reinterpret_cast<HMODULE>(&__ImageBase), &caretEvent,
-				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
-			g_caretLocationChangeEventHook = SetWinEventHook(
-				EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
-				reinterpret_cast<HMODULE>(&__ImageBase), &caretEvent,
-				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+			g_caretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
+				Dll::g_currentModule, &caretEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+			g_caretLocationChangeEventHook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+				Dll::g_currentModule, &caretEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 		}
 
 		void uninstallHooks()

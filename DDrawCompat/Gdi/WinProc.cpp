@@ -6,6 +6,7 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/ScopedCriticalSection.h>
+#include <Dll/Dll.h>
 #include <Gdi/AccessGuard.h>
 #include <Gdi/Dc.h>
 #include <Win32/DisplayMode.h>
@@ -15,8 +16,6 @@
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
-
-extern "C" IMAGE_DOS_HEADER __ImageBase;
 
 namespace
 {
@@ -316,11 +315,9 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
 
 			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
-				reinterpret_cast<HMODULE>(&__ImageBase), &objectCreateEvent,
-				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
-				reinterpret_cast<HMODULE>(&__ImageBase), &objectStateChangeEvent,
-				GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+				Dll::g_currentModule, &objectStateChangeEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 
 			EnumWindows(initTopLevelWindow, 0);
 			Gdi::Window::updateAll();

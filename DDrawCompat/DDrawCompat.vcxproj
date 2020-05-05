@@ -87,7 +87,6 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;psapi.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
@@ -106,7 +105,6 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;psapi.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
@@ -125,7 +123,6 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <ModuleDefinitionFile>Dll/DDrawCompat.def</ModuleDefinitionFile>
       <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;psapi.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
@@ -211,7 +208,7 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dVertexBufferVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
-    <ClInclude Include="Dll\Procs.h" />
+    <ClInclude Include="Dll\Dll.h" />
     <ClInclude Include="Gdi\AccessGuard.h" />
     <ClInclude Include="Gdi\Font.h" />
     <ClInclude Include="Gdi\Gdi.h" />
@@ -279,9 +276,8 @@
     <ClCompile Include="Direct3d\Direct3dViewport.cpp" />
     <ClCompile Include="Direct3d\Hooks.cpp" />
     <ClCompile Include="Direct3d\Log.cpp" />
-    <ClCompile Include="Dll\Procs.cpp" />
     <ClCompile Include="Dll\DllMain.cpp" />
-    <ClCompile Include="Dll\UnmodifiedProcs.cpp" />
+    <ClCompile Include="Dll\Dll.cpp" />
     <ClCompile Include="Gdi\AccessGuard.cpp" />
     <ClCompile Include="Gdi\Font.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
@@ -304,9 +300,6 @@
     <ClCompile Include="Win32\Registry.cpp" />
     <ClCompile Include="Win32\TimeFunctions.cpp" />
     <ClCompile Include="Win32\WaitFunctions.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Dll\DDrawCompat.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

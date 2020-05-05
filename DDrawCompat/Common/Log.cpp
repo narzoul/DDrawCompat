@@ -74,9 +74,14 @@ namespace Compat
 		s_logFile << std::endl;
 	}
 
+	void Log::initLogging()
+	{
+		s_logFile.open("ddraw.log");
+	}
+
 	thread_local DWORD Log::s_indent = 0;
 	thread_local DWORD Log::s_outParamDepth = 0;
 	thread_local bool Log::s_isLeaveLog = false;
 
-	std::ofstream Log::s_logFile("ddraw.log");
+	std::ofstream Log::s_logFile;
 }

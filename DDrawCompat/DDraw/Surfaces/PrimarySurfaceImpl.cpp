@@ -7,7 +7,7 @@
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurfaceImpl.h>
-#include <Dll/Procs.h>
+#include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
 #include <Gdi/VirtualScreen.h>

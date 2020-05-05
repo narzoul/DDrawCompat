@@ -145,6 +145,7 @@ namespace Compat
 			return *this;
 		}
 
+		static void initLogging();
 		static bool isPointerDereferencingAllowed() { return s_isLeaveLog || 0 == s_outParamDepth; }
 
 	protected:
@@ -276,7 +277,7 @@ operator<<(std::ostream& os, T* t)
 		return os << "null";
 	}
 
-	if (!Compat::Log::isPointerDereferencingAllowed())
+	if (!Compat::Log::isPointerDereferencingAllowed() || reinterpret_cast<DWORD>(t) <= 0xFFFF)
 	{
 		return os << static_cast<const void*>(t);
 	}
@@ -294,10 +295,10 @@ std::ostream& operator<<(std::ostream& os, T** t)
 
 	os << static_cast<const void*>(t);
 
-	if (Compat::Log::isPointerDereferencingAllowed())
+	if (!Compat::Log::isPointerDereferencingAllowed() || reinterpret_cast<DWORD>(t) <= 0xFFFF)
 	{
-		os << '=' << *t;
+		return os;
 	}
 
-	return os;
+	return os << '=' << *t;
 }

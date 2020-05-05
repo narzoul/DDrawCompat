@@ -7,8 +7,6 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/Window.h>
 
-extern "C" IMAGE_DOS_HEADER __ImageBase;
-
 namespace
 {
 	const UINT WM_CREATEPRESENTATIONWINDOW = WM_USER;
@@ -132,7 +130,7 @@ namespace
 
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
-		wc.hInstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
+		wc.hInstance = Dll::g_currentModule;
 		wc.lpszClassName = "DDrawCompatMessageWindow";
 		RegisterClass(&wc);
 
@@ -329,7 +327,7 @@ namespace Gdi
 
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &presentationWindowProc;
-		wc.hInstance = reinterpret_cast<HINSTANCE>(&__ImageBase);
+		wc.hInstance = Dll::g_currentModule;
 		wc.lpszClassName = "DDrawCompatPresentationWindow";
 		RegisterClass(&wc);
 

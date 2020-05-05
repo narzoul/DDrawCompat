@@ -1,6 +1,8 @@
 #include <string>
+#include <vector>
 
 #include <Windows.h>
+#include <Psapi.h>
 #include <timeapi.h>
 #include <Uxtheme.h>
 
@@ -11,7 +13,7 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
 #include <Direct3d/Hooks.h>
-#include <Dll/Procs.h>
+#include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
@@ -24,7 +26,72 @@ HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
 namespace
 {
+	template <typename Result, typename... Params>
+	using FuncPtr = Result(WINAPI*)(Params...);
+
 	HMODULE g_origDDrawModule = nullptr;
+	HMODULE g_origDciman32Module = nullptr;
+
+	template <FARPROC(Dll::Procs::* origFunc)>
+	const char* getFuncName();
+
+#define DEFINE_FUNC_NAME(func) template <> const char* getFuncName<&Dll::Procs::func>() { return #func; }
+	VISIT_PUBLIC_DDRAW_PROCS(DEFINE_FUNC_NAME)
+#undef  DEFINE_FUNC_NAME
+
+	void installHooks();
+
+	template <FARPROC(Dll::Procs::* origFunc), typename Result, typename FirstParam, typename... Params>
+	Result WINAPI directDrawFunc(FirstParam firstParam, Params... params)
+	{
+		LOG_FUNC(getFuncName<origFunc>(), firstParam, params...);
+		installHooks();
+		suppressEmulatedDirectDraw(firstParam);
+		return LOG_RESULT(reinterpret_cast<FuncPtr<Result, FirstParam, Params...>>(Dll::g_origProcs.*origFunc)(
+			firstParam, params...));
+	}
+
+	template <FARPROC(Dll::Procs::* origFunc), typename Result, typename... Params>
+	FuncPtr<Result, Params...> getDirectDrawFuncPtr(FuncPtr<Result, Params...>)
+	{
+		return &directDrawFunc<origFunc, Result, Params...>;
+	}
+
+	std::string getDirName(const std::string& path)
+	{
+		return path.substr(0, path.find_last_of('\\'));
+	}
+
+	std::string getFileName(const std::string& path)
+	{
+		auto lastSeparatorPos = path.find_last_of('\\');
+		return std::string::npos == lastSeparatorPos ? path : path.substr(lastSeparatorPos + 1, std::string::npos);
+	}
+
+	std::string getModulePath(HMODULE module)
+	{
+		char path[MAX_PATH] = {};
+		GetModuleFileName(module, path, sizeof(path));
+		return path;
+	}
+
+	std::vector<HMODULE> getProcessModules(HANDLE process)
+	{
+		std::vector<HMODULE> modules(10000);
+		DWORD bytesNeeded = 0;
+		if (EnumProcessModules(process, modules.data(), modules.size(), &bytesNeeded))
+		{
+			modules.resize(bytesNeeded / sizeof(modules[0]));
+		}
+		return modules;
+	}
+
+	std::string getSystemDirectory()
+	{
+		char path[MAX_PATH] = {};
+		GetSystemDirectory(path, sizeof(path));
+		return path;
+	}
 
 	void installHooks()
 	{
@@ -74,18 +141,28 @@ namespace
 		}
 	}
 
-	bool loadLibrary(const std::string& systemDirectory, const std::string& dllName, HMODULE& module)
+	bool isEqualPath(const std::string& p1, const std::string& p2)
 	{
-		const std::string systemDllPath = systemDirectory + '\\' + dllName;
+		return 0 == _strcmpi(p1.c_str(), p2.c_str());
+	}
 
-		module = LoadLibrary(systemDllPath.c_str());
-		if (!module)
+	bool isOtherDDrawWrapperLoaded()
+	{
+		auto currentDllPath = getModulePath(Dll::g_currentModule);
+		auto systemDirectory = getSystemDirectory();
+		auto processModules = getProcessModules(GetCurrentProcess());
+		for (HMODULE module : processModules)
 		{
-			Compat::Log() << "ERROR: Failed to load system " << dllName << " from " << systemDllPath;
-			return false;
+			auto path = getModulePath(module);
+			auto fileName = getFileName(path);
+			if ((isEqualPath(fileName, "ddraw.dll") || isEqualPath(fileName, "dciman32.dll")) &&
+				!isEqualPath(path, currentDllPath) &&
+				!isEqualPath(getDirName(path), systemDirectory))
+			{
+				return true;
+			}
 		}
-
-		return true;
+		return false;
 	}
 
 	void printEnvironmentVariable(const char* var)
@@ -99,42 +176,79 @@ namespace
 		}
 		Compat::Log() << "Environment variable " << var << " = \"" << value << '"';
 	}
+
+	template <typename Param>
+	void suppressEmulatedDirectDraw(Param)
+	{
+	}
+
+	void suppressEmulatedDirectDraw(GUID*& guid)
+	{
+		DDraw::suppressEmulatedDirectDraw(guid);
+	}
 }
 
-#define	LOAD_ORIGINAL_PROC(procName) \
-	Dll::g_origProcs.procName = Compat::getProcAddress(g_origDDrawModule, #procName);
+#define	LOAD_ORIG_PROC(proc) \
+	Dll::g_origProcs.proc = Compat::getProcAddress(origModule, #proc);
+
+#define HOOK_DDRAW_PROC(proc) \
+	Compat::hookFunction( \
+		reinterpret_cast<void*&>(Dll::g_origProcs.proc), \
+		getDirectDrawFuncPtr<&Dll::Procs::proc>(static_cast<decltype(&proc)>(nullptr)), \
+		#proc);
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 {
+	static bool skipDllMain = false;
+	if (skipDllMain)
+	{
+		return TRUE;
+	}
+
 	if (fdwReason == DLL_PROCESS_ATTACH)
 	{
-		char currentProcessPath[MAX_PATH] = {};
-		GetModuleFileName(nullptr, currentProcessPath, MAX_PATH);
-		Compat::Log() << "Process path: " << currentProcessPath;
+		Dll::g_currentModule = hinstDLL;
+		if (isOtherDDrawWrapperLoaded())
+		{
+			skipDllMain = true;
+			return TRUE;
+		}
 
+		Compat::Log::initLogging();
+		Compat::Log() << "Process path: " << getModulePath(nullptr);
 		printEnvironmentVariable("__COMPAT_LAYER");
+		auto currentDllPath = getModulePath(hinstDLL);
+		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath;
 
-		char currentDllPath[MAX_PATH] = {};
-		GetModuleFileName(hinstDLL, currentDllPath, MAX_PATH);
-		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically")
-			<< " from " << currentDllPath;
-
-		char systemDirectory[MAX_PATH] = {};
-		GetSystemDirectory(systemDirectory, MAX_PATH);
-
-		std::string systemDDrawDllPath = std::string(systemDirectory) + "\\ddraw.dll";
-		if (0 == _stricmp(currentDllPath, systemDDrawDllPath.c_str()))
+		auto systemDirectory = getSystemDirectory();
+		if (isEqualPath(getDirName(currentDllPath), systemDirectory))
 		{
-			Compat::Log() << "DDrawCompat cannot be installed as the system ddraw.dll";
+			Compat::Log() << "DDrawCompat cannot be installed in the Windows system directory";
 			return FALSE;
 		}
 
-		if (!loadLibrary(systemDirectory, "ddraw.dll", g_origDDrawModule))
+		auto systemDDrawDllPath = systemDirectory + "\\ddraw.dll";
+		g_origDDrawModule = LoadLibrary(systemDDrawDllPath.c_str());
+		if (!g_origDDrawModule)
 		{
+			Compat::Log() << "ERROR: Failed to load system ddraw.dll from " << systemDDrawDllPath;
 			return FALSE;
 		}
 
-		VISIT_ALL_PROCS(LOAD_ORIGINAL_PROC);
+		HMODULE origModule = g_origDDrawModule;
+		VISIT_DDRAW_PROCS(LOAD_ORIG_PROC);
+
+		auto systemDciman32DllPath = systemDirectory + "\\dciman32.dll";
+		g_origDciman32Module = LoadLibrary(systemDciman32DllPath.c_str());
+		if (g_origDciman32Module)
+		{
+			origModule = g_origDciman32Module;
+			VISIT_DCIMAN32_PROCS(LOAD_ORIG_PROC);
+		}
+
+		Dll::g_jmpTargetProcs = Dll::g_origProcs;
+
+		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC)
 
 		const BOOL disablePriorityBoost = TRUE;
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
@@ -160,6 +274,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			D3dDdi::uninstallHooks();
 			Gdi::uninstallHooks();
 			Compat::unhookAllFunctions();
+			FreeLibrary(g_origDciman32Module);
 			FreeLibrary(g_origDDrawModule);
 		}
 		timeEndPeriod(1);
@@ -171,35 +286,4 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 	}
 
 	return TRUE;
-}
-
-extern "C" HRESULT WINAPI DirectDrawCreate(
-	GUID* lpGUID,
-	LPDIRECTDRAW* lplpDD,
-	IUnknown* pUnkOuter)
-{
-	LOG_FUNC(__func__, lpGUID, lplpDD, pUnkOuter);
-	installHooks();
-	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreate)(lpGUID, lplpDD, pUnkOuter));
-}
-
-extern "C" HRESULT WINAPI DirectDrawCreateEx(
-	GUID* lpGUID,
-	LPVOID* lplpDD,
-	REFIID iid,
-	IUnknown* pUnkOuter)
-{
-	LOG_FUNC(__func__, lpGUID, lplpDD, iid, pUnkOuter);
-	installHooks();
-	DDraw::suppressEmulatedDirectDraw(lpGUID);
-	return LOG_RESULT(CALL_ORIG_PROC(DirectDrawCreateEx)(lpGUID, lplpDD, iid, pUnkOuter));
-}
-
-extern "C" HRESULT WINAPI DllGetClassObject(REFCLSID rclsid, REFIID riid, LPVOID* ppv)
-{
-	LOG_FUNC(__func__, rclsid, riid, ppv);
-	LOG_ONCE("COM instantiation of DirectDraw detected");
-	installHooks();
-	return LOG_RESULT(CALL_ORIG_PROC(DllGetClassObject)(rclsid, riid, ppv));
 }

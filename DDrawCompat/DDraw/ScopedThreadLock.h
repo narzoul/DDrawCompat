@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Dll/Procs.h"
+#include <Dll/Dll.h>
 
 namespace DDraw
 {

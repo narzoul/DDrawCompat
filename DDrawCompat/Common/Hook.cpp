@@ -5,11 +5,9 @@
 #include <sstream>
 #include <string>
 #include <utility>
-#include <vector>
 
 #include <Windows.h>
 #include <detours.h>
-#include <Psapi.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
@@ -90,17 +88,6 @@ namespace
 		oss << getModulePath(module).string() << "+0x" << std::hex <<
 			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
 		return oss.str();
-	}
-
-	std::vector<HMODULE> getProcessModules(HANDLE process)
-	{
-		std::vector<HMODULE> modules(10000);
-		DWORD bytesNeeded = 0;
-		if (EnumProcessModules(process, modules.data(), modules.size(), &bytesNeeded))
-		{
-			modules.resize(bytesNeeded / sizeof(modules[0]));
-		}
-		return modules;
 	}
 
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module)

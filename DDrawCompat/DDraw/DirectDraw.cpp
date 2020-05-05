@@ -51,6 +51,11 @@ namespace DDraw
 		return pf;
 	}
 
+	void logComInstantiation()
+	{
+		LOG_ONCE("COM instantiation of DirectDraw detected");
+	}
+
 	void suppressEmulatedDirectDraw(GUID*& guid)
 	{
 		if (reinterpret_cast<GUID*>(DDCREATE_EMULATIONONLY) == guid)
@@ -119,6 +124,7 @@ namespace DDraw
 	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE DirectDraw<TDirectDraw>::Initialize(TDirectDraw* This, GUID* lpGUID)
 	{
+		logComInstantiation();
 		suppressEmulatedDirectDraw(lpGUID);
 		return s_origVtable.Initialize(This, lpGUID);
 	}

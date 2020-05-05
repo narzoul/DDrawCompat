@@ -231,9 +231,6 @@
     <ClInclude Include="Config\Config.h">
       <Filter>Header Files\Config</Filter>
     </ClInclude>
-    <ClInclude Include="Dll\Procs.h">
-      <Filter>Header Files\Dll</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\Surfaces\Surface.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>
@@ -384,6 +381,9 @@
     <ClInclude Include="Gdi\Font.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
+    <ClInclude Include="Dll\Dll.h">
+      <Filter>Header Files\Dll</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -475,15 +475,6 @@
     </ClCompile>
     <ClCompile Include="Win32\Registry.cpp">
       <Filter>Source Files\Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Dll\DllMain.cpp">
-      <Filter>Source Files\Dll</Filter>
-    </ClCompile>
-    <ClCompile Include="Dll\Procs.cpp">
-      <Filter>Source Files\Dll</Filter>
-    </ClCompile>
-    <ClCompile Include="Dll\UnmodifiedProcs.cpp">
-      <Filter>Source Files\Dll</Filter>
     </ClCompile>
     <ClCompile Include="DDraw\Surfaces\Surface.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
@@ -590,10 +581,11 @@
     <ClCompile Include="Gdi\Font.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Dll\DDrawCompat.def">
+    <ClCompile Include="Dll\DllMain.cpp">
       <Filter>Source Files\Dll</Filter>
-    </None>
+    </ClCompile>
+    <ClCompile Include="Dll\Dll.cpp">
+      <Filter>Source Files\Dll</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
