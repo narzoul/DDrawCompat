@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <Psapi.h>
+#include <ShellScalingApi.h>
 #include <timeapi.h>
 #include <Uxtheme.h>
 
@@ -177,6 +178,21 @@ namespace
 		Compat::Log() << "Environment variable " << var << " = \"" << value << '"';
 	}
 
+	void setDpiAwareness()
+	{
+		HMODULE shcore = LoadLibrary("shcore");
+		if (shcore)
+		{
+			auto setProcessDpiAwareness = reinterpret_cast<decltype(&SetProcessDpiAwareness)>(
+				Compat::getProcAddress(shcore, "SetProcessDpiAwareness"));
+			if (setProcessDpiAwareness && SUCCEEDED(setProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)))
+			{
+				return;
+			}
+		}
+		SetProcessDPIAware();
+	}
+
 	template <typename Param>
 	void suppressEmulatedDirectDraw(Param)
 	{
@@ -256,7 +272,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		timeBeginPeriod(1);
-		SetProcessDPIAware();
+		setDpiAwareness();
 		SetThemeAppProperties(0);
 
 		Win32::MsgHooks::installHooks();
