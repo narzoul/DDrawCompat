@@ -384,6 +384,9 @@
     <ClInclude Include="Dll\Dll.h">
       <Filter>Header Files\Dll</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\Log\CommonLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -586,6 +589,9 @@
     </ClCompile>
     <ClCompile Include="Dll\Dll.cpp">
       <Filter>Source Files\Dll</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\CommonLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

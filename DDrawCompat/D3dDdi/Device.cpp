@@ -29,34 +29,34 @@ namespace D3dDdi
 	{
 	}
 
-	HRESULT Device::blt(const D3DDDIARG_BLT& data)
+	HRESULT Device::blt(const D3DDDIARG_BLT* data)
 	{
-		auto it = m_resources.find(data.hDstResource);
+		auto it = m_resources.find(data->hDstResource);
 		if (it != m_resources.end())
 		{
-			return it->second.blt(data);
+			return it->second.blt(*data);
 		}
-		prepareForRendering(data.hSrcResource, data.SrcSubResourceIndex, true);
-		return m_origVtable.pfnBlt(m_device, &data);
+		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
+		return m_origVtable.pfnBlt(m_device, data);
 	}
 
-	HRESULT Device::clear(const D3DDDIARG_CLEAR& data, UINT numRect, const RECT* rect)
+	HRESULT Device::clear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
 	{
-		if (data.Flags & D3DCLEAR_TARGET)
+		if (data->Flags & D3DCLEAR_TARGET)
 		{
 			prepareForRendering();
 		}
-		return m_origVtable.pfnClear(m_device, &data, numRect, rect);
+		return m_origVtable.pfnClear(m_device, data, numRect, rect);
 	}
 
-	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL& data)
+	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL* data)
 	{
-		auto it = m_resources.find(data.hResource);
+		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.colorFill(data);
+			return it->second.colorFill(*data);
 		}
-		return m_origVtable.pfnColorFill(m_device, &data);
+		return m_origVtable.pfnColorFill(m_device, data);
 	}
 
 	template <typename Arg>
@@ -74,14 +74,14 @@ namespace D3dDdi
 		}
 	}
 
-	HRESULT Device::createResource(D3DDDIARG_CREATERESOURCE& data)
+	HRESULT Device::createResource(D3DDDIARG_CREATERESOURCE* data)
 	{
-		return createResourceImpl(data);
+		return createResourceImpl(*data);
 	}
 
-	HRESULT Device::createResource2(D3DDDIARG_CREATERESOURCE2& data)
+	HRESULT Device::createResource2(D3DDDIARG_CREATERESOURCE2* data)
 	{
-		return createResourceImpl(data);
+		return createResourceImpl(*data);
 	}
 
 	HRESULT Device::destroyResource(HANDLE resource)
@@ -124,111 +124,129 @@ namespace D3dDdi
 		return result;
 	}
 
-	HRESULT Device::drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE& data)
+	HRESULT Device::drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE* data)
 	{
 		prepareForRendering();
-		return m_origVtable.pfnDrawIndexedPrimitive(m_device, &data);
+		return m_origVtable.pfnDrawIndexedPrimitive(m_device, data);
 	}
 
-	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2& data,
+	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 		UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer)
 	{
 		prepareForRendering();
-		return m_origVtable.pfnDrawIndexedPrimitive2(m_device, &data, indicesSize, indexBuffer, flagBuffer);
+		return m_origVtable.pfnDrawIndexedPrimitive2(m_device, data, indicesSize, indexBuffer, flagBuffer);
 	}
 
-	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE& data, const UINT* flagBuffer)
+	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
 	{
 		if (m_streamSource && 0 != m_streamSourceData.Stride)
 		{
-			m_streamSource->fixVertexData(m_streamSourceData.Offset + data.VStart * m_streamSourceData.Stride,
-				data.PrimitiveCount, m_streamSourceData.Stride);
+			m_streamSource->fixVertexData(m_streamSourceData.Offset + data->VStart * m_streamSourceData.Stride,
+				data->PrimitiveCount, m_streamSourceData.Stride);
 		}
 		prepareForRendering();
-		return m_origVtable.pfnDrawPrimitive(m_device, &data, flagBuffer);
+		return m_origVtable.pfnDrawPrimitive(m_device, data, flagBuffer);
 	}
 
-	HRESULT Device::drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2& data)
+	HRESULT Device::drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2* data)
 	{
 		prepareForRendering();
-		return m_origVtable.pfnDrawPrimitive2(m_device, &data);
+		return m_origVtable.pfnDrawPrimitive2(m_device, data);
 	}
 
-	HRESULT Device::drawRectPatch(const D3DDDIARG_DRAWRECTPATCH& data, const D3DDDIRECTPATCH_INFO* info,
+	HRESULT Device::drawRectPatch(const D3DDDIARG_DRAWRECTPATCH* data, const D3DDDIRECTPATCH_INFO* info,
 		const FLOAT* patch)
 	{
 		prepareForRendering();
-		return m_origVtable.pfnDrawRectPatch(m_device, &data, info, patch);
+		return m_origVtable.pfnDrawRectPatch(m_device, data, info, patch);
 	}
 
-	HRESULT Device::drawTriPatch(const D3DDDIARG_DRAWTRIPATCH& data, const D3DDDITRIPATCH_INFO* info,
+	HRESULT Device::drawTriPatch(const D3DDDIARG_DRAWTRIPATCH* data, const D3DDDITRIPATCH_INFO* info,
 		const FLOAT* patch)
 	{
 		prepareForRendering();
-		return m_origVtable.pfnDrawTriPatch(m_device, &data, info, patch);
+		return m_origVtable.pfnDrawTriPatch(m_device, data, info, patch);
 	}
 
-	HRESULT Device::lock(D3DDDIARG_LOCK& data)
+	HRESULT Device::flush()
 	{
-		auto it = m_resources.find(data.hResource);
+		if (!s_isFlushEnabled)
+		{
+			return S_OK;
+		}
+		return m_origVtable.pfnFlush(m_device);
+	}
+
+	HRESULT Device::flush1(UINT FlushFlags)
+	{
+		if (!s_isFlushEnabled && 0 == FlushFlags)
+		{
+			return S_OK;
+		}
+		return m_origVtable.pfnFlush1(m_device, FlushFlags);
+	}
+
+	HRESULT Device::lock(D3DDDIARG_LOCK* data)
+	{
+		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.lock(data);
+			return it->second.lock(*data);
 		}
-		return m_origVtable.pfnLock(m_device, &data);
+		return m_origVtable.pfnLock(m_device, data);
 	}
 
-	HRESULT Device::openResource(D3DDDIARG_OPENRESOURCE& data)
+	HRESULT Device::openResource(D3DDDIARG_OPENRESOURCE* data)
 	{
-		HRESULT result = m_origVtable.pfnOpenResource(m_device, &data);
-		if (SUCCEEDED(result) && data.Flags.Fullscreen)
+		HRESULT result = m_origVtable.pfnOpenResource(m_device, data);
+		if (SUCCEEDED(result) && data->Flags.Fullscreen)
 		{
-			m_sharedPrimary = data.hResource;
+			m_sharedPrimary = data->hResource;
 		}
 		return result;
 	}
 
-	HRESULT Device::present(const D3DDDIARG_PRESENT& data)
+	HRESULT Device::present(const D3DDDIARG_PRESENT* data)
 	{
-		prepareForRendering(data.hSrcResource, data.SrcSubResourceIndex, true);
-		return m_origVtable.pfnPresent(m_device, &data);
+		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
+		return m_origVtable.pfnPresent(m_device, data);
 	}
 
-	HRESULT Device::present1(D3DDDIARG_PRESENT1& data)
+	HRESULT Device::present1(D3DDDIARG_PRESENT1* data)
 	{
-		for (UINT i = 0; i < data.SrcResources; ++i)
+		for (UINT i = 0; i < data->SrcResources; ++i)
 		{
-			prepareForRendering(data.phSrcResources[i].hResource, data.phSrcResources[i].SubResourceIndex, true);
+			prepareForRendering(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
 		}
-		return m_origVtable.pfnPresent1(m_device, &data);
+		return m_origVtable.pfnPresent1(m_device, data);
 	}
 
-	HRESULT Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data)
+	HRESULT Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
 	{
-		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, &data);
-		if (SUCCEEDED(result) && 0 == data.RenderTargetIndex)
+		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, data);
+		if (SUCCEEDED(result) && 0 == data->RenderTargetIndex)
 		{
-			m_renderTarget = getResource(data.hRenderTarget);
-			m_renderTargetSubResourceIndex = data.SubResourceIndex;
-		}
-		return result;
-	}
-
-	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data)
-	{
-		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, &data);
-		if (SUCCEEDED(result) && 0 == data.Stream)
-		{
-			m_streamSourceData = data;
-			m_streamSource = getResource(data.hVertexBuffer);
+			m_renderTarget = getResource(data->hRenderTarget);
+			m_renderTargetSubResourceIndex = data->SubResourceIndex;
 		}
 		return result;
 	}
 
-	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer)
+	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
 	{
-		HRESULT result = m_origVtable.pfnSetStreamSourceUm(m_device, &data, umBuffer);
-		if (SUCCEEDED(result) && 0 == data.Stream)
+		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, data);
+		if (SUCCEEDED(result) && 0 == data->Stream)
+		{
+			m_streamSourceData = *data;
+			m_streamSource = getResource(data->hVertexBuffer);
+		}
+		return result;
+	}
+
+	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
+	{
+		HRESULT result = m_origVtable.pfnSetStreamSourceUm(m_device, data, umBuffer);
+		if (SUCCEEDED(result) && 0 == data->Stream)
 		{
 			m_streamSourceData = {};
 			m_streamSource = nullptr;
@@ -236,26 +254,26 @@ namespace D3dDdi
 		return result;
 	}
 
-	HRESULT Device::unlock(const D3DDDIARG_UNLOCK& data)
+	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)
 	{
-		auto it = m_resources.find(data.hResource);
+		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.unlock(data);
+			return it->second.unlock(*data);
 		}
-		return m_origVtable.pfnUnlock(m_device, &data);
+		return m_origVtable.pfnUnlock(m_device, data);
 	}
 
-	HRESULT Device::updateWInfo(const D3DDDIARG_WINFO& data)
+	HRESULT Device::updateWInfo(const D3DDDIARG_WINFO* data)
 	{
-		if (1.0f == data.WNear && 1.0f == data.WFar)
+		if (1.0f == data->WNear && 1.0f == data->WFar)
 		{
 			D3DDDIARG_WINFO wInfo = {};
 			wInfo.WNear = 0.0f;
 			wInfo.WFar = 1.0f;
 			return m_origVtable.pfnUpdateWInfo(m_device, &wInfo);
 		}
-		return m_origVtable.pfnUpdateWInfo(m_device, &data);
+		return m_origVtable.pfnUpdateWInfo(m_device, data);
 	}
 
 	Resource* Device::getGdiResource()
@@ -307,6 +325,11 @@ namespace D3dDdi
 		return it != m_resources.end() ? &it->second : nullptr;
 	}
 
+	void Device::enableFlush(bool enable)
+	{
+		s_isFlushEnabled = enable;
+	}
+
 	Resource* Device::findResource(HANDLE resource)
 	{
 		for (auto& device : s_devices)
@@ -322,6 +345,7 @@ namespace D3dDdi
 
 	void Device::setGdiResourceHandle(HANDLE resource)
 	{
+		ScopedCriticalSection lock;
 		if ((!resource && !g_gdiResource) ||
 			(g_gdiResource && resource == *g_gdiResource))
 		{
@@ -348,4 +372,5 @@ namespace D3dDdi
 	}
 
 	std::map<HANDLE, Device> Device::s_devices;
+	bool Device::s_isFlushEnabled = true;
 }

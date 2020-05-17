@@ -3,10 +3,10 @@
 
 namespace
 {
-	template <typename DeviceMethodPtr, DeviceMethodPtr deviceMethod, typename Arg, typename... Params>
-	HRESULT WINAPI deviceFunc(HANDLE device, Arg* data, Params... params)
+	template <typename DeviceMethodPtr, DeviceMethodPtr deviceMethod, typename... Params>
+	HRESULT WINAPI deviceFunc(HANDLE device, Params... params)
 	{
-		return (D3dDdi::Device::get(device).*deviceMethod)(*data, params...);
+		return (D3dDdi::Device::get(device).*deviceMethod)(params...);
 	}
 
 	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
@@ -17,11 +17,6 @@ namespace
 			D3dDdi::Device::remove(hDevice);
 		}
 		return result;
-	}
-
-	HRESULT APIENTRY destroyResource(HANDLE hDevice, HANDLE hResource)
-	{
-		return D3dDdi::Device::get(hDevice).destroyResource(hResource);
 	}
 }
 
@@ -42,13 +37,15 @@ namespace D3dDdi
 		vtable.pfnCreateResource = &DEVICE_FUNC(createResource);
 		vtable.pfnCreateResource2 = &DEVICE_FUNC(createResource2);
 		vtable.pfnDestroyDevice = &destroyDevice;
-		vtable.pfnDestroyResource = &destroyResource;
+		vtable.pfnDestroyResource = &DEVICE_FUNC(destroyResource);
 		vtable.pfnDrawIndexedPrimitive = &DEVICE_FUNC(drawIndexedPrimitive);
 		vtable.pfnDrawIndexedPrimitive2 = &DEVICE_FUNC(drawIndexedPrimitive2);
 		vtable.pfnDrawPrimitive = &DEVICE_FUNC(drawPrimitive);
 		vtable.pfnDrawPrimitive2 = &DEVICE_FUNC(drawPrimitive2);
 		vtable.pfnDrawRectPatch = &DEVICE_FUNC(drawRectPatch);
 		vtable.pfnDrawTriPatch = &DEVICE_FUNC(drawTriPatch);
+		vtable.pfnFlush = &DEVICE_FUNC(flush);
+		vtable.pfnFlush1 = &DEVICE_FUNC(flush1);
 		vtable.pfnLock = &DEVICE_FUNC(lock);
 		vtable.pfnOpenResource = &DEVICE_FUNC(openResource);
 		vtable.pfnPresent = &DEVICE_FUNC(present);

@@ -158,6 +158,7 @@
     <ClInclude Include="D3dDdi\Hooks.h" />
     <ClInclude Include="D3dDdi\KernelModeThunks.h" />
     <ClInclude Include="D3dDdi\Log\AdapterFuncsLog.h" />
+    <ClInclude Include="D3dDdi\Log\CommonLog.h" />
     <ClInclude Include="D3dDdi\Log\DeviceCallbacksLog.h" />
     <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h" />
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h" />
@@ -246,6 +247,7 @@
     <ClCompile Include="D3dDdi\Hooks.cpp" />
     <ClCompile Include="D3dDdi\KernelModeThunks.cpp" />
     <ClCompile Include="D3dDdi\Log\AdapterFuncsLog.cpp" />
+    <ClCompile Include="D3dDdi\Log\CommonLog.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceCallbacksLog.cpp" />
     <ClCompile Include="D3dDdi\Log\DeviceFuncsLog.cpp" />
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />

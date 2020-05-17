@@ -32,6 +32,8 @@
 		} \
 	}
 
+#define LOG_CONST_CASE(constant) case constant: return os << #constant;
+
 std::ostream& operator<<(std::ostream& os, std::nullptr_t);
 std::ostream& operator<<(std::ostream& os, const char* str);
 std::ostream& operator<<(std::ostream& os, const unsigned char* data);

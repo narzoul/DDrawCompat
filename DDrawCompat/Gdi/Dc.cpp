@@ -185,6 +185,8 @@ namespace Gdi
 				return nullptr;
 			}
 
+			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
+
 			D3dDdi::ScopedCriticalSection driverLock;
 			Compat::ScopedCriticalSection lock(g_cs);
 			auto it = g_origDcToCompatDc.find(origDc);
@@ -210,7 +212,6 @@ namespace Gdi
 
 			POINT origin = {};
 			GetDCOrgEx(origDc, &origin);
-			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 			if (wnd && GetDesktopWindow() != wnd)
 			{
 				origin.x -= virtualScreenBounds.left;
