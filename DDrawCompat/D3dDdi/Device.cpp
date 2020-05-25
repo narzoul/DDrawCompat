@@ -2,11 +2,11 @@
 #include <winternl.h>
 #include <../km/d3dkmthk.h>
 
-#include "Common/HResultException.h"
-#include "D3dDdi/Adapter.h"
-#include "D3dDdi/Device.h"
-#include "D3dDdi/DeviceFuncs.h"
-#include "D3dDdi/Resource.h"
+#include <Common/HResultException.h>
+#include <D3dDdi/Adapter.h>
+#include <D3dDdi/Device.h>
+#include <D3dDdi/DeviceFuncs.h>
+#include <D3dDdi/Resource.h>
 
 namespace
 {
@@ -24,8 +24,7 @@ namespace D3dDdi
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
-		, m_streamSourceData{}
-		, m_streamSource(nullptr)
+		, m_drawPrimitive(*this)
 	{
 	}
 
@@ -66,6 +65,13 @@ namespace D3dDdi
 		{
 			Resource resource(*this, data);
 			m_resources.emplace(resource, std::move(resource));
+			if (data.Flags.VertexBuffer &&
+				D3DDDIPOOL_SYSTEMMEM == data.Pool &&
+				data.pSurfList[0].pSysMem)
+			{
+				m_drawPrimitive.addSysMemVertexBuffer(data.hResource,
+					static_cast<BYTE*>(const_cast<void*>(data.pSurfList[0].pSysMem)), data.Fvf);
+			}
 			return S_OK;
 		}
 		catch (const HResultException& e)
@@ -115,57 +121,27 @@ namespace D3dDdi
 				g_gdiResourceHandle = nullptr;
 				g_gdiResource = nullptr;
 			}
-			if (resource == m_streamSource)
-			{
-				m_streamSource = nullptr;
-			}
+			m_drawPrimitive.removeSysMemVertexBuffer(resource);
 		}
 
 		return result;
 	}
 
-	HRESULT Device::drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE* data)
-	{
-		prepareForRendering();
-		return m_origVtable.pfnDrawIndexedPrimitive(m_device, data);
-	}
-
 	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 		UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer)
 	{
+		if (2 != indicesSize)
+		{
+			return E_INVALIDARG;
+		}
 		prepareForRendering();
-		return m_origVtable.pfnDrawIndexedPrimitive2(m_device, data, indicesSize, indexBuffer, flagBuffer);
+		return m_drawPrimitive.drawIndexed(*data, indexBuffer, flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
 	{
-		if (m_streamSource && 0 != m_streamSourceData.Stride)
-		{
-			m_streamSource->fixVertexData(m_streamSourceData.Offset + data->VStart * m_streamSourceData.Stride,
-				data->PrimitiveCount, m_streamSourceData.Stride);
-		}
 		prepareForRendering();
-		return m_origVtable.pfnDrawPrimitive(m_device, data, flagBuffer);
-	}
-
-	HRESULT Device::drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2* data)
-	{
-		prepareForRendering();
-		return m_origVtable.pfnDrawPrimitive2(m_device, data);
-	}
-
-	HRESULT Device::drawRectPatch(const D3DDDIARG_DRAWRECTPATCH* data, const D3DDDIRECTPATCH_INFO* info,
-		const FLOAT* patch)
-	{
-		prepareForRendering();
-		return m_origVtable.pfnDrawRectPatch(m_device, data, info, patch);
-	}
-
-	HRESULT Device::drawTriPatch(const D3DDDIARG_DRAWTRIPATCH* data, const D3DDDITRIPATCH_INFO* info,
-		const FLOAT* patch)
-	{
-		prepareForRendering();
-		return m_origVtable.pfnDrawTriPatch(m_device, data, info, patch);
+		return m_drawPrimitive.draw(*data, flagBuffer);
 	}
 
 	HRESULT Device::flush()
@@ -234,24 +210,12 @@ namespace D3dDdi
 
 	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
 	{
-		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, data);
-		if (SUCCEEDED(result) && 0 == data->Stream)
-		{
-			m_streamSourceData = *data;
-			m_streamSource = getResource(data->hVertexBuffer);
-		}
-		return result;
+		return m_drawPrimitive.setStreamSource(*data);
 	}
 
 	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
 	{
-		HRESULT result = m_origVtable.pfnSetStreamSourceUm(m_device, data, umBuffer);
-		if (SUCCEEDED(result) && 0 == data->Stream)
-		{
-			m_streamSourceData = {};
-			m_streamSource = nullptr;
-		}
-		return result;
+		return m_drawPrimitive.setStreamSourceUm(*data, umBuffer);
 	}
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)

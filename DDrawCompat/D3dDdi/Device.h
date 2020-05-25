@@ -7,6 +7,8 @@
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
+#include <D3dDdi/DrawPrimitive.h>
+
 namespace D3dDdi
 {
 	class Adapter;
@@ -23,15 +25,9 @@ namespace D3dDdi
 		HRESULT createResource(D3DDDIARG_CREATERESOURCE* data);
 		HRESULT createResource2(D3DDDIARG_CREATERESOURCE2* data);
 		HRESULT destroyResource(HANDLE resource);
-		HRESULT drawIndexedPrimitive(const D3DDDIARG_DRAWINDEXEDPRIMITIVE* data);
 		HRESULT drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 			UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer);
 		HRESULT drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer);
-		HRESULT drawPrimitive2(const D3DDDIARG_DRAWPRIMITIVE2* data);
-		HRESULT drawRectPatch(const D3DDDIARG_DRAWRECTPATCH* data, const D3DDDIRECTPATCH_INFO* info,
-			const FLOAT* patch);
-		HRESULT drawTriPatch(const D3DDDIARG_DRAWTRIPATCH* data, const D3DDDITRIPATCH_INFO* info,
-			const FLOAT* patch);
 		HRESULT flush();
 		HRESULT flush1(UINT FlushFlags);
 		HRESULT lock(D3DDDIARG_LOCK* data);
@@ -74,8 +70,7 @@ namespace D3dDdi
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;
-		D3DDDIARG_SETSTREAMSOURCE m_streamSourceData;
-		Resource* m_streamSource;
+		DrawPrimitive m_drawPrimitive;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

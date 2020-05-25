@@ -6,7 +6,7 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "D3dDdi/FormatInfo.h"
+#include <D3dDdi/FormatInfo.h>
 
 namespace D3dDdi
 {
@@ -30,7 +30,6 @@ namespace D3dDdi
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void endGdiAccess(bool isReadOnly);
-		void fixVertexData(UINT offset, UINT count, UINT stride);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);

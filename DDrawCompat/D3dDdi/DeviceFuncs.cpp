@@ -11,12 +11,8 @@ namespace
 
 	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
 	{
-		HRESULT result = D3dDdi::DeviceFuncs::s_origVtablePtr->pfnDestroyDevice(hDevice);
-		if (SUCCEEDED(result))
-		{
-			D3dDdi::Device::remove(hDevice);
-		}
-		return result;
+		D3dDdi::Device::remove(hDevice);
+		return D3dDdi::DeviceFuncs::s_origVtablePtr->pfnDestroyDevice(hDevice);
 	}
 }
 
@@ -38,12 +34,8 @@ namespace D3dDdi
 		vtable.pfnCreateResource2 = &DEVICE_FUNC(createResource2);
 		vtable.pfnDestroyDevice = &destroyDevice;
 		vtable.pfnDestroyResource = &DEVICE_FUNC(destroyResource);
-		vtable.pfnDrawIndexedPrimitive = &DEVICE_FUNC(drawIndexedPrimitive);
 		vtable.pfnDrawIndexedPrimitive2 = &DEVICE_FUNC(drawIndexedPrimitive2);
 		vtable.pfnDrawPrimitive = &DEVICE_FUNC(drawPrimitive);
-		vtable.pfnDrawPrimitive2 = &DEVICE_FUNC(drawPrimitive2);
-		vtable.pfnDrawRectPatch = &DEVICE_FUNC(drawRectPatch);
-		vtable.pfnDrawTriPatch = &DEVICE_FUNC(drawTriPatch);
 		vtable.pfnFlush = &DEVICE_FUNC(flush);
 		vtable.pfnFlush1 = &DEVICE_FUNC(flush1);
 		vtable.pfnLock = &DEVICE_FUNC(lock);
