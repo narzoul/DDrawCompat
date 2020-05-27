@@ -5,6 +5,7 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
 #include <Gdi/Window.h>
 
 namespace
@@ -42,7 +43,7 @@ namespace
 				nullptr,
 				WS_DISABLED | WS_POPUP,
 				0, 0, 1, 1,
-				nullptr,
+				origWindow,
 				nullptr,
 				nullptr,
 				nullptr);
@@ -81,8 +82,6 @@ namespace
 			HWND owner = reinterpret_cast<HWND>(lParam);
 			if (IsWindowVisible(owner) && !IsIconic(owner))
 			{
-				RECT wr = {};
-				GetWindowRect(owner, &wr);
 				DWORD flags = SWP_SHOWWINDOW | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW;
 
 				HWND insertAfter = HWND_TOP;
@@ -99,21 +98,33 @@ namespace
 					}
 				}
 
-				CALL_ORIG_FUNC(SetWindowPos)(
-					hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
-
-				HRGN rgn = CreateRectRgn(0, 0, 0, 0);
-				if (ERROR != GetWindowRgn(owner, rgn))
+				RECT wr = {};
+				GetWindowRect(owner, &wr);
+				RECT wrPres = {};
+				GetWindowRect(hwnd, &wrPres);
+				if (!(flags & SWP_NOZORDER) || !EqualRect(&wr, &wrPres) || !IsWindowVisible(hwnd))
 				{
-					SetWindowRgn(hwnd, rgn, FALSE);
+					CALL_ORIG_FUNC(SetWindowPos)(
+						hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
 				}
-				else
+
+				Gdi::Region rgn;
+				int rgnResult = GetWindowRgn(owner, rgn);
+				Gdi::Region rgnPres;
+				int rgnPresResult = GetWindowRgn(hwnd, rgnPres);
+				if (rgnResult != rgnPresResult || !EqualRgn(rgn, rgnPres))
 				{
-					SetWindowRgn(hwnd, nullptr, FALSE);
-					DeleteObject(rgn);
+					if (ERROR != rgnResult)
+					{
+						SetWindowRgn(hwnd, rgn.release(), FALSE);
+					}
+					else
+					{
+						SetWindowRgn(hwnd, nullptr, FALSE);
+					}
 				}
 			}
-			else
+			else if (IsWindowVisible(hwnd))
 			{
 				ShowWindow(hwnd, SW_HIDE);
 			}
@@ -227,7 +238,7 @@ namespace Gdi
 	{
 		if (m_presentationWindow)
 		{
-			DestroyWindow(m_presentationWindow);
+			SendNotifyMessage(m_presentationWindow, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
 		}
 	}
 

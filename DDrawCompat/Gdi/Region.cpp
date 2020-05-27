@@ -69,6 +69,13 @@ namespace Gdi
 		OffsetRgn(m_region, x, y);
 	}
 
+	HRGN Region::release()
+	{
+		HRGN rgn = m_region;
+		m_region = nullptr;
+		return rgn;
+	}
+
 	Region::operator HRGN() const
 	{
 		return m_region;

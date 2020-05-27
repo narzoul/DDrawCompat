@@ -17,6 +17,7 @@ namespace Gdi
 
 		bool isEmpty() const;
 		void offset(int x, int y);
+		HRGN release();
 
 		operator HRGN() const;
 
