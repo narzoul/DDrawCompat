@@ -45,6 +45,8 @@ namespace D3dDdi
 		vtable.pfnSetRenderTarget = &DEVICE_FUNC(setRenderTarget);
 		vtable.pfnSetStreamSource = &DEVICE_FUNC(setStreamSource);
 		vtable.pfnSetStreamSourceUm = &DEVICE_FUNC(setStreamSourceUm);
+		vtable.pfnSetTexture = &DEVICE_FUNC(setTexture);
+		vtable.pfnSetVertexShaderDecl = &DEVICE_FUNC(setVertexShaderDecl);
 		vtable.pfnUnlock = &DEVICE_FUNC(unlock);
 		vtable.pfnUpdateWInfo = &DEVICE_FUNC(updateWInfo);
 	}

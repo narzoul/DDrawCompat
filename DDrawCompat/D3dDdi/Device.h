@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <map>
 #include <unordered_map>
 
@@ -37,6 +38,8 @@ namespace D3dDdi
 		HRESULT setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
+		HRESULT setTexture(UINT stage, HANDLE texture);
+		HRESULT setVertexShaderDecl(HANDLE shader);
 		HRESULT unlock(const D3DDDIARG_UNLOCK* data);
 		HRESULT updateWInfo(const D3DDDIARG_WINFO* data);
 
@@ -70,6 +73,8 @@ namespace D3dDdi
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;
+		std::array<HANDLE, 8> m_textures;
+		HANDLE m_vertexShaderDecl;
 		DrawPrimitive m_drawPrimitive;
 
 		static std::map<HANDLE, Device> s_devices;

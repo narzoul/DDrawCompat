@@ -24,6 +24,8 @@ namespace D3dDdi
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
+		, m_textures{}
+		, m_vertexShaderDecl(nullptr)
 		, m_drawPrimitive(*this)
 	{
 	}
@@ -216,6 +218,41 @@ namespace D3dDdi
 	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
 	{
 		return m_drawPrimitive.setStreamSourceUm(*data, umBuffer);
+	}
+
+	HRESULT Device::setTexture(UINT stage, HANDLE texture)
+	{
+		if (stage < m_textures.size())
+		{
+			if (texture == m_textures[stage])
+			{
+				return S_OK;
+			}
+
+			HRESULT result = m_origVtable.pfnSetTexture(m_device, stage, texture);
+			if (SUCCEEDED(result) && stage < m_textures.size())
+			{
+				m_textures[stage] = texture;
+			}
+			return result;
+		}
+
+		return m_origVtable.pfnSetTexture(m_device, stage, texture);
+	}
+
+	HRESULT Device::setVertexShaderDecl(HANDLE shader)
+	{
+		if (shader == m_vertexShaderDecl)
+		{
+			return S_OK;
+		}
+
+		HRESULT result = m_origVtable.pfnSetVertexShaderDecl(m_device, shader);
+		if (SUCCEEDED(result))
+		{
+			m_vertexShaderDecl = shader;
+		}
+		return result;
 	}
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)
