@@ -20,7 +20,6 @@
 #include <Win32/DisplayMode.h>
 #include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
-#include <Win32/TimeFunctions.h>
 #include <Win32/WaitFunctions.h>
 
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
@@ -106,7 +105,6 @@ namespace
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks(g_origDDrawModule);
 			Compat::Log() << "Installing Win32 hooks";
-			Win32::TimeFunctions::installHooks();
 			Win32::WaitFunctions::installHooks();
 			Gdi::VirtualScreen::init();
 

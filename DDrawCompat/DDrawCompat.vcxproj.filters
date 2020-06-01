@@ -357,9 +357,6 @@
     <ClInclude Include="Win32\WaitFunctions.h">
       <Filter>Header Files\Win32</Filter>
     </ClInclude>
-    <ClInclude Include="Win32\TimeFunctions.h">
-      <Filter>Header Files\Win32</Filter>
-    </ClInclude>
     <ClInclude Include="Direct3d\Direct3dMaterial.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
@@ -570,9 +567,6 @@
       <Filter>Source Files\DDraw</Filter>
     </ClCompile>
     <ClCompile Include="Win32\WaitFunctions.cpp">
-      <Filter>Source Files\Win32</Filter>
-    </ClCompile>
-    <ClCompile Include="Win32\TimeFunctions.cpp">
       <Filter>Source Files\Win32</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dMaterial.cpp">

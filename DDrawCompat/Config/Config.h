@@ -1,11 +1,10 @@
 #pragma once
 
-typedef unsigned long DWORD;
-
 namespace Config
 {
-	const int delayedFlipModeTimeout = 200;
-	const int evictionTimeout = 200;
-	const int maxPaletteUpdatesPerMs = 5;
-	const int maxUserModeDisplayDrivers = 3;
+	const unsigned delayedFlipModeTimeout = 200;
+	const unsigned evictionTimeout = 200;
+	const unsigned maxPaletteUpdatesPerMs = 5;
+	const unsigned maxUserModeDisplayDrivers = 3;
+	const unsigned threadSwitchCycleTime = 3 * 1000 * 1000;
 }

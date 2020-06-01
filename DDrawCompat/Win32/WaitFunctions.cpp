@@ -1,54 +1,34 @@
 #include <Windows.h>
+#include <timeapi.h>
 
-#include <Config/Config.h>
 #include <Common/Hook.h>
+#include <Common/Time.h>
+#include <Config/Config.h>
 #include <Win32/WaitFunctions.h>
 
 namespace
 {
-	DWORD mitigateBusyWaiting(DWORD dwMilliseconds, DWORD waitResult)
+	void mitigateBusyWaiting()
 	{
-		if (0 == dwMilliseconds && WAIT_TIMEOUT == waitResult)
+		thread_local ULONG64 ctLastThreadSwitch = Time::queryThreadCycleTime();
+		ULONG64 ctNow = Time::queryThreadCycleTime();
+		if (ctNow - ctLastThreadSwitch >= Config::threadSwitchCycleTime)
 		{
-			SwitchToThread();
+			Sleep(0);
+			ctLastThreadSwitch = ctNow;
 		}
-		return waitResult;
 	}
 
-	DWORD WINAPI msgWaitForMultipleObjects(
-		DWORD nCount, const HANDLE* pHandles, BOOL fWaitAll, DWORD dwMilliseconds, DWORD dwWakeMask)
+	template <typename FuncPtr, FuncPtr func, typename Result, typename... Params>
+	Result WINAPI mitigatedBusyWaitingFunc(Params... params)
 	{
-		return mitigateBusyWaiting(dwMilliseconds, CALL_ORIG_FUNC(MsgWaitForMultipleObjects)(
-			nCount, pHandles, fWaitAll, dwMilliseconds, dwWakeMask));
-	}
-
-	DWORD WINAPI msgWaitForMultipleObjectsEx(
-		DWORD nCount, const HANDLE* pHandles, DWORD dwMilliseconds, DWORD dwWakeMask, DWORD dwFlags)
-	{
-		return mitigateBusyWaiting(dwMilliseconds, CALL_ORIG_FUNC(MsgWaitForMultipleObjectsEx)(
-			nCount, pHandles, dwMilliseconds, dwWakeMask, dwFlags));
-	}
-
-	DWORD WINAPI signalObjectAndWait(
-		HANDLE hObjectToSignal, HANDLE hObjectToWaitOn, DWORD dwMilliseconds, BOOL bAlertable)
-	{
-		return mitigateBusyWaiting(dwMilliseconds, CALL_ORIG_FUNC(SignalObjectAndWait)(
-			hObjectToSignal, hObjectToWaitOn, dwMilliseconds, bAlertable));
-	}
-
-	DWORD WINAPI waitForSingleObjectEx(HANDLE hHandle, DWORD dwMilliseconds, BOOL bAlertable)
-	{
-		return mitigateBusyWaiting(dwMilliseconds, CALL_ORIG_FUNC(WaitForSingleObjectEx)(
-			hHandle, dwMilliseconds, bAlertable));
-	}
-
-	DWORD WINAPI waitForMultipleObjectsEx(
-		DWORD nCount, const HANDLE* lpHandles, BOOL bWaitAll, DWORD dwMilliseconds, BOOL bAlertable)
-	{
-		return mitigateBusyWaiting(dwMilliseconds, CALL_ORIG_FUNC(WaitForMultipleObjectsEx)(
-			nCount, lpHandles, bWaitAll, dwMilliseconds, bAlertable));
+		mitigateBusyWaiting();
+		return Compat::getOrigFuncPtr<FuncPtr, func>()(params...);
 	}
 }
+
+#define MITIGATE_BUSY_WAITING(module, func) \
+		Compat::hookFunction<decltype(&func), &func>(#module, #func, &mitigatedBusyWaitingFunc<decltype(&func), func>)
 
 namespace Win32
 {
@@ -56,11 +36,17 @@ namespace Win32
 	{
 		void installHooks()
 		{
-			HOOK_FUNCTION(user32, MsgWaitForMultipleObjects, msgWaitForMultipleObjects);
-			HOOK_FUNCTION(user32, MsgWaitForMultipleObjectsEx, msgWaitForMultipleObjectsEx);
-			HOOK_FUNCTION(kernel32, SignalObjectAndWait, signalObjectAndWait);
-			HOOK_FUNCTION(kernel32, WaitForSingleObjectEx, waitForSingleObjectEx);
-			HOOK_FUNCTION(kernel32, WaitForMultipleObjectsEx, waitForMultipleObjectsEx);
+			MITIGATE_BUSY_WAITING(user32, GetMessageA);
+			MITIGATE_BUSY_WAITING(user32, GetMessageW);
+			MITIGATE_BUSY_WAITING(kernel32, GetTickCount);
+			MITIGATE_BUSY_WAITING(user32, MsgWaitForMultipleObjects);
+			MITIGATE_BUSY_WAITING(user32, MsgWaitForMultipleObjectsEx);
+			MITIGATE_BUSY_WAITING(user32, PeekMessageA);
+			MITIGATE_BUSY_WAITING(user32, PeekMessageW);
+			MITIGATE_BUSY_WAITING(kernel32, SignalObjectAndWait);
+			MITIGATE_BUSY_WAITING(winmm, timeGetTime);
+			MITIGATE_BUSY_WAITING(kernel32, WaitForSingleObjectEx);
+			MITIGATE_BUSY_WAITING(kernel32, WaitForMultipleObjectsEx);
 		}
 	}
 }

@@ -231,7 +231,6 @@
     <ClInclude Include="Win32\Log.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
-    <ClInclude Include="Win32\TimeFunctions.h" />
     <ClInclude Include="Win32\WaitFunctions.h" />
   </ItemGroup>
   <ItemGroup>
@@ -302,7 +301,6 @@
     <ClCompile Include="Win32\Log.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
-    <ClCompile Include="Win32\TimeFunctions.cpp" />
     <ClCompile Include="Win32\WaitFunctions.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
