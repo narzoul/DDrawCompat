@@ -143,6 +143,13 @@ namespace D3dDdi
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device))
 	{
+		if (m_origData.Flags.VertexBuffer &&
+			m_origData.Flags.MightDrawFromLocked &&
+			D3DDDIPOOL_SYSTEMMEM != m_origData.Pool)
+		{
+			throw HResultException(E_FAIL);
+		}
+
 		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(m_fixedData));
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 

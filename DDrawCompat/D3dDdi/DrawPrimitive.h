@@ -8,6 +8,8 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
+#include <D3dDdi/DynamicBuffer.h>
+
 namespace D3dDdi
 {
 	class Device;
@@ -26,32 +28,9 @@ namespace D3dDdi
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
 
 	private:
-		class Buffer
-		{
-		public:
-			Buffer(HANDLE device, const D3DDDI_DEVICEFUNCS& origVtable, D3DDDIFORMAT format, UINT size);
-
-			HANDLE getHandle() const;
-			UINT load(const void* src, UINT count, UINT stride);
-
-		private:
-			void* lock(UINT size);
-			bool resize(UINT size);
-			void unlock();
-
-			HANDLE m_device = nullptr;
-			const D3DDDI_DEVICEFUNCS& m_origVtable;
-			std::unique_ptr<void, std::function<void(HANDLE)>> m_resource;
-			D3DDDIFORMAT m_format;
-			UINT m_initialSize;
-			UINT m_size;
-			UINT m_stride;
-			UINT m_pos;
-		};
-
 		struct StreamSource
 		{
-			BYTE* vertices;
+			const BYTE* vertices;
 			UINT stride;
 			UINT fvf;
 		};
@@ -62,12 +41,14 @@ namespace D3dDdi
 			UINT fvf;
 		};
 
-		HRESULT setStreamSource(BYTE* vertices, UINT stride, UINT fvf);
+		INT loadIndices(const void* indices, UINT count);
+		INT loadVertices(const void* vertices, UINT count);
+		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride, UINT fvf);
 
 		HANDLE m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
-		Buffer m_vertexBuffer;
-		Buffer m_indexBuffer;
+		DynamicVertexBuffer m_vertexBuffer;
+		DynamicIndexBuffer m_indexBuffer;
 		StreamSource m_streamSource;
 		std::map<HANDLE, SysMemVertexBuffer> m_sysMemVertexBuffers;
 	};
