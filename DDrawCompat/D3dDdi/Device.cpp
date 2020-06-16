@@ -32,6 +32,7 @@ namespace D3dDdi
 
 	HRESULT Device::blt(const D3DDDIARG_BLT* data)
 	{
+		flushPrimitives();
 		auto it = m_resources.find(data->hDstResource);
 		if (it != m_resources.end())
 		{
@@ -43,6 +44,7 @@ namespace D3dDdi
 
 	HRESULT Device::clear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
 	{
+		flushPrimitives();
 		if (data->Flags & D3DCLEAR_TARGET)
 		{
 			prepareForRendering();
@@ -52,6 +54,7 @@ namespace D3dDdi
 
 	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL* data)
 	{
+		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
@@ -94,6 +97,7 @@ namespace D3dDdi
 
 	HRESULT Device::destroyResource(HANDLE resource)
 	{
+		flushPrimitives();
 		if (g_gdiResource && resource == *g_gdiResource)
 		{
 			D3DDDIARG_LOCK lock = {};
@@ -130,14 +134,10 @@ namespace D3dDdi
 	}
 
 	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
-		UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer)
+		UINT /*indicesSize*/, const void* indexBuffer, const UINT* flagBuffer)
 	{
-		if (2 != indicesSize)
-		{
-			return E_INVALIDARG;
-		}
 		prepareForRendering();
-		return m_drawPrimitive.drawIndexed(*data, indexBuffer, flagBuffer);
+		return m_drawPrimitive.drawIndexed(*data, static_cast<const UINT16*>(indexBuffer), flagBuffer);
 	}
 
 	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
@@ -152,6 +152,7 @@ namespace D3dDdi
 		{
 			return S_OK;
 		}
+		flushPrimitives();
 		return m_origVtable.pfnFlush(m_device);
 	}
 
@@ -161,11 +162,13 @@ namespace D3dDdi
 		{
 			return S_OK;
 		}
+		flushPrimitives();
 		return m_origVtable.pfnFlush1(m_device, FlushFlags);
 	}
 
 	HRESULT Device::lock(D3DDDIARG_LOCK* data)
 	{
+		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
@@ -186,12 +189,14 @@ namespace D3dDdi
 
 	HRESULT Device::present(const D3DDDIARG_PRESENT* data)
 	{
+		flushPrimitives();
 		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnPresent(m_device, data);
 	}
 
 	HRESULT Device::present1(D3DDDIARG_PRESENT1* data)
 	{
+		flushPrimitives();
 		for (UINT i = 0; i < data->SrcResources; ++i)
 		{
 			prepareForRendering(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
@@ -201,6 +206,7 @@ namespace D3dDdi
 
 	HRESULT Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
 	{
+		flushPrimitives();
 		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, data);
 		if (SUCCEEDED(result) && 0 == data->RenderTargetIndex)
 		{
@@ -229,6 +235,7 @@ namespace D3dDdi
 				return S_OK;
 			}
 
+			flushPrimitives();
 			HRESULT result = m_origVtable.pfnSetTexture(m_device, stage, texture);
 			if (SUCCEEDED(result) && stage < m_textures.size())
 			{
@@ -237,6 +244,7 @@ namespace D3dDdi
 			return result;
 		}
 
+		flushPrimitives();
 		return m_origVtable.pfnSetTexture(m_device, stage, texture);
 	}
 
@@ -247,6 +255,7 @@ namespace D3dDdi
 			return S_OK;
 		}
 
+		flushPrimitives();
 		HRESULT result = m_origVtable.pfnSetVertexShaderDecl(m_device, shader);
 		if (SUCCEEDED(result))
 		{
@@ -257,6 +266,7 @@ namespace D3dDdi
 
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)
 	{
+		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
@@ -267,6 +277,7 @@ namespace D3dDdi
 
 	HRESULT Device::updateWInfo(const D3DDDIARG_WINFO* data)
 	{
+		flushPrimitives();
 		if (1.0f == data->WNear && 1.0f == data->WFar)
 		{
 			D3DDDIARG_WINFO wInfo = {};
@@ -324,11 +335,6 @@ namespace D3dDdi
 	{
 		auto it = m_resources.find(resource);
 		return it != m_resources.end() ? &it->second : nullptr;
-	}
-
-	void Device::enableFlush(bool enable)
-	{
-		s_isFlushEnabled = enable;
 	}
 
 	Resource* Device::findResource(HANDLE resource)

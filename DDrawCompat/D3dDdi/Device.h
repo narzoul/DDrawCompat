@@ -47,6 +47,7 @@ namespace D3dDdi
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		Resource* getResource(HANDLE resource);
 
+		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
 		void prepareForRendering();
 
@@ -54,7 +55,7 @@ namespace D3dDdi
 		static Device& get(HANDLE device);
 		static void remove(HANDLE device);
 
-		static void enableFlush(bool enable);
+		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
 		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
 		static void setGdiResourceHandle(HANDLE resource);
