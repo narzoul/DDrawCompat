@@ -154,6 +154,7 @@
     <ClInclude Include="D3dDdi\Device.h" />
     <ClInclude Include="D3dDdi\DeviceCallbacks.h" />
     <ClInclude Include="D3dDdi\DeviceFuncs.h" />
+    <ClInclude Include="D3dDdi\DeviceState.h" />
     <ClInclude Include="D3dDdi\DrawPrimitive.h" />
     <ClInclude Include="D3dDdi\DynamicBuffer.h" />
     <ClInclude Include="D3dDdi\FormatInfo.h" />
@@ -244,6 +245,7 @@
     <ClCompile Include="D3dDdi\Device.cpp" />
     <ClCompile Include="D3dDdi\DeviceCallbacks.cpp" />
     <ClCompile Include="D3dDdi\DeviceFuncs.cpp" />
+    <ClCompile Include="D3dDdi\DeviceState.cpp" />
     <ClCompile Include="D3dDdi\DrawPrimitive.cpp" />
     <ClCompile Include="D3dDdi\DynamicBuffer.cpp" />
     <ClCompile Include="D3dDdi\FormatInfo.cpp" />

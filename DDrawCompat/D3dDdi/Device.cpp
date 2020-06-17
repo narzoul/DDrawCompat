@@ -24,9 +24,8 @@ namespace D3dDdi
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
-		, m_textures{}
-		, m_vertexShaderDecl(nullptr)
 		, m_drawPrimitive(*this)
+		, m_state(*this)
 	{
 	}
 
@@ -226,44 +225,6 @@ namespace D3dDdi
 		return m_drawPrimitive.setStreamSourceUm(*data, umBuffer);
 	}
 
-	HRESULT Device::setTexture(UINT stage, HANDLE texture)
-	{
-		if (stage < m_textures.size())
-		{
-			if (texture == m_textures[stage])
-			{
-				return S_OK;
-			}
-
-			flushPrimitives();
-			HRESULT result = m_origVtable.pfnSetTexture(m_device, stage, texture);
-			if (SUCCEEDED(result) && stage < m_textures.size())
-			{
-				m_textures[stage] = texture;
-			}
-			return result;
-		}
-
-		flushPrimitives();
-		return m_origVtable.pfnSetTexture(m_device, stage, texture);
-	}
-
-	HRESULT Device::setVertexShaderDecl(HANDLE shader)
-	{
-		if (shader == m_vertexShaderDecl)
-		{
-			return S_OK;
-		}
-
-		flushPrimitives();
-		HRESULT result = m_origVtable.pfnSetVertexShaderDecl(m_device, shader);
-		if (SUCCEEDED(result))
-		{
-			m_vertexShaderDecl = shader;
-		}
-		return result;
-	}
-
 	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)
 	{
 		flushPrimitives();
@@ -273,19 +234,6 @@ namespace D3dDdi
 			return it->second.unlock(*data);
 		}
 		return m_origVtable.pfnUnlock(m_device, data);
-	}
-
-	HRESULT Device::updateWInfo(const D3DDDIARG_WINFO* data)
-	{
-		flushPrimitives();
-		if (1.0f == data->WNear && 1.0f == data->WFar)
-		{
-			D3DDDIARG_WINFO wInfo = {};
-			wInfo.WNear = 0.0f;
-			wInfo.WFar = 1.0f;
-			return m_origVtable.pfnUpdateWInfo(m_device, &wInfo);
-		}
-		return m_origVtable.pfnUpdateWInfo(m_device, data);
 	}
 
 	Resource* Device::getGdiResource()
@@ -312,7 +260,7 @@ namespace D3dDdi
 
 	void Device::add(HANDLE adapter, HANDLE device)
 	{
-		s_devices.emplace(device, Device(adapter, device));
+		s_devices.try_emplace(device, adapter, device);
 	}
 
 	Device& Device::get(HANDLE device)
@@ -323,7 +271,7 @@ namespace D3dDdi
 			return it->second;
 		}
 
-		return s_devices.emplace(device, Device(nullptr, device)).first->second;
+		return s_devices.try_emplace(device, nullptr, device).first->second;
 	}
 
 	void Device::remove(HANDLE device)

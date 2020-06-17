@@ -3,10 +3,16 @@
 
 namespace
 {
-	template <typename DeviceMethodPtr, DeviceMethodPtr deviceMethod, typename... Params>
+	template <typename MethodPtr, MethodPtr deviceMethod, typename... Params>
 	HRESULT WINAPI deviceFunc(HANDLE device, Params... params)
 	{
 		return (D3dDdi::Device::get(device).*deviceMethod)(params...);
+	}
+
+	template <typename MethodPtr, MethodPtr deviceStateMethod, typename... Params>
+	HRESULT WINAPI deviceStateFunc(HANDLE device, Params... params)
+	{
+		return (D3dDdi::Device::get(device).getState().*deviceStateMethod)(params...);
 	}
 
 	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
@@ -24,6 +30,7 @@ namespace
 }
 
 #define DEVICE_FUNC(func) deviceFunc<decltype(&Device::func), &Device::func>
+#define SET_DEVICE_STATE_FUNC(func) vtable.func = &deviceStateFunc<decltype(&DeviceState::func), &DeviceState::func>
 
 namespace D3dDdi
 {
@@ -31,7 +38,7 @@ namespace D3dDdi
 	{
 		Device::add(adapter, device);
 	}
-
+	
 	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
 		vtable.pfnBlt = &DEVICE_FUNC(blt);
@@ -52,40 +59,41 @@ namespace D3dDdi
 		vtable.pfnSetRenderTarget = &DEVICE_FUNC(setRenderTarget);
 		vtable.pfnSetStreamSource = &DEVICE_FUNC(setStreamSource);
 		vtable.pfnSetStreamSourceUm = &DEVICE_FUNC(setStreamSourceUm);
-		vtable.pfnSetTexture = &DEVICE_FUNC(setTexture);
-		vtable.pfnSetVertexShaderDecl = &DEVICE_FUNC(setVertexShaderDecl);
 		vtable.pfnUnlock = &DEVICE_FUNC(unlock);
-		vtable.pfnUpdateWInfo = &DEVICE_FUNC(updateWInfo);
+
+		SET_DEVICE_STATE_FUNC(pfnDeletePixelShader);
+		SET_DEVICE_STATE_FUNC(pfnDeleteVertexShaderDecl);
+		SET_DEVICE_STATE_FUNC(pfnDeleteVertexShaderFunc);
+		SET_DEVICE_STATE_FUNC(pfnSetPixelShader);
+		SET_DEVICE_STATE_FUNC(pfnSetPixelShaderConst);
+		SET_DEVICE_STATE_FUNC(pfnSetPixelShaderConstB);
+		SET_DEVICE_STATE_FUNC(pfnSetPixelShaderConstI);
+		SET_DEVICE_STATE_FUNC(pfnSetRenderState);
+		SET_DEVICE_STATE_FUNC(pfnSetTexture);
+		SET_DEVICE_STATE_FUNC(pfnSetTextureStageState);
+		SET_DEVICE_STATE_FUNC(pfnSetVertexShaderConst);
+		SET_DEVICE_STATE_FUNC(pfnSetVertexShaderConstB);
+		SET_DEVICE_STATE_FUNC(pfnSetVertexShaderConstI);
+		SET_DEVICE_STATE_FUNC(pfnSetVertexShaderDecl);
+		SET_DEVICE_STATE_FUNC(pfnSetVertexShaderFunc);
+		SET_DEVICE_STATE_FUNC(pfnSetZRange);
+		SET_DEVICE_STATE_FUNC(pfnUpdateWInfo);
 
 #define FLUSH_PRIMITIVES(func) vtable.func = &flushPrimitives<decltype(&D3DDDI_DEVICEFUNCS::func), &D3DDDI_DEVICEFUNCS::func>
 		FLUSH_PRIMITIVES(pfnBufBlt);
 		FLUSH_PRIMITIVES(pfnBufBlt1);
-		FLUSH_PRIMITIVES(pfnDeletePixelShader);
-		FLUSH_PRIMITIVES(pfnDeleteVertexShaderDecl);
-		FLUSH_PRIMITIVES(pfnDeleteVertexShaderFunc);
 		FLUSH_PRIMITIVES(pfnDepthFill);
 		FLUSH_PRIMITIVES(pfnDiscard);
 		FLUSH_PRIMITIVES(pfnGenerateMipSubLevels);
 		FLUSH_PRIMITIVES(pfnSetClipPlane);
 		FLUSH_PRIMITIVES(pfnSetDepthStencil);
 		FLUSH_PRIMITIVES(pfnSetPalette);
-		FLUSH_PRIMITIVES(pfnSetPixelShader);
-		FLUSH_PRIMITIVES(pfnSetPixelShaderConst);
-		FLUSH_PRIMITIVES(pfnSetPixelShaderConstB);
-		FLUSH_PRIMITIVES(pfnSetPixelShaderConstI);
-		FLUSH_PRIMITIVES(pfnSetRenderState);
 		FLUSH_PRIMITIVES(pfnSetScissorRect);
-		FLUSH_PRIMITIVES(pfnSetTextureStageState);
-		FLUSH_PRIMITIVES(pfnSetVertexShaderConst);
-		FLUSH_PRIMITIVES(pfnSetVertexShaderConstB);
-		FLUSH_PRIMITIVES(pfnSetVertexShaderConstI);
-		FLUSH_PRIMITIVES(pfnSetVertexShaderFunc);
 		FLUSH_PRIMITIVES(pfnSetViewport);
 		FLUSH_PRIMITIVES(pfnStateSet);
 		FLUSH_PRIMITIVES(pfnTexBlt);
 		FLUSH_PRIMITIVES(pfnTexBlt1);
 		FLUSH_PRIMITIVES(pfnUpdatePalette);
-		FLUSH_PRIMITIVES(pfnSetZRange);
 #undef  FLUSH_PRIMITIVES
 	}
 }

@@ -598,6 +598,8 @@ namespace D3dDdi
 		{
 			return S_OK;
 		}
+
+		LOG_DEBUG << "Flushing " << m_batched.primitiveCount << " primitives of type " << m_batched.primitiveType;
 		return m_batched.indices.empty() ? flush(flagBuffer) : flushIndexed(flagBuffer);
 	}
 

@@ -197,6 +197,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_RENDERSTATE& val)
 		<< val.Value;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETPIXELSHADERCONST& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Register
+		<< val.Count;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETRENDERTARGET& val)
 {
 	return Compat::LogStruct(os)
@@ -219,6 +226,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCEUM& va
 	return Compat::LogStruct(os)
 		<< val.Stream
 		<< val.Stride;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETVERTEXSHADERCONST& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Register
+		<< val.Count;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val)

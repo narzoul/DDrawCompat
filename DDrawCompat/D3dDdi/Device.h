@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <map>
 #include <unordered_map>
 
@@ -8,6 +7,7 @@
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
+#include <D3dDdi/DeviceState.h>
 #include <D3dDdi/DrawPrimitive.h>
 
 namespace D3dDdi
@@ -18,6 +18,13 @@ namespace D3dDdi
 	class Device
 	{
 	public:
+		Device(HANDLE adapter, HANDLE device);
+
+		Device(const Device&) = delete;
+		Device(Device&&) = delete;
+		Device& operator=(const Device&) = delete;
+		Device& operator=(Device&&) = delete;
+
 		operator HANDLE() const { return m_device; }
 
 		HRESULT blt(const D3DDDIARG_BLT* data);
@@ -38,14 +45,12 @@ namespace D3dDdi
 		HRESULT setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
-		HRESULT setTexture(UINT stage, HANDLE texture);
-		HRESULT setVertexShaderDecl(HANDLE shader);
 		HRESULT unlock(const D3DDDIARG_UNLOCK* data);
-		HRESULT updateWInfo(const D3DDDIARG_WINFO* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		Resource* getResource(HANDLE resource);
+		DeviceState& getState() { return m_state; }
 
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
@@ -62,8 +67,6 @@ namespace D3dDdi
 		static void setReadOnlyGdiLock(bool enable);
 
 	private:
-		Device(HANDLE adapter, HANDLE device);
-
 		template <typename Arg>
 		HRESULT createResourceImpl(Arg& data);
 
@@ -74,9 +77,8 @@ namespace D3dDdi
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;
-		std::array<HANDLE, 8> m_textures;
-		HANDLE m_vertexShaderDecl;
 		DrawPrimitive m_drawPrimitive;
+		DeviceState m_state;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;
