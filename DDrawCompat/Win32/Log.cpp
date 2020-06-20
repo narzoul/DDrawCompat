@@ -110,6 +110,19 @@ std::ostream& operator<<(std::ostream& os, HWND hwnd)
 		<< Compat::hex(GetWindowLong(hwnd, GWL_EXSTYLE));
 }
 
+std::ostream& operator<<(std::ostream& os, const MEMORYSTATUS& ms)
+{
+	return Compat::LogStruct(os)
+		<< ms.dwLength
+		<< ms.dwMemoryLoad
+		<< ms.dwTotalPhys
+		<< ms.dwAvailPhys
+		<< ms.dwTotalPageFile
+		<< ms.dwAvailPageFile
+		<< ms.dwTotalVirtual
+		<< ms.dwAvailVirtual;
+}
+
 std::ostream& operator<<(std::ostream& os, const MSG& msg)
 {
 	return Compat::LogStruct(os)

@@ -18,6 +18,7 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/MemoryManagement.h>
 #include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
 #include <Win32/WaitFunctions.h>
@@ -273,6 +274,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		setDpiAwareness();
 		SetThemeAppProperties(0);
 
+		Win32::MemoryManagement::installHooks();
 		Win32::MsgHooks::installHooks();
 		Time::init();
 

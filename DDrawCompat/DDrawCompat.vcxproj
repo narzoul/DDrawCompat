@@ -231,6 +231,7 @@
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\Log.h" />
+    <ClInclude Include="Win32\MemoryManagement.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
     <ClInclude Include="Win32\WaitFunctions.h" />
@@ -303,6 +304,7 @@
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\Log.cpp" />
+    <ClCompile Include="Win32\MemoryManagement.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
     <ClCompile Include="Win32\WaitFunctions.cpp" />
