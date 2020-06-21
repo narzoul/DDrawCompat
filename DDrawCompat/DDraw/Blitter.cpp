@@ -516,6 +516,20 @@ namespace
 		srcRect.bottom += srcRect.top;
 		srcRect.right += srcRect.left;
 
+		LONG rowError = 0;
+		if (src < dst)
+		{
+			rowError = (dstRect.right - srcRect.left > static_cast<LONG>(pitch)) ? 1 : 0;
+		}
+		else
+		{
+			rowError = (srcRect.right - dstRect.left > static_cast<LONG>(pitch)) ? -1 : 0;
+		}
+		srcRect.left += rowError * pitch;
+		srcRect.right += rowError * pitch;
+		srcRect.top -= rowError;
+		srcRect.bottom -= rowError;
+
 		RECT r = {};
 		if (!IntersectRect(&r, &dstRect, &srcRect))
 		{
