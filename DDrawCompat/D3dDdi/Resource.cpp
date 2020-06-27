@@ -336,6 +336,19 @@ namespace D3dDdi
 		{
 			LOG_ONCE("ERROR: Resource::copySubResource failed: " << Compat::hex(result));
 		}
+
+		D3DDDIARG_LOCK lock = {};
+		lock.hResource = m_lockResource.get();
+		lock.SubResourceIndex = subResourceIndex;
+		lock.Flags.NotifyOnly = 1;
+		m_device.getOrigVtable().pfnLock(m_device, &lock);
+
+		D3DDDIARG_UNLOCK unlock = {};
+		unlock.hResource = m_lockResource.get();
+		unlock.SubResourceIndex = subResourceIndex;
+		unlock.Flags.NotifyOnly = 1;
+		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+
 		return LOG_RESULT(result);
 	}
 
