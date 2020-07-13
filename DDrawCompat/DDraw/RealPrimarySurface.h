@@ -2,8 +2,8 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatPtr.h"
-#include "Common/CompatRef.h"
+#include <Common/CompatPtr.h>
+#include <Common/CompatRef.h>
 
 namespace DDraw
 {
@@ -17,7 +17,6 @@ namespace DDraw
 
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static void flush();
-		static void gdiUpdate();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static void init();
@@ -26,6 +25,7 @@ namespace DDraw
 		static void release();
 		static void removeUpdateThread();
 		static HRESULT restore();
+		static void scheduleUpdate();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void update();
 		static bool waitForFlip(Surface* surface, bool wait = true);

@@ -1,15 +1,8 @@
-#include <atomic>
-#include <map>
 #include <string>
-
-#include <d3d.h>
-#include <d3dumddi.h>
-#include <winternl.h>
-#include <../km/d3dkmthk.h>
 
 #include <Common/Log.h>
 #include <Common/Hook.h>
-#include <Common/ScopedCriticalSection.h>
+#include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Hooks.h>
@@ -32,62 +25,29 @@ namespace
 		RECT monitorRect;
 	};
 
-	struct ContextInfo
-	{
-		D3DKMT_HANDLE device;
-
-		ContextInfo() : device(0) {}
-	};
-
-	std::map<D3DKMT_HANDLE, ContextInfo> g_contexts;
 	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
 	bool g_dcPaletteOverride = false;
 	AdapterInfo g_gdiAdapterInfo = {};
 	AdapterInfo g_lastOpenAdapterInfo = {};
+	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
 	std::string g_lastDDrawCreateDcDevice;
-	UINT g_lastFlipInterval = 0;
-	UINT g_flipIntervalOverride = 0;
-	D3DKMT_HANDLE g_lastPresentContext = 0;
-	UINT g_presentCount = 0;
-	std::atomic<long long> g_qpcLastVerticalBlank = 0;
-	Compat::CriticalSection g_vblankCs;
 
-	decltype(D3DKMTCreateContextVirtual)* g_origD3dKmtCreateContextVirtual = nullptr;
+	HANDLE g_vsyncThread = nullptr;
+	bool g_stopVsyncThread = false;
+	UINT g_vsyncCounter = 0;
+	CONDITION_VARIABLE g_vsyncCounterCv = CONDITION_VARIABLE_INIT;
+	Compat::SrwLock g_vsyncCounterSrwLock;
 
-	DWORD WINAPI waitForVsyncThreadProc(LPVOID lpParameter);
+	void waitForVerticalBlank();
 
 	NTSTATUS APIENTRY closeAdapter(const D3DKMT_CLOSEADAPTER* pData)
 	{
-		Compat::ScopedCriticalSection lock(g_vblankCs);
+		Compat::ScopedSrwLockExclusive lock(g_lastOpenAdapterInfoSrwLock);
 		if (pData && pData->hAdapter == g_lastOpenAdapterInfo.adapter)
 		{
 			g_lastOpenAdapterInfo = {};
 		}
 		return D3DKMTCloseAdapter(pData);
-	}
-
-	NTSTATUS APIENTRY createContext(D3DKMT_CREATECONTEXT* pData)
-	{
-		LOG_FUNC("D3DKMTCreateContext", pData);
-		NTSTATUS result = D3DKMTCreateContext(pData);
-		if (SUCCEEDED(result))
-		{
-			g_contexts[pData->hContext].device = pData->hDevice;
-		}
-		return LOG_RESULT(result);
-	}
-
-	NTSTATUS APIENTRY createContextVirtual(D3DKMT_CREATECONTEXTVIRTUAL* pData)
-	{
-		LOG_FUNC("D3DKMTCreateContextVirtual", pData);
-		static auto d3dKmtCreateContextVirtual = reinterpret_cast<decltype(D3DKMTCreateContextVirtual)*>(
-			GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTCreateContextVirtual"));
-		NTSTATUS result = d3dKmtCreateContextVirtual(pData);
-		if (SUCCEEDED(result))
-		{
-			g_contexts[pData->hContext].device = pData->hDevice;
-		}
-		return LOG_RESULT(result);
 	}
 
 	NTSTATUS APIENTRY createDcFromMemory(D3DKMT_CREATEDCFROMMEMORY* pData)
@@ -154,21 +114,6 @@ namespace
 		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
 
-	NTSTATUS APIENTRY destroyContext(const D3DKMT_DESTROYCONTEXT* pData)
-	{
-		LOG_FUNC("D3DKMTDestroyContext", pData);
-		NTSTATUS result = D3DKMTDestroyContext(pData);
-		if (SUCCEEDED(result))
-		{
-			g_contexts.erase(pData->hContext);
-			if (g_lastPresentContext == pData->hContext)
-			{
-				g_lastPresentContext = 0;
-			}
-		}
-		return LOG_RESULT(result);
-	}
-
 	BOOL CALLBACK findDDrawMonitorRect(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
 	{
 		MONITORINFOEX mi = {};
@@ -208,38 +153,10 @@ namespace
 		NTSTATUS result = D3DKMTOpenAdapterFromHdc(pData);
 		if (SUCCEEDED(result))
 		{
-			Compat::ScopedCriticalSection lock(g_vblankCs);
+			Compat::ScopedSrwLockExclusive lock(g_lastOpenAdapterInfoSrwLock);
 			g_lastOpenAdapterInfo = getAdapterInfo(*pData);
 		}
 		return LOG_RESULT(result);
-	}
-
-	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
-	{
-		LOG_FUNC("D3DKMTPresent", pData);
-
-		if (pData->Flags.Flip)
-		{
-			g_lastFlipInterval = pData->FlipInterval;
-			g_lastPresentContext = pData->hContext;
-
-			if (UINT_MAX == g_flipIntervalOverride)
-			{
-				return LOG_RESULT(S_OK);
-			}
-
-			++g_presentCount;
-			if (0 == g_presentCount)
-			{
-				g_presentCount = 1;
-			}
-
-			pData->PresentCount = g_presentCount;
-			pData->Flags.PresentCountValid = 1;
-			pData->FlipInterval = static_cast<D3DDDI_FLIPINTERVAL_TYPE>(g_flipIntervalOverride);
-		}
-
-		return LOG_RESULT(D3DKMTPresent(pData));
 	}
 
 	NTSTATUS APIENTRY queryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
@@ -283,12 +200,13 @@ namespace
 	NTSTATUS APIENTRY setGammaRamp(const D3DKMT_SETGAMMARAMP* pData)
 	{
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
-		HANDLE vsyncThread = CreateThread(nullptr, 0, &waitForVsyncThreadProc, nullptr, 0, nullptr);
-		SetThreadPriority(vsyncThread, THREAD_PRIORITY_TIME_CRITICAL);
+		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
 		DDraw::RealPrimarySurface::flush();
 		HRESULT result = D3DKMTSetGammaRamp(pData);
-		WaitForSingleObject(vsyncThread, INFINITE);
-		CloseHandle(vsyncThread);
+		if (SUCCEEDED(result))
+		{
+			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCounter + 1);
+		}
 		return LOG_RESULT(result);
 	}
 
@@ -322,10 +240,43 @@ namespace
 		}
 	}
 
-	DWORD WINAPI waitForVsyncThreadProc(LPVOID /*lpParameter*/)
+	DWORD WINAPI vsyncThreadProc(LPVOID /*lpParameter*/)
 	{
-		D3dDdi::KernelModeThunks::waitForVerticalBlank();
+		while (!g_stopVsyncThread)
+		{
+			waitForVerticalBlank();
+
+			{
+				Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+				++g_vsyncCounter;
+			}
+
+			WakeAllConditionVariable(&g_vsyncCounterCv);
+		}
 		return 0;
+	}
+
+	void waitForVerticalBlank()
+	{
+		D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
+
+		{
+			Compat::ScopedSrwLockShared lock(g_lastOpenAdapterInfoSrwLock);
+			data.hAdapter = g_lastOpenAdapterInfo.adapter;
+			data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
+		}
+
+		if (!data.hAdapter)
+		{
+			updateGdiAdapterInfo();
+			data.hAdapter = g_gdiAdapterInfo.adapter;
+			data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
+		}
+
+		if (!data.hAdapter || FAILED(D3DKMTWaitForVerticalBlankEvent(&data)))
+		{
+			Sleep(16);
+		}
 	}
 }
 
@@ -333,38 +284,6 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
-		UINT getLastFlipInterval()
-		{
-			return g_lastFlipInterval;
-		}
-
-		UINT getLastDisplayedFrameCount()
-		{
-			auto contextIter = g_contexts.find(g_lastPresentContext);
-			if (contextIter == g_contexts.end())
-			{
-				return g_presentCount;
-			}
-
-			D3DKMT_GETDEVICESTATE data = {};
-			data.hDevice = contextIter->second.device;
-			data.StateType = D3DKMT_DEVICESTATE_PRESENT;
-			data.PresentState.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
-			D3DKMTGetDeviceState(&data);
-
-			if (0 == data.PresentState.PresentStats.PresentCount)
-			{
-				return g_presentCount;
-			}
-
-			return data.PresentState.PresentStats.PresentCount;
-		}
-
-		UINT getLastSubmittedFrameCount()
-		{
-			return g_presentCount;
-		}
-
 		RECT getMonitorRect()
 		{
 			auto primary(DDraw::PrimarySurface::getPrimary());
@@ -389,28 +308,23 @@ namespace D3dDdi
 			return g_lastOpenAdapterInfo.monitorRect;
 		}
 
-		long long getQpcLastVerticalBlank()
+		UINT getVsyncCounter()
 		{
-			return g_qpcLastVerticalBlank;
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
+			return g_vsyncCounter;
 		}
 
 		void installHooks(HMODULE origDDrawModule)
 		{
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "CreateDCA", ddrawCreateDcA);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCloseAdapter", closeAdapter);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateContext", createContext);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateContextVirtual", createContextVirtual);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateDCFromMemory", createDcFromMemory);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTDestroyContext", destroyContext);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTQueryAdapterInfo", queryAdapterInfo);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTPresent", present);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTSetGammaRamp", setGammaRamp);
-		}
 
-		void setFlipIntervalOverride(UINT flipInterval)
-		{
-			g_flipIntervalOverride = flipInterval;
+			g_vsyncThread = CreateThread(nullptr, 0, &vsyncThreadProc, nullptr, 0, nullptr);
+			SetThreadPriority(g_vsyncThread, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		void setDcFormatOverride(UINT format)
@@ -423,30 +337,33 @@ namespace D3dDdi
 			g_dcPaletteOverride = enable;
 		}
 
-		void waitForVerticalBlank()
+		void stopVsyncThread()
 		{
-			D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
+			g_stopVsyncThread = true;
+			if (WAIT_OBJECT_0 != WaitForSingleObject(g_vsyncThread, 100))
+			{
+				TerminateThread(g_vsyncThread, 0);
+				Compat::Log() << "The vsync thread was terminated forcefully";
+			}
+			g_vsyncThread = nullptr;
+		}
 
+		void waitForVsync()
+		{
+			waitForVsyncCounter(getVsyncCounter() + 1);
+		}
+
+		bool waitForVsyncCounter(UINT counter)
+		{
+			bool waited = false;
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
+			while (static_cast<INT>(g_vsyncCounter - counter) < 0)
 			{
-				Compat::ScopedCriticalSection lock(g_vblankCs);
-				if (g_lastOpenAdapterInfo.adapter)
-				{
-					data.hAdapter = g_lastOpenAdapterInfo.adapter;
-					data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
-				}
-				else
-				{
-					updateGdiAdapterInfo();
-					data.hAdapter = g_gdiAdapterInfo.adapter;
-					data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
-				}
+				SleepConditionVariableSRW(&g_vsyncCounterCv, &g_vsyncCounterSrwLock, INFINITE,
+					CONDITION_VARIABLE_LOCKMODE_SHARED);
+				waited = true;
 			}
-			
-			if (data.hAdapter)
-			{
-				D3DKMTWaitForVerticalBlankEvent(&data);
-				g_qpcLastVerticalBlank = Time::queryPerformanceCounter();
-			}
+			return waited;
 		}
 	}
 }

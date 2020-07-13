@@ -266,7 +266,7 @@ namespace Gdi
 				}
 			}
 
-			DDraw::RealPrimarySurface::gdiUpdate();
+			DDraw::RealPrimarySurface::scheduleUpdate();
 		}
 	}
 }

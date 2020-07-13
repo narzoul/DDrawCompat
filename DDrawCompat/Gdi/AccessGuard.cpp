@@ -34,7 +34,7 @@ namespace Gdi
 			if (ACCESS_WRITE == m_access &&
 				(!gdiResource || DDraw::PrimarySurface::getFrontResource() == *gdiResource))
 			{
-				DDraw::RealPrimarySurface::gdiUpdate();
+				DDraw::RealPrimarySurface::scheduleUpdate();
 			}
 		}
 	}

@@ -120,20 +120,22 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
-		const bool wait = (dwFlags & DDFLIP_WAIT) || !(dwFlags & DDFLIP_DONOTWAIT) &&
-			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
-		if (!DDraw::RealPrimarySurface::waitForFlip(Surface::getSurface(*This), wait))
+		if (!waitForFlip(This, dwFlags, DDFLIP_WAIT, DDFLIP_DONOTWAIT))
 		{
 			return DDERR_WASSTILLDRAWING;
 		}
 
 		auto surfaceTargetOverride(CompatPtr<TSurface>::from(lpDDSurfaceTargetOverride));
 		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
-		if (isFlipEmulated && !surfaceTargetOverride)
+		if (isFlipEmulated)
 		{
-			TDdsCaps caps = {};
-			caps.dwCaps = DDSCAPS_BACKBUFFER;
-			s_origVtable.GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
+			if (!surfaceTargetOverride)
+			{
+				TDdsCaps caps = {};
+				caps.dwCaps = DDSCAPS_BACKBUFFER;
+				s_origVtable.GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
+			}
+			return Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
 		}
 
 		HRESULT result = SurfaceImpl::Flip(This, surfaceTargetOverride, DDFLIP_WAIT);

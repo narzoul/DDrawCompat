@@ -140,6 +140,7 @@
     <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
     <ClInclude Include="Common\LogWrapperVisitor.h" />
+    <ClInclude Include="Common\ScopedSrwLock.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
     <ClInclude Include="Common\VtableUpdateVisitor.h" />
     <ClInclude Include="Common\VtableVisitor.h" />

@@ -141,7 +141,7 @@ namespace DDraw
 		DWORD scanLine = 0;
 		if (DDERR_VERTICALBLANKINPROGRESS != s_origVtable.GetScanLine(This, &scanLine))
 		{
-			D3dDdi::KernelModeThunks::waitForVerticalBlank();
+			D3dDdi::KernelModeThunks::waitForVsync();
 		}
 
 		if (DDWAITVB_BLOCKEND == dwFlags)

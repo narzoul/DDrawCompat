@@ -403,7 +403,7 @@ namespace Gdi
 		{
 			m_presentationWindow = hwnd;
 			SendNotifyMessage(m_presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(m_hwnd));
-			DDraw::RealPrimarySurface::gdiUpdate();
+			DDraw::RealPrimarySurface::scheduleUpdate();
 		}
 	}
 
@@ -477,7 +477,7 @@ namespace Gdi
 		{
 			window->m_colorKey = colorKey;
 			window->m_alpha = alpha;
-			DDraw::RealPrimarySurface::gdiUpdate();
+			DDraw::RealPrimarySurface::scheduleUpdate();
 		}
 	}
 

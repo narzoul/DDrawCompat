@@ -6,15 +6,13 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
-		UINT getLastFlipInterval();
-		UINT getLastDisplayedFrameCount();
-		UINT getLastSubmittedFrameCount();
 		RECT getMonitorRect();
-		long long getQpcLastVerticalBlank();
+		UINT getVsyncCounter();
 		void installHooks(HMODULE origDDrawModule);
-		void setFlipIntervalOverride(UINT flipInterval);
 		void setDcFormatOverride(UINT format);
 		void setDcPaletteOverride(bool enable);
-		void waitForVerticalBlank();
+		void stopVsyncThread();
+		void waitForVsync();
+		bool waitForVsyncCounter(UINT counter);
 	}
 }

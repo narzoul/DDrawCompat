@@ -42,11 +42,11 @@ namespace DDraw
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
 	protected:
+		bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag);
+
 		static const Vtable<TSurface>& s_origVtable;
 
 	private:
-		bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag);
-
 		Surface* m_data;
 	};
 }

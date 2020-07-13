@@ -100,5 +100,6 @@ namespace D3dDdi
 	void uninstallHooks()
 	{
 		unhookOpenAdapter();
+		KernelModeThunks::stopVsyncThread();
 	}
 }

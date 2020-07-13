@@ -35,6 +35,10 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
+		if (!waitForFlip(This, dwTrans, DDBLTFAST_WAIT, DDBLTFAST_DONOTWAIT))
+		{
+			return DDERR_WASSTILLDRAWING;
+		}
 		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	}
 
