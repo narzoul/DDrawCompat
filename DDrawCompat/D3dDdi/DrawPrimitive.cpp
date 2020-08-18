@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <Common/Log.h>
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Device.h>

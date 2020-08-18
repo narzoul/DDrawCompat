@@ -22,7 +22,7 @@ namespace Gdi
 		m_isLeftMouseButtonDown(false), m_cursorPos(),
 		m_horizontalSbi(), m_verticalSbi()
 	{
-		const LONG windowStyle = GetWindowLongPtr(hwnd, GWL_STYLE);
+		const LONG windowStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE);
 
 		m_horizontalSbi.isVisible = 0 != (windowStyle & WS_HSCROLL);
 		m_verticalSbi.isVisible = 0 != (windowStyle & WS_VSCROLL);

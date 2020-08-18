@@ -1,18 +1,12 @@
 #include <vector>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "Gdi/AccessGuard.h"
-#include "Gdi/Dc.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/PaintHandlers.h"
-#include "Gdi/ScrollBar.h"
-#include "Gdi/ScrollFunctions.h"
-#include "Gdi/TitleBar.h"
-#include "Gdi/VirtualScreen.h"
-#include "Gdi/Window.h"
+#include <Gdi/AccessGuard.h>
+#include <Gdi/Dc.h>
+#include <Gdi/PaintHandlers.h>
+#include <Gdi/ScrollBar.h>
+#include <Gdi/ScrollFunctions.h>
+#include <Gdi/TitleBar.h>
+#include <Gdi/VirtualScreen.h>
 
 std::ostream& operator<<(std::ostream& os, const MENUITEMINFOW& val)
 {
@@ -91,7 +85,7 @@ namespace
 				isUnicode == g_currentUser32WndProc->isUnicode &&
 				!g_currentUser32WndProc->oldWndProc)
 			{
-				decltype(&GetWindowLong) getWindowLong = isUnicode ? GetWindowLongW : GetWindowLongA;
+				decltype(&GetWindowLong) getWindowLong = isUnicode ? CALL_ORIG_FUNC(GetWindowLongW) : CALL_ORIG_FUNC(GetWindowLongA);
 				auto wndProc = reinterpret_cast<WNDPROC>(getWindowLong(hwnd, GWL_WNDPROC));
 				HMODULE wndProcModule = nullptr;
 				GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -403,7 +397,7 @@ namespace
 			return onPaint(hwnd, origWndProc);
 
 		case WM_SETCURSOR:
-			if (GetWindowLong(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))
+			if (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))
 			{
 				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
 			}
@@ -491,30 +485,6 @@ namespace Gdi
 			HOOK_FUNCTION(user32, DefDlgProcA, defDlgProcA);
 			HOOK_FUNCTION(user32, DefDlgProcW, defDlgProcW);
 			HOOK_FUNCTION(user32, SetMenuItemInfoW, setMenuItemInfoW);
-		}
-
-		void onCreateWindow(HWND hwnd)
-		{
-			if (!IsWindowUnicode(hwnd))
-			{
-				return;
-			}
-
-			const auto wndProc = reinterpret_cast<WNDPROC>(GetWindowLongW(hwnd, GWL_WNDPROC));
-			User32WndProc* user32WndProc = nullptr;
-			if (getUser32WndProcW<menuWndProc>().oldWndProc == wndProc)
-			{
-				user32WndProc = &getUser32WndProcW<menuWndProc>();
-			}
-			else if (getUser32WndProcW<scrollBarWndProc>().oldWndProc == wndProc)
-			{
-				user32WndProc = &getUser32WndProcW<scrollBarWndProc>();
-			}
-
-			if (user32WndProc)
-			{
-				SetWindowLongW(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(user32WndProc->newWndProc));
-			}
 		}
 	}
 }

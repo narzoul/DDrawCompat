@@ -23,7 +23,7 @@ namespace Gdi
 		m_hwnd(hwnd), m_compatDc(compatDc), m_buttonWidth(0), m_buttonHeight(0), m_tbi(),
 		m_windowRect(), m_hasIcon(false), m_hasTitleBar(false)
 	{
-		m_hasTitleBar = 0 != (GetWindowLongPtr(hwnd, GWL_STYLE) & WS_CAPTION);
+		m_hasTitleBar = 0 != (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & WS_CAPTION);
 		if (!m_hasTitleBar)
 		{
 			return;

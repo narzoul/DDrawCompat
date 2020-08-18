@@ -212,7 +212,7 @@ namespace Gdi
 		, m_windowRect{ 0, 0, 0, 0 }
 		, m_colorKey(CLR_INVALID)
 		, m_alpha(255)
-		, m_isLayered(GetWindowLong(m_hwnd, GWL_EXSTYLE)& WS_EX_LAYERED)
+		, m_isLayered(CALL_ORIG_FUNC(GetWindowLongA)(m_hwnd, GWL_EXSTYLE)& WS_EX_LAYERED)
 	{
 		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
 		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
@@ -410,7 +410,7 @@ namespace Gdi
 	void Window::update()
 	{
 		D3dDdi::ScopedCriticalSection lock;
-		const bool isLayered = GetWindowLong(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
+		const bool isLayered = CALL_ORIG_FUNC(GetWindowLongA)(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
 		if (isLayered != m_isLayered)
 		{
 			if (!isLayered)

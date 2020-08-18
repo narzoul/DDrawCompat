@@ -106,8 +106,8 @@ std::ostream& operator<<(std::ostream& os, HWND hwnd)
 		<< name
 		<< Compat::hex(GetClassLong(hwnd, GCL_STYLE))
 		<< rect
-		<< Compat::hex(GetWindowLong(hwnd, GWL_STYLE))
-		<< Compat::hex(GetWindowLong(hwnd, GWL_EXSTYLE));
+		<< Compat::hex(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE))
+		<< Compat::hex(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE));
 }
 
 std::ostream& operator<<(std::ostream& os, const MEMORYSTATUS& ms)

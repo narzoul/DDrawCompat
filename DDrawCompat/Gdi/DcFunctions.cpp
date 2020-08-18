@@ -220,7 +220,7 @@ namespace
 		GetWindowThreadProcessId(hwnd, &windowPid);
 		if (GetCurrentProcessId() != windowPid ||
 			!IsWindowVisible(hwnd) ||
-			(GetWindowLongPtr(hwnd, GWL_EXSTYLE) & (WS_EX_LAYERED | WS_EX_TRANSPARENT)))
+			(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE) & (WS_EX_LAYERED | WS_EX_TRANSPARENT)))
 		{
 			return TRUE;
 		}
@@ -323,7 +323,7 @@ namespace
 		}
 
 		HWND hwnd = WindowFromDC(hdc);
-		if (!hwnd || hwnd == GetDesktopWindow() || (GetWindowLongPtr(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
+		if (!hwnd || hwnd == GetDesktopWindow() || (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 		{
 			return 1;
 		}
