@@ -5,6 +5,7 @@
 #include <ostream>
 #include <string>
 #include <type_traits>
+#include <utility>
 
 #include <Windows.h>
 
@@ -39,12 +40,22 @@ std::ostream& operator<<(std::ostream& os, const char* str);
 std::ostream& operator<<(std::ostream& os, const unsigned char* data);
 std::ostream& operator<<(std::ostream& os, const WCHAR* wstr);
 
+template <typename T1, typename T2>
+std::ostream& operator<<(std::ostream & os, const std::pair<T1, T2> & pair)
+{
+	return Compat::LogStruct(os)
+		<< pair.first
+		<< pair.second;
+}
+
 namespace Compat
 {
 	using ::operator<<;
 
 	namespace detail
 	{
+		using ::operator<<;
+
 		template <typename T>
 		struct Hex
 		{

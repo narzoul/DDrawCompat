@@ -52,7 +52,7 @@ namespace
 	LRESULT CALLBACK ddcWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 		decltype(&CallWindowProcA) callWindowProc, WNDPROC wndProc)
 	{
-		LOG_FUNC("ddcWindowProc", hwnd, Compat::logWm(uMsg), Compat::hex(wParam), Compat::hex(lParam));
+		LOG_FUNC("ddcWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
 		LRESULT result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
 
 		switch (uMsg)
