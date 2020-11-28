@@ -676,9 +676,9 @@ namespace Compat
 #define LOG_PARAM_CASE_2(param, msg, TypeA, TypeW) \
 	case msg: \
 		if (IsWindowUnicode(wm.hwnd)) \
-			os << reinterpret_cast<const TypeW>(param); \
+			os << *reinterpret_cast<const TypeW*>(&param); \
 		else \
-			os << reinterpret_cast<const TypeA>(param); \
+			os << *reinterpret_cast<const TypeA*>(&param); \
 		break;
 
 #define LOG_WPARAM_CASE_1(msg, ...) LOG_PARAM_CASE_1(wm.wParam, msg, __VA_ARGS__)
@@ -798,7 +798,7 @@ namespace Compat
 		switch (wm.msg.msg)
 		{
 			LOG_LPARAM_CASE_1(WM_ACTIVATE, HWND);
-			LOG_LPARAM_CASE_2(WM_ASKCBFORMATNAME, LPCSTR, LPCWSTR);
+			LOG_LPARAM_CASE_2(WM_ASKCBFORMATNAME, Compat::detail::Out<LPCSTR>, Compat::detail::Out<LPCWSTR>);
 			LOG_LPARAM_CASE_1(WM_CAPTURECHANGED, HWND);
 			LOG_LPARAM_CASE_1(WM_CHANGECBCHAIN, HWND);
 			LOG_LPARAM_CASE_1(WM_CHARTOITEM, HWND);
@@ -826,7 +826,7 @@ namespace Compat
 			LOG_LPARAM_CASE_1(WM_GETDPISCALEDSIZE, SIZE*);
 			LOG_LPARAM_CASE_1(WM_GETICON, DWORD);
 			LOG_LPARAM_CASE_1(WM_GETMINMAXINFO, MINMAXINFO*);
-			LOG_LPARAM_CASE_2(WM_GETTEXT, LPCSTR, LPCWSTR);
+			LOG_LPARAM_CASE_2(WM_GETTEXT, Compat::detail::Out<LPCSTR>, Compat::detail::Out<LPCWSTR>);
 			LOG_LPARAM_CASE_1(WM_HELP, HELPINFO*);
 			LOG_LPARAM_CASE_1(WM_HOTKEY, std::pair<Compat::detail::Hex<WORD>, Compat::detail::Hex<WORD>>);
 			LOG_LPARAM_CASE_1(WM_HSCROLL, HWND);

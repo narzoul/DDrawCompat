@@ -46,6 +46,7 @@ namespace
 	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
+	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
 
 	User32WndProc* g_currentUser32WndProc = nullptr;
 	std::vector<std::string> g_failedHooks;
@@ -147,6 +148,9 @@ namespace
 		case WM_PRINT:
 		case WM_PRINTCLIENT:
 			return onPrint(hwnd, msg, reinterpret_cast<HDC>(wParam), lParam, origWndProc);
+
+		case WM_SETTEXT:
+			return onSetText(hwnd, wParam, lParam, origWndProc);
 
 		default:
 			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
@@ -386,6 +390,30 @@ namespace
 		{
 			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
 		}
+		return result;
+	}
+
+	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		LRESULT result = CallWindowProc(origWndProc, hwnd, WM_SETTEXT, wParam, lParam);
+		if (0 == result ||
+			0 == (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & WS_CAPTION))
+		{
+			return result;
+		}
+
+		HDC windowDc = GetWindowDC(hwnd);
+		HDC compatDc = Gdi::Dc::getDc(windowDc);
+
+		if (compatDc)
+		{
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			Gdi::TitleBar titleBar(hwnd, compatDc);
+			titleBar.drawCaption();
+			Gdi::Dc::releaseDc(windowDc);
+		}
+
+		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 		return result;
 	}
 
