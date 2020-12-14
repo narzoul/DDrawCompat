@@ -449,17 +449,7 @@ namespace D3dDdi
 		data.SurfCount = surfaceInfo.size();
 		data.Rotation = D3DDDI_ROTATION_IDENTITY;
 
-		HRESULT result = S_OK;
-		if (m_device.getOrigVtable().pfnCreateResource2)
-		{
-			result = m_device.getOrigVtable().pfnCreateResource2(m_device, &data);
-		}
-		else
-		{
-			result = m_device.getOrigVtable().pfnCreateResource(m_device,
-				reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
-		}
-
+		HRESULT result = m_device.createPrivateResource(data);
 		if (SUCCEEDED(result))
 		{
 			m_lockResource.reset(data.hResource);
@@ -631,12 +621,13 @@ namespace D3dDdi
 
 			bool isSysMemBltPreferred = true;
 			auto now = Time::queryPerformanceCounter();
-			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
+			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
+				(data.Flags.SrcColorKey && !m_device.isSrcColorKeySupported()))
 			{
 				dstLockData.qpcLastForcedLock = now;
 				srcLockData.qpcLastForcedLock = now;
 			}
-			else if (m_lockResource)
+			else
 			{
 				isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
 					Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
@@ -644,7 +635,12 @@ namespace D3dDdi
 
 			if (isSysMemBltPreferred)
 			{
+				if (!dstLockData.isSysMemUpToDate)
+				{
+					copyToSysMem(data.DstSubResourceIndex);
+				}
 				dstLockData.isVidMemUpToDate = false;
+
 				if (!srcLockData.isSysMemUpToDate)
 				{
 					srcResource.copyToSysMem(data.SrcSubResourceIndex);

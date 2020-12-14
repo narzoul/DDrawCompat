@@ -1,3 +1,6 @@
+#include <memory>
+#include <sstream>
+
 #include <d3d.h>
 #include <winternl.h>
 #include <../km/d3dkmthk.h>
@@ -13,6 +16,19 @@ namespace
 	HANDLE g_gdiResourceHandle = nullptr;
 	D3dDdi::Resource* g_gdiResource = nullptr;
 	bool g_isReadOnlyGdiLockEnabled = false;
+
+	void logSrcColorKeySupportFailure(const char* reason, UINT32 resultCode)
+	{
+		std::ostringstream oss;
+		oss << "Checking source color key support: failed (" << reason;
+		if (resultCode)
+		{
+			oss << ": " << Compat::hex(resultCode);
+		}
+		oss << ')';
+
+		LOG_ONCE(oss.str().c_str());
+	}
 }
 
 namespace D3dDdi
@@ -21,6 +37,7 @@ namespace D3dDdi
 		: m_origVtable(*DeviceFuncs::s_origVtablePtr)
 		, m_adapter(Adapter::get(adapter))
 		, m_device(device)
+		, m_isSrcColorKeySupported(checkSrcColorKeySupport())
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
@@ -39,6 +56,111 @@ namespace D3dDdi
 		}
 		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnBlt(m_device, data);
+	}
+
+	bool Device::checkSrcColorKeySupport()
+	{
+		if (!(m_adapter.getDDrawCaps().CKeyCaps & DDRAW_CKEYCAPS_SRCBLT))
+		{
+			logSrcColorKeySupportFailure("driver indicates no support", 0);
+			return false;
+		}
+
+		D3DDDI_SURFACEINFO si = {};
+		si.Width = 2;
+		si.Height = 1;
+
+		D3DDDIARG_CREATERESOURCE2 cr = {};
+		cr.Format = D3DDDIFMT_R5G6B5;
+		cr.Pool = D3DDDIPOOL_VIDEOMEMORY;
+		cr.pSurfList = &si;
+		cr.SurfCount = 1;
+		cr.Rotation = D3DDDI_ROTATION_IDENTITY;
+
+		HRESULT result = createPrivateResource(cr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error creating source resource", result);
+			return false;
+		}
+		auto resourceDeleter = [&](HANDLE resource) { m_origVtable.pfnDestroyResource(m_device, resource); };
+		std::unique_ptr<void, std::function<void(HANDLE)>> srcRes(cr.hResource, resourceDeleter);
+
+		cr.hResource = nullptr;
+		cr.Flags.RenderTarget = 1;
+		result = createPrivateResource(cr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error creating destination resource", result);
+			return false;
+		}
+		std::unique_ptr<void, std::function<void(HANDLE)>> dstRes(cr.hResource, resourceDeleter);
+
+		D3DDDIARG_LOCK lock = {};
+		lock.hResource = srcRes.get();
+		result = m_origVtable.pfnLock(m_device, &lock);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking source resource", result);
+			return false;
+		}
+
+		const UINT16 colorKey = 0xFA9F;
+		*static_cast<UINT32*>(lock.pSurfData) = colorKey;
+
+		D3DDDIARG_UNLOCK unlock = {};
+		unlock.hResource = srcRes.get();
+		m_origVtable.pfnUnlock(m_device, &unlock);
+
+		lock = {};
+		lock.hResource = dstRes.get();
+		result = m_origVtable.pfnLock(m_device, &lock);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking destination resource", result);
+			return false;
+		}
+
+		*static_cast<UINT32*>(lock.pSurfData) = 0xFFFFFFFF;
+		unlock.hResource = dstRes.get();
+		m_origVtable.pfnUnlock(m_device, &unlock);
+
+		D3DDDIARG_BLT blt = {};
+		blt.hSrcResource = srcRes.get();
+		blt.SrcRect = { 0, 0, 2, 1 };
+		blt.hDstResource = dstRes.get();
+		blt.DstRect = { 0, 0, 2, 1 };
+		blt.ColorKey = colorKey;
+		blt.Flags.SrcColorKey = 1;
+		result = m_origVtable.pfnBlt(m_device, &blt);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("blt error", result);
+			return false;
+		}
+
+		lock = {};
+		lock.hResource = dstRes.get();
+		result = m_origVtable.pfnLock(m_device, &lock);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking destination resource after blt", result);
+			return false;
+		}
+
+		const UINT32 dstPixels = *static_cast<UINT32*>(lock.pSurfData);
+
+		unlock.hResource = dstRes.get();
+		m_origVtable.pfnUnlock(m_device, &unlock);
+
+		if (dstPixels != 0xFFFF)
+		{
+			logSrcColorKeySupportFailure("test result pattern is incorrect", dstPixels);
+			return false;
+		}
+
+		LOG_ONCE("Checking source color key support: passed");
+		return true;
 	}
 
 	HRESULT Device::clear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
@@ -60,6 +182,15 @@ namespace D3dDdi
 			return it->second.colorFill(*data);
 		}
 		return m_origVtable.pfnColorFill(m_device, data);
+	}
+
+	HRESULT Device::createPrivateResource(D3DDDIARG_CREATERESOURCE2& data)
+	{
+		if (m_origVtable.pfnCreateResource2)
+		{
+			return m_origVtable.pfnCreateResource2(m_device, &data);
+		}
+		return m_origVtable.pfnCreateResource(m_device, reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
 	}
 
 	template <typename Arg>

@@ -20,15 +20,13 @@ namespace D3dDdi
 		operator HANDLE() const { return m_resource.get(); }
 
 	protected:
-		DynamicBuffer(HANDLE device, const D3DDDI_DEVICEFUNCS& origVtable, UINT size,
-			D3DDDIFORMAT format, D3DDDI_RESOURCEFLAGS resourceFlag);
+		DynamicBuffer(Device& device, UINT size, D3DDDIFORMAT format, D3DDDI_RESOURCEFLAGS resourceFlag);
 
 		void* lock(UINT size);
 		void setStride(UINT stride);
 		void unlock();
 
-		HANDLE m_device;
-		const D3DDDI_DEVICEFUNCS& m_origVtable;
+		Device& m_device;
 		std::unique_ptr<void, std::function<void(HANDLE)>> m_resource;
 		UINT m_size;
 		D3DDDIFORMAT m_format;

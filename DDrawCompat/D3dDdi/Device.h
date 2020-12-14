@@ -52,9 +52,12 @@ namespace D3dDdi
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }
 
+		HRESULT createPrivateResource(D3DDDIARG_CREATERESOURCE2& data);
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
 		void prepareForRendering();
+
+		bool isSrcColorKeySupported() const { return m_isSrcColorKeySupported; }
 
 		static void add(HANDLE adapter, HANDLE device);
 		static Device& get(HANDLE device);
@@ -67,6 +70,8 @@ namespace D3dDdi
 		static void setReadOnlyGdiLock(bool enable);
 
 	private:
+		bool checkSrcColorKeySupport();
+
 		template <typename Arg>
 		HRESULT createResourceImpl(Arg& data);
 
@@ -79,6 +84,7 @@ namespace D3dDdi
 		HANDLE m_sharedPrimary;
 		DrawPrimitive m_drawPrimitive;
 		DeviceState m_state;
+		bool m_isSrcColorKeySupported;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

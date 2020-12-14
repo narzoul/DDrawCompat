@@ -15,6 +15,11 @@ namespace D3dDdi
 			getCaps.pData = &m_d3dExtendedCaps;
 			getCaps.DataSize = sizeof(m_d3dExtendedCaps);
 			D3dDdi::AdapterFuncs::s_origVtablePtr->pfnGetCaps(adapter, &getCaps);
+
+			getCaps.Type = D3DDDICAPS_DDRAW;
+			getCaps.pData = &m_ddrawCaps;
+			getCaps.DataSize = sizeof(m_ddrawCaps);
+			D3dDdi::AdapterFuncs::s_origVtablePtr->pfnGetCaps(adapter, &getCaps);
 		}
 	}
 

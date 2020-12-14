@@ -20,11 +20,9 @@ namespace
 
 namespace D3dDdi
 {
-	DynamicBuffer::DynamicBuffer(HANDLE device, const D3DDDI_DEVICEFUNCS& origVtable, UINT size,
-		D3DDDIFORMAT format, D3DDDI_RESOURCEFLAGS resourceFlag)
+	DynamicBuffer::DynamicBuffer(Device& device, UINT size, D3DDDIFORMAT format, D3DDDI_RESOURCEFLAGS resourceFlag)
 		: m_device(device)
-		, m_origVtable(origVtable)
-		, m_resource(nullptr, [device, destroy = origVtable.pfnDestroyResource](HANDLE vb) { destroy(device, vb); })
+		, m_resource(nullptr, [&](HANDLE vb) { device.getOrigVtable().pfnDestroyResource(device, vb); })
 		, m_size(size)
 		, m_format(format)
 		, m_resourceFlag(resourceFlag)
@@ -52,7 +50,7 @@ namespace D3dDdi
 			lock.Flags.NoOverwrite = 1;
 		}
 
-		HRESULT result = m_origVtable.pfnLock(m_device, &lock);
+		HRESULT result = m_device.getOrigVtable().pfnLock(m_device, &lock);
 		if (FAILED(result))
 		{
 			return nullptr;
@@ -105,9 +103,7 @@ namespace D3dDdi
 		cr.Rotation = D3DDDI_ROTATION_IDENTITY;
 
 		m_resource.reset();
-		if (SUCCEEDED(m_origVtable.pfnCreateResource2
-			? m_origVtable.pfnCreateResource2(m_device, &cr)
-			: m_origVtable.pfnCreateResource(m_device, reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&cr))))
+		if (SUCCEEDED(m_device.createPrivateResource(cr)))
 		{
 			m_resource.reset(cr.hResource);
 			m_size = size;
@@ -124,17 +120,17 @@ namespace D3dDdi
 	{
 		D3DDDIARG_UNLOCK unlock = {};
 		unlock.hResource = m_resource.get();
-		m_origVtable.pfnUnlock(m_device, &unlock);
+		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 	}
 
 	DynamicIndexBuffer::DynamicIndexBuffer(Device& device, UINT size)
-		: DynamicBuffer(device, device.getOrigVtable(), size, D3DDDIFMT_INDEX16, getIndexBufferFlag())
+		: DynamicBuffer(device, size, D3DDDIFMT_INDEX16, getIndexBufferFlag())
 	{
 		m_stride = 2;
 	}
 
 	DynamicVertexBuffer::DynamicVertexBuffer(Device& device, UINT size)
-		: DynamicBuffer(device, device.getOrigVtable(), size, D3DDDIFMT_VERTEXDATA, getVertexBufferFlag())
+		: DynamicBuffer(device, size, D3DDDIFMT_VERTEXDATA, getVertexBufferFlag())
 	{
 	}
 }

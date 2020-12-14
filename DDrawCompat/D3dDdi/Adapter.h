@@ -15,6 +15,7 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_adapter; }
 
+		const DDRAW_CAPS& getDDrawCaps() const { return m_ddrawCaps; }
 		const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps() const { return m_d3dExtendedCaps; }
 		HMODULE getModule() const { return m_module; }
 
@@ -26,6 +27,7 @@ namespace D3dDdi
 		HANDLE m_adapter;
 		HMODULE m_module;
 		D3DNTHAL_D3DEXTENDEDCAPS m_d3dExtendedCaps;
+		DDRAW_CAPS m_ddrawCaps;
 
 		static std::map<HANDLE, Adapter> s_adapters;
 	};
