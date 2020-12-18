@@ -90,6 +90,7 @@ namespace D3dDdi
 		if (SUCCEEDED(result))
 		{
 			m_textures[stage] = texture;
+			m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0xBAADBAAD;
 		}
 		return result;
 	}
@@ -98,7 +99,7 @@ namespace D3dDdi
 	{
 		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
 		{
-			if (1 == m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
+			if (0 != m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
 			{
 				m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0;
 			}
