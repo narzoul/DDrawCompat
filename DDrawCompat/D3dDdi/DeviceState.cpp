@@ -96,6 +96,25 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
+		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
+		{
+			if (1 == m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
+			{
+				m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0;
+			}
+			else if (data->Value == m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL])
+			{
+				return S_OK;
+			}
+
+			m_device.flushPrimitives();
+			HRESULT result = m_device.getOrigVtable().pfnSetTextureStageState(m_device, data);
+			if (SUCCEEDED(result))
+			{
+				m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL] = data->Value;
+			}
+			return result;
+		}
 		return setStateArray(data, m_textureStageState[data->Stage], m_device.getOrigVtable().pfnSetTextureStageState);
 	}
 

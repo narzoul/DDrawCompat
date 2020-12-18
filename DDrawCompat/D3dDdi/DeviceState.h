@@ -59,7 +59,7 @@ namespace D3dDdi
 		std::vector<ShaderConstI> m_pixelShaderConstI;
 		std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> m_renderState;
 		std::array<HANDLE, 8> m_textures;
-		std::array<std::array<UINT, D3DDDITSS_CONSTANT + 1>, 8> m_textureStageState;
+		std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> m_textureStageState;
 		std::vector<ShaderConstF> m_vertexShaderConst;
 		std::vector<BOOL> m_vertexShaderConstB;
 		std::vector<ShaderConstI> m_vertexShaderConstI;
