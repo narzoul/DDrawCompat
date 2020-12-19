@@ -53,6 +53,14 @@ namespace
 		decltype(&CallWindowProcA) callWindowProc, WNDPROC wndProc)
 	{
 		LOG_FUNC("ddcWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
+
+		switch (uMsg)
+		{
+		case WM_WINDOWPOSCHANGED:
+			onWindowPosChanged(hwnd);
+			break;
+		}
+
 		LRESULT result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
 
 		switch (uMsg)
@@ -80,10 +88,6 @@ namespace
 			{
 				onWindowPosChanged(hwnd);
 			}
-			break;
-
-		case WM_WINDOWPOSCHANGED:
-			onWindowPosChanged(hwnd);
 			break;
 
 		case WM_WINDOWPOSCHANGING:
@@ -306,12 +310,22 @@ namespace
 					cwi->visibleRegion.offset(rect.left - cwi->rect.left, rect.top - cwi->rect.top);
 					clipRegion &= cwi->visibleRegion;
 
-					HDC screenDc = GetDC(nullptr);
-					SelectClipRgn(screenDc, clipRegion);
-					BitBlt(screenDc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
-						screenDc, cwi->rect.left, cwi->rect.top, SRCCOPY);
-					SelectClipRgn(screenDc, nullptr);
-					CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+					Gdi::Region updateRegion;
+					GetUpdateRgn(hwnd, updateRegion, FALSE);
+					POINT clientPos = {};
+					ClientToScreen(hwnd, &clientPos);
+					OffsetRgn(updateRegion, clientPos.x, clientPos.y);
+					clipRegion -= updateRegion;
+
+					if (!clipRegion.isEmpty())
+					{
+						HDC screenDc = GetDC(nullptr);
+						SelectClipRgn(screenDc, clipRegion);
+						BitBlt(screenDc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
+							screenDc, cwi->rect.left, cwi->rect.top, SRCCOPY);
+						SelectClipRgn(screenDc, nullptr);
+						CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+					}
 				}
 			}
 		}
