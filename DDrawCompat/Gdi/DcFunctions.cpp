@@ -17,7 +17,7 @@ namespace
 	class CompatDc
 	{
 	public:
-		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc, false)) 
+		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc, false))
 		{
 		}
 
@@ -56,10 +56,41 @@ namespace
 	std::unordered_map<void*, const char*> g_funcNames;
 	thread_local bool g_redirectToDib = true;
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
-	HDC getDestinationDc(Params... params);
-
 	HRGN getWindowRegion(HWND hwnd);
+
+#define CREATE_DC_FUNC_ATTRIBUTE(attribute) \
+	template <typename OrigFuncPtr, OrigFuncPtr origFunc> \
+	bool attribute() \
+	{ \
+		return false; \
+	}
+
+#define SET_DC_FUNC_ATTRIBUTE(attribute, func) \
+	template <> \
+	bool attribute<decltype(&func), &func>() \
+	{ \
+		return true; \
+	}
+
+#define SET_TEXT_DC_FUNC_ATTRIBUTE(attribute, func) \
+	SET_DC_FUNC_ATTRIBUTE(attribute, func##A) \
+	SET_DC_FUNC_ATTRIBUTE(attribute, func##W)
+
+	CREATE_DC_FUNC_ATTRIBUTE(isPositionUpdated);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, AngleArc);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, ArcTo);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, LineTo);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, PolyBezierTo);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, PolyDraw);
+	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, PolylineTo);
+	SET_TEXT_DC_FUNC_ATTRIBUTE(isPositionUpdated, ExtTextOut);
+	SET_TEXT_DC_FUNC_ATTRIBUTE(isPositionUpdated, PolyTextOut);
+	SET_TEXT_DC_FUNC_ATTRIBUTE(isPositionUpdated, TabbedTextOut);
+	SET_TEXT_DC_FUNC_ATTRIBUTE(isPositionUpdated, TextOut);
+
+	CREATE_DC_FUNC_ATTRIBUTE(isReadOnly);
+	SET_DC_FUNC_ATTRIBUTE(isReadOnly, GetDIBits);
+	SET_DC_FUNC_ATTRIBUTE(isReadOnly, GetPixel);
 
 	BOOL WINAPI GdiDrawStream(HDC, DWORD, DWORD) { return FALSE; }
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
@@ -106,23 +137,28 @@ namespace
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	Result WINAPI compatGdiDcFunc(Params... params)
+	Result WINAPI compatGdiDcFunc(HDC hdc, Params... params)
 	{
 #ifdef DEBUGLOGS
-		LOG_FUNC(g_funcNames[origFunc], params...);
-#else
-		LOG_FUNC("", params...);
+		LOG_FUNC(g_funcNames[origFunc], hdc, params...);
 #endif
 
-		if (hasDisplayDcArg(params...))
+		if (hasDisplayDcArg(hdc, params...))
 		{
 			D3dDdi::ScopedCriticalSection lock;
-			const bool isReadOnlyAccess = !hasDisplayDcArg(getDestinationDc<OrigFuncPtr, origFunc>(params...));
-			Gdi::AccessGuard accessGuard(isReadOnlyAccess ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
-			return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(replaceDc(params)...));
+			Gdi::AccessGuard accessGuard(isReadOnly<OrigFuncPtr, origFunc>() ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
+			CompatDc compatDc(hdc);
+			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(compatDc, replaceDc(params)...);
+			if (isPositionUpdated<OrigFuncPtr, origFunc>() && result)
+			{
+				POINT currentPos = {};
+				GetCurrentPositionEx(compatDc, &currentPos);
+				MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
+			}
+			return LOG_RESULT(result);
 		}
 
-		return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...));
+		return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(hdc, params...));
 	}
 
 	template <>
@@ -155,7 +191,15 @@ namespace
 			{
 				D3dDdi::ScopedCriticalSection lock;
 				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-				return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(replaceDc(hdc), x, y, options, lprect, lpString, c, lpDx));
+				CompatDc compatDc(hdc);
+				BOOL result = CALL_ORIG_FUNC(ExtTextOutW)(compatDc, x, y, options, lprect, lpString, c, lpDx);
+				if (result)
+				{
+					POINT currentPos = {};
+					GetCurrentPositionEx(compatDc, &currentPos);
+					MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
+				}
+				return LOG_RESULT(result);
 			}
 		}
 		else
@@ -210,6 +254,18 @@ namespace
 		return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
 	}
 
+	BOOL WINAPI drawCaption(HWND hwnd, HDC hdc, const RECT* lprect, UINT flags)
+	{
+		LOG_FUNC("DrawCaption", hwnd, hdc, lprect, flags);
+		if (Gdi::isDisplayDc(hdc))
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, replaceDc(hdc), lprect, flags));
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, hdc, lprect, flags));
+	}
+
 	BOOL CALLBACK excludeRgnForOverlappingWindow(HWND hwnd, LPARAM lParam)
 	{
 		auto& args = *reinterpret_cast<ExcludeRgnForOverlappingWindowArgs*>(lParam);
@@ -235,7 +291,7 @@ namespace
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getCompatGdiDcFuncPtr(FuncPtr<Result, Params...>)
+	OrigFuncPtr getCompatGdiDcFuncPtr(FuncPtr<Result, HDC, Params...>)
 	{
 		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
 	}
@@ -244,42 +300,6 @@ namespace
 	OrigFuncPtr getCompatGdiTextDcFuncPtr(FuncPtr<Result, HDC, Params...>)
 	{
 		return &compatGdiTextDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	HDC getFirstDc()
-	{
-		return nullptr;
-	}
-
-	template <typename... Params>
-	HDC getFirstDc(HDC dc, Params...)
-	{
-		return dc;
-	}
-
-	template <typename FirstParam, typename... Params>
-	HDC getFirstDc(FirstParam, Params... params)
-	{
-		return getFirstDc(params...);
-	}
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
-	HDC getDestinationDc(Params... params)
-	{
-		return getFirstDc(params...);
-	}
-
-	template <>
-	HDC getDestinationDc<decltype(&GetDIBits), &GetDIBits>(
-		HDC, HBITMAP, UINT, UINT, LPVOID, LPBITMAPINFO, UINT)
-	{
-		return nullptr;
-	}
-
-	template <>
-	HDC getDestinationDc<decltype(&GetPixel), &GetPixel>(HDC, int, int)
-	{
-		return nullptr;
 	}
 
 	HRGN getWindowRegion(HWND hwnd)
@@ -454,8 +474,8 @@ namespace
 	hookGdiDcFunction<decltype(&func), &func>(#module, #func)
 
 #define HOOK_GDI_TEXT_DC_FUNCTION(module, func) \
-	hookGdiTextDcFunction<decltype(&func##A), &func##A>(#module, #func "A"); \
-	hookGdiTextDcFunction<decltype(&func##W), &func##W>(#module, #func "W")
+	HOOK_GDI_DC_FUNCTION(module, func##A); \
+	HOOK_GDI_DC_FUNCTION(module, func##W)
 
 namespace Gdi
 {
@@ -541,7 +561,7 @@ namespace Gdi
 			HOOK_GDI_DC_FUNCTION(gdi32, PolyPolyline);
 
 			// Painting and drawing functions
-			HOOK_GDI_DC_FUNCTION(user32, DrawCaption);
+			HOOK_FUNCTION(user32, DrawCaption, drawCaption);
 			HOOK_GDI_DC_FUNCTION(user32, DrawEdge);
 			HOOK_GDI_DC_FUNCTION(user32, DrawFocusRect);
 			HOOK_GDI_DC_FUNCTION(user32, DrawFrameControl);
