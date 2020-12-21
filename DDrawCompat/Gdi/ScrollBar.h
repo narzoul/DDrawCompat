@@ -7,14 +7,6 @@ namespace Gdi
 	class ScrollBar
 	{
 	public:
-		ScrollBar(HWND hwnd, HDC compatDc);
-
-		void drawAll() const;
-		void drawHorizArrows() const;
-		void drawVertArrows() const;
-		void excludeFromClipRegion() const;
-
-	private:
 		struct ScrollBarChildInfo
 		{
 			RECT rect;
@@ -25,9 +17,20 @@ namespace Gdi
 		{
 			ScrollBarChildInfo topLeftArrow;
 			ScrollBarChildInfo bottomRightArrow;
+			RECT shaftRect;
 			bool isVisible;
 		};
 
+		ScrollBar(HWND hwnd, HDC compatDc);
+
+		void drawAll() const;
+		void drawHorizArrows() const;
+		void drawVertArrows() const;
+		void excludeFromClipRegion() const;
+		const ScrollBarInfo& getHorizontalScrollBarInfo() const { return m_horizontalSbi; }
+		const ScrollBarInfo& getVerticalScrollBarInfo() const { return m_verticalSbi; }
+
+	private:
 		void drawArrow(const ScrollBarChildInfo& sbci, UINT dfcState) const;
 		void excludeFromClipRegion(const RECT& rect) const;
 		void excludeFromClipRegion(const ScrollBarInfo& sbi) const;

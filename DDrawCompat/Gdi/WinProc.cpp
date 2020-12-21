@@ -69,16 +69,6 @@ namespace
 			onActivate(hwnd);
 			break;
 
-		case WM_COMMAND:
-		{
-			auto notifCode = HIWORD(wParam);
-			if (lParam && (EN_HSCROLL == notifCode || EN_VSCROLL == notifCode))
-			{
-				Gdi::ScrollFunctions::updateScrolledWindow(reinterpret_cast<HWND>(lParam));
-			}
-			break;
-		}
-
 		case WM_NCDESTROY:
 			onDestroyWindow(hwnd);
 			break;

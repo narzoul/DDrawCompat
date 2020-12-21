@@ -1,6 +1,6 @@
-#include "Common/Hook.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/ScrollBar.h"
+#include <Common/Hook.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/ScrollBar.h>
 
 namespace
 {
@@ -131,6 +131,7 @@ namespace Gdi
 		OffsetRect(&sbi.rcScrollBar, -m_windowRect.left, -m_windowRect.top);
 		scrollBarInfo.topLeftArrow.rect = sbi.rcScrollBar;
 		scrollBarInfo.bottomRightArrow.rect = sbi.rcScrollBar;
+		scrollBarInfo.shaftRect = sbi.rcScrollBar;
 
 		if (OBJID_HSCROLL == objId)
 		{
@@ -141,6 +142,8 @@ namespace Gdi
 
 			scrollBarInfo.bottomRightArrow.rect.left = scrollBarInfo.bottomRightArrow.rect.right - w;
 			scrollBarInfo.bottomRightArrow.state = sbi.rgstate[SBII_TOP_RIGHT_ARROW];
+
+			InflateRect(&scrollBarInfo.shaftRect, -w, 0);
 		}
 		else
 		{
@@ -151,6 +154,8 @@ namespace Gdi
 
 			scrollBarInfo.bottomRightArrow.rect.top = scrollBarInfo.bottomRightArrow.rect.bottom - h;
 			scrollBarInfo.bottomRightArrow.state = sbi.rgstate[SBII_BOTTOM_LEFT_ARROW];
+
+			InflateRect(&scrollBarInfo.shaftRect, 0, -h);
 		}
 
 		if (m_isLeftMouseButtonDown)

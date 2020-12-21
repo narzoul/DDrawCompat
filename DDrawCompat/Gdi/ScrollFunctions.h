@@ -7,6 +7,5 @@ namespace Gdi
 	namespace ScrollFunctions
 	{
 		void installHooks();
-		void updateScrolledWindow(HWND hwnd);
 	}
 }

@@ -176,12 +176,35 @@ namespace
 
 	LRESULT editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
-		LRESULT result = defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
-		if (0 == result && (WM_HSCROLL == msg || WM_VSCROLL == msg))
+		switch (msg)
 		{
-			Gdi::ScrollFunctions::updateScrolledWindow(hwnd);
+		case WM_MOUSEMOVE:
+			if (!(wParam & MK_LBUTTON))
+			{
+				break;
+			}
+		case 0x0118:
+		case WM_HSCROLL:
+		case WM_KEYDOWN:
+		case WM_MOUSEHWHEEL:
+		case WM_MOUSEWHEEL:
+		case WM_VSCROLL:
+		{
+			int horz = GetScrollPos(hwnd, SB_HORZ);
+			int vert = GetScrollPos(hwnd, SB_VERT);
+			LRESULT firstVisibleLine = CallWindowProc(origWndProc, hwnd, EM_GETFIRSTVISIBLELINE, 0, 0);
+			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			if (firstVisibleLine != CallWindowProc(origWndProc, hwnd, EM_GETFIRSTVISIBLELINE, 0, 0) ||
+				horz != GetScrollPos(hwnd, SB_HORZ) ||
+				vert != GetScrollPos(hwnd, SB_VERT))
+			{
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
+			}
+			return result;
 		}
-		return result;
+		}
+
+		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
 	}
 
 	template <WndProcHook>
