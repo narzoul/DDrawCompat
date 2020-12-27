@@ -47,137 +47,11 @@ namespace
 	CompatPtr<IDirectDrawSurface7> getBackBuffer();
 	CompatPtr<IDirectDrawSurface7> getLastSurface();
 
-	void bltToWindow(CompatRef<IDirectDrawSurface7> src)
-	{
-		for (auto windowPair : Gdi::Window::getWindows())
-		{
-			if (!windowPair.second->isLayered() && !windowPair.second->getVisibleRegion().isEmpty())
-			{
-				g_clipper->SetHWnd(g_clipper, 0, windowPair.second->getPresentationWindow());
-				g_frontBuffer->Blt(g_frontBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
-			}
-		}
-	}
-
-	void bltToWindowViaGdi(Gdi::Region* primaryRegion)
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
-		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
-
-		for (auto windowPair : Gdi::Window::getWindows())
-		{
-			HWND presentationWindow = windowPair.second->getPresentationWindow();
-			if (!presentationWindow)
-			{
-				continue;
-			}
-
-			Gdi::Region visibleRegion = windowPair.second->getVisibleRegion();
-			if (visibleRegion.isEmpty())
-			{
-				continue;
-			}
-
-			if (primaryRegion)
-			{
-				visibleRegion -= *primaryRegion;
-				if (visibleRegion.isEmpty())
-				{
-					continue;
-				}
-			}
-
-			if (!virtualScreenDc)
-			{
-				virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
-				if (!virtualScreenDc)
-				{
-					return;
-				}
-			}
-
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_READ, !primaryRegion);
-			HDC dc = GetWindowDC(presentationWindow);
-			RECT rect = windowPair.second->getWindowRect();
-			visibleRegion.offset(-rect.left, -rect.top);
-			SelectClipRgn(dc, visibleRegion);
-			CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, virtualScreenDc.get(),
-				rect.left - virtualScreenBounds.left, rect.top - virtualScreenBounds.top, SRCCOPY);
-			CALL_ORIG_FUNC(ReleaseDC)(presentationWindow, dc);
-		}
-	}
-
-	void bltVisibleLayeredWindowsToBackBuffer()
-	{
-		auto backBuffer(getBackBuffer());
-		if (!backBuffer)
-		{
-			return;
-		}
-
-		HDC backBufferDc = nullptr;
-		RECT ddrawMonitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
-
-		for (auto windowPair : Gdi::Window::getWindows())
-		{
-			if (!windowPair.second->isLayered())
-			{
-				continue;
-			}
-
-			if (!backBufferDc)
-			{
-				D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_X8R8G8B8);
-				backBuffer->GetDC(backBuffer, &backBufferDc);
-				D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_UNKNOWN);
-				if (!backBufferDc)
-				{
-					return;
-				}
-			}
-
-			HDC windowDc = GetWindowDC(windowPair.first);
-			Gdi::Region rgn(Gdi::getVisibleWindowRgn(windowPair.first));
-			RECT wr = windowPair.second->getWindowRect();
-
-			if (0 != ddrawMonitorRect.left || 0 != ddrawMonitorRect.top)
-			{
-				OffsetRect(&wr, -ddrawMonitorRect.left, -ddrawMonitorRect.top);
-				rgn.offset(-ddrawMonitorRect.left, -ddrawMonitorRect.top);
-			}
-			
-			SelectClipRgn(backBufferDc, rgn);
-
-			auto colorKey = windowPair.second->getColorKey();
-			if (CLR_INVALID != colorKey)
-			{
-				CALL_ORIG_FUNC(TransparentBlt)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
-			}
-			else
-			{
-				BLENDFUNCTION blend = {};
-				blend.SourceConstantAlpha = windowPair.second->getAlpha();
-				CALL_ORIG_FUNC(AlphaBlend)(backBufferDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
-			}
-
-			CALL_ORIG_FUNC(ReleaseDC)(windowPair.first, windowDc);
-		}
-
-		if (backBufferDc)
-		{
-			SelectClipRgn(backBufferDc, nullptr);
-			backBuffer->ReleaseDC(backBuffer, backBufferDc);
-		}
-	}
-
 	void bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
 	{
 		if (!g_isFullScreen)
 		{
-			bltToWindow(src);
+			Gdi::Window::present(*g_frontBuffer, src, *g_clipper);
 			return;
 		}
 
@@ -324,12 +198,13 @@ namespace
 
 		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
 		{
-			bltToWindowViaGdi(nullptr);
+			Gdi::Window::present(nullptr);
 			return;
 		}
 
-		Gdi::Region primaryRegion(D3dDdi::KernelModeThunks::getMonitorRect());
-		bltToWindowViaGdi(&primaryRegion);
+		RECT monitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
+		Gdi::Region excludeRegion(monitorRect);
+		Gdi::Window::present(excludeRegion);
 
 		if (Win32::DisplayMode::getBpp() <= 8)
 		{
@@ -360,7 +235,12 @@ namespace
 
 		if (g_isFullScreen && src == DDraw::PrimarySurface::getGdiSurface())
 		{
-			bltVisibleLayeredWindowsToBackBuffer();
+			auto backBuffer(getBackBuffer());
+			if (backBuffer)
+			{
+				POINT offset = { -monitorRect.left, -monitorRect.top };
+				Gdi::Window::presentLayered(*backBuffer, offset);
+			}
 		}
 	}
 

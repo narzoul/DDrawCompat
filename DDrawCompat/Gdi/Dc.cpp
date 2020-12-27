@@ -113,14 +113,12 @@ namespace
 		}
 	}
 
-	void setClippingRegion(const CompatDc& compatDc, std::shared_ptr<Gdi::Window> rootWindow,
-		const POINT& origin, const RECT& virtualScreenBounds)
+	void setClippingRegion(const CompatDc& compatDc, HWND hwnd, const POINT& origin, const RECT& virtualScreenBounds)
 	{
-		if (rootWindow)
+		if (hwnd)
 		{
 			Gdi::Region sysRgn;
 			CALL_ORIG_FUNC(GetRandomRgn)(compatDc.origDc, sysRgn, SYSRGN);
-			sysRgn &= rootWindow->getVisibleRegion();
 			OffsetRgn(sysRgn, -virtualScreenBounds.left, -virtualScreenBounds.top);
 			SelectClipRgn(compatDc.dc, sysRgn);
 		}
@@ -196,13 +194,6 @@ namespace Gdi
 				return it->second.dc;
 			}
 
-			const HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-			auto rootWindow(wnd ? Gdi::Window::get(GetAncestor(wnd, GA_ROOT)) : nullptr);
-			if (rootWindow)
-			{
-				rootWindow->updateWindow();
-			}
-
 			CompatDc compatDc;
 			compatDc.dc = Gdi::DcCache::getDc();
 			if (!compatDc.dc)
@@ -212,7 +203,8 @@ namespace Gdi
 
 			POINT origin = {};
 			GetDCOrgEx(origDc, &origin);
-			if (wnd && GetDesktopWindow() != wnd)
+			const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+			if (hwnd && GetDesktopWindow() != hwnd)
 			{
 				origin.x -= virtualScreenBounds.left;
 				origin.y -= virtualScreenBounds.top;
@@ -223,7 +215,7 @@ namespace Gdi
 			compatDc.threadId = GetCurrentThreadId();
 			compatDc.savedState = useMetaRgn ? SaveDC(compatDc.dc) : 0;
 			copyDcAttributes(compatDc, origDc, origin);
-			setClippingRegion(compatDc, rootWindow, origin, virtualScreenBounds);
+			setClippingRegion(compatDc, hwnd, origin, virtualScreenBounds);
 
 			g_origDcToCompatDc.insert(CompatDcMap::value_type(origDc, compatDc));
 

@@ -19,9 +19,16 @@ namespace
 
 namespace Gdi
 {
-	TitleBar::TitleBar(HWND hwnd, HDC compatDc) :
-		m_hwnd(hwnd), m_compatDc(compatDc), m_buttonWidth(0), m_buttonHeight(0), m_tbi(),
-		m_windowRect(), m_hasIcon(false), m_hasTitleBar(false)
+	TitleBar::TitleBar(HWND hwnd, HDC compatDc)
+		: m_hwnd(hwnd)
+		, m_compatDc(compatDc)
+		, m_buttonWidth(0)
+		, m_buttonHeight(0)
+		, m_tbi{}
+		, m_windowRect{}
+		, m_hasIcon(false)
+		, m_hasTitleBar(false)
+		, m_isActive(false)
 	{
 		m_hasTitleBar = 0 != (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & WS_CAPTION);
 		if (!m_hasTitleBar)
@@ -46,6 +53,7 @@ namespace Gdi
 		GetWindowRect(hwnd, &m_windowRect);
 		OffsetRect(&m_tbi.rcTitleBar, -m_windowRect.left, -m_windowRect.top);
 
+		m_isActive = GetActiveWindow() == hwnd;
 		m_buttonWidth = GetSystemMetrics(SM_CXSIZE) - 2;
 		m_buttonHeight = GetSystemMetrics(SM_CYSIZE) - 4;
 
@@ -94,7 +102,7 @@ namespace Gdi
 		}
 
 		UINT flags = 0;
-		if (GetActiveWindow() == m_hwnd)
+		if (m_isActive)
 		{
 			flags |= DC_ACTIVE;
 		}
@@ -150,6 +158,11 @@ namespace Gdi
 			const RECT& r = m_tbi.rcTitleBar;
 			ExcludeClipRect(m_compatDc, r.left, r.top, r.right, r.bottom);
 		}
+	}
+
+	void TitleBar::setActive(bool isActive)
+	{
+		m_isActive = isActive;
 	}
 
 	bool TitleBar::isVisible(std::size_t tbiIndex) const

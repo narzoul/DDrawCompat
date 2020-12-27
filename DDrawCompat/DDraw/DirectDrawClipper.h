@@ -11,6 +11,7 @@ namespace DDraw
 	public:
 		static HRGN getClipRgn(CompatRef<IDirectDrawClipper> clipper);
 		static HRESULT setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn);
+		static void update();
 
 		static void setCompatVtable(IDirectDrawClipperVtbl& vtable);
 	};

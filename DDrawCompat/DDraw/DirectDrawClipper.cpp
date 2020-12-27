@@ -16,15 +16,13 @@ namespace
 	};
 
 	std::map<IDirectDrawClipper*, ClipperData> g_clipperData;
+	bool g_isInvalidated = false;
 
 	void updateWindowClipList(CompatRef<IDirectDrawClipper> clipper, ClipperData& data);
 
 	void onWindowPosChange()
 	{
-		for (auto& clipperData : g_clipperData)
-		{
-			updateWindowClipList(*clipperData.first, clipperData.second);
-		}
+		g_isInvalidated = true;
 	}
 
 	void updateWindowClipList(CompatRef<IDirectDrawClipper> clipper, ClipperData& data)
@@ -145,5 +143,17 @@ namespace DDraw
 		vtable.Release = &Release;
 		vtable.SetClipList = &SetClipList;
 		vtable.SetHWnd = &SetHWnd;
+	}
+
+	void DirectDrawClipper::update()
+	{
+		if (g_isInvalidated)
+		{
+			g_isInvalidated = false;
+			for (auto& clipperData : g_clipperData)
+			{
+				updateWindowClipList(*clipperData.first, clipperData.second);
+			}
+		}
 	}
 }

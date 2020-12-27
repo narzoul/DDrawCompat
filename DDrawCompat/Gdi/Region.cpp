@@ -15,6 +15,11 @@ namespace
 
 namespace Gdi
 {
+	Region::Region(std::nullptr_t)
+		: m_region(nullptr)
+	{
+	}
+
 	Region::Region(HRGN rgn)
 		: m_region(rgn)
 	{
@@ -42,9 +47,13 @@ namespace Gdi
 	}
 
 	Region::Region(const Region& other)
-		: Region()
+		: Region(nullptr)
 	{
-		CombineRgn(m_region, other, nullptr, RGN_COPY);
+		if (other.m_region)
+		{
+			m_region = CreateRectRgn(0, 0, 0, 0);
+			CombineRgn(m_region, other, nullptr, RGN_COPY);
+		}
 	}
 
 	Region::Region(Region&& other)
@@ -79,6 +88,23 @@ namespace Gdi
 	Region::operator HRGN() const
 	{
 		return m_region;
+	}
+
+	bool Region::operator==(const Region& other) const
+	{
+		if (m_region)
+		{
+			return other.m_region && EqualRgn(m_region, other.m_region);
+		}
+		else
+		{
+			return !other.m_region;
+		}
+	}
+
+	bool Region::operator!=(const Region& other) const
+	{
+		return !(*this == other);
 	}
 
 	Region Region::operator&(const Region& other) const

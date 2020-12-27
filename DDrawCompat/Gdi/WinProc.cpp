@@ -5,7 +5,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Common/ScopedCriticalSection.h>
+#include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
 #include <Gdi/AccessGuard.h>
 #include <Gdi/Dc.h>
@@ -38,15 +38,15 @@ namespace
 	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
-	Compat::CriticalSection g_windowProcCs;
+	Compat::SrwLock g_windowProcSrwLock;
 	std::map<HWND, WindowProc> g_windowProc;
 
 	WindowProc getWindowProc(HWND hwnd);
-	void onActivate(HWND hwnd);
+	bool isTopLevelWindow(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onWindowPosChanged(HWND hwnd);
-	void onWindowPosChanging(HWND hwnd, const WINDOWPOS& wp);
+	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
 
 	LRESULT CALLBACK ddcWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
@@ -56,6 +56,14 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_SYNCPAINT:
+			if (isTopLevelWindow(hwnd))
+			{
+				Gdi::Window::onSyncPaint(hwnd);
+				return 0;
+			}
+			break;
+
 		case WM_WINDOWPOSCHANGED:
 			onWindowPosChanged(hwnd);
 			break;
@@ -65,18 +73,14 @@ namespace
 
 		switch (uMsg)
 		{
-		case WM_ACTIVATE:
-			onActivate(hwnd);
-			break;
-
 		case WM_NCDESTROY:
 			onDestroyWindow(hwnd);
 			break;
 
 		case WM_STYLECHANGED:
-			if (GWL_EXSTYLE == wParam)
+			if (isTopLevelWindow(hwnd))
 			{
-				onWindowPosChanged(hwnd);
+				Gdi::Window::onStyleChanged(hwnd, wParam);
 			}
 			break;
 
@@ -103,7 +107,7 @@ namespace
 	{
 		if (GWL_WNDPROC == nIndex)
 		{
-			Compat::ScopedCriticalSection lock(g_windowProcCs);
+			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 			auto it = g_windowProc.find(hWnd);
 			if (it != g_windowProc.end())
 			{
@@ -127,7 +131,7 @@ namespace
 
 	WindowProc getWindowProc(HWND hwnd)
 	{
-		Compat::ScopedCriticalSection lock(g_windowProcCs);
+		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		return g_windowProc[hwnd];
 	}
 
@@ -151,6 +155,11 @@ namespace
 			}
 		}
 		return TRUE;
+	}
+
+	bool isTopLevelWindow(HWND hwnd)
+	{
+		return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
 	}
 
 	void CALLBACK objectCreateEvent(
@@ -207,26 +216,28 @@ namespace
 		}
 	}
 
-	void onActivate(HWND hwnd)
-	{
-		RECT windowRect = {};
-		GetWindowRect(hwnd, &windowRect);
-		RECT clientRect = {};
-		GetClientRect(hwnd, &clientRect);
-		POINT clientOrigin = {};
-		ClientToScreen(hwnd, &clientOrigin);
-		OffsetRect(&windowRect, -clientOrigin.x, -clientOrigin.y);
-
-		HRGN ncRgn = CreateRectRgnIndirect(&windowRect);
-		HRGN clientRgn = CreateRectRgnIndirect(&clientRect);
-		CombineRgn(ncRgn, ncRgn, clientRgn, RGN_DIFF);
-		RedrawWindow(hwnd, nullptr, ncRgn, RDW_FRAME | RDW_INVALIDATE);
-		DeleteObject(clientRgn);
-		DeleteObject(ncRgn);
-	}
-
 	void onCreateWindow(HWND hwnd)
 	{
+		LOG_FUNC("onCreateWindow", hwnd);
+
+		{
+			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
+			if (g_windowProc.find(hwnd) != g_windowProc.end())
+			{
+				return;
+			}
+
+			auto wndProcA = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC));
+			auto wndProcW = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongW)(hwnd, GWL_WNDPROC));
+			g_windowProc[hwnd] = { wndProcA, wndProcW };
+			setWindowProc(hwnd, ddcWindowProcA, ddcWindowProcW);
+		}
+
+		if (!isTopLevelWindow(hwnd))
+		{
+			return;
+		}
+
 		char className[64] = {};
 		GetClassName(hwnd, className, sizeof(className));
 		if (std::string(className) == "CompatWindowDesktopReplacement")
@@ -236,27 +247,19 @@ namespace
 			return;
 		}
 
-		if (!Gdi::Window::isPresentationWindow(hwnd))
-		{
-			Compat::ScopedCriticalSection lock(g_windowProcCs);
-			if (g_windowProc.find(hwnd) == g_windowProc.end())
-			{
-				auto wndProcA = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC));
-				auto wndProcW = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongW)(hwnd, GWL_WNDPROC));
-				g_windowProc[hwnd] = { wndProcA, wndProcW };
-				setWindowProc(hwnd, ddcWindowProcA, ddcWindowProcW);
-			}
-		}
-
-		Gdi::Window::add(hwnd);
+		Gdi::Window::updateAll();
 	}
 
 	void onDestroyWindow(HWND hwnd)
 	{
-		Gdi::Window::remove(hwnd);
-		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT));
+		if (isTopLevelWindow(hwnd))
+		{
+			Gdi::Window::updateAll();
+			return;
+		}
 
-		Compat::ScopedCriticalSection lock(g_windowProcCs);
+		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT));
+		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		auto it = g_windowProc.find(hwnd);
 		if (it != g_windowProc.end())
 		{
@@ -267,24 +270,13 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd)
 	{
-		if (Gdi::MENU_ATOM == GetClassLongPtr(hwnd, GCW_ATOM))
-		{
-			auto exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
-			if (exStyle & WS_EX_LAYERED)
-			{
-				CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
-				return;
-			}
-		}
-
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
 		{
 			notifyFunc();
 		}
 
-		if (Gdi::Window::isTopLevelWindow(hwnd))
+		if (isTopLevelWindow(hwnd))
 		{
-			Gdi::Window::add(hwnd);
 			Gdi::Window::updateAll();
 		}
 		else
@@ -321,9 +313,13 @@ namespace
 		}
 	}
 
-	void onWindowPosChanging(HWND hwnd, const WINDOWPOS& wp)
+	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp)
 	{
-		if (!Gdi::Window::isTopLevelWindow(hwnd))
+		if (isTopLevelWindow(hwnd))
+		{
+			wp.flags |= SWP_NOREDRAW;
+		}
+		else
 		{
 			std::unique_ptr<ChildWindowInfo> cwi(reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT)));
 			if (!(wp.flags & SWP_NOMOVE) && IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
@@ -339,12 +335,25 @@ namespace
 		}
 	}
 
+	BOOL WINAPI setLayeredWindowAttributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+	{
+		LOG_FUNC("SetLayeredWindowAttributes", hwnd, crKey, bAlpha, dwFlags);
+		BOOL result = CALL_ORIG_FUNC(SetLayeredWindowAttributes)(hwnd, crKey, bAlpha, dwFlags);
+		if (result)
+		{
+			Gdi::Window::updateLayeredWindowInfo(hwnd,
+				(dwFlags & LWA_COLORKEY) ? crKey : CLR_INVALID,
+				(dwFlags & LWA_ALPHA) ? bAlpha : 255);
+		}
+		return LOG_RESULT(result);
+	}
+
 	LONG setWindowLong(HWND hWnd, int nIndex, LONG dwNewLong,
 		decltype(&SetWindowLongA) origSetWindowLong, WNDPROC(WindowProc::* wndProc))
 	{
 		if (GWL_WNDPROC == nIndex)
 		{
-			Compat::ScopedCriticalSection lock(g_windowProcCs);
+			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 			auto it = g_windowProc.find(hWnd);
 			if (it != g_windowProc.end() && 0 != origSetWindowLong(hWnd, nIndex, dwNewLong))
 			{
@@ -385,6 +394,7 @@ namespace
 			wp.cy = cy;
 			wp.flags = uFlags;
 			onWindowPosChanging(hWnd, wp);
+			uFlags = wp.flags;
 		}
 		BOOL result = CALL_ORIG_FUNC(SetWindowPos)(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
 		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hWnd, PROP_DDRAWCOMPAT));
@@ -402,6 +412,34 @@ namespace
 			CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(wndProcA));
 		}
 	}
+
+	BOOL WINAPI updateLayeredWindow(HWND hWnd, HDC hdcDst, POINT* pptDst, SIZE* psize,
+		HDC hdcSrc, POINT* pptSrc, COLORREF crKey, BLENDFUNCTION* pblend, DWORD dwFlags)
+	{
+		LOG_FUNC("UpdateLayeredWindow", hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
+		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindow)(
+			hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
+		if (result && hdcSrc)
+		{
+			Gdi::Window::updateLayeredWindowInfo(hWnd,
+				(dwFlags & ULW_COLORKEY) ? crKey : CLR_INVALID,
+				((dwFlags & LWA_ALPHA) && pblend) ? pblend->SourceConstantAlpha : 255);
+		}
+		return LOG_RESULT(result);
+	}
+
+	BOOL WINAPI updateLayeredWindowIndirect(HWND hwnd, const UPDATELAYEREDWINDOWINFO* pULWInfo)
+	{
+		LOG_FUNC("UpdateLayeredWindowIndirect", hwnd, pULWInfo);
+		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindowIndirect)(hwnd, pULWInfo);
+		if (result && pULWInfo)
+		{
+			Gdi::Window::updateLayeredWindowInfo(hwnd,
+				(pULWInfo->dwFlags & ULW_COLORKEY) ? pULWInfo->crKey : CLR_INVALID,
+				((pULWInfo->dwFlags & LWA_ALPHA) && pULWInfo->pblend) ? pULWInfo->pblend->SourceConstantAlpha : 255);
+		}
+		return LOG_RESULT(result);
+	}
 }
 
 namespace Gdi
@@ -411,7 +449,7 @@ namespace Gdi
 		void dllThreadDetach()
 		{
 			auto threadId = GetCurrentThreadId();
-			Compat::ScopedCriticalSection lock(g_windowProcCs);
+			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 			auto it = g_windowProc.begin();
 			while (it != g_windowProc.end())
 			{
@@ -430,9 +468,12 @@ namespace Gdi
 		{
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);
 			HOOK_FUNCTION(user32, GetWindowLongW, getWindowLongW);
+			HOOK_FUNCTION(user32, SetLayeredWindowAttributes, setLayeredWindowAttributes);
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
+			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
 			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
@@ -441,6 +482,14 @@ namespace Gdi
 
 			EnumWindows(initTopLevelWindow, 0);
 			Gdi::Window::updateAll();
+		}
+
+		void onCreateWindow(HWND hwnd)
+		{
+			if (g_objectCreateEventHook)
+			{
+				::onCreateWindow(hwnd);
+			}
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
@@ -453,7 +502,7 @@ namespace Gdi
 			UnhookWinEvent(g_objectStateChangeEventHook);
 			UnhookWinEvent(g_objectCreateEventHook);
 
-			Compat::ScopedCriticalSection lock(g_windowProcCs);
+			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 			for (const auto& windowProc : g_windowProc)
 			{
 				setWindowProc(windowProc.first, windowProc.second.wndProcA, windowProc.second.wndProcW);

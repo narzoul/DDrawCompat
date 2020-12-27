@@ -34,11 +34,6 @@ namespace Gdi
 		DcCache::dllThreadDetach();
 	}
 
-	HRGN getVisibleWindowRgn(HWND hwnd)
-	{
-		return DcFunctions::getVisibleWindowRgn(hwnd);
-	}
-
 	void installHooks()
 	{
 		DcFunctions::installHooks();

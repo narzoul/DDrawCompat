@@ -7,6 +7,7 @@
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
 #include <Gdi/VirtualScreen.h>
+#include <Gdi/WinProc.h>
 
 std::ostream& operator<<(std::ostream& os, const MENUITEMINFOW& val)
 {
@@ -43,7 +44,8 @@ namespace
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
 		const char* origWndProcName);
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
-	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc);
+	LRESULT onNcActivate(HWND hwnd, WPARAM wParam, LPARAM lParam);
+	LRESULT onNcPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
@@ -143,7 +145,7 @@ namespace
 			return onEraseBackground(hwnd, reinterpret_cast<HDC>(wParam), origWndProc);
 
 		case WM_NCPAINT:
-			return onNcPaint(hwnd, wParam, origWndProc);
+			return onNcPaint(hwnd, origWndProc);
 
 		case WM_PRINT:
 		case WM_PRINTCLIENT:
@@ -164,14 +166,38 @@ namespace
 		return LOG_RESULT(defPaintProc(hwnd, msg, wParam, lParam, origWndProc));
 	}
 
+	LRESULT defWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origDefWindowProc)
+	{
+		switch (msg)
+		{
+		case WM_NCACTIVATE:
+			return onNcActivate(hwnd, wParam, lParam);
+
+		case WM_NCCREATE:
+		{
+			char className[64] = {};
+			GetClassName(hwnd, className, sizeof(className));
+			if (std::string(className) == "CompatWindowDesktopReplacement")
+			{
+				// Disable VirtualizeDesktopPainting shim
+				return 0;
+			}
+		}
+		}
+
+		return defPaintProc(hwnd, msg, wParam, lParam, origDefWindowProc);
+	}
+
 	LRESULT WINAPI defWindowProcA(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcA), "defWindowProcA");
+		LOG_FUNC("DefWindowProcA", Compat::WindowMessageStruct(hwnd, msg, wParam, lParam));
+		return LOG_RESULT(defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcA)));
 	}
 
 	LRESULT WINAPI defWindowProcW(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		return defPaintProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW), "defWindowProcW");
+		LOG_FUNC("DefWindowProcW", Compat::WindowMessageStruct(hwnd, msg, wParam, lParam));
+		return LOG_RESULT(defWindowProc(hwnd, msg, wParam, lParam, CALL_ORIG_FUNC(DefWindowProcW)));
 	}
 
 	LRESULT editWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -285,7 +311,7 @@ namespace
 		{
 		case WM_NCPAINT:
 			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			return onNcPaint(hwnd, wParam, origWndProc);
+			return onNcPaint(hwnd, origWndProc);
 
 		case WM_PAINT:
 		{
@@ -307,6 +333,18 @@ namespace
 			SelectObject(dc, origBitmap);
 			DeleteObject(dib);
 			DeleteDC(dc);
+			return result;
+		}
+
+		case WM_WINDOWPOSCHANGED:
+		{
+			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			auto exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
+			if (exStyle & WS_EX_LAYERED)
+			{
+				CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
+				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_UPDATENOW);
+			}
 			return result;
 		}
 
@@ -341,11 +379,11 @@ namespace
 		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 	}
 
-	LRESULT onNcPaint(HWND hwnd, WPARAM wParam, WNDPROC origWndProc)
+	LRESULT onNcActivate(HWND hwnd, WPARAM wParam, LPARAM lParam)
 	{
-		if (!hwnd)
+		if (-1 == lParam)
 		{
-			return CallWindowProc(origWndProc, hwnd, WM_NCPAINT, wParam, 0);
+			return TRUE;
 		}
 
 		HDC windowDc = GetWindowDC(hwnd);
@@ -353,6 +391,26 @@ namespace
 
 		if (compatDc)
 		{
+			D3dDdi::ScopedCriticalSection lock;
+			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
+			Gdi::TitleBar titleBar(hwnd, compatDc);
+			titleBar.setActive(wParam);
+			titleBar.drawAll();
+			Gdi::Dc::releaseDc(windowDc);
+		}
+
+		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
+		return TRUE;
+	}
+
+	LRESULT onNcPaint(HWND hwnd, WNDPROC origWndProc)
+	{
+		HDC windowDc = GetWindowDC(hwnd);
+		HDC compatDc = Gdi::Dc::getDc(windowDc);
+
+		if (compatDc)
+		{
+			D3dDdi::ScopedCriticalSection lock;
 			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			Gdi::TitleBar titleBar(hwnd, compatDc);
 			titleBar.drawAll();
@@ -430,9 +488,10 @@ namespace
 
 		if (compatDc)
 		{
+			D3dDdi::ScopedCriticalSection lock;
 			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
 			Gdi::TitleBar titleBar(hwnd, compatDc);
-			titleBar.drawCaption();
+			titleBar.drawAll();
 			Gdi::Dc::releaseDc(windowDc);
 		}
 
@@ -479,7 +538,12 @@ namespace
 		[[maybe_unused]] const std::string& procName, WndProcHook wndProcHook, WNDPROC oldWndProcTrampoline)
 	{
 		LOG_FUNC(procName.c_str(), Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
-		return LOG_RESULT(wndProcHook(hwnd, uMsg, wParam, lParam, oldWndProcTrampoline));
+		LRESULT result = wndProcHook(hwnd, uMsg, wParam, lParam, oldWndProcTrampoline);
+		if (WM_CREATE == uMsg && -1 != result)
+		{
+			Gdi::WinProc::onCreateWindow(hwnd);
+		}
+		return LOG_RESULT(result);
 	}
 
 	template <WndProcHook wndProcHook>

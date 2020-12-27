@@ -47,16 +47,8 @@ namespace
 		HDC m_compatDc;
 	};
 
-	struct ExcludeRgnForOverlappingWindowArgs
-	{
-		HRGN rgn;
-		HWND rootWnd;
-	};
-
 	std::unordered_map<void*, const char*> g_funcNames;
 	thread_local bool g_redirectToDib = true;
-
-	HRGN getWindowRegion(HWND hwnd);
 
 #define CREATE_DC_FUNC_ATTRIBUTE(attribute) \
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc> \
@@ -266,30 +258,6 @@ namespace
 		return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, hdc, lprect, flags));
 	}
 
-	BOOL CALLBACK excludeRgnForOverlappingWindow(HWND hwnd, LPARAM lParam)
-	{
-		auto& args = *reinterpret_cast<ExcludeRgnForOverlappingWindowArgs*>(lParam);
-		if (hwnd == args.rootWnd)
-		{
-			return FALSE;
-		}
-
-		DWORD windowPid = 0;
-		GetWindowThreadProcessId(hwnd, &windowPid);
-		if (GetCurrentProcessId() != windowPid ||
-			!IsWindowVisible(hwnd) ||
-			(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE) & (WS_EX_LAYERED | WS_EX_TRANSPARENT)))
-		{
-			return TRUE;
-		}
-
-		HRGN windowRgn = getWindowRegion(hwnd);
-		CombineRgn(args.rgn, args.rgn, windowRgn, RGN_DIFF);
-		DeleteObject(windowRgn);
-
-		return TRUE;
-	}
-
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
 	OrigFuncPtr getCompatGdiDcFuncPtr(FuncPtr<Result, HDC, Params...>)
 	{
@@ -300,18 +268,6 @@ namespace
 	OrigFuncPtr getCompatGdiTextDcFuncPtr(FuncPtr<Result, HDC, Params...>)
 	{
 		return &compatGdiTextDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	HRGN getWindowRegion(HWND hwnd)
-	{
-		RECT wr = {};
-		GetWindowRect(hwnd, &wr);
-		HRGN windowRgn = CreateRectRgnIndirect(&wr);
-		if (ERROR != GetWindowRgn(hwnd, windowRgn))
-		{
-			OffsetRgn(windowRgn, wr.left, wr.top);
-		}
-		return windowRgn;
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
@@ -334,26 +290,6 @@ namespace
 
 		Compat::hookFunction<OrigFuncPtr, origFunc>(
 			moduleName, funcName, getCompatGdiTextDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
-	}
-
-	int WINAPI getRandomRgn(HDC hdc, HRGN hrgn, INT iNum)
-	{
-		int result = CALL_ORIG_FUNC(GetRandomRgn)(hdc, hrgn, iNum);
-		if (1 != result)
-		{
-			return result;
-		}
-
-		HWND hwnd = WindowFromDC(hdc);
-		if (!hwnd || hwnd == GetDesktopWindow() || (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
-		{
-			return 1;
-		}
-
-		ExcludeRgnForOverlappingWindowArgs args = { hrgn, GetAncestor(hwnd, GA_ROOT) };
-		EnumWindows(excludeRgnForOverlappingWindow, reinterpret_cast<LPARAM>(&args));
-
-		return 1;
 	}
 
 	template <typename WndClass, typename WndClassEx>
@@ -481,14 +417,6 @@ namespace Gdi
 {
 	namespace DcFunctions
 	{
-		HRGN getVisibleWindowRgn(HWND hwnd)
-		{
-			HRGN rgn = getWindowRegion(hwnd);
-			ExcludeRgnForOverlappingWindowArgs args = { rgn, hwnd };
-			EnumWindows(excludeRgnForOverlappingWindow, reinterpret_cast<LPARAM>(&args));
-			return rgn;
-		}
-
 		void installHooks()
 		{
 			// Bitmap functions
@@ -516,9 +444,6 @@ namespace Gdi
 
 			// Brush functions
 			HOOK_GDI_DC_FUNCTION(gdi32, PatBlt);
-
-			// Clipping functions
-			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
 
 			// Device context functions
 			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);

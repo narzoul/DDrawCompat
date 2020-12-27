@@ -1,22 +1,90 @@
+#include <algorithm>
+#include <map>
+#include <vector>
+
 #include <dwmapi.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/Gdi.h>
-#include <Gdi/Region.h>
+#include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 
 namespace
 {
+	struct UpdateWindowContext
+	{
+		Gdi::Region obscuredRegion;
+		Gdi::Region virtualScreenRegion;
+		DWORD processId;
+	};
+
+	struct Window
+	{
+		HWND hwnd;
+		HWND presentationWindow;
+		RECT windowRect;
+		Gdi::Region windowRegion;
+		Gdi::Region visibleRegion;
+		Gdi::Region invalidatedRegion;
+		COLORREF colorKey;
+		BYTE alpha;
+		bool isLayered;
+		bool isRgnChangePending;
+
+		Window(HWND hwnd)
+			: hwnd(hwnd)
+			, presentationWindow(nullptr)
+			, windowRect{}
+			, windowRegion(nullptr)
+			, colorKey(CLR_INVALID)
+			, alpha(255)
+			, isLayered(true)
+			, isRgnChangePending(false)
+		{
+		}
+	};
+
 	const UINT WM_CREATEPRESENTATIONWINDOW = WM_USER;
-	const UINT WM_DESTROYPRESENTATIONWINDOW = WM_USER + 1;
-	const UINT WM_SETPRESENTATIONWINDOWPOS = WM_USER + 2;
+	const UINT WM_SETPRESENTATIONWINDOWPOS = WM_USER + 1;
+	const UINT WM_SETPRESENTATIONWINDOWRGN = WM_USER + 2;
+	const RECT REGION_OVERRIDE_MARKER_RECT = { 32000, 32000, 32001, 32001 };
 
 	HANDLE g_presentationWindowThread = nullptr;
 	DWORD g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
+	std::map<HWND, Window> g_windows;
+	std::vector<Window*> g_windowZOrder;
+
+	std::map<HWND, Window>::iterator addWindow(HWND hwnd)
+	{
+		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
+		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
+
+		BOOL disableTransitions = TRUE;
+		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
+
+		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
+		if (style & CS_DROPSHADOW)
+		{
+			SetClassLongPtr(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
+		}
+
+		return g_windows.emplace(hwnd, Window(hwnd)).first;
+	}
+
+	Gdi::Region getWindowRegion(HWND hwnd)
+	{
+		Gdi::Region rgn;
+		if (ERROR == CALL_ORIG_FUNC(GetWindowRgn)(hwnd, rgn))
+		{
+			return nullptr;
+		}
+		return rgn;
+	}
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -25,25 +93,18 @@ namespace
 		{
 		case WM_CREATEPRESENTATIONWINDOW:
 		{
-			D3dDdi::ScopedCriticalSection lock;
-			HWND origWindow = reinterpret_cast<HWND>(lParam);
-			auto window = Gdi::Window::get(origWindow);
-			if (!window)
-			{
-				return 0;
-			}
-
 			// Workaround for ForceSimpleWindow shim
 			static auto origCreateWindowExA = reinterpret_cast<decltype(&CreateWindowExA)>(
 				Compat::getProcAddress(GetModuleHandle("user32"), "CreateWindowExA"));
 
+			HWND owner = reinterpret_cast<HWND>(wParam);
 			HWND presentationWindow = origCreateWindowExA(
 				WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | WS_EX_TOOLWINDOW,
 				"DDrawCompatPresentationWindow",
 				nullptr,
 				WS_DISABLED | WS_POPUP,
 				0, 0, 1, 1,
-				origWindow,
+				owner,
 				nullptr,
 				nullptr,
 				nullptr);
@@ -51,11 +112,9 @@ namespace
 			if (presentationWindow)
 			{
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
-				SendMessage(presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(origWindow));
-				window->setPresentationWindow(presentationWindow);
 			}
 
-			return 0;
+			return reinterpret_cast<LRESULT>(presentationWindow);
 		}
 
 		case WM_DESTROY:
@@ -73,62 +132,21 @@ namespace
 
 		switch (uMsg)
 		{
-		case WM_DESTROYPRESENTATIONWINDOW:
-			DestroyWindow(hwnd);
-			return 0;
-
 		case WM_SETPRESENTATIONWINDOWPOS:
 		{
-			HWND owner = reinterpret_cast<HWND>(lParam);
-			if (IsWindowVisible(owner) && !IsIconic(owner))
+			const auto& wp = *reinterpret_cast<WINDOWPOS*>(lParam);
+			return SetWindowPos(hwnd, wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags);
+		}
+
+		case WM_SETPRESENTATIONWINDOWRGN:
+		{
+			HRGN rgn = nullptr;
+			if (wParam)
 			{
-				DWORD flags = SWP_SHOWWINDOW | SWP_NOOWNERZORDER | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW;
-
-				HWND insertAfter = HWND_TOP;
-				HWND prev = GetWindow(owner, GW_HWNDPREV);
-				if (prev)
-				{
-					if (hwnd == prev)
-					{
-						flags = flags | SWP_NOZORDER;
-					}
-					else
-					{
-						insertAfter = prev;
-					}
-				}
-
-				RECT wr = {};
-				GetWindowRect(owner, &wr);
-				RECT wrPres = {};
-				GetWindowRect(hwnd, &wrPres);
-				if (!(flags & SWP_NOZORDER) || !EqualRect(&wr, &wrPres) || !IsWindowVisible(hwnd))
-				{
-					CALL_ORIG_FUNC(SetWindowPos)(
-						hwnd, insertAfter, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top, flags);
-				}
-
-				Gdi::Region rgn;
-				int rgnResult = GetWindowRgn(owner, rgn);
-				Gdi::Region rgnPres;
-				int rgnPresResult = GetWindowRgn(hwnd, rgnPres);
-				if (rgnResult != rgnPresResult || !EqualRgn(rgn, rgnPres))
-				{
-					if (ERROR != rgnResult)
-					{
-						SetWindowRgn(hwnd, rgn.release(), FALSE);
-					}
-					else
-					{
-						SetWindowRgn(hwnd, nullptr, FALSE);
-					}
-				}
+				rgn = CreateRectRgn(0, 0, 0, 0);
+				CombineRgn(rgn, reinterpret_cast<HRGN>(wParam), nullptr, RGN_COPY);
 			}
-			else if (IsWindowVisible(hwnd))
-			{
-				ShowWindow(hwnd, SW_HIDE);
-			}
-			return 0;
+			return SetWindowRgn(hwnd, rgn, FALSE);
 		}
 		}
 
@@ -162,334 +180,469 @@ namespace
 		return 0;
 	}
 
-	BOOL WINAPI setLayeredWindowAttributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
+	LRESULT sendMessageBlocking(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 	{
-		LOG_FUNC("SetLayeredWindowAttributes", hwnd, crKey, bAlpha, dwFlags);
-		BOOL result = CALL_ORIG_FUNC(SetLayeredWindowAttributes)(hwnd, crKey, bAlpha, dwFlags);
-		if (result)
-		{
-			Gdi::Window::updateLayeredWindowInfo(hwnd,
-				(dwFlags & LWA_COLORKEY) ? crKey : CLR_INVALID,
-				(dwFlags & LWA_ALPHA) ? bAlpha : 255);
-		}
-		return LOG_RESULT(result);
+		DWORD_PTR result = 0;
+		SendMessageTimeout(hwnd, msg, wParam, lParam, SMTO_BLOCK | SMTO_NOTIMEOUTIFNOTHUNG, 0, &result);
+		return result;
 	}
 
-	BOOL WINAPI updateLayeredWindow(HWND hWnd, HDC hdcDst, POINT* pptDst, SIZE* psize,
-		HDC hdcSrc, POINT* pptSrc, COLORREF crKey, BLENDFUNCTION* pblend, DWORD dwFlags)
+	void updatePosition(Window& window, const RECT& oldWindowRect, const Gdi::Region& oldVisibleRegion)
 	{
-		LOG_FUNC("UpdateLayeredWindow", hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
-		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindow)(
-			hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
-		if (result && hdcSrc)
+		Gdi::Region preservedRegion(oldVisibleRegion);
+		preservedRegion.offset(window.windowRect.left - oldWindowRect.left, window.windowRect.top - oldWindowRect.top);
+		preservedRegion &= window.visibleRegion;
+
+		POINT clientPos = {};
+		ClientToScreen(window.hwnd, &clientPos);
+		if (!preservedRegion.isEmpty())
 		{
-			Gdi::Window::updateLayeredWindowInfo(hWnd,
-				(dwFlags & ULW_COLORKEY) ? crKey : CLR_INVALID,
-				((dwFlags & LWA_ALPHA) && pblend) ? pblend->SourceConstantAlpha : 255);
+			Gdi::Region updateRegion;
+			GetUpdateRgn(window.hwnd, updateRegion, FALSE);
+			OffsetRgn(updateRegion, clientPos.x, clientPos.y);
+			preservedRegion -= updateRegion;
+
+			if (!preservedRegion.isEmpty() &&
+				(window.windowRect.left != oldWindowRect.left || window.windowRect.top != oldWindowRect.top))
+			{
+				HDC screenDc = GetDC(nullptr);
+				SelectClipRgn(screenDc, preservedRegion);
+				BitBlt(screenDc, window.windowRect.left, window.windowRect.top,
+					oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
+					screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
+				SelectClipRgn(screenDc, nullptr);
+				CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+			}
 		}
-		return LOG_RESULT(result);
+
+		window.invalidatedRegion = window.visibleRegion - preservedRegion;
+		OffsetRgn(window.invalidatedRegion, -clientPos.x, -clientPos.y);
 	}
 
-	BOOL WINAPI updateLayeredWindowIndirect(HWND hwnd, const UPDATELAYEREDWINDOWINFO* pULWInfo)
+	BOOL CALLBACK updateWindow(HWND hwnd, LPARAM lParam)
 	{
-		LOG_FUNC("UpdateLayeredWindowIndirect", hwnd, pULWInfo);
-		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindowIndirect)(hwnd, pULWInfo);
-		if (result && pULWInfo)
+		auto& context = *reinterpret_cast<UpdateWindowContext*>(lParam);
+
+		DWORD processId = 0;
+		GetWindowThreadProcessId(hwnd, &processId);
+		if (GetWindowThreadProcessId(hwnd, &processId) == g_presentationWindowThreadId ||
+			processId != context.processId)
 		{
-			Gdi::Window::updateLayeredWindowInfo(hwnd,
-				(pULWInfo->dwFlags & ULW_COLORKEY) ? pULWInfo->crKey : CLR_INVALID,
-				((pULWInfo->dwFlags & LWA_ALPHA) && pULWInfo->pblend) ? pULWInfo->pblend->SourceConstantAlpha : 255);
+			return TRUE;
 		}
-		return LOG_RESULT(result);
+
+		auto it = g_windows.find(hwnd);
+		if (it == g_windows.end())
+		{
+			it = addWindow(hwnd);
+		}
+		g_windowZOrder.push_back(&it->second);
+
+		const LONG exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
+		const bool isLayered = exStyle & WS_EX_LAYERED;
+		const bool isVisible = IsWindowVisible(hwnd) && !IsIconic(hwnd);
+		bool setPresentationWindowRgn = false;
+
+		if (isLayered != it->second.isLayered)
+		{
+			it->second.isLayered = isLayered;
+			it->second.isRgnChangePending = isVisible;
+			if (!isLayered)
+			{
+				it->second.presentationWindow = reinterpret_cast<HWND>(
+					sendMessageBlocking(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, reinterpret_cast<WPARAM>(hwnd), 0));
+				setPresentationWindowRgn = true;
+			}
+			else if (it->second.presentationWindow)
+			{
+				sendMessageBlocking(it->second.presentationWindow, WM_CLOSE, 0, 0);
+				it->second.presentationWindow = nullptr;
+			}
+		}
+
+		Gdi::Region windowRegion(getWindowRegion(hwnd));
+		if (windowRegion && !PtInRegion(windowRegion, REGION_OVERRIDE_MARKER_RECT.left, REGION_OVERRIDE_MARKER_RECT.top) ||
+			!windowRegion && it->second.windowRegion)
+		{
+			swap(it->second.windowRegion, windowRegion);
+			setPresentationWindowRgn = true;
+		}
+
+		RECT windowRect = {};
+		Gdi::Region visibleRegion;
+
+		if (isVisible)
+		{
+			GetWindowRect(hwnd, &windowRect);
+			if (!IsRectEmpty(&windowRect))
+			{
+				if (it->second.windowRegion)
+				{
+					visibleRegion = it->second.windowRegion;
+					OffsetRgn(visibleRegion, windowRect.left, windowRect.top);
+				}
+				else
+				{
+					visibleRegion = windowRect;
+				}
+				visibleRegion &= context.virtualScreenRegion;
+				visibleRegion -= context.obscuredRegion;
+
+				if (!isLayered && !(exStyle & WS_EX_TRANSPARENT))
+				{
+					context.obscuredRegion |= visibleRegion;
+				}
+			}
+		}
+
+		std::swap(it->second.windowRect, windowRect);
+		swap(it->second.visibleRegion, visibleRegion);
+
+		if (!isLayered)
+		{
+			if (!it->second.visibleRegion.isEmpty())
+			{
+				updatePosition(it->second, windowRect, visibleRegion);
+			}
+
+			if (isVisible && !it->second.isRgnChangePending)
+			{
+				OffsetRgn(visibleRegion, it->second.windowRect.left - windowRect.left, it->second.windowRect.top - windowRect.top);
+				if (it->second.visibleRegion != visibleRegion)
+				{
+					it->second.isRgnChangePending = true;
+				}
+			}
+
+			if (it->second.presentationWindow)
+			{
+				if (setPresentationWindowRgn)
+				{
+					HRGN rgn = it->second.windowRegion;
+					sendMessageBlocking(it->second.presentationWindow, WM_SETPRESENTATIONWINDOWRGN,
+						reinterpret_cast<WPARAM>(rgn), 0);
+				}
+
+				WINDOWPOS wp = {};
+				wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
+				if (isVisible)
+				{
+					wp.hwndInsertAfter = GetWindow(hwnd, GW_HWNDPREV);
+					if (!wp.hwndInsertAfter)
+					{
+						wp.hwndInsertAfter = (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) ? HWND_TOPMOST : HWND_TOP;
+					}
+					else if (wp.hwndInsertAfter == it->second.presentationWindow)
+					{
+						wp.flags |= SWP_NOZORDER;
+					}
+
+					wp.x = it->second.windowRect.left;
+					wp.y = it->second.windowRect.top;
+					wp.cx = it->second.windowRect.right - it->second.windowRect.left;
+					wp.cy = it->second.windowRect.bottom - it->second.windowRect.top;
+					wp.flags |= SWP_SHOWWINDOW;
+				}
+				else
+				{
+					wp.flags |= SWP_HIDEWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+				}
+
+				sendMessageBlocking(it->second.presentationWindow, WM_SETPRESENTATIONWINDOWPOS,
+					0, reinterpret_cast<LPARAM>(&wp));
+			}
+		}
+		return TRUE;
 	}
 }
 
 namespace Gdi
 {
-	Window::Window(HWND hwnd)
-		: m_hwnd(hwnd)
-		, m_presentationWindow(nullptr)
-		, m_windowRect{ 0, 0, 0, 0 }
-		, m_colorKey(CLR_INVALID)
-		, m_alpha(255)
-		, m_isLayered(CALL_ORIG_FUNC(GetWindowLongA)(m_hwnd, GWL_EXSTYLE)& WS_EX_LAYERED)
+	namespace Window
 	{
-		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
-		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
-
-		BOOL disableTransitions = TRUE;
-		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
-
-		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
-		if (style & CS_DROPSHADOW)
+		void installHooks()
 		{
-			SetClassLongPtr(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
+			WNDCLASS wc = {};
+			wc.lpfnWndProc = &presentationWindowProc;
+			wc.hInstance = Dll::g_currentModule;
+			wc.lpszClassName = "DDrawCompatPresentationWindow";
+			RegisterClass(&wc);
+
+			g_presentationWindowThread = CreateThread(
+				nullptr, 0, &presentationWindowThreadProc, nullptr, 0, &g_presentationWindowThreadId);
+
+			int i = 0;
+			while (!g_messageWindow && i < 1000)
+			{
+				Sleep(1);
+				++i;
+			}
+
+			if (!g_messageWindow)
+			{
+				Compat::Log() << "ERROR: Failed to create a message-only window";
+			}
 		}
 
-		if (!m_isLayered)
+		bool isPresentationWindow(HWND hwnd)
 		{
-			SendNotifyMessage(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, 0, reinterpret_cast<WPARAM>(hwnd));
+			return g_presentationWindowThreadId == GetWindowThreadProcessId(hwnd, nullptr);
 		}
 
-		update();
-	}
-
-	Window::~Window()
-	{
-		if (m_presentationWindow)
+		void onStyleChanged(HWND hwnd, WPARAM wParam)
 		{
-			SendNotifyMessage(m_presentationWindow, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
+			if (GWL_EXSTYLE == wParam)
+			{
+				D3dDdi::ScopedCriticalSection lock;
+				auto it = g_windows.find(hwnd);
+				if (it != g_windows.end())
+				{
+					const bool isLayered = GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
+					if (isLayered != it->second.isLayered)
+					{
+						updateAll();
+					}
+				}
+			}
 		}
-	}
 
-	bool Window::add(HWND hwnd)
-	{
-		if (isTopLevelWindow(hwnd) && !get(hwnd))
+		void onSyncPaint(HWND hwnd)
+		{
+			LOG_FUNC("Window::onSyncPaint", hwnd);
+			bool isInvalidated = false;
+
+			{
+				D3dDdi::ScopedCriticalSection lock;
+				auto it = g_windows.find(hwnd);
+				if (it == g_windows.end())
+				{
+					return;
+				}
+
+				if (it->second.isRgnChangePending)
+				{
+					it->second.isRgnChangePending = false;
+					const LONG origWndProc = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC);
+					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(CALL_ORIG_FUNC(DefWindowProcA)));
+					if (it->second.isLayered)
+					{
+						SetWindowRgn(hwnd, Gdi::Region(it->second.windowRegion).release(), FALSE);
+					}
+					else
+					{
+						Gdi::Region rgn(it->second.visibleRegion);
+						OffsetRgn(rgn, -it->second.windowRect.left, -it->second.windowRect.top);
+						rgn |= REGION_OVERRIDE_MARKER_RECT;
+						SetWindowRgn(hwnd, rgn, FALSE);
+					}
+					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, origWndProc);
+				}
+
+				isInvalidated = !it->second.invalidatedRegion.isEmpty();
+				if (isInvalidated)
+				{
+					RedrawWindow(hwnd, nullptr, it->second.invalidatedRegion,
+						RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+					it->second.invalidatedRegion = nullptr;
+				}
+			}
+
+			if (isInvalidated)
+			{
+				RECT emptyRect = {};
+				RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
+			}
+		}
+
+		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
+			CompatRef<IDirectDrawClipper> clipper)
 		{
 			D3dDdi::ScopedCriticalSection lock;
-			s_windows.emplace(hwnd, std::make_shared<Window>(hwnd));
-			return true;
-		}
-
-		return false;
-	}
-
-	void Window::calcInvalidatedRegion(const RECT& oldWindowRect, const Region& oldVisibleRegion)
-	{
-		if (IsRectEmpty(&m_windowRect) || m_visibleRegion.isEmpty())
-		{
-			m_invalidatedRegion = Region();
-			return;
-		}
-
-		m_invalidatedRegion = m_visibleRegion;
-
-		if (m_windowRect.right - m_windowRect.left == oldWindowRect.right - oldWindowRect.left &&
-			m_windowRect.bottom - m_windowRect.top == oldWindowRect.bottom - oldWindowRect.top)
-		{
-			Region preservedRegion(oldVisibleRegion);
-			preservedRegion.offset(m_windowRect.left - oldWindowRect.left, m_windowRect.top - oldWindowRect.top);
-			preservedRegion &= m_visibleRegion;
-
-			if (!preservedRegion.isEmpty())
+			for (auto window : g_windowZOrder)
 			{
-				if (m_windowRect.left != oldWindowRect.left || m_windowRect.top != oldWindowRect.top)
+				if (window->presentationWindow && !window->visibleRegion.isEmpty())
 				{
-					HDC screenDc = GetDC(nullptr);
-					SelectClipRgn(screenDc, preservedRegion);
-					BitBlt(screenDc, m_windowRect.left, m_windowRect.top,
-						oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
-						screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
-					SelectClipRgn(screenDc, nullptr);
-					CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+					clipper->SetHWnd(&clipper, 0, window->presentationWindow);
+					dst->Blt(&dst, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
 				}
-				m_invalidatedRegion -= preservedRegion;
 			}
 		}
-	}
 
-	std::shared_ptr<Window> Window::get(HWND hwnd)
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		auto it = s_windows.find(hwnd);
-		return it != s_windows.end() ? it->second : nullptr;
-	}
-
-	BYTE Window::getAlpha() const
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		return m_alpha;
-	}
-
-	COLORREF Window::getColorKey() const
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		return m_colorKey;
-	}
-
-	HWND Window::getPresentationWindow() const
-	{
-		return m_presentationWindow ? m_presentationWindow : m_hwnd;
-	}
-
-	Region Window::getVisibleRegion() const
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		return m_visibleRegion;
-	}
-
-	RECT Window::getWindowRect() const
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		return m_windowRect;
-	}
-
-	std::map<HWND, std::shared_ptr<Window>> Window::getWindows()
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		return s_windows;
-	}
-
-	void Window::installHooks()
-	{
-		HOOK_FUNCTION(user32, SetLayeredWindowAttributes, setLayeredWindowAttributes);
-		HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
-		HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
-
-		WNDCLASS wc = {};
-		wc.lpfnWndProc = &presentationWindowProc;
-		wc.hInstance = Dll::g_currentModule;
-		wc.lpszClassName = "DDrawCompatPresentationWindow";
-		RegisterClass(&wc);
-
-		g_presentationWindowThread = CreateThread(
-			nullptr, 0, &presentationWindowThreadProc, nullptr, 0, &g_presentationWindowThreadId);
-
-		int i = 0;
-		while (!g_messageWindow && i < 1000)
+		void present(Gdi::Region excludeRegion)
 		{
-			Sleep(1);
-			++i;
-		}
+			D3dDdi::ScopedCriticalSection lock;
+			std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
+			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 
-		if (!g_messageWindow)
-		{
-			Compat::Log() << "ERROR: Failed to create a message-only window";
-		}
-	}
-
-	bool Window::isLayered() const
-	{
-		return m_isLayered;
-	}
-
-	bool Window::isPresentationWindow(HWND hwnd)
-	{
-		return IsWindow(hwnd) && g_presentationWindowThreadId == GetWindowThreadProcessId(hwnd, nullptr);
-	}
-
-	bool Window::isTopLevelWindow(HWND hwnd)
-	{
-		return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
-	}
-
-	void Window::remove(HWND hwnd)
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		s_windows.erase(hwnd);
-	}
-
-	void Window::uninstallHooks()
-	{
-		if (g_presentationWindowThread)
-		{
-			SendMessage(g_messageWindow, WM_CLOSE, 0, 0);
-			if (WAIT_OBJECT_0 != WaitForSingleObject(g_presentationWindowThread, 1000))
+			for (auto window : g_windowZOrder)
 			{
-				TerminateThread(g_presentationWindowThread, 0);
-				Compat::Log() << "The presentation window thread was terminated forcefully";
+				if (!window->presentationWindow)
+				{
+					continue;
+				}
+
+				Gdi::Region visibleRegion(window->visibleRegion);
+				if (excludeRegion)
+				{
+					visibleRegion -= excludeRegion;
+				}
+				if (visibleRegion.isEmpty())
+				{
+					continue;
+				}
+
+				if (!virtualScreenDc)
+				{
+					virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
+					if (!virtualScreenDc)
+					{
+						return;
+					}
+				}
+
+				HDC dc = GetWindowDC(window->presentationWindow);
+				RECT rect = window->windowRect;
+				visibleRegion.offset(-rect.left, -rect.top);
+				SelectClipRgn(dc, visibleRegion);
+				CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, virtualScreenDc.get(),
+					rect.left - virtualScreenBounds.left, rect.top - virtualScreenBounds.top, SRCCOPY);
+				CALL_ORIG_FUNC(ReleaseDC)(window->presentationWindow, dc);
 			}
 		}
-	}
 
-	void Window::setPresentationWindow(HWND hwnd)
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		if (m_isLayered)
+		void presentLayered(CompatRef<IDirectDrawSurface7> dst, POINT offset)
 		{
-			SendNotifyMessage(hwnd, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
-		}
-		else
-		{
-			m_presentationWindow = hwnd;
-			SendNotifyMessage(m_presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(m_hwnd));
-			DDraw::RealPrimarySurface::scheduleUpdate();
-		}
-	}
+			D3dDdi::ScopedCriticalSection lock;
 
-	void Window::update()
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		const bool isLayered = CALL_ORIG_FUNC(GetWindowLongA)(m_hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
-		if (isLayered != m_isLayered)
-		{
-			if (!isLayered)
+			HDC dstDc = nullptr;
+			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 			{
-				SendNotifyMessage(g_messageWindow, WM_CREATEPRESENTATIONWINDOW, 0, reinterpret_cast<WPARAM>(m_hwnd));
+				auto& window = **it;
+				if (!window.isLayered)
+				{
+					continue;
+				}
+
+				if (!dstDc)
+				{
+					const UINT D3DDDIFMT_UNKNOWN = 0;
+					const UINT D3DDDIFMT_X8R8G8B8 = 22;
+					D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_X8R8G8B8);
+					dst->GetDC(&dst, &dstDc);
+					D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_UNKNOWN);
+					if (!dstDc)
+					{
+						return;
+					}
+				}
+
+				HDC windowDc = GetWindowDC(window.hwnd);
+				Gdi::Region rgn(window.visibleRegion);
+				RECT wr = window.windowRect;
+
+				if (0 != offset.x || 0 != offset.y)
+				{
+					OffsetRect(&wr, offset.x, offset.y);
+					rgn.offset(offset.x, offset.y);
+				}
+
+				SelectClipRgn(dstDc, rgn);
+
+				auto colorKey = window.colorKey;
+				if (CLR_INVALID != colorKey)
+				{
+					CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+						windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
+				}
+				else
+				{
+					BLENDFUNCTION blend = {};
+					blend.SourceConstantAlpha = window.alpha;
+					CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+						windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
+				}
+
+				CALL_ORIG_FUNC(ReleaseDC)(window.hwnd, windowDc);
 			}
-			else if (m_presentationWindow)
+
+			if (dstDc)
 			{
-				SendNotifyMessage(m_presentationWindow, WM_DESTROYPRESENTATIONWINDOW, 0, 0);
-				m_presentationWindow = nullptr;
+				SelectClipRgn(dstDc, nullptr);
+				dst->ReleaseDC(&dst, dstDc);
 			}
 		}
-		m_isLayered = isLayered;
 
-		RECT newWindowRect = {};
-		Region newVisibleRegion;
-
-		if (IsWindowVisible(m_hwnd) && !IsIconic(m_hwnd))
+		void updateAll()
 		{
-			GetWindowRect(m_hwnd, &newWindowRect);
-			if (!IsRectEmpty(&newWindowRect) && !m_isLayered)
+			LOG_FUNC("Window::updateAll");
+			UpdateWindowContext context;
+			context.processId = GetCurrentProcessId();
+			context.virtualScreenRegion = VirtualScreen::getRegion();
+			std::vector<HWND> invalidatedWindows;
+
 			{
-				newVisibleRegion = m_hwnd;
+				D3dDdi::ScopedCriticalSection lock;
+				g_windowZOrder.clear();
+				EnumWindows(updateWindow, reinterpret_cast<LPARAM>(&context));
+
+				for (auto it = g_windows.begin(); it != g_windows.end();)
+				{
+					if (g_windowZOrder.end() == std::find(g_windowZOrder.begin(), g_windowZOrder.end(), &it->second))
+					{
+						if (it->second.presentationWindow)
+						{
+							sendMessageBlocking(it->second.presentationWindow, WM_CLOSE, 0, 0);
+						}
+						it = g_windows.erase(it);
+					}
+					else
+					{
+						++it;
+					}
+				}
+
+				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
+				{
+					auto& window = **it;
+					if (window.isRgnChangePending || !window.invalidatedRegion.isEmpty())
+					{
+						invalidatedWindows.push_back(window.hwnd);
+					}
+				}
 			}
-		}
 
-		if (m_presentationWindow)
-		{
-			SendNotifyMessage(m_presentationWindow, WM_SETPRESENTATIONWINDOWPOS, 0, reinterpret_cast<LPARAM>(m_hwnd));
-		}
-
-		std::swap(m_windowRect, newWindowRect);
-		swap(m_visibleRegion, newVisibleRegion);
-
-		calcInvalidatedRegion(newWindowRect, newVisibleRegion);
-	}
-
-	void Window::updateAll()
-	{
-		auto windows(getWindows());
-		for (auto& windowPair : windows)
-		{
-			windowPair.second->update();
-		}
-
-		for (auto& windowPair : windows)
-		{
-			if (!windowPair.second->m_invalidatedRegion.isEmpty())
+			for (auto hwnd : invalidatedWindows)
 			{
-				POINT clientOrigin = {};
-				ClientToScreen(windowPair.first, &clientOrigin);
-				windowPair.second->m_invalidatedRegion.offset(-clientOrigin.x, -clientOrigin.y);
-				RedrawWindow(windowPair.first, nullptr, windowPair.second->m_invalidatedRegion,
-					RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_ERASENOW);
+				SendNotifyMessage(hwnd, WM_SYNCPAINT, 0, 0);
+			}
+		}
+
+		void updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha)
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			auto it = g_windows.find(hwnd);
+			if (it != g_windows.end())
+			{
+				it->second.colorKey = colorKey;
+				it->second.alpha = alpha;
+				if (!it->second.visibleRegion.isEmpty())
+				{
+					DDraw::RealPrimarySurface::scheduleUpdate();
+				}
+			}
+		}
+
+		void uninstallHooks()
+		{
+			if (g_presentationWindowThread)
+			{
+				sendMessageBlocking(g_messageWindow, WM_CLOSE, 0, 0);
+				if (WAIT_OBJECT_0 != WaitForSingleObject(g_presentationWindowThread, 1000))
+				{
+					TerminateThread(g_presentationWindowThread, 0);
+					Compat::Log() << "The presentation window thread was terminated forcefully";
+				}
 			}
 		}
 	}
-
-	void Window::updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha)
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		auto window(get(hwnd));
-		if (window)
-		{
-			window->m_colorKey = colorKey;
-			window->m_alpha = alpha;
-			DDraw::RealPrimarySurface::scheduleUpdate();
-		}
-	}
-
-	void Window::updateWindow()
-	{
-		RECT windowRect = {};
-		GetWindowRect(m_hwnd, &windowRect);
-		if (!EqualRect(&windowRect, &m_windowRect))
-		{
-			updateAll();
-		}
-	}
-
-	std::map<HWND, std::shared_ptr<Window>> Window::s_windows;
 }

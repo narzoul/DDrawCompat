@@ -1,10 +1,11 @@
 #include <set>
 
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "DDraw/Surfaces/Surface.h"
-#include "DDraw/Surfaces/SurfaceImpl.h"
+#include <DDraw/DirectDrawClipper.h>
+#include <DDraw/DirectDrawSurface.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/Surface.h>
+#include <DDraw/Surfaces/SurfaceImpl.h>
 
 namespace DDraw
 {
@@ -28,6 +29,7 @@ namespace DDraw
 		{
 			return DDERR_WASSTILLDRAWING;
 		}
+		DirectDrawClipper::update();
 		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 

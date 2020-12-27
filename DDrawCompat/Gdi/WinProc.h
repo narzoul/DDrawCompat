@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Gdi.h"
+#include <Gdi/Gdi.h>
 
 namespace Gdi
 {
@@ -8,6 +8,7 @@ namespace Gdi
 	{
 		void dllThreadDetach();
 		void installHooks();
+		void onCreateWindow(HWND hwnd);
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 		void uninstallHooks();
 	}

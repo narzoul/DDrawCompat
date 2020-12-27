@@ -339,7 +339,7 @@ std::ostream& operator<<(std::ostream& os, const NMHDR& nm)
 		<< Compat::hex(nm.code);
 }
 
-std::ostream& operator<<(std::ostream& os, const POINTS& p)
+std::ostream& operator<<(std::ostream& os, const POINT& p)
 {
 	return Compat::LogStruct(os)
 		<< p.x

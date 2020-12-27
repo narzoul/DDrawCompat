@@ -15,6 +15,7 @@ namespace Gdi
 		void drawButtons() const;
 		void drawCaption() const;
 		void excludeFromClipRegion() const;
+		void setActive(bool isActive);
 
 	private:
 		void adjustButtonSize(RECT& rect) const;
@@ -29,5 +30,6 @@ namespace Gdi
 		RECT m_windowRect;
 		bool m_hasIcon;
 		bool m_hasTitleBar;
+		bool m_isActive;
 	};
 }

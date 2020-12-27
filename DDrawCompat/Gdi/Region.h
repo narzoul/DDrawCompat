@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstddef>
+
 #include <Windows.h>
 
 namespace Gdi
@@ -7,6 +9,7 @@ namespace Gdi
 	class Region
 	{
 	public:
+		Region(std::nullptr_t);
 		Region(HRGN rgn);
 		Region(const RECT& rect = RECT{ 0, 0, 0, 0 });
 		Region(HWND hwnd);
@@ -20,6 +23,9 @@ namespace Gdi
 		HRGN release();
 
 		operator HRGN() const;
+
+		bool operator==(const Region& other) const;
+		bool operator!=(const Region& other) const;
 
 		Region operator&(const Region& other) const;
 		Region operator|(const Region& other) const;
