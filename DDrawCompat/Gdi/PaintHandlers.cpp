@@ -182,6 +182,17 @@ namespace
 				// Disable VirtualizeDesktopPainting shim
 				return 0;
 			}
+			return origDefWindowProc(hwnd, msg, wParam, lParam);
+		}
+
+		case WM_NCLBUTTONDOWN:
+		{
+			LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+			if (wParam == HTHSCROLL || wParam == HTVSCROLL)
+			{
+				onNcPaint(hwnd, origDefWindowProc);
+			}
+			return result;
 		}
 		}
 
