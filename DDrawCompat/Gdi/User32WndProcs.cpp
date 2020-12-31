@@ -2,10 +2,10 @@
 
 #include <Gdi/AccessGuard.h>
 #include <Gdi/Dc.h>
-#include <Gdi/PaintHandlers.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
+#include <Gdi/User32WndProcs.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/WinProc.h>
 
@@ -574,7 +574,7 @@ namespace
 
 namespace Gdi
 {
-	namespace PaintHandlers
+	namespace User32WndProcs
 	{
 		void installHooks()
 		{

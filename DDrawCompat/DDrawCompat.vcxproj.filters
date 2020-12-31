@@ -96,9 +96,6 @@
     <ClInclude Include="Gdi\DcFunctions.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
-    <ClInclude Include="Gdi\PaintHandlers.h">
-      <Filter>Header Files\Gdi</Filter>
-    </ClInclude>
     <ClInclude Include="Gdi\ScrollBar.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
@@ -399,6 +396,9 @@
     <ClInclude Include="Common\ScopedSrwLock.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\User32WndProcs.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -414,9 +414,6 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\DcFunctions.cpp">
-      <Filter>Source Files\Gdi</Filter>
-    </ClCompile>
-    <ClCompile Include="Gdi\PaintHandlers.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\ScrollBar.cpp">
@@ -613,6 +610,9 @@
     </ClCompile>
     <ClCompile Include="Win32\MemoryManagement.cpp">
       <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\User32WndProcs.cpp">
+      <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

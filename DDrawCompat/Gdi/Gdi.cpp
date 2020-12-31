@@ -5,9 +5,9 @@
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
 #include <Gdi/Gdi.h>
-#include <Gdi/PaintHandlers.h>
 #include <Gdi/Palette.h>
 #include <Gdi/ScrollFunctions.h>
+#include <Gdi/User32WndProcs.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 
@@ -37,9 +37,9 @@ namespace Gdi
 	void installHooks()
 	{
 		DcFunctions::installHooks();
-		PaintHandlers::installHooks();
 		Palette::installHooks();
 		ScrollFunctions::installHooks();
+		User32WndProcs::installHooks();
 		Window::installHooks();
 		WinProc::installHooks();
 		Caret::installHooks();

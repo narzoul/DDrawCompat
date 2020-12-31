@@ -2,7 +2,7 @@
 
 namespace Gdi
 {
-	namespace PaintHandlers
+	namespace User32WndProcs
 	{
 		void installHooks();
 	}
