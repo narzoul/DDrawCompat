@@ -27,23 +27,25 @@ namespace
 		HWND hwnd;
 		HWND presentationWindow;
 		RECT windowRect;
+		RECT clientRect;
 		Gdi::Region windowRegion;
 		Gdi::Region visibleRegion;
 		Gdi::Region invalidatedRegion;
 		COLORREF colorKey;
 		BYTE alpha;
 		bool isLayered;
-		bool isRgnChangePending;
+		bool isVisibleRegionChanged;
 
 		Window(HWND hwnd)
 			: hwnd(hwnd)
 			, presentationWindow(nullptr)
 			, windowRect{}
+			, clientRect{}
 			, windowRegion(nullptr)
 			, colorKey(CLR_INVALID)
 			, alpha(255)
 			, isLayered(true)
-			, isRgnChangePending(false)
+			, isVisibleRegionChanged(false)
 		{
 		}
 	};
@@ -67,13 +69,27 @@ namespace
 		BOOL disableTransitions = TRUE;
 		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
 
-		const auto style = GetClassLongPtr(hwnd, GCL_STYLE);
+		const auto style = GetClassLong(hwnd, GCL_STYLE);
 		if (style & CS_DROPSHADOW)
 		{
-			SetClassLongPtr(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
+			CALL_ORIG_FUNC(SetClassLongA)(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
 		}
 
 		return g_windows.emplace(hwnd, Window(hwnd)).first;
+	}
+
+	void bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
+	{
+		if (dst.left == src.left && dst.top == src.top || clipRegion.isEmpty())
+		{
+			return;
+		}
+
+		HDC screenDc = GetDC(nullptr);
+		SelectClipRgn(screenDc, clipRegion);
+		BitBlt(screenDc, dst.left, dst.top, src.right - src.left, src.bottom - src.top, screenDc, src.left, src.top, SRCCOPY);
+		SelectClipRgn(screenDc, nullptr);
+		CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
 	}
 
 	Gdi::Region getWindowRegion(HWND hwnd)
@@ -187,36 +203,81 @@ namespace
 		return result;
 	}
 
-	void updatePosition(Window& window, const RECT& oldWindowRect, const Gdi::Region& oldVisibleRegion)
+	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
+		const Gdi::Region& oldVisibleRegion)
 	{
-		Gdi::Region preservedRegion(oldVisibleRegion);
-		preservedRegion.offset(window.windowRect.left - oldWindowRect.left, window.windowRect.top - oldWindowRect.top);
-		preservedRegion &= window.visibleRegion;
+		const bool isClientOriginChanged =
+			window.clientRect.left - window.windowRect.left != oldClientRect.left - oldWindowRect.left ||
+			window.clientRect.top - window.windowRect.top != oldClientRect.top - oldWindowRect.top;
+		const bool isClientWidthChanged =
+			window.clientRect.right - window.clientRect.left != oldClientRect.right - oldClientRect.left;
+		const bool isClientHeightChanged =
+			window.clientRect.bottom - window.clientRect.top != oldClientRect.bottom - oldClientRect.top;
+		const bool isClientInvalidated =
+			isClientWidthChanged && (GetClassLong(window.hwnd, GCL_STYLE) & CS_HREDRAW) ||
+			isClientHeightChanged && (GetClassLong(window.hwnd, GCL_STYLE) & CS_VREDRAW);
+		const bool isFrameInvalidated = isClientOriginChanged || isClientWidthChanged || isClientHeightChanged ||
+			window.windowRect.right - window.windowRect.left != oldWindowRect.right - oldWindowRect.left ||
+			window.windowRect.bottom - window.windowRect.top != oldWindowRect.bottom - oldWindowRect.top;
 
-		POINT clientPos = {};
-		ClientToScreen(window.hwnd, &clientPos);
-		if (!preservedRegion.isEmpty())
+		Gdi::Region preservedRegion;
+		if (!isClientInvalidated || !isFrameInvalidated)
 		{
-			Gdi::Region updateRegion;
-			GetUpdateRgn(window.hwnd, updateRegion, FALSE);
-			OffsetRgn(updateRegion, clientPos.x, clientPos.y);
-			preservedRegion -= updateRegion;
+			preservedRegion = oldVisibleRegion;
+			preservedRegion.offset(window.windowRect.left - oldWindowRect.left, window.windowRect.top - oldWindowRect.top);
+			preservedRegion &= window.visibleRegion;
 
-			if (!preservedRegion.isEmpty() &&
-				(window.windowRect.left != oldWindowRect.left || window.windowRect.top != oldWindowRect.top))
+			if (isClientInvalidated)
 			{
-				HDC screenDc = GetDC(nullptr);
-				SelectClipRgn(screenDc, preservedRegion);
-				BitBlt(screenDc, window.windowRect.left, window.windowRect.top,
-					oldWindowRect.right - oldWindowRect.left, oldWindowRect.bottom - oldWindowRect.top,
-					screenDc, oldWindowRect.left, oldWindowRect.top, SRCCOPY);
-				SelectClipRgn(screenDc, nullptr);
-				CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+				preservedRegion -= window.clientRect;
+			}
+			else
+			{
+				if (isFrameInvalidated)
+				{
+					preservedRegion &= window.clientRect;
+				}
+
+				if (isClientWidthChanged)
+				{
+					RECT r = window.clientRect;
+					r.left += oldClientRect.right - oldClientRect.left;
+					if (r.left < r.right)
+					{
+						preservedRegion -= r;
+					}
+				}
+				if (isClientHeightChanged)
+				{
+					RECT r = window.clientRect;
+					r.top += oldClientRect.bottom - oldClientRect.top;
+					if (r.top < r.bottom)
+					{
+						preservedRegion -= r;
+					}
+				}
+
+				Gdi::Region updateRegion;
+				GetUpdateRgn(window.hwnd, updateRegion, FALSE);
+				updateRegion.offset(window.clientRect.left, window.clientRect.top);
+				preservedRegion -= updateRegion;
+			}
+
+			if (!isFrameInvalidated)
+			{
+				bltWindow(window.windowRect, oldWindowRect, preservedRegion);
+			}
+			else
+			{
+				bltWindow(window.clientRect, oldClientRect, preservedRegion);
 			}
 		}
 
 		window.invalidatedRegion = window.visibleRegion - preservedRegion;
-		OffsetRgn(window.invalidatedRegion, -clientPos.x, -clientPos.y);
+		if (!window.invalidatedRegion.isEmpty())
+		{
+			window.invalidatedRegion.offset(-window.clientRect.left, -window.clientRect.top);
+		}
 	}
 
 	BOOL CALLBACK updateWindow(HWND hwnd, LPARAM lParam)
@@ -246,7 +307,7 @@ namespace
 		if (isLayered != it->second.isLayered)
 		{
 			it->second.isLayered = isLayered;
-			it->second.isRgnChangePending = isVisible;
+			it->second.isVisibleRegionChanged = isVisible;
 			if (!isLayered)
 			{
 				it->second.presentationWindow = reinterpret_cast<HWND>(
@@ -268,22 +329,23 @@ namespace
 			setPresentationWindowRgn = true;
 		}
 
-		RECT windowRect = {};
+		WINDOWINFO wi = {};
 		Gdi::Region visibleRegion;
 
 		if (isVisible)
 		{
-			GetWindowRect(hwnd, &windowRect);
-			if (!IsRectEmpty(&windowRect))
+			wi.cbSize = sizeof(wi);
+			GetWindowInfo(hwnd, &wi);
+			if (!IsRectEmpty(&wi.rcWindow))
 			{
 				if (it->second.windowRegion)
 				{
 					visibleRegion = it->second.windowRegion;
-					OffsetRgn(visibleRegion, windowRect.left, windowRect.top);
+					visibleRegion.offset(wi.rcWindow.left, wi.rcWindow.top);
 				}
 				else
 				{
-					visibleRegion = windowRect;
+					visibleRegion = wi.rcWindow;
 				}
 				visibleRegion &= context.virtualScreenRegion;
 				visibleRegion -= context.obscuredRegion;
@@ -295,22 +357,24 @@ namespace
 			}
 		}
 
-		std::swap(it->second.windowRect, windowRect);
+		std::swap(it->second.windowRect, wi.rcWindow);
+		std::swap(it->second.clientRect, wi.rcClient);
 		swap(it->second.visibleRegion, visibleRegion);
 
 		if (!isLayered)
 		{
 			if (!it->second.visibleRegion.isEmpty())
 			{
-				updatePosition(it->second, windowRect, visibleRegion);
+				updatePosition(it->second, wi.rcWindow, wi.rcClient, visibleRegion);
 			}
 
-			if (isVisible && !it->second.isRgnChangePending)
+			if (isVisible && !it->second.isVisibleRegionChanged)
 			{
-				OffsetRgn(visibleRegion, it->second.windowRect.left - windowRect.left, it->second.windowRect.top - windowRect.top);
+				visibleRegion.offset(it->second.windowRect.left - wi.rcWindow.left, it->second.windowRect.top - wi.rcWindow.top);
+
 				if (it->second.visibleRegion != visibleRegion)
 				{
-					it->second.isRgnChangePending = true;
+					it->second.isVisibleRegionChanged = true;
 				}
 			}
 
@@ -419,9 +483,9 @@ namespace Gdi
 					return;
 				}
 
-				if (it->second.isRgnChangePending)
+				if (it->second.isVisibleRegionChanged)
 				{
-					it->second.isRgnChangePending = false;
+					it->second.isVisibleRegionChanged = false;
 					const LONG origWndProc = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC);
 					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(CALL_ORIG_FUNC(DefWindowProcA)));
 					if (it->second.isLayered)
@@ -431,7 +495,7 @@ namespace Gdi
 					else
 					{
 						Gdi::Region rgn(it->second.visibleRegion);
-						OffsetRgn(rgn, -it->second.windowRect.left, -it->second.windowRect.top);
+						rgn.offset(-it->second.windowRect.left, -it->second.windowRect.top);
 						rgn |= REGION_OVERRIDE_MARKER_RECT;
 						SetWindowRgn(hwnd, rgn, FALSE);
 					}
@@ -604,7 +668,7 @@ namespace Gdi
 				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 				{
 					auto& window = **it;
-					if (window.isRgnChangePending || !window.invalidatedRegion.isEmpty())
+					if (window.isVisibleRegionChanged || !window.invalidatedRegion.isEmpty())
 					{
 						invalidatedWindows.push_back(window.hwnd);
 					}

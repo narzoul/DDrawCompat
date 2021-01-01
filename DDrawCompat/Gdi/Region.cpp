@@ -68,6 +68,11 @@ namespace Gdi
 		return *this;
 	}
 
+	void Region::clear()
+	{
+		SetRectRgn(m_region, 0, 0, 0, 0);
+	}
+
 	bool Region::isEmpty() const
 	{
 		return sizeof(RGNDATAHEADER) == GetRegionData(m_region, 0, nullptr);

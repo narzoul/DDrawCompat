@@ -18,6 +18,7 @@ namespace Gdi
 		Region(Region&& other);
 		Region& operator=(Region other);
 
+		void clear();
 		bool isEmpty() const;
 		void offset(int x, int y);
 		HRGN release();
