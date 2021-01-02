@@ -221,6 +221,7 @@
     <ClInclude Include="Gdi\Dc.h" />
     <ClInclude Include="Gdi\DcCache.h" />
     <ClInclude Include="Gdi\DcFunctions.h" />
+    <ClInclude Include="Gdi\PresentationWindow.h" />
     <ClInclude Include="Gdi\User32WndProcs.h" />
     <ClInclude Include="Gdi\Palette.h" />
     <ClInclude Include="Gdi\Region.h" />
@@ -294,6 +295,7 @@
     <ClCompile Include="Gdi\Dc.cpp" />
     <ClCompile Include="Gdi\DcCache.cpp" />
     <ClCompile Include="Gdi\DcFunctions.cpp" />
+    <ClCompile Include="Gdi\PresentationWindow.cpp" />
     <ClCompile Include="Gdi\User32WndProcs.cpp" />
     <ClCompile Include="Gdi\Palette.cpp" />
     <ClCompile Include="Gdi\Region.cpp" />

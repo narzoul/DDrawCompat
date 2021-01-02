@@ -6,9 +6,9 @@
 #include <Gdi/Font.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Palette.h>
+#include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/User32WndProcs.h>
-#include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 
 namespace
@@ -38,9 +38,9 @@ namespace Gdi
 	{
 		DcFunctions::installHooks();
 		Palette::installHooks();
+		PresentationWindow::installHooks();
 		ScrollFunctions::installHooks();
 		User32WndProcs::installHooks();
-		Window::installHooks();
 		WinProc::installHooks();
 		Caret::installHooks();
 		Font::installHooks();
@@ -59,7 +59,7 @@ namespace Gdi
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
 	{
-		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || Window::isPresentationWindow(hwnd))
+		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || PresentationWindow::isPresentationWindow(hwnd))
 		{
 			return;
 		}
@@ -89,8 +89,8 @@ namespace Gdi
 	void uninstallHooks()
 	{
 		Caret::uninstallHooks();
+		PresentationWindow::uninstallHooks();
 		WinProc::uninstallHooks();
-		Window::uninstallHooks();
 		Dc::dllProcessDetach();
 		DcCache::dllProcessDetach();
 	}

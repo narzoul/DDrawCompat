@@ -9,12 +9,13 @@
 #include <Dll/Dll.h>
 #include <Gdi/AccessGuard.h>
 #include <Gdi/Dc.h>
-#include <Win32/DisplayMode.h>
+#include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -171,7 +172,7 @@ namespace
 		DWORD /*dwEventThread*/,
 		DWORD /*dwmsEventTime*/)
 	{
-		if (OBJID_WINDOW == idObject && !Gdi::Window::isPresentationWindow(hwnd))
+		if (OBJID_WINDOW == idObject && !Gdi::PresentationWindow::isPresentationWindow(hwnd))
 		{
 			onCreateWindow(hwnd);
 		}
