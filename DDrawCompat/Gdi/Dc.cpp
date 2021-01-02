@@ -203,11 +203,18 @@ namespace Gdi
 
 			POINT origin = {};
 			GetDCOrgEx(origDc, &origin);
-			const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
-			if (hwnd && GetDesktopWindow() != hwnd)
+			HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(origDc);
+			if (hwnd)
 			{
-				origin.x -= virtualScreenBounds.left;
-				origin.y -= virtualScreenBounds.top;
+				if (GetDesktopWindow() == hwnd)
+				{
+					hwnd = nullptr;
+				}
+				else
+				{
+					origin.x -= virtualScreenBounds.left;
+					origin.y -= virtualScreenBounds.top;
+				}
 			}
 
 			compatDc.refCount = 1;
