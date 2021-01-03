@@ -36,6 +36,8 @@ namespace Gdi
 
 	void installHooks()
 	{
+		DisableProcessWindowsGhosting();
+
 		DcFunctions::installHooks();
 		Palette::installHooks();
 		PresentationWindow::installHooks();
