@@ -19,16 +19,6 @@
 
 namespace
 {
-	const char* PROP_DDRAWCOMPAT = "DDrawCompat";
-
-	struct ChildWindowInfo
-	{
-		RECT rect;
-		Gdi::Region visibleRegion;
-
-		ChildWindowInfo() : rect{} {}
-	};
-
 	struct WindowProc
 	{
 		WNDPROC wndProcA;
@@ -259,7 +249,6 @@ namespace
 			return;
 		}
 
-		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT));
 		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		auto it = g_windowProc.find(hwnd);
 		if (it != g_windowProc.end())
@@ -280,38 +269,6 @@ namespace
 		{
 			Gdi::Window::updateAll();
 		}
-		else
-		{
-			std::unique_ptr<ChildWindowInfo> cwi(reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT)));
-			if (cwi && IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
-			{
-				RECT rect = {};
-				GetWindowRect(hwnd, &rect);
-				if (rect.left != cwi->rect.left || rect.top != cwi->rect.top)
-				{
-					Gdi::Region clipRegion(hwnd);
-					cwi->visibleRegion.offset(rect.left - cwi->rect.left, rect.top - cwi->rect.top);
-					clipRegion &= cwi->visibleRegion;
-
-					Gdi::Region updateRegion;
-					GetUpdateRgn(hwnd, updateRegion, FALSE);
-					POINT clientPos = {};
-					ClientToScreen(hwnd, &clientPos);
-					OffsetRgn(updateRegion, clientPos.x, clientPos.y);
-					clipRegion -= updateRegion;
-
-					if (!clipRegion.isEmpty())
-					{
-						HDC screenDc = GetDC(nullptr);
-						SelectClipRgn(screenDc, clipRegion);
-						BitBlt(screenDc, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top,
-							screenDc, cwi->rect.left, cwi->rect.top, SRCCOPY);
-						SelectClipRgn(screenDc, nullptr);
-						CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
-					}
-				}
-			}
-		}
 	}
 
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp)
@@ -322,17 +279,7 @@ namespace
 		}
 		else
 		{
-			std::unique_ptr<ChildWindowInfo> cwi(reinterpret_cast<ChildWindowInfo*>(RemoveProp(hwnd, PROP_DDRAWCOMPAT)));
-			if (!(wp.flags & SWP_NOMOVE) && IsWindowVisible(hwnd) && !IsIconic(GetAncestor(hwnd, GA_ROOT)))
-			{
-				cwi.reset(new ChildWindowInfo());
-				GetWindowRect(hwnd, &cwi->rect);
-				cwi->visibleRegion = hwnd;
-				if (!cwi->visibleRegion.isEmpty())
-				{
-					SetProp(hwnd, PROP_DDRAWCOMPAT, cwi.release());
-				}
-			}
+			wp.flags |= SWP_NOCOPYBITS;
 		}
 	}
 
@@ -397,9 +344,7 @@ namespace
 			onWindowPosChanging(hWnd, wp);
 			uFlags = wp.flags;
 		}
-		BOOL result = CALL_ORIG_FUNC(SetWindowPos)(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags);
-		delete reinterpret_cast<ChildWindowInfo*>(RemoveProp(hWnd, PROP_DDRAWCOMPAT));
-		return LOG_RESULT(result);
+		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowPos)(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags));
 	}
 
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW)
