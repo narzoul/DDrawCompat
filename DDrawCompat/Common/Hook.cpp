@@ -24,7 +24,6 @@ namespace
 	std::map<void*, HookedFunctionInfo> g_hookedFunctions;
 
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
-	HMODULE getModuleHandleFromAddress(void* address);
 	std::filesystem::path getModulePath(HMODULE module);
 
 	std::map<void*, HookedFunctionInfo>::iterator findOrigFunc(void* origFunc)
@@ -84,7 +83,7 @@ namespace
 	std::string funcAddrToStr(void* funcPtr)
 	{
 		std::ostringstream oss;
-		HMODULE module = getModuleHandleFromAddress(funcPtr);
+		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
 		oss << getModulePath(module).string() << "+0x" << std::hex <<
 			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
 		return oss.str();
@@ -108,14 +107,6 @@ namespace
 		return ntHeaders;
 	}
 
-	HMODULE getModuleHandleFromAddress(void* address)
-	{
-		HMODULE module = nullptr;
-		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			static_cast<char*>(address), &module);
-		return module;
-	}
-
 	std::filesystem::path getModulePath(HMODULE module)
 	{
 		char path[MAX_PATH] = {};
@@ -125,6 +116,22 @@ namespace
 
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
+		void* stubFuncPtr = nullptr;
+		if (GetModuleHandle("ntdll") == Compat::getModuleHandleFromAddress(origFuncPtr))
+		{
+			// Avoid hooking ntdll stubs (e.g. ntdll/NtdllDialogWndProc_A instead of user32/DefDlgProcA)
+			if (0xFF == reinterpret_cast<BYTE*>(origFuncPtr)[0] &&
+				0x25 == reinterpret_cast<BYTE*>(origFuncPtr)[1])
+			{
+				void* jmpTarget = **reinterpret_cast<void***>(reinterpret_cast<BYTE*>(origFuncPtr) + 2);
+				if (GetModuleHandle("user32") == Compat::getModuleHandleFromAddress(jmpTarget))
+				{
+					stubFuncPtr = origFuncPtr;
+					origFuncPtr = jmpTarget;
+				}
+			}
+		}
+
 		const auto it = findOrigFunc(origFuncPtr);
 		if (it != g_hookedFunctions.end())
 		{
@@ -140,11 +147,15 @@ namespace
 		}
 
 		void* const hookedFuncPtr = origFuncPtr;
-		HMODULE module = nullptr;
-		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS,
-			static_cast<char*>(hookedFuncPtr), &module);
-
-		LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
+		if (stubFuncPtr)
+		{
+			LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(stubFuncPtr) << " -> "
+				<< funcAddrToStr(origFuncPtr) << ')';
+		}
+		else
+		{
+			LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
+		}
 
 		DetourTransactionBegin();
 		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
@@ -154,6 +165,9 @@ namespace
 			LOG_DEBUG << "ERROR: Failed to hook a function: " << funcName;
 			return;
 		}
+
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, static_cast<char*>(hookedFuncPtr), &module);
 
 		g_hookedFunctions.emplace(
 			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
@@ -175,6 +189,14 @@ namespace
 
 namespace Compat
 {
+	HMODULE getModuleHandleFromAddress(void* address)
+	{
+		HMODULE module = nullptr;
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
+			static_cast<char*>(address), &module);
+		return module;
+	}
+
 	FARPROC getProcAddress(HMODULE module, const char* procName)
 	{
 		if (!module || !procName)
@@ -242,18 +264,6 @@ namespace Compat
 			else
 			{
 				return getProcAddress(forwModule, forwFuncName.c_str());
-			}
-		}
-
-		// Avoid hooking ntdll stubs (e.g. ntdll/NtdllDialogWndProc_A instead of user32/DefDlgProcA)
-		if (func && getModuleHandleFromAddress(func) != module &&
-			0xFF == static_cast<BYTE>(func[0]) &&
-			0x25 == static_cast<BYTE>(func[1]))
-		{
-			FARPROC jmpTarget = **reinterpret_cast<FARPROC**>(func + 2);
-			if (getModuleHandleFromAddress(jmpTarget) == module)
-			{
-				return jmpTarget;
 			}
 		}
 

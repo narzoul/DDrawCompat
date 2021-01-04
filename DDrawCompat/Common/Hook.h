@@ -13,6 +13,8 @@
 
 namespace Compat
 {
+	HMODULE getModuleHandleFromAddress(void* address);
+
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	OrigFuncPtr& getOrigFuncPtr()
 	{
