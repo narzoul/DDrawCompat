@@ -138,9 +138,6 @@
     <ClInclude Include="Direct3d\Direct3dDevice.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
-    <ClInclude Include="Direct3d\DepthBuffer.h">
-      <Filter>Header Files\Direct3d</Filter>
-    </ClInclude>
     <ClInclude Include="Direct3d\Types.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
@@ -453,9 +450,6 @@
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Direct3dDevice.cpp">
-      <Filter>Source Files\Direct3d</Filter>
-    </ClCompile>
-    <ClCompile Include="Direct3d\DepthBuffer.cpp">
       <Filter>Source Files\Direct3d</Filter>
     </ClCompile>
     <ClCompile Include="Direct3d\Hooks.cpp">

@@ -193,7 +193,6 @@
     <ClInclude Include="DDraw\Visitors\DirectDrawPaletteVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawSurfaceVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawVtblVisitor.h" />
-    <ClInclude Include="Direct3d\DepthBuffer.h" />
     <ClInclude Include="Direct3d\Direct3d.h" />
     <ClInclude Include="Direct3d\Direct3dDevice.h" />
     <ClInclude Include="Direct3d\Direct3dExecuteBuffer.h" />
@@ -275,7 +274,6 @@
     <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp" />
     <ClCompile Include="DDraw\Surfaces\Surface.cpp" />
     <ClCompile Include="DDraw\Surfaces\SurfaceImpl.cpp" />
-    <ClCompile Include="Direct3d\DepthBuffer.cpp" />
     <ClCompile Include="Direct3d\Direct3d.cpp" />
     <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
     <ClCompile Include="Direct3d\Direct3dExecuteBuffer.cpp" />
