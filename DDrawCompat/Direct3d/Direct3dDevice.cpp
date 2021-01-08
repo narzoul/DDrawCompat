@@ -1,6 +1,7 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
 #include <D3dDdi/Device.h>
+#include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3dDevice.h>
 #include <Direct3d/Types.h>
 
@@ -17,14 +18,34 @@ namespace
 		return result;
 	}
 
+	template <typename TDirect3DDevice, typename TSurface>
+	HRESULT STDMETHODCALLTYPE setRenderTarget(TDirect3DDevice* This, TSurface* lpNewRenderTarget, DWORD dwFlags)
+	{
+		HRESULT result = CompatVtable<Vtable<TDirect3DDevice>>::s_origVtable.SetRenderTarget(
+			This, lpNewRenderTarget, dwFlags);
+		if (DDERR_INVALIDPARAMS == result && lpNewRenderTarget)
+		{
+			auto surface = DDraw::Surface::getSurface(*lpNewRenderTarget);
+			if (surface)
+			{
+				surface->setSizeOverride(1, 1);
+				result = CompatVtable<Vtable<TDirect3DDevice>>::s_origVtable.SetRenderTarget(
+					This, lpNewRenderTarget, dwFlags);
+				surface->setSizeOverride(0, 0);
+			}
+		}
+		return result;
+	}
+
 	void setCompatVtable(IDirect3DDeviceVtbl& vtable)
 	{
 		vtable.Execute = &execute;
 	}
 
 	template <typename TDirect3dDeviceVtbl>
-	void setCompatVtable(TDirect3dDeviceVtbl& /*vtable*/)
+	void setCompatVtable(TDirect3dDeviceVtbl& vtable)
 	{
+		vtable.SetRenderTarget = &setRenderTarget;
 	}
 }
 

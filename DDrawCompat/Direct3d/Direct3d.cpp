@@ -1,4 +1,5 @@
 #include <Common/CompatPtr.h>
+#include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3d.h>
 #include <Direct3d/Direct3dDevice.h>
 #include <Direct3d/Types.h>
@@ -13,8 +14,20 @@ namespace
 		TDirect3dDevice** lplpD3DDevice,
 		Params... params)
 	{
+		auto iid = (IID_IDirect3DRampDevice == rclsid) ? &IID_IDirect3DRGBDevice : &rclsid;
 		HRESULT result = CompatVtable<Vtable<TDirect3d>>::s_origVtable.CreateDevice(
-			This, (IID_IDirect3DRampDevice == rclsid) ? IID_IDirect3DRGBDevice : rclsid, lpDDS, lplpD3DDevice, params...);
+			This, *iid, lpDDS, lplpD3DDevice, params...);
+		if (DDERR_INVALIDOBJECT == result && lpDDS)
+		{
+			auto surface = DDraw::Surface::getSurface(*lpDDS);
+			if (surface)
+			{
+				surface->setSizeOverride(1, 1);
+				result = CompatVtable<Vtable<TDirect3d>>::s_origVtable.CreateDevice(
+					This, *iid, lpDDS, lplpD3DDevice, params...);
+				surface->setSizeOverride(0, 0);
+			}
+		}
 		if (SUCCEEDED(result))
 		{
 			CompatVtable<Vtable<TDirect3dDevice>>::hookVtable((*lplpD3DDevice)->lpVtbl);

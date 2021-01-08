@@ -100,7 +100,14 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
-		return s_origVtable.GetSurfaceDesc(This, lpDDSurfaceDesc);
+		HRESULT result = s_origVtable.GetSurfaceDesc(This, lpDDSurfaceDesc);
+		if (SUCCEEDED(result) && 0 != m_data->m_sizeOverride.cx)
+		{
+			lpDDSurfaceDesc->dwWidth = m_data->m_sizeOverride.cx;
+			lpDDSurfaceDesc->dwHeight = m_data->m_sizeOverride.cy;
+			m_data->m_sizeOverride = {};
+		}
+		return result;
 	}
 
 	template <typename TSurface>
@@ -138,7 +145,15 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
-		return s_origVtable.QueryInterface(This, (IID_IDirect3DRampDevice == riid ? IID_IDirect3DRGBDevice : riid), obp);
+		auto iid = (IID_IDirect3DRampDevice == riid) ? &IID_IDirect3DRGBDevice : &riid;
+		HRESULT result = s_origVtable.QueryInterface(This, *iid, obp);
+		if (DDERR_INVALIDOBJECT == result)
+		{
+			m_data->setSizeOverride(1, 1);
+			result = s_origVtable.QueryInterface(This, *iid, obp);
+			m_data->setSizeOverride(0, 0);
+		}
+		return result;
 	}
 
 	template <typename TSurface>

@@ -35,6 +35,7 @@ namespace DDraw
 
 	Surface::Surface()
 		: m_refCount(0)
+		, m_sizeOverride{}
 	{
 	}
 
@@ -129,5 +130,11 @@ namespace DDraw
 
 	void Surface::restore()
 	{
+	}
+
+	void Surface::setSizeOverride(DWORD width, DWORD height)
+	{
+		m_sizeOverride.cx = width;
+		m_sizeOverride.cy = height;
 	}
 }

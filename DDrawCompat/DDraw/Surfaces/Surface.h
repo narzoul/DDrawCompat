@@ -35,6 +35,8 @@ namespace DDraw
 
 		virtual void restore();
 
+		void setSizeOverride(DWORD width, DWORD height);
+
 	protected:
 		static void attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData);
 
@@ -54,5 +56,6 @@ namespace DDraw
 		friend class SurfaceImpl;
 
 		DWORD m_refCount;
+		SIZE m_sizeOverride;
 	};
 }
