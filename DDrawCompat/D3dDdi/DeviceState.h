@@ -30,6 +30,8 @@ namespace D3dDdi
 		HRESULT pfnSetZRange(const D3DDDIARG_ZRANGE* data);
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
+		void removeTexture(HANDLE texture);
+
 	private:
 		typedef std::tuple<FLOAT, FLOAT, FLOAT, FLOAT> ShaderConstF;
 		typedef std::tuple<INT, INT, INT, INT> ShaderConstI;

@@ -3,6 +3,9 @@
 
 namespace
 {
+	const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
+	const HANDLE UNINITIALIZED_HANDLE = reinterpret_cast<HANDLE>(0xBAADBAAD);
+
 	bool operator==(const D3DDDIARG_ZRANGE& lhs, const D3DDDIARG_ZRANGE& rhs)
 	{
 		return lhs.MinZ == rhs.MinZ && lhs.MaxZ == rhs.MaxZ;
@@ -18,17 +21,17 @@ namespace D3dDdi
 {
 	DeviceState::DeviceState(Device& device)
 		: m_device(device)
-		, m_pixelShader(nullptr)
-		, m_textures{}
-		, m_vertexShaderDecl(nullptr)
-		, m_vertexShaderFunc(nullptr)
+		, m_pixelShader(UNINITIALIZED_HANDLE)
+		, m_vertexShaderDecl(UNINITIALIZED_HANDLE)
+		, m_vertexShaderFunc(UNINITIALIZED_HANDLE)
 		, m_wInfo{ NAN, NAN }
 		, m_zRange{ NAN, NAN }
 	{
-		m_renderState.fill(0xBAADBAAD);
+		m_renderState.fill(UNINITIALIZED_STATE);
+		m_textures.fill(UNINITIALIZED_HANDLE);
 		for (UINT i = 0; i < m_textureStageState.size(); ++i)
 		{
-			m_textureStageState[i].fill(0xBAADBAAD);
+			m_textureStageState[i].fill(UNINITIALIZED_STATE);
 		}
 	}
 
@@ -80,7 +83,8 @@ namespace D3dDdi
 			return m_device.getOrigVtable().pfnSetTexture(m_device, stage, texture);
 		}
 
-		if (texture == m_textures[stage])
+		if (texture == m_textures[stage] &&
+			texture != UNINITIALIZED_HANDLE)
 		{
 			return S_OK;
 		}
@@ -90,31 +94,23 @@ namespace D3dDdi
 		if (SUCCEEDED(result))
 		{
 			m_textures[stage] = texture;
-			m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0xBAADBAAD;
+			m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = UNINITIALIZED_STATE;
+			m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = UNINITIALIZED_STATE;
 		}
 		return result;
 	}
 
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
-		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
+		switch (data->State)
 		{
-			if (0 != m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
-			{
-				m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0;
-			}
-			else if (data->Value == m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL])
-			{
-				return S_OK;
-			}
+		case D3DDDITSS_DISABLETEXTURECOLORKEY:
+			m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL] = UNINITIALIZED_STATE;
+			break;
 
-			m_device.flushPrimitives();
-			HRESULT result = m_device.getOrigVtable().pfnSetTextureStageState(m_device, data);
-			if (SUCCEEDED(result))
-			{
-				m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL] = data->Value;
-			}
-			return result;
+		case D3DDDITSS_TEXTURECOLORKEYVAL:
+			m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = UNINITIALIZED_STATE;
+			break;
 		}
 		return setStateArray(data, m_textureStageState[data->Stage], m_device.getOrigVtable().pfnSetTextureStageState);
 	}
@@ -170,15 +166,27 @@ namespace D3dDdi
 		HRESULT result = origDeleteShaderFunc(m_device, shader);
 		if (SUCCEEDED(result) && shader == currentShader)
 		{
-			currentShader = nullptr;
+			currentShader = UNINITIALIZED_HANDLE;
 		}
 		return result;
+	}
+
+	void DeviceState::removeTexture(HANDLE texture)
+	{
+		for (UINT i = 0; i < m_textures.size(); ++i)
+		{
+			if (m_textures[i] == texture)
+			{
+				m_textures[i] = UNINITIALIZED_HANDLE;
+			}
+		}
 	}
 
 	HRESULT DeviceState::setShader(HANDLE shader, HANDLE& currentShader,
 		HRESULT(APIENTRY* origSetShaderFunc)(HANDLE, HANDLE))
 	{
-		if (shader == currentShader)
+		if (shader == currentShader &&
+			shader != UNINITIALIZED_HANDLE)
 		{
 			return S_OK;
 		}
@@ -244,7 +252,8 @@ namespace D3dDdi
 			return origSetState(m_device, data);
 		}
 
-		if (data->Value == currentState[data->State])
+		if (data->Value == currentState[data->State] &&
+			data->Value != UNINITIALIZED_STATE)
 		{
 			return S_OK;
 		}

@@ -258,6 +258,7 @@ namespace D3dDdi
 				g_gdiResource = nullptr;
 			}
 			m_drawPrimitive.removeSysMemVertexBuffer(resource);
+			m_state.removeTexture(resource);
 		}
 
 		return result;
