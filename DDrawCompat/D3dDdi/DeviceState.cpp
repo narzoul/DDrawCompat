@@ -98,6 +98,12 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetRenderState(const D3DDDIARG_RENDERSTATE* data)
 	{
+		if (data->State >= D3DDDIRS_WRAP0 && data->State <= D3DDDIRS_WRAP7)
+		{
+			auto d = *data;
+			d.Value &= D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3;
+			return setStateArray(&d, m_renderState, m_device.getOrigVtable().pfnSetRenderState);
+		}
 		return setStateArray(data, m_renderState, m_device.getOrigVtable().pfnSetRenderState);
 	}
 
