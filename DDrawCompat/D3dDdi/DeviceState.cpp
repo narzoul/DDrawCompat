@@ -1,5 +1,8 @@
+#include <Common/Log.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceState.h>
+#include <D3dDdi/DrawPrimitive.h>
+#include <D3dDdi/Log/DeviceFuncsLog.h>
 
 namespace
 {
@@ -35,6 +38,19 @@ namespace D3dDdi
 		}
 	}
 
+	HRESULT DeviceState::pfnCreateVertexShaderDecl(
+		D3DDDIARG_CREATEVERTEXSHADERDECL* data,
+		const D3DDDIVERTEXELEMENT* vertexElements)
+	{
+		LOG_DEBUG << Compat::array(vertexElements, data->NumVertexElements);
+		HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, vertexElements);
+		if (SUCCEEDED(result))
+		{
+			m_vertexShaderDecls[data->ShaderHandle].assign(vertexElements, vertexElements + data->NumVertexElements);
+		}
+		return result;
+	}
+
 	HRESULT DeviceState::pfnDeletePixelShader(HANDLE shader)
 	{
 		return deleteShader(shader, m_pixelShader, m_device.getOrigVtable().pfnDeletePixelShader);
@@ -42,7 +58,17 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnDeleteVertexShaderDecl(HANDLE shader)
 	{
-		return deleteShader(shader, m_vertexShaderDecl, m_device.getOrigVtable().pfnDeleteVertexShaderDecl);
+		const bool isCurrentShader = shader == m_vertexShaderDecl;
+		HRESULT result = deleteShader(shader, m_vertexShaderDecl, m_device.getOrigVtable().pfnDeleteVertexShaderDecl);
+		if (SUCCEEDED(result))
+		{
+			m_vertexShaderDecls.erase(shader);
+			if (isCurrentShader)
+			{
+				m_device.getDrawPrimitive().setVertexShaderDecl({});
+			}
+		}
+		return result;
 	}
 
 	HRESULT DeviceState::pfnDeleteVertexShaderFunc(HANDLE shader)
@@ -132,7 +158,20 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetVertexShaderDecl(HANDLE shader)
 	{
-		return setShader(shader, m_vertexShaderDecl, m_device.getOrigVtable().pfnSetVertexShaderDecl);
+		HRESULT result = setShader(shader, m_vertexShaderDecl, m_device.getOrigVtable().pfnSetVertexShaderDecl);
+		if (SUCCEEDED(result))
+		{
+			auto it = m_vertexShaderDecls.find(shader);
+			if (it != m_vertexShaderDecls.end())
+			{
+				m_device.getDrawPrimitive().setVertexShaderDecl(it->second);
+			}
+			else
+			{
+				m_device.getDrawPrimitive().setVertexShaderDecl({});
+			}
+		}
+		return result;
 	}
 
 	HRESULT DeviceState::pfnSetVertexShaderFunc(HANDLE shader)

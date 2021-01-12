@@ -48,6 +48,7 @@ namespace D3dDdi
 		HRESULT unlock(const D3DDDIARG_UNLOCK* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
+		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }

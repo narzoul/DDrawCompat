@@ -17,7 +17,7 @@ namespace D3dDdi
 	public:
 		DrawPrimitive(Device& device);
 
-		void addSysMemVertexBuffer(HANDLE resource, BYTE* vertices, UINT fvf);
+		void addSysMemVertexBuffer(HANDLE resource, BYTE* vertices);
 		void removeSysMemVertexBuffer(HANDLE resource);
 
 		HRESULT flushPrimitives(const UINT* flagBuffer = nullptr);
@@ -26,6 +26,7 @@ namespace D3dDdi
 		HRESULT drawIndexed(D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer);
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
+		void setVertexShaderDecl(const std::vector<D3DDDIVERTEXELEMENT>& decl);
 
 	private:
 		struct BatchedPrimitives
@@ -43,13 +44,6 @@ namespace D3dDdi
 		{
 			const BYTE* vertices;
 			UINT stride;
-			UINT fvf;
-		};
-
-		struct SysMemVertexBuffer
-		{
-			BYTE* vertices;
-			UINT fvf;
 		};
 
 		void appendIndexedVertices(const UINT16* indices, UINT count,
@@ -75,23 +69,23 @@ namespace D3dDdi
 		void convertIndexedTriangleFanToList(UINT startPrimitive, UINT primitiveCount);
 		void convertIndexedTriangleStripToList(UINT startPrimitive, UINT primitiveCount);
 		void convertToTriangleList();
-		void fixFirstVertexRhw();
 		HRESULT flush(const UINT* flagBuffer);
 		HRESULT flushIndexed(const UINT* flagBuffer);
 		INT loadIndices(const void* indices, UINT count);
-		INT loadVertices(const void* vertices, UINT count);
+		INT loadVertices(UINT count);
 		UINT getBatchedVertexCount() const;
 		void rebaseIndices();
 		void repeatLastBatchedVertex();
 
-		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride, UINT fvf);
+		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride);
 
 		HANDLE m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
 		DynamicVertexBuffer m_vertexBuffer;
 		DynamicIndexBuffer m_indexBuffer;
 		StreamSource m_streamSource;
-		std::map<HANDLE, SysMemVertexBuffer> m_sysMemVertexBuffers;
+		std::map<HANDLE, BYTE*> m_sysMemVertexBuffers;
 		BatchedPrimitives m_batched;
+		bool m_isHwVertexProcessingUsed;
 	};
 }

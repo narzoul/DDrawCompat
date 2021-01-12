@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <map>
 #include <vector>
 
 namespace D3dDdi
@@ -12,6 +13,7 @@ namespace D3dDdi
 	public:
 		DeviceState(Device& device);
 		
+		HRESULT pfnCreateVertexShaderDecl(D3DDDIARG_CREATEVERTEXSHADERDECL* data, const D3DDDIVERTEXELEMENT* vertexElements);
 		HRESULT pfnDeletePixelShader(HANDLE shader);
 		HRESULT pfnDeleteVertexShaderDecl(HANDLE shader);
 		HRESULT pfnDeleteVertexShaderFunc(HANDLE shader);
@@ -65,6 +67,7 @@ namespace D3dDdi
 		std::vector<ShaderConstF> m_vertexShaderConst;
 		std::vector<BOOL> m_vertexShaderConstB;
 		std::vector<ShaderConstI> m_vertexShaderConstI;
+		std::map<HANDLE, std::vector<D3DDDIVERTEXELEMENT>> m_vertexShaderDecls;
 		HANDLE m_vertexShaderDecl;
 		HANDLE m_vertexShaderFunc;
 		D3DDDIARG_WINFO m_wInfo;

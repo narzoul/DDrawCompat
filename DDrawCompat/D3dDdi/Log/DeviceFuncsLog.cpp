@@ -95,6 +95,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE2& val)
 		<< Compat::hex(val.Flags2.Value);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEVERTEXSHADERDECL& val)
+{
+	return Compat::LogStruct(os)
+		<< val.NumVertexElements
+		<< val.ShaderHandle;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE& val)
 {
 	return Compat::LogStruct(os)
@@ -473,4 +480,15 @@ std::ostream& operator<<(std::ostream& os, D3DDDITEXTURESTAGESTATETYPE val)
 	}
 
 	return os << "D3DDDITSS_" << static_cast<DWORD>(val);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIVERTEXELEMENT& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Stream
+		<< val.Offset
+		<< static_cast<UINT>(val.Type)
+		<< static_cast<UINT>(val.Method)
+		<< static_cast<UINT>(val.Usage)
+		<< static_cast<UINT>(val.UsageIndex);
 }

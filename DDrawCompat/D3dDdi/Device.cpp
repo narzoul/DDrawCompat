@@ -205,7 +205,7 @@ namespace D3dDdi
 				data.pSurfList[0].pSysMem)
 			{
 				m_drawPrimitive.addSysMemVertexBuffer(data.hResource,
-					static_cast<BYTE*>(const_cast<void*>(data.pSurfList[0].pSysMem)), data.Fvf);
+					static_cast<BYTE*>(const_cast<void*>(data.pSurfList[0].pSysMem)));
 			}
 			return S_OK;
 		}

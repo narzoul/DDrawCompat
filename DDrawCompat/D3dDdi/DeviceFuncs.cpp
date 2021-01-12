@@ -61,6 +61,7 @@ namespace D3dDdi
 		vtable.pfnSetStreamSourceUm = &DEVICE_FUNC(setStreamSourceUm);
 		vtable.pfnUnlock = &DEVICE_FUNC(unlock);
 
+		SET_DEVICE_STATE_FUNC(pfnCreateVertexShaderDecl);
 		SET_DEVICE_STATE_FUNC(pfnDeletePixelShader);
 		SET_DEVICE_STATE_FUNC(pfnDeleteVertexShaderDecl);
 		SET_DEVICE_STATE_FUNC(pfnDeleteVertexShaderFunc);

@@ -55,6 +55,7 @@ namespace D3dDdi
 		, m_indexBuffer(device, m_vertexBuffer ? INDEX_BUFFER_SIZE : 0)
 		, m_streamSource{}
 		, m_batched{}
+		, m_isHwVertexProcessingUsed(false)
 	{
 		LOG_ONCE("Dynamic vertex buffers are " << (m_vertexBuffer ? "" : "not ") << "available");
 		LOG_ONCE("Dynamic index buffers are " << (m_indexBuffer ? "" : "not ") << "available");
@@ -68,9 +69,9 @@ namespace D3dDdi
 		}
 	}
 
-	void DrawPrimitive::addSysMemVertexBuffer(HANDLE resource, BYTE* vertices, UINT fvf)
+	void DrawPrimitive::addSysMemVertexBuffer(HANDLE resource, BYTE* vertices)
 	{
-		m_sysMemVertexBuffers[resource] = { vertices, fvf };
+		m_sysMemVertexBuffers[resource] = vertices;
 	}
 
 	void DrawPrimitive::appendIndexedVertices(const UINT16* indices, UINT count,
@@ -517,15 +518,6 @@ namespace D3dDdi
 		return S_OK;
 	}
 
-	void DrawPrimitive::fixFirstVertexRhw()
-	{
-		auto firstVertex = reinterpret_cast<D3DTLVERTEX*>(m_batched.vertices.data());
-		if ((m_streamSource.fvf & D3DFVF_XYZRHW) && 0.0f == firstVertex->rhw)
-		{
-			firstVertex->rhw = 1.0f;
-		}
-	}
-
 	HRESULT DrawPrimitive::flush(const UINT* flagBuffer)
 	{
 		D3DDDIARG_DRAWPRIMITIVE data = {};
@@ -535,8 +527,7 @@ namespace D3dDdi
 
 		if (m_streamSource.vertices)
 		{
-			fixFirstVertexRhw();
-			data.VStart = loadVertices(m_batched.vertices.data(), getBatchedVertexCount());
+			data.VStart = loadVertices(getBatchedVertexCount());
 		}
 
 		clearBatchedPrimitives();
@@ -562,8 +553,7 @@ namespace D3dDdi
 
 		if (m_streamSource.vertices)
 		{
-			fixFirstVertexRhw();
-			INT baseVertexIndex = loadVertices(m_batched.vertices.data(), data.NumVertices) - data.MinIndex;
+			INT baseVertexIndex = loadVertices(data.NumVertices) - data.MinIndex;
 			data.BaseVertexOffset = baseVertexIndex * static_cast<INT>(m_streamSource.stride);
 		}
 
@@ -623,8 +613,23 @@ namespace D3dDdi
 		return -1;
 	}
 
-	INT DrawPrimitive::loadVertices(const void* vertices, UINT count)
+	INT DrawPrimitive::loadVertices(UINT count)
 	{
+		auto vertices = m_batched.vertices.data();
+		if (!m_isHwVertexProcessingUsed)
+		{
+			UINT offset = 0;
+			for (UINT i = 0; i < count; ++i)
+			{
+				auto v = reinterpret_cast<D3DTLVERTEX*>(vertices + offset);
+				if (0 == v->rhw || INFINITY == v->rhw)
+				{
+					v->rhw = 1;
+				}
+				offset += m_streamSource.stride;
+			}
+		}
+
 		if (m_vertexBuffer)
 		{
 			UINT size = count * m_streamSource.stride;
@@ -710,24 +715,24 @@ namespace D3dDdi
 		auto it = m_sysMemVertexBuffers.find(data.hVertexBuffer);
 		if (it != m_sysMemVertexBuffers.end())
 		{
-			return setSysMemStreamSource(it->second.vertices, data.Stride, it->second.fvf);
+			return setSysMemStreamSource(it->second, data.Stride);
 		}
 
 		flushPrimitives();
 		HRESULT result = m_origVtable.pfnSetStreamSource(m_device, &data);
 		if (SUCCEEDED(result))
 		{
-			m_streamSource = { nullptr, data.Stride, 0 };
+			m_streamSource = { nullptr, data.Stride };
 		}
 		return result;
 	}
 
 	HRESULT DrawPrimitive::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer)
 	{
-		return setSysMemStreamSource(static_cast<const BYTE*>(umBuffer), data.Stride, 0);
+		return setSysMemStreamSource(static_cast<const BYTE*>(umBuffer), data.Stride);
 	}
 
-	HRESULT DrawPrimitive::setSysMemStreamSource(const BYTE* vertices, UINT stride, UINT fvf)
+	HRESULT DrawPrimitive::setSysMemStreamSource(const BYTE* vertices, UINT stride)
 	{
 		HRESULT result = S_OK;
 		if (!m_streamSource.vertices || stride != m_streamSource.stride)
@@ -748,8 +753,22 @@ namespace D3dDdi
 
 		if (SUCCEEDED(result))
 		{
-			m_streamSource = { vertices, stride, fvf };
+			m_streamSource = { vertices, stride };
 		}
 		return result;
+	}
+
+	void DrawPrimitive::setVertexShaderDecl(const std::vector<D3DDDIVERTEXELEMENT>& decl)
+	{
+		m_isHwVertexProcessingUsed = true;
+		const UINT D3DDECLUSAGE_POSITIONT = 9;
+		for (auto& vertexElement : decl)
+		{
+			if (D3DDECLUSAGE_POSITIONT == vertexElement.Usage)
+			{
+				m_isHwVertexProcessingUsed = false;
+				return;
+			}
+		}
 	}
 }
