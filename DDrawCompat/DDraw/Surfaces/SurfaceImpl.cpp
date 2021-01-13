@@ -6,6 +6,7 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <Dll/Dll.h>
 
 namespace DDraw
 {
@@ -78,6 +79,7 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::waitForFlip(m_data);
+			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
 		return result;
 	}
@@ -159,7 +161,12 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
-		return s_origVtable.ReleaseDC(This, hDC);
+		HRESULT result = s_origVtable.ReleaseDC(This, hDC);
+		if (SUCCEEDED(result))
+		{
+			Dll::g_origProcs.AcquireDDThreadLock();
+		}
+		return result;
 	}
 
 	template <typename TSurface>
