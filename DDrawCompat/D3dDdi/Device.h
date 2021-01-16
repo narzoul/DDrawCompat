@@ -68,7 +68,6 @@ namespace D3dDdi
 		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
 		static void setGdiResourceHandle(HANDLE resource);
-		static void setReadOnlyGdiLock(bool enable);
 
 	private:
 		bool checkSrcColorKeySupport();

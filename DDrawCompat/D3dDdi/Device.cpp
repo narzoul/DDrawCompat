@@ -15,7 +15,6 @@ namespace
 {
 	HANDLE g_gdiResourceHandle = nullptr;
 	D3dDdi::Resource* g_gdiResource = nullptr;
-	bool g_isReadOnlyGdiLockEnabled = false;
 
 	void logSrcColorKeySupportFailure(const char* reason, UINT32 resultCode)
 	{
@@ -451,11 +450,6 @@ namespace D3dDdi
 		{
 			g_gdiResource->setAsGdiResource(true);
 		}
-	}
-
-	void Device::setReadOnlyGdiLock(bool enable)
-	{
-		g_isReadOnlyGdiLockEnabled = enable;
 	}
 
 	std::map<HANDLE, Device> Device::s_devices;

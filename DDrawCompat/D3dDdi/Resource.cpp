@@ -10,6 +10,7 @@
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
 #include <DDraw/Blitter.h>
+#include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 
 namespace
@@ -530,6 +531,43 @@ namespace D3dDdi
 
 	HRESULT Resource::presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
+		if (D3DDDIFMT_P8 == srcResource.m_origData.Format)
+		{
+			D3DDDIARG_LOCK lock = {};
+			lock.hResource = m_handle;
+			lock.SubResourceIndex = data.DstSubResourceIndex;
+			lock.Flags.Discard = 1;
+			HRESULT result = m_device.getOrigVtable().pfnLock(m_device, &lock);
+			if (FAILED(result))
+			{
+				return result;
+			}
+
+			auto entries(Gdi::Palette::getHardwarePalette());
+			DWORD pal[256] = {};
+			for (UINT i = 0; i < 256; ++i)
+			{
+				pal[i] = (entries[i].peRed << 16) | (entries[i].peGreen << 8) | entries[i].peBlue;
+			}
+
+			auto& srcLockData = srcResource.m_lockData[data.SrcSubResourceIndex];
+			for (UINT y = 0; y < srcResource.m_fixedData.surfaceData[data.SrcSubResourceIndex].Height; ++y)
+			{
+				auto src = static_cast<const BYTE*>(srcLockData.data) + y * srcLockData.pitch;
+				auto dst = reinterpret_cast<DWORD*>(static_cast<BYTE*>(lock.pSurfData) + y * lock.Pitch);
+				for (UINT x = 0; x < srcResource.m_fixedData.surfaceData[data.SrcSubResourceIndex].Width; ++x)
+				{
+					dst[x] = pal[*src];
+					++src;
+				}
+			}
+
+			D3DDDIARG_UNLOCK unlock = {};
+			unlock.hResource = m_handle;
+			unlock.SubResourceIndex = data.DstSubResourceIndex;
+			return m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+		}
+
 		if (srcResource.m_lockResource &&
 			srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 		{
@@ -546,6 +584,10 @@ namespace D3dDdi
 		if (isGdiResource)
 		{
 			createGdiLockResource();
+		}
+		else
+		{
+			createLockResource();
 		}
 	}
 
@@ -621,16 +663,19 @@ namespace D3dDdi
 
 			bool isSysMemBltPreferred = true;
 			auto now = Time::queryPerformanceCounter();
-			if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-				(data.Flags.SrcColorKey && !m_device.isSrcColorKeySupported()))
+			if (D3DDDIFMT_P8 != m_fixedData.Format)
 			{
-				dstLockData.qpcLastForcedLock = now;
-				srcLockData.qpcLastForcedLock = now;
-			}
-			else
-			{
-				isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
-					Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
+				if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
+					(data.Flags.SrcColorKey && !m_device.isSrcColorKeySupported()))
+				{
+					dstLockData.qpcLastForcedLock = now;
+					srcLockData.qpcLastForcedLock = now;
+				}
+				else
+				{
+					isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
+						Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
+				}
 			}
 
 			if (isSysMemBltPreferred)

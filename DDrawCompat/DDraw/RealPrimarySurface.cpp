@@ -27,7 +27,6 @@ namespace
 	void onRelease();
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
-	CompatWeakPtr<IDirectDrawSurface7> g_paletteConverter;
 	CompatWeakPtr<IDirectDrawClipper> g_clipper;
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
@@ -60,38 +59,6 @@ namespace
 		{
 			backBuffer->Blt(backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
 		}
-	}
-
-	template <typename TDirectDraw>
-	HRESULT createPaletteConverter(CompatRef<TDirectDraw> dd)
-	{
-		auto dm = DDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
-		if (dm.ddpfPixelFormat.dwRGBBitCount > 8)
-		{
-			return DD_OK;
-		}
-
-		typename DDraw::Types<TDirectDraw>::TSurfaceDesc desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
-		desc.dwWidth = dm.dwWidth;
-		desc.dwHeight = dm.dwHeight;
-		desc.ddpfPixelFormat.dwSize = sizeof(desc.ddpfPixelFormat);
-		desc.ddpfPixelFormat.dwFlags = DDPF_RGB;
-		desc.ddpfPixelFormat.dwRGBBitCount = 32;
-		desc.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
-		desc.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
-		desc.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
-
-		CompatPtr<DDraw::Types<TDirectDraw>::TCreatedSurface> paletteConverter;
-		HRESULT result = dd->CreateSurface(&dd, &desc, &paletteConverter.getRef(), nullptr);
-		if (SUCCEEDED(result))
-		{
-			g_paletteConverter = Compat::queryInterface<IDirectDrawSurface7>(paletteConverter.get());
-		}
-
-		return result;
 	}
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer()
@@ -157,7 +124,6 @@ namespace
 		g_clipper.release();
 		g_isFullScreen = false;
 		g_waitingForPrimaryUnlock = false;
-		g_paletteConverter.release();
 		g_surfaceDesc = {};
 	}
 
@@ -206,32 +172,9 @@ namespace
 		Gdi::Region excludeRegion(monitorRect);
 		Gdi::Window::present(excludeRegion);
 
-		if (Win32::DisplayMode::getBpp() <= 8)
-		{
-			HDC paletteConverterDc = nullptr;
-			g_paletteConverter->GetDC(g_paletteConverter, &paletteConverterDc);
-			HDC srcDc = nullptr;
-			D3dDdi::Device::setReadOnlyGdiLock(true);
-			D3dDdi::KernelModeThunks::setDcPaletteOverride(true);
-			src->GetDC(src, &srcDc);
-			D3dDdi::KernelModeThunks::setDcPaletteOverride(false);
-			D3dDdi::Device::setReadOnlyGdiLock(false);
-
-			if (paletteConverterDc && srcDc)
-			{
-				CALL_ORIG_FUNC(BitBlt)(paletteConverterDc,
-					0, 0, g_surfaceDesc.dwWidth, g_surfaceDesc.dwHeight, srcDc, 0, 0, SRCCOPY);
-			}
-
-			src->ReleaseDC(src, srcDc);
-			g_paletteConverter->ReleaseDC(g_paletteConverter, paletteConverterDc);
-
-			bltToPrimaryChain(*g_paletteConverter);
-		}
-		else
-		{
-			bltToPrimaryChain(*src);
-		}
+		D3dDdi::KernelModeThunks::setDcPaletteOverride(true);
+		bltToPrimaryChain(*src);
+		D3dDdi::KernelModeThunks::setDcPaletteOverride(false);
 
 		if (g_isFullScreen && src == DDraw::PrimarySurface::getGdiSurface())
 		{
@@ -309,12 +252,6 @@ namespace DDraw
 	HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
 	{
 		DDraw::ScopedThreadLock lock;
-		HRESULT result = createPaletteConverter(dd);
-		if (FAILED(result))
-		{
-			Compat::Log() << "ERROR: Failed to create the palette converter surface: " << Compat::hex(result);
-			return result;
-		}
 
 		typename Types<DirectDraw>::TSurfaceDesc desc = {};
 		desc.dwSize = sizeof(desc);
@@ -323,7 +260,7 @@ namespace DDraw
 		desc.dwBackBufferCount = 2;
 
 		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
-		result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
+		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
 		if (DDERR_NOEXCLUSIVEMODE == result)
 		{
@@ -336,7 +273,6 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			Compat::Log() << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
-			g_paletteConverter.release();
 			return result;
 		}
 
