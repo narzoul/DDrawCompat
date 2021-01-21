@@ -17,6 +17,7 @@ namespace
 	struct UpdateWindowContext
 	{
 		Gdi::Region obscuredRegion;
+		Gdi::Region invalidatedRegion;
 		Gdi::Region virtualScreenRegion;
 		DWORD processId;
 	};
@@ -96,7 +97,7 @@ namespace
 	}
 
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
-		const Gdi::Region& oldVisibleRegion)
+		const Gdi::Region& oldVisibleRegion, const Gdi::Region& invalidatedRegion)
 	{
 		const bool isClientOriginChanged =
 			window.clientRect.left - window.windowRect.left != oldClientRect.left - oldWindowRect.left ||
@@ -154,6 +155,8 @@ namespace
 				updateRegion.offset(window.clientRect.left, window.clientRect.top);
 				preservedRegion -= updateRegion;
 			}
+
+			preservedRegion -= invalidatedRegion;
 
 			if (!isFrameInvalidated)
 			{
@@ -256,7 +259,12 @@ namespace
 		{
 			if (!it->second.visibleRegion.isEmpty())
 			{
-				updatePosition(it->second, wi.rcWindow, wi.rcClient, visibleRegion);
+				updatePosition(it->second, wi.rcWindow, wi.rcClient, visibleRegion, context.invalidatedRegion);
+			}
+
+			if (exStyle & WS_EX_TRANSPARENT)
+			{
+				context.invalidatedRegion |= visibleRegion - it->second.visibleRegion;
 			}
 
 			if (isVisible && !it->second.isVisibleRegionChanged)
