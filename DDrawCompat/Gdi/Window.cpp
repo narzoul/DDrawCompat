@@ -72,11 +72,11 @@ namespace
 		return g_windows.emplace(hwnd, Window(hwnd)).first;
 	}
 
-	void bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
+	bool bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
 	{
 		if (dst.left == src.left && dst.top == src.top || clipRegion.isEmpty())
 		{
-			return;
+			return false;
 		}
 
 		HDC screenDc = GetDC(nullptr);
@@ -84,6 +84,7 @@ namespace
 		BitBlt(screenDc, dst.left, dst.top, src.right - src.left, src.bottom - src.top, screenDc, src.left, src.top, SRCCOPY);
 		SelectClipRgn(screenDc, nullptr);
 		CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+		return true;
 	}
 
 	Gdi::Region getWindowRegion(HWND hwnd)
@@ -97,7 +98,7 @@ namespace
 	}
 
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
-		const Gdi::Region& oldVisibleRegion, const Gdi::Region& invalidatedRegion)
+		const Gdi::Region& oldVisibleRegion, Gdi::Region& invalidatedRegion)
 	{
 		const bool isClientOriginChanged =
 			window.clientRect.left - window.windowRect.left != oldClientRect.left - oldWindowRect.left ||
@@ -116,7 +117,7 @@ namespace
 		Gdi::Region preservedRegion;
 		if (!isClientInvalidated || !isFrameInvalidated)
 		{
-			preservedRegion = oldVisibleRegion;
+			preservedRegion = oldVisibleRegion - invalidatedRegion;
 			preservedRegion.offset(window.windowRect.left - oldWindowRect.left, window.windowRect.top - oldWindowRect.top);
 			preservedRegion &= window.visibleRegion;
 
@@ -156,15 +157,19 @@ namespace
 				preservedRegion -= updateRegion;
 			}
 
-			preservedRegion -= invalidatedRegion;
-
+			bool isCopied = false;
 			if (!isFrameInvalidated)
 			{
-				bltWindow(window.windowRect, oldWindowRect, preservedRegion);
+				isCopied = bltWindow(window.windowRect, oldWindowRect, preservedRegion);
 			}
 			else
 			{
-				bltWindow(window.clientRect, oldClientRect, preservedRegion);
+				isCopied = bltWindow(window.clientRect, oldClientRect, preservedRegion);
+			}
+
+			if (isCopied)
+			{
+				invalidatedRegion |= preservedRegion;
 			}
 		}
 
