@@ -118,7 +118,7 @@ namespace
 		if (hwnd)
 		{
 			Gdi::Region sysRgn;
-			CALL_ORIG_FUNC(GetRandomRgn)(compatDc.origDc, sysRgn, SYSRGN);
+			GetRandomRgn(compatDc.origDc, sysRgn, SYSRGN);
 			OffsetRgn(sysRgn, -virtualScreenBounds.left, -virtualScreenBounds.top);
 			SelectClipRgn(compatDc.dc, sysRgn);
 		}

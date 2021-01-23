@@ -1,11 +1,11 @@
 #include <map>
 #include <vector>
 
-#include "Common/CompatRef.h"
-#include "D3dDdi/KernelModeThunks.h"
-#include "DDraw/DirectDrawClipper.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
+#include <Common/CompatRef.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <DDraw/DirectDrawClipper.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
 
 namespace
 {
@@ -27,7 +27,7 @@ namespace
 
 	void updateWindowClipList(CompatRef<IDirectDrawClipper> clipper, ClipperData& data)
 	{
-		HDC dc = GetDC(data.hwnd);
+		HDC dc = GetDCEx(data.hwnd, nullptr, DCX_CACHE | DCX_USESTYLE);
 		Gdi::Region rgn;
 		GetRandomRgn(dc, rgn, SYSRGN);
 		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);

@@ -2,6 +2,8 @@
 
 #include <Windows.h>
 
+const LONG DCX_USESTYLE = 0x10000;
+
 namespace Gdi
 {
 	const ATOM MENU_ATOM = 0x8000;

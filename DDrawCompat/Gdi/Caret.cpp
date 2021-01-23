@@ -5,6 +5,7 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <Gdi/Caret.h>
+#include <Gdi/Gdi.h>
 
 namespace
 {
@@ -37,7 +38,7 @@ namespace
 
 	void drawCaret()
 	{
-		HDC dc = GetDC(g_caret.hwnd);
+		HDC dc = GetDCEx(g_caret.hwnd, nullptr, DCX_CACHE | DCX_USESTYLE);
 		PatBlt(dc, g_caret.left, g_caret.top, g_caret.width, g_caret.height, PATINVERT);
 		CALL_ORIG_FUNC(ReleaseDC)(g_caret.hwnd, dc);
 	}

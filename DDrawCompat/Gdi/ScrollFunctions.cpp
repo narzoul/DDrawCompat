@@ -12,7 +12,7 @@ namespace
 {
 	void scrollWindowDc(HWND hWnd, int dx, int dy, const RECT* prcScroll, const RECT* prcClip)
 	{
-		HDC dc = GetDC(hWnd);
+		HDC dc = GetDCEx(hWnd, nullptr, DCX_CACHE | DCX_USESTYLE);
 		ScrollDC(dc, dx, dy, prcScroll, prcClip, nullptr, nullptr);
 		CALL_ORIG_FUNC(ReleaseDC)(hWnd, dc);
 	}
