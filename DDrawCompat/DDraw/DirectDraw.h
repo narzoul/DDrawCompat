@@ -14,6 +14,12 @@ namespace DDraw
 	void suppressEmulatedDirectDraw(GUID*& guid);
 
 	template <typename TDirectDraw>
+	HWND getDeviceWindow(TDirectDraw& dd)
+	{
+		return reinterpret_cast<HWND**>(&dd)[1][8];
+	}
+
+	template <typename TDirectDraw>
 	class DirectDraw: public CompatVtable<Vtable<TDirectDraw>>
 	{
 	public:

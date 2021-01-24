@@ -19,7 +19,7 @@ namespace
 	UINT g_systemPaletteFirstNonReservedIndex = 10;
 	UINT g_systemPaletteLastNonReservedIndex = 245;
 
-	std::set<HDC> g_foregroundPaletteDcs;
+	std::set<HPALETTE> g_foregroundPalettes;
 
 	bool isSameColor(PALETTEENTRY entry1, PALETTEENTRY entry2)
 	{
@@ -61,6 +61,17 @@ namespace
 		memcpy(&g_systemPalette[256 - count], &g_defaultPalette[256 - count], count * sizeof(g_systemPalette[0]));
 		Gdi::Palette::setHardwarePalette(g_systemPalette);
 		Gdi::VirtualScreen::updatePalette(g_systemPalette);
+	}
+
+	BOOL WINAPI deleteObject(HGDIOBJ ho)
+	{
+		BOOL result = CALL_ORIG_FUNC(DeleteObject)(ho);
+		if (result && OBJ_PAL == GetObjectType(ho))
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			g_foregroundPalettes.erase(static_cast<HPALETTE>(ho));
+		}
+		return result;
 	}
 
 	UINT WINAPI getSystemPaletteEntries(HDC hdc, UINT iStartIndex, UINT nEntries, LPPALETTEENTRY lppe)
@@ -108,8 +119,6 @@ namespace
 		LOG_FUNC("RealizePalette", hdc);
 		if (Gdi::isDisplayDc(hdc))
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
-
 			HPALETTE palette = reinterpret_cast<HPALETTE>(GetCurrentObject(hdc, OBJ_PAL));
 			if (!palette || GetStockObject(DEFAULT_PALETTE) == palette)
 			{
@@ -118,38 +127,28 @@ namespace
 
 			PALETTEENTRY entries[256] = {};
 			UINT count = GetPaletteEntries(palette, 0, 256, entries);
+			Compat::ScopedCriticalSection lock(g_cs);
 			Gdi::Palette::setSystemPalette(entries, count,
-				g_foregroundPaletteDcs.find(hdc) == g_foregroundPaletteDcs.end());
+				g_foregroundPalettes.find(palette) == g_foregroundPalettes.end());
 			return LOG_RESULT(count);
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(RealizePalette)(hdc));
-	}
-
-	int WINAPI releaseDc(HWND hWnd, HDC hDC)
-	{
-		LOG_FUNC("ReleaseDC", hWnd, hDC);
-		Compat::ScopedCriticalSection lock(g_cs);
-		g_foregroundPaletteDcs.erase(hDC);
-		return LOG_RESULT(CALL_ORIG_FUNC(ReleaseDC)(hWnd, hDC));
 	}
 
 	HPALETTE WINAPI selectPalette(HDC hdc, HPALETTE hpal, BOOL bForceBackground)
 	{
 		LOG_FUNC("SelectPalette", hdc, hpal, bForceBackground);
 		HPALETTE result = CALL_ORIG_FUNC(SelectPalette)(hdc, hpal, bForceBackground);
-		if (result && Gdi::isDisplayDc(hdc))
+		if (result && !bForceBackground)
 		{
-			HWND wnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
-			if (wnd && GetDesktopWindow() != wnd)
+			HWND dcWindow = CALL_ORIG_FUNC(WindowFromDC)(hdc);
+			if (dcWindow && !(GetWindowLong(dcWindow, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
 			{
-				Compat::ScopedCriticalSection lock(g_cs);
-				if (bForceBackground || GetStockObject(DEFAULT_PALETTE) == hpal)
+				HWND activeWindow = GetActiveWindow();
+				if (activeWindow == dcWindow || IsChild(activeWindow, dcWindow))
 				{
-					g_foregroundPaletteDcs.erase(hdc);
-				}
-				else
-				{
-					g_foregroundPaletteDcs.insert(hdc);
+					Compat::ScopedCriticalSection lock(g_cs);
+					g_foregroundPalettes.insert(hpal);
 				}
 			}
 		}
@@ -227,10 +226,10 @@ namespace Gdi
 
 			updateStaticSysPalEntries();
 
+			HOOK_FUNCTION(gdi32, DeleteObject, deleteObject);
 			HOOK_FUNCTION(gdi32, GetSystemPaletteEntries, getSystemPaletteEntries);
 			HOOK_FUNCTION(gdi32, GetSystemPaletteUse, getSystemPaletteUse);
 			HOOK_FUNCTION(gdi32, RealizePalette, realizePalette);
-			HOOK_FUNCTION(user32, ReleaseDC, releaseDc);
 			HOOK_FUNCTION(gdi32, SelectPalette, selectPalette);
 			HOOK_FUNCTION(gdi32, SetSystemPaletteUse, setSystemPaletteUse);
 		}

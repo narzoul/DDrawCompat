@@ -429,12 +429,10 @@ namespace Gdi
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiAlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiGradientFill);
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiTransparentBlt);
-			HOOK_GDI_DC_FUNCTION(gdi32, GetDIBits);
 			HOOK_GDI_DC_FUNCTION(gdi32, GetPixel);
 			HOOK_GDI_DC_FUNCTION(msimg32, GradientFill);
 			HOOK_GDI_DC_FUNCTION(gdi32, MaskBlt);
 			HOOK_GDI_DC_FUNCTION(gdi32, PlgBlt);
-			HOOK_GDI_DC_FUNCTION(gdi32, SetDIBits);
 			HOOK_GDI_DC_FUNCTION(gdi32, SetDIBitsToDevice);
 			HOOK_GDI_DC_FUNCTION(gdi32, SetPixel);
 			HOOK_GDI_DC_FUNCTION(gdi32, SetPixelV);

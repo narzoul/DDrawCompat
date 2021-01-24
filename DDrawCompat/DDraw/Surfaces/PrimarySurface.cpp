@@ -1,15 +1,15 @@
-#include "Common/CompatPtr.h"
-#include "Common/CompatRef.h"
-#include "Config/Config.h"
-#include "D3dDdi/Device.h"
-#include "D3dDdi/KernelModeThunks.h"
-#include "DDraw/DirectDraw.h"
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurfaceImpl.h"
-#include "Gdi/Palette.h"
-#include "Gdi/VirtualScreen.h"
+#include <Common/CompatPtr.h>
+#include <Common/CompatRef.h>
+#include <Config/Config.h>
+#include <D3dDdi/Device.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <DDraw/DirectDraw.h>
+#include <DDraw/DirectDrawSurface.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurfaceImpl.h>
+#include <Gdi/Palette.h>
+#include <Gdi/VirtualScreen.h>
 
 namespace
 {
@@ -17,6 +17,8 @@ namespace
 	HANDLE g_gdiResourceHandle = nullptr;
 	HANDLE g_frontResource = nullptr;
 	DWORD g_origCaps = 0;
+	HWND g_deviceWindow = nullptr;
+	HPALETTE g_palette = nullptr;
 }
 
 namespace DDraw
@@ -29,6 +31,12 @@ namespace DDraw
 		g_frontResource = nullptr;
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
+		g_deviceWindow = nullptr;
+		if (g_palette)
+		{
+			DeleteObject(g_palette);
+			g_palette = nullptr;
+		}
 		s_palette = nullptr;
 
 		DDraw::RealPrimarySurface::release();
@@ -70,6 +78,17 @@ namespace DDraw
 		}
 
 		g_origCaps = origCaps;
+		g_deviceWindow = DDraw::getDeviceWindow(dd.get());
+
+		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8)
+		{
+			LOGPALETTE lp = {};
+			lp.palVersion = 0x300;
+			lp.palNumEntries = 1;
+			g_palette = CreatePalette(&lp);
+			ResizePalette(g_palette, 256);
+		}
+
 		data->restore();
 		return DD_OK;
 	}
@@ -215,24 +234,26 @@ namespace DDraw
 
 	void PrimarySurface::updatePalette()
 	{
-		PALETTEENTRY entries[256] = {};
-		if (s_palette)
+		if (!s_palette)
 		{
-			PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, entries);
+			return;
 		}
+
+		PALETTEENTRY entries[256] = {};
+		PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, entries);
 
 		if (RealPrimarySurface::isFullScreen())
 		{
-			if (!s_palette)
-			{
-				auto sysPalEntries(Gdi::Palette::getSystemPalette());
-				std::memcpy(entries, sysPalEntries.data(), sizeof(entries));
-			}
 			Gdi::Palette::setHardwarePalette(entries);
 		}
-		else if (s_palette)
+		else
 		{
-			Gdi::Palette::setSystemPalette(entries, 256, false);
+			SetPaletteEntries(g_palette, 0, 256, entries);
+			HDC dc = GetDC(g_deviceWindow);
+			HPALETTE oldPal = SelectPalette(dc, g_palette, FALSE);
+			RealizePalette(dc);
+			SelectPalette(dc, oldPal, FALSE);
+			ReleaseDC(g_deviceWindow, dc);
 		}
 
 		RealPrimarySurface::update();

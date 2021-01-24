@@ -42,7 +42,6 @@ namespace DDraw
 
 		virtual void createImpl();
 
-		void* m_ddObject;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface2>> m_impl2;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface3>> m_impl3;
