@@ -13,6 +13,5 @@ namespace Gdi
 		std::vector<PALETTEENTRY> getSystemPalette();
 		void installHooks();
 		void setHardwarePalette(PALETTEENTRY* entries);
-		void setSystemPalette(PALETTEENTRY* entries, DWORD count, bool forceBackground);
 	}
 }

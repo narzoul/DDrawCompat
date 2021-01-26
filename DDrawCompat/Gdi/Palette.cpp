@@ -1,16 +1,28 @@
-#include <set>
+#include <map>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Common/ScopedCriticalSection.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Palette.h"
-#include "VirtualScreen.h"
-#include "Win32/DisplayMode.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Common/ScopedSrwLock.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Palette.h>
+#include <Gdi/VirtualScreen.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
-	Compat::CriticalSection g_cs;
+	struct PaletteInfo
+	{
+		bool isForeground;
+		bool isRealized;
+
+		PaletteInfo()
+			: isForeground(false)
+			, isRealized(false)
+		{
+		}
+	};
+
+	Compat::SrwLock g_srwLock;
 	PALETTEENTRY g_defaultPalette[256] = {};
 	PALETTEENTRY g_hardwarePalette[256] = {};
 	PALETTEENTRY g_systemPalette[256] = {};
@@ -19,7 +31,7 @@ namespace
 	UINT g_systemPaletteFirstNonReservedIndex = 10;
 	UINT g_systemPaletteLastNonReservedIndex = 245;
 
-	std::set<HPALETTE> g_foregroundPalettes;
+	std::map<HPALETTE, PaletteInfo> g_paletteInfo;
 
 	bool isSameColor(PALETTEENTRY entry1, PALETTEENTRY entry2)
 	{
@@ -57,9 +69,9 @@ namespace
 			return;
 		}
 
-		memcpy(g_systemPalette, g_defaultPalette, count * sizeof(g_systemPalette[0]));
-		memcpy(&g_systemPalette[256 - count], &g_defaultPalette[256 - count], count * sizeof(g_systemPalette[0]));
-		Gdi::Palette::setHardwarePalette(g_systemPalette);
+		std::memcpy(g_systemPalette, g_defaultPalette, count * sizeof(g_systemPalette[0]));
+		std::memcpy(&g_systemPalette[256 - count], &g_defaultPalette[256 - count], count * sizeof(g_systemPalette[0]));
+		std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
 		Gdi::VirtualScreen::updatePalette(g_systemPalette);
 	}
 
@@ -68,8 +80,8 @@ namespace
 		BOOL result = CALL_ORIG_FUNC(DeleteObject)(ho);
 		if (result && OBJ_PAL == GetObjectType(ho))
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			g_foregroundPalettes.erase(static_cast<HPALETTE>(ho));
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
+			g_paletteInfo.erase(static_cast<HPALETTE>(ho));
 		}
 		return result;
 	}
@@ -97,7 +109,7 @@ namespace
 			nEntries = 256 - iStartIndex;
 		}
 
-		Compat::ScopedCriticalSection lock(g_cs);
+		Compat::ScopedSrwLockShared lock(g_srwLock);
 		std::memcpy(lppe, &g_systemPalette[iStartIndex], nEntries * sizeof(PALETTEENTRY));
 
 		return LOG_RESULT(nEntries);
@@ -110,7 +122,7 @@ namespace
 		{
 			return LOG_RESULT(SYSPAL_ERROR);
 		}
-		Compat::ScopedCriticalSection lock(g_cs);
+		Compat::ScopedSrwLockShared lock(g_srwLock);
 		return LOG_RESULT(g_systemPaletteUse);
 	}
 
@@ -126,13 +138,55 @@ namespace
 			}
 
 			PALETTEENTRY entries[256] = {};
-			UINT count = GetPaletteEntries(palette, 0, 256, entries);
-			Compat::ScopedCriticalSection lock(g_cs);
-			Gdi::Palette::setSystemPalette(entries, count,
-				g_foregroundPalettes.find(palette) == g_foregroundPalettes.end());
+			const UINT count = GetPaletteEntries(palette, 0, 256, entries);
+
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
+			auto& paletteInfo = g_paletteInfo[palette];
+			if (paletteInfo.isRealized)
+			{
+				return LOG_RESULT(0);
+			}
+
+			if (paletteInfo.isForeground)
+			{
+				g_systemPaletteFirstUnusedIndex = g_systemPaletteFirstNonReservedIndex;
+				for (auto& pi : g_paletteInfo)
+				{
+					pi.second.isRealized = false;
+				}
+			}
+
+			for (UINT i = 0; i < count && g_systemPaletteFirstUnusedIndex <= g_systemPaletteLastNonReservedIndex; ++i)
+			{
+				if ((entries[i].peFlags & PC_EXPLICIT) ||
+					0 == (entries[i].peFlags & (PC_NOCOLLAPSE | PC_RESERVED)) && exactMatch(entries[i]))
+				{
+					continue;
+				}
+
+				g_systemPalette[g_systemPaletteFirstUnusedIndex] = entries[i];
+				g_systemPalette[g_systemPaletteFirstUnusedIndex].peFlags = 0;
+				++g_systemPaletteFirstUnusedIndex;
+			}
+
+			paletteInfo.isRealized = true;
+			std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
+			Gdi::VirtualScreen::updatePalette(g_systemPalette);
 			return LOG_RESULT(count);
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(RealizePalette)(hdc));
+	}
+
+	BOOL WINAPI resizePalette(HPALETTE hpal, UINT n)
+	{
+		LOG_FUNC("ResizePalette", hpal, n);
+		BOOL result = CALL_ORIG_FUNC(ResizePalette)(hpal, n);
+		if (result)
+		{
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
+			g_paletteInfo[hpal].isRealized = false;
+		}
+		return LOG_RESULT(result);
 	}
 
 	HPALETTE WINAPI selectPalette(HDC hdc, HPALETTE hpal, BOOL bForceBackground)
@@ -147,10 +201,22 @@ namespace
 				HWND activeWindow = GetActiveWindow();
 				if (activeWindow == dcWindow || IsChild(activeWindow, dcWindow))
 				{
-					Compat::ScopedCriticalSection lock(g_cs);
-					g_foregroundPalettes.insert(hpal);
+					Compat::ScopedSrwLockExclusive lock(g_srwLock);
+					g_paletteInfo[hpal].isForeground = true;
 				}
 			}
+		}
+		return LOG_RESULT(result);
+	}
+
+	UINT WINAPI setPaletteEntries(HPALETTE hpal, UINT iStart, UINT cEntries, const PALETTEENTRY* pPalEntries)
+	{
+		LOG_FUNC("SetPaletteEntries", hpal, iStart, cEntries, pPalEntries);
+		UINT result = CALL_ORIG_FUNC(SetPaletteEntries)(hpal, iStart, cEntries, pPalEntries);
+		if (result)
+		{
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
+			g_paletteInfo[hpal].isRealized = false;
 		}
 		return LOG_RESULT(result);
 	}
@@ -163,7 +229,7 @@ namespace
 			return LOG_RESULT(SYSPAL_ERROR);
 		}
 
-		Compat::ScopedCriticalSection lock(g_cs);
+		Compat::ScopedSrwLockExclusive lock(g_srwLock);
 		if (uUsage == g_systemPaletteUse)
 		{
 			return LOG_RESULT(g_systemPaletteUse);
@@ -195,6 +261,18 @@ namespace
 		updateStaticSysPalEntries();
 		return LOG_RESULT(prevUsage);
 	}
+
+	BOOL WINAPI unrealizeObject(HGDIOBJ h)
+	{
+		LOG_FUNC("UnrealizeObject", h);
+		BOOL result = CALL_ORIG_FUNC(UnrealizeObject)(h);
+		if (result && OBJ_PAL == GetObjectType(h))
+		{
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
+			g_paletteInfo[static_cast<HPALETTE>(h)].isRealized = false;
+		}
+		return LOG_RESULT(result);
+	}
 }
 
 namespace Gdi
@@ -208,13 +286,13 @@ namespace Gdi
 
 		std::vector<PALETTEENTRY> getHardwarePalette()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			Compat::ScopedSrwLockShared lock(g_srwLock);
 			return std::vector<PALETTEENTRY>(g_hardwarePalette, g_hardwarePalette + 256);
 		}
 
 		std::vector<PALETTEENTRY> getSystemPalette()
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			Compat::ScopedSrwLockShared lock(g_srwLock);
 			return std::vector<PALETTEENTRY>(g_systemPalette, g_systemPalette + 256);
 		}
 
@@ -230,39 +308,17 @@ namespace Gdi
 			HOOK_FUNCTION(gdi32, GetSystemPaletteEntries, getSystemPaletteEntries);
 			HOOK_FUNCTION(gdi32, GetSystemPaletteUse, getSystemPaletteUse);
 			HOOK_FUNCTION(gdi32, RealizePalette, realizePalette);
+			HOOK_FUNCTION(gdi32, ResizePalette, resizePalette);
 			HOOK_FUNCTION(gdi32, SelectPalette, selectPalette);
+			HOOK_FUNCTION(gdi32, SetPaletteEntries, setPaletteEntries);
 			HOOK_FUNCTION(gdi32, SetSystemPaletteUse, setSystemPaletteUse);
+			HOOK_FUNCTION(gdi32, UnrealizeObject, unrealizeObject);
 		}
 
 		void setHardwarePalette(PALETTEENTRY* entries)
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
+			Compat::ScopedSrwLockExclusive lock(g_srwLock);
 			std::memcpy(g_hardwarePalette, entries, sizeof(g_hardwarePalette));
-		}
-
-		void setSystemPalette(PALETTEENTRY* entries, DWORD count, bool forceBackground)
-		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			if (!forceBackground)
-			{
-				g_systemPaletteFirstUnusedIndex = g_systemPaletteFirstNonReservedIndex;
-			}
-
-			for (UINT i = 0; i < count && g_systemPaletteFirstUnusedIndex <= g_systemPaletteLastNonReservedIndex; ++i)
-			{
-				if ((entries[i].peFlags & PC_EXPLICIT) ||
-					0 == (entries[i].peFlags & (PC_NOCOLLAPSE | PC_RESERVED)) && exactMatch(entries[i]))
-				{
-					continue;
-				}
-
-				g_systemPalette[g_systemPaletteFirstUnusedIndex] = entries[i];
-				g_systemPalette[g_systemPaletteFirstUnusedIndex].peFlags = 0;
-				++g_systemPaletteFirstUnusedIndex;
-			}
-
-			Gdi::Palette::setHardwarePalette(g_systemPalette);
-			Gdi::VirtualScreen::updatePalette(g_systemPalette);
 		}
 	}
 }
