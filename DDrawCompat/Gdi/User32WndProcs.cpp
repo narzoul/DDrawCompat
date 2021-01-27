@@ -363,27 +363,13 @@ namespace
 		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 	}
 
-	LRESULT onNcActivate(HWND hwnd, WPARAM wParam, LPARAM lParam)
+	LRESULT onNcActivate(HWND hwnd, WPARAM /*wParam*/, LPARAM lParam)
 	{
-		if (-1 == lParam)
+		if (-1 != lParam)
 		{
-			return TRUE;
+			RECT r = { -1, -1, 0, 0 };
+			RedrawWindow(hwnd, &r, nullptr, RDW_INVALIDATE | RDW_FRAME);
 		}
-
-		HDC windowDc = GetWindowDC(hwnd);
-		HDC compatDc = Gdi::Dc::getDc(windowDc);
-
-		if (compatDc)
-		{
-			D3dDdi::ScopedCriticalSection lock;
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			Gdi::TitleBar titleBar(hwnd, compatDc);
-			titleBar.setActive(wParam);
-			titleBar.drawAll();
-			Gdi::Dc::releaseDc(windowDc);
-		}
-
-		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 		return TRUE;
 	}
 
@@ -461,25 +447,11 @@ namespace
 	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
 		LRESULT result = CallWindowProc(origWndProc, hwnd, WM_SETTEXT, wParam, lParam);
-		if (0 == result ||
-			0 == (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & WS_CAPTION))
+		if (TRUE == result && (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & WS_CAPTION))
 		{
-			return result;
+			RECT r = { -1, -1, 0, 0 };
+			RedrawWindow(hwnd, &r, nullptr, RDW_INVALIDATE | RDW_FRAME);
 		}
-
-		HDC windowDc = GetWindowDC(hwnd);
-		HDC compatDc = Gdi::Dc::getDc(windowDc);
-
-		if (compatDc)
-		{
-			D3dDdi::ScopedCriticalSection lock;
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			Gdi::TitleBar titleBar(hwnd, compatDc);
-			titleBar.drawAll();
-			Gdi::Dc::releaseDc(windowDc);
-		}
-
-		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 		return result;
 	}
 

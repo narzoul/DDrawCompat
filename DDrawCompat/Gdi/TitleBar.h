@@ -15,7 +15,6 @@ namespace Gdi
 		void drawButtons() const;
 		void drawCaption() const;
 		void excludeFromClipRegion() const;
-		void setActive(bool isActive);
 
 	private:
 		void adjustButtonSize(RECT& rect) const;

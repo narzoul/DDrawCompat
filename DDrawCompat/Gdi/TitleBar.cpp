@@ -101,7 +101,7 @@ namespace Gdi
 			return;
 		}
 
-		UINT flags = 0;
+		UINT flags = DC_TEXT;
 		if (m_isActive)
 		{
 			flags |= DC_ACTIVE;
@@ -116,18 +116,27 @@ namespace Gdi
 		OffsetRect(&clipRect, m_windowRect.left - virtualScreenBounds.left, m_windowRect.top - virtualScreenBounds.top);
 		Region clipRgn(clipRect);
 		SelectClipRgn(m_compatDc, clipRgn);
+		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, flags);
+		SelectClipRgn(m_compatDc, nullptr);
 
-		RECT textRect = m_tbi.rcTitleBar;
 		if (m_hasIcon)
 		{
-			CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, DC_ICON | flags);
-			textRect.left -= 1;
+			RECT r = m_tbi.rcTitleBar;
+			r.right = r.left + r.bottom - r.top;
+			CALL_ORIG_FUNC(FillRect)(m_compatDc, &r,
+				GetSysColorBrush(m_isActive ? COLOR_ACTIVECAPTION : COLOR_INACTIVECAPTION));
+
+			HICON icon = reinterpret_cast<HICON>(SendMessage(m_hwnd, WM_GETICON, ICON_SMALL, 96));
+			if (!icon)
+			{
+				icon = reinterpret_cast<HICON>(GetClassLong(m_hwnd, GCL_HICONSM));
+			}
+			int width = GetSystemMetrics(SM_CXSMICON);
+			int height = GetSystemMetrics(SM_CYSMICON);
+			int x = r.left + (r.right - r.left - width) / 2 + 2;
+			int y = r.top + (r.bottom - r.top - height) / 2;
+			CALL_ORIG_FUNC(DrawIconEx)(m_compatDc, x, y, icon, width, height, 0, nullptr, DI_NORMAL);
 		}
-
-		textRect.top -= 1;
-		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &textRect, DC_TEXT | flags);
-
-		SelectClipRgn(m_compatDc, nullptr);
 	}
 
 	void TitleBar::drawButton(std::size_t tbiIndex, UINT dfcState) const
@@ -158,11 +167,6 @@ namespace Gdi
 			const RECT& r = m_tbi.rcTitleBar;
 			ExcludeClipRect(m_compatDc, r.left, r.top, r.right, r.bottom);
 		}
-	}
-
-	void TitleBar::setActive(bool isActive)
-	{
-		m_isActive = isActive;
 	}
 
 	bool TitleBar::isVisible(std::size_t tbiIndex) const
