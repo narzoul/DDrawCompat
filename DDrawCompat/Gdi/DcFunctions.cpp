@@ -214,7 +214,8 @@ namespace
 		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
 		if (g_redirectToDib && Gdi::isDisplayDc(hdc))
 		{
-			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, cy));
+			const bool useDefaultPalette = false;
+			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, cy, useDefaultPalette));
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy));
 	}
@@ -226,7 +227,9 @@ namespace
 		const DWORD CBM_CREATDIB = 2;
 		if (g_redirectToDib && !(fdwInit & CBM_CREATDIB) && lpbmih && Gdi::isDisplayDc(hdc))
 		{
-			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(lpbmi->bmiHeader.biWidth, lpbmi->bmiHeader.biHeight);
+			const bool useDefaultPalette = false;
+			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(
+				lpbmi->bmiHeader.biWidth, lpbmi->bmiHeader.biHeight, useDefaultPalette);
 			if (bitmap && lpbInit && lpbmi)
 			{
 				SetDIBits(hdc, bitmap, 0, std::abs(lpbmi->bmiHeader.biHeight), lpbInit, lpbmi, fuUsage);
@@ -241,7 +244,8 @@ namespace
 		LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
 		if (g_redirectToDib && Gdi::isDisplayDc(hdc))
 		{
-			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(nWidth, nHeight));
+			const bool useDefaultPalette = false;
+			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(nWidth, nHeight, useDefaultPalette));
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
 	}

@@ -429,7 +429,8 @@ namespace Gdi
 
 				if (!virtualScreenDc)
 				{
-					virtualScreenDc.reset(Gdi::VirtualScreen::createDc());
+					const bool useDefaultPalette = false;
+					virtualScreenDc.reset(Gdi::VirtualScreen::createDc(useDefaultPalette));
 					if (!virtualScreenDc)
 					{
 						return;

@@ -1,20 +1,25 @@
-#include <set>
+#include <map>
 
-#include "Config/Config.h"
-#include "Common/ScopedCriticalSection.h"
-#include "D3dDdi/Device.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "DDraw/DirectDraw.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "DDraw/ScopedThreadLock.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
-#include "Gdi/VirtualScreen.h"
-#include "Win32/DisplayMode.h"
+#include <Config/Config.h>
+#include <Common/ScopedCriticalSection.h>
+#include <D3dDdi/Device.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/DirectDraw.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/ScopedThreadLock.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
+#include <Gdi/VirtualScreen.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
+	struct VirtualScreenDc
+	{
+		bool useDefaultPalette;
+	};
+
 	Compat::CriticalSection g_cs;
 	Gdi::Region g_region;
 	RECT g_bounds = {};
@@ -26,8 +31,9 @@ namespace
 	void* g_surfaceView = nullptr;
 
 	HGDIOBJ g_stockBitmap = nullptr;
+	RGBQUAD g_defaultPalette[256] = {};
 	RGBQUAD g_systemPalette[256] = {};
-	std::set<HDC> g_dcs;
+	std::map<HDC, VirtualScreenDc> g_dcs;
 
 	BOOL CALLBACK addMonitorRectToRegion(
 		HMONITOR /*hMonitor*/, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
@@ -38,7 +44,16 @@ namespace
 		return TRUE;
 	}
 
-	HBITMAP createDibSection(LONG width, LONG height, HANDLE section)
+	RGBQUAD convertToRgbQuad(PALETTEENTRY entry)
+	{
+		RGBQUAD quad = {};
+		quad.rgbRed = entry.peRed;
+		quad.rgbGreen = entry.peGreen;
+		quad.rgbBlue = entry.peBlue;
+		return quad;
+	}
+
+	HBITMAP createDibSection(LONG width, LONG height, HANDLE section, bool useDefaultPalette)
 	{
 		struct BITMAPINFO256 : public BITMAPINFO
 		{
@@ -55,7 +70,14 @@ namespace
 
 		if (8 == g_bpp)
 		{
-			memcpy(bmi.bmiColors, g_systemPalette, sizeof(g_systemPalette));
+			if (useDefaultPalette)
+			{
+				memcpy(bmi.bmiColors, g_defaultPalette, sizeof(g_defaultPalette));
+			}
+			else
+			{
+				memcpy(bmi.bmiColors, g_systemPalette, sizeof(g_systemPalette));
+			}
 		}
 		else
 		{
@@ -74,10 +96,10 @@ namespace Gdi
 {
 	namespace VirtualScreen
 	{
-		HDC createDc()
+		HDC createDc(bool useDefaultPalette)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			std::unique_ptr<void, decltype(&DeleteObject)> dib(createDib(), DeleteObject);
+			std::unique_ptr<void, decltype(&DeleteObject)> dib(createDib(useDefaultPalette), DeleteObject);
 			if (!dib)
 			{
 				return nullptr;
@@ -98,24 +120,24 @@ namespace Gdi
 			dib.release();
 
 			g_stockBitmap = stockBitmap;
-			g_dcs.insert(dc.get());
+			g_dcs[dc.get()] = { useDefaultPalette };
 			return dc.release();
 		}
 
-		HBITMAP createDib()
+		HBITMAP createDib(bool useDefaultPalette)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (!g_surfaceFileMapping)
 			{
 				return nullptr;
 			}
-			return createDibSection(g_width, -g_height, g_surfaceFileMapping);
+			return createDibSection(g_width, -g_height, g_surfaceFileMapping, useDefaultPalette);
 		}
 
-		HBITMAP createOffScreenDib(LONG width, LONG height)
+		HBITMAP createOffScreenDib(LONG width, LONG height, bool useDefaultPalette)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			return createDibSection(width, height, nullptr);
+			return createDibSection(width, height, nullptr, useDefaultPalette);
 		}
 
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect)
@@ -190,6 +212,16 @@ namespace Gdi
 
 		void init()
 		{
+			PALETTEENTRY entries[20] = {};
+			HPALETTE defaultPalette = reinterpret_cast<HPALETTE>(GetStockObject(DEFAULT_PALETTE));
+			GetPaletteEntries(defaultPalette, 0, 20, entries);
+
+			for (int i = 0; i < 10; ++i)
+			{
+				g_defaultPalette[i] = convertToRgbQuad(entries[i]);
+				g_defaultPalette[246 + i] = convertToRgbQuad(entries[10 + i]);
+			}
+
 			update();
 		}
 
@@ -223,9 +255,9 @@ namespace Gdi
 
 				if (g_surfaceFileMapping)
 				{
-					for (HDC dc : g_dcs)
+					for (auto& dc : g_dcs)
 					{
-						DeleteObject(SelectObject(dc, g_stockBitmap));
+						DeleteObject(SelectObject(dc.first, g_stockBitmap));
 					}
 					UnmapViewOfFile(g_surfaceView);
 					CloseHandle(g_surfaceFileMapping);
@@ -235,9 +267,9 @@ namespace Gdi
 					g_pitch * g_height + 8, nullptr);
 				g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
 
-				for (HDC dc : g_dcs)
+				for (auto& dc : g_dcs)
 				{
-					SelectObject(dc, createDib());
+					SelectObject(dc.first, createDib(dc.second.useDefaultPalette));
 				}
 			}
 
@@ -252,17 +284,18 @@ namespace Gdi
 			RGBQUAD systemPalette[256] = {};
 			for (int i = 0; i < 256; ++i)
 			{
-				systemPalette[i].rgbRed = palette[i].peRed;
-				systemPalette[i].rgbGreen = palette[i].peGreen;
-				systemPalette[i].rgbBlue = palette[i].peBlue;
+				systemPalette[i] = convertToRgbQuad(palette[i]);
 			}
 
 			if (0 != memcmp(g_systemPalette, systemPalette, sizeof(systemPalette)))
 			{
 				memcpy(g_systemPalette, systemPalette, sizeof(systemPalette));
-				for (HDC dc : g_dcs)
+				for (auto& dc : g_dcs)
 				{
-					SetDIBColorTable(dc, 0, 256, systemPalette);
+					if (!dc.second.useDefaultPalette)
+					{
+						SetDIBColorTable(dc.first, 0, 256, systemPalette);
+					}
 				}
 			}
 

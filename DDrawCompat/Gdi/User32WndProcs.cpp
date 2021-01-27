@@ -308,7 +308,8 @@ namespace
 			RECT r = {};
 			GetClientRect(hwnd, &r);
 			HDC dc = CreateCompatibleDC(nullptr);
-			HBITMAP dib = Gdi::VirtualScreen::createOffScreenDib(r.right, r.bottom);
+			const bool useDefaultPalette = true;
+			HBITMAP dib = Gdi::VirtualScreen::createOffScreenDib(r.right, r.bottom, useDefaultPalette);
 			HGDIOBJ origBitmap = SelectObject(dc, dib);
 			CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
 			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), lParam);

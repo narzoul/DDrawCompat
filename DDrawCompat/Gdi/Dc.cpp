@@ -26,6 +26,7 @@ namespace
 		HGDIOBJ savedBrush;
 		HGDIOBJ savedPen;
 		HPALETTE savedPalette;
+		bool useDefaultPalette;
 	};
 
 	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
@@ -151,7 +152,7 @@ namespace Gdi
 			for (auto& origDcToCompatDc : g_origDcToCompatDc)
 			{
 				restoreDc(origDcToCompatDc.second);
-				Gdi::DcCache::deleteDc(origDcToCompatDc.second.dc);
+				Gdi::VirtualScreen::deleteDc(origDcToCompatDc.second.dc);
 			}
 			g_origDcToCompatDc.clear();
 		}
@@ -166,7 +167,7 @@ namespace Gdi
 				if (threadId == it->second.threadId)
 				{
 					restoreDc(it->second);
-					Gdi::DcCache::deleteDc(it->second.dc);
+					Gdi::VirtualScreen::deleteDc(it->second.dc);
 					it = g_origDcToCompatDc.erase(it);
 				}
 				else
@@ -195,7 +196,8 @@ namespace Gdi
 			}
 
 			CompatDc compatDc;
-			compatDc.dc = Gdi::DcCache::getDc();
+			compatDc.useDefaultPalette = GetStockObject(DEFAULT_PALETTE) == GetCurrentObject(origDc, OBJ_PAL);
+			compatDc.dc = Gdi::DcCache::getDc(compatDc.useDefaultPalette);
 			if (!compatDc.dc)
 			{
 				return nullptr;
@@ -251,7 +253,7 @@ namespace Gdi
 			if (0 == compatDc.refCount)
 			{
 				restoreDc(compatDc);
-				Gdi::DcCache::releaseDc(compatDc.dc);
+				Gdi::DcCache::releaseDc(compatDc.dc, compatDc.useDefaultPalette);
 				g_origDcToCompatDc.erase(origDc);
 			}
 		}
