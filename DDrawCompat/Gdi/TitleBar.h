@@ -17,7 +17,6 @@ namespace Gdi
 		void excludeFromClipRegion() const;
 
 	private:
-		void adjustButtonSize(RECT& rect) const;
 		void drawButton(std::size_t tbiIndex, UINT dfcState) const;
 		bool isVisible(std::size_t tbiIndex) const;
 

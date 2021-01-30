@@ -1,9 +1,9 @@
-#include "Common/Hook.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
-#include "Gdi/TitleBar.h"
-#include "Gdi/VirtualScreen.h"
-#include "Win32/DisplayMode.h"
+#include <Common/Hook.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
+#include <Gdi/TitleBar.h>
+#include <Gdi/VirtualScreen.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -37,7 +37,7 @@ namespace Gdi
 		}
 
 		m_tbi.cbSize = sizeof(m_tbi);
-		SendMessage(hwnd, WM_GETTITLEBARINFOEX, 0, reinterpret_cast<LPARAM>(&m_tbi));
+		CALL_ORIG_FUNC(DefWindowProcA)(hwnd, WM_GETTITLEBARINFOEX, 0, reinterpret_cast<LPARAM>(&m_tbi));
 		m_hasTitleBar = !IsRectEmpty(&m_tbi.rcTitleBar);
 		if (!m_hasTitleBar)
 		{
@@ -62,17 +62,17 @@ namespace Gdi
 			if (isVisible(i))
 			{
 				OffsetRect(&m_tbi.rgrect[i], -m_windowRect.left, -m_windowRect.top);
-				adjustButtonSize(m_tbi.rgrect[i]);
+				InflateRect(&m_tbi.rgrect[i], -3, -3);
+				if (TBII_MINIMIZE_BUTTON == i)
+				{
+					m_tbi.rgrect[i].right += 2;
+				}
+				else
+				{
+					m_tbi.rgrect[i].left -= 2;
+				}
 			}
 		}
-	}
-
-	void TitleBar::adjustButtonSize(RECT& rect) const
-	{
-		rect.left += (rect.right - rect.left - m_buttonWidth) / 2;
-		rect.top += (rect.bottom - rect.top - m_buttonHeight) / 2;
-		rect.right = rect.left + m_buttonWidth;
-		rect.bottom = rect.top + m_buttonHeight;
 	}
 
 	void TitleBar::drawAll() const
