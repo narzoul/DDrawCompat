@@ -228,27 +228,29 @@ namespace Gdi
 		bool update()
 		{
 			LOG_FUNC("VirtualScreen::update");
-			Compat::ScopedCriticalSection lock(g_cs);
-
 			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
-			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
-			const auto bpp = Win32::DisplayMode::getBpp();
-			if (currentDisplaySettingsUniqueness == prevDisplaySettingsUniqueness && bpp == g_bpp)
-			{
-				return LOG_RESULT(false);
-			}
 
-			prevDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
+			{
+				Compat::ScopedCriticalSection lock(g_cs);
+				if (Win32::DisplayMode::queryDisplaySettingsUniqueness() == prevDisplaySettingsUniqueness &&
+					Win32::DisplayMode::getBpp() == g_bpp)
+				{
+					return LOG_RESULT(false);
+				}
+			}
 
 			{
 				D3dDdi::ScopedCriticalSection driverLock;
+				Compat::ScopedCriticalSection lock(g_cs);
+
+				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
 				D3dDdi::Device::setGdiResourceHandle(nullptr);
 
 				g_region = Region();
 				EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
 				GetRgnBox(g_region, &g_bounds);
 
-				g_bpp = bpp;
+				g_bpp = Win32::DisplayMode::getBpp();
 				g_width = g_bounds.right - g_bounds.left;
 				g_height = g_bounds.bottom - g_bounds.top;
 				g_pitch = (g_width * g_bpp / 8 + 3) & ~3;
