@@ -187,18 +187,6 @@ namespace D3dDdi
 	{
 	}
 
-	void Resource::beginGdiAccess(bool isReadOnly)
-	{
-		if (m_lockResource)
-		{
-			if (!m_lockData[0].isSysMemUpToDate)
-			{
-				copyToSysMem(0);
-			}
-			m_lockData[0].isVidMemUpToDate &= isReadOnly;
-		}
-	}
-
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
 		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
@@ -471,14 +459,6 @@ namespace D3dDdi
 #endif
 	}
 
-	void Resource::endGdiAccess(bool isReadOnly)
-	{
-		if (m_lockResource && !isReadOnly && m_lockData[0].isSysMemUpToDate)
-		{
-			m_lockData[0].isVidMemUpToDate = false;
-		}
-	}
-
 	void* Resource::getLockPtr(UINT subResourceIndex)
 	{
 		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
@@ -515,6 +495,21 @@ namespace D3dDdi
 		}
 
 		return m_device.getOrigVtable().pfnLock(m_device, &data);
+	}
+
+	void Resource::prepareForGdiRendering(bool isReadOnly)
+	{
+		if (!m_lockResource)
+		{
+			return;
+		}
+
+		if (!m_lockData[0].isSysMemUpToDate)
+		{
+			copyToSysMem(0);
+		}
+		m_lockData[0].isVidMemUpToDate &= isReadOnly;
+		m_lockData[0].qpcLastForcedLock = Time::queryPerformanceCounter();
 	}
 
 	void Resource::prepareForRendering(UINT subResourceIndex, bool isReadOnly)

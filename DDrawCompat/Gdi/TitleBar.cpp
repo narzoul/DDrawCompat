@@ -1,8 +1,6 @@
 #include <Common/Hook.h>
-#include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
 #include <Gdi/TitleBar.h>
-#include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -19,9 +17,8 @@ namespace
 
 namespace Gdi
 {
-	TitleBar::TitleBar(HWND hwnd, HDC compatDc)
+	TitleBar::TitleBar(HWND hwnd)
 		: m_hwnd(hwnd)
-		, m_compatDc(compatDc)
 		, m_buttonWidth(0)
 		, m_buttonHeight(0)
 		, m_tbi{}
@@ -75,26 +72,26 @@ namespace Gdi
 		}
 	}
 
-	void TitleBar::drawAll() const
+	void TitleBar::drawAll(HDC dc) const
 	{
-		drawCaption();
-		drawButtons();
+		drawCaption(dc);
+		drawButtons(dc);
 	}
 
-	void TitleBar::drawButtons() const
+	void TitleBar::drawButtons(HDC dc) const
 	{
 		if (!m_hasTitleBar)
 		{
 			return;
 		}
 
-		drawButton(TBII_MINIMIZE_BUTTON, DFCS_CAPTIONMIN);
-		drawButton(TBII_MAXIMIZE_BUTTON, IsZoomed(m_hwnd) ? DFCS_CAPTIONRESTORE : DFCS_CAPTIONMAX);
-		drawButton(TBII_HELP_BUTTON, DFCS_CAPTIONHELP);
-		drawButton(TBII_CLOSE_BUTTON, DFCS_CAPTIONCLOSE);
+		drawButton(dc, TBII_MINIMIZE_BUTTON, DFCS_CAPTIONMIN);
+		drawButton(dc, TBII_MAXIMIZE_BUTTON, IsZoomed(m_hwnd) ? DFCS_CAPTIONRESTORE : DFCS_CAPTIONMAX);
+		drawButton(dc, TBII_HELP_BUTTON, DFCS_CAPTIONHELP);
+		drawButton(dc, TBII_CLOSE_BUTTON, DFCS_CAPTIONCLOSE);
 	}
 
-	void TitleBar::drawCaption() const
+	void TitleBar::drawCaption(HDC dc) const
 	{
 		if (!m_hasTitleBar)
 		{
@@ -111,20 +108,15 @@ namespace Gdi
 			flags |= DC_GRADIENT;
 		}
 
-		RECT virtualScreenBounds = VirtualScreen::getBounds();
-		RECT clipRect = m_tbi.rcTitleBar;
-		OffsetRect(&clipRect, m_windowRect.left - virtualScreenBounds.left, m_windowRect.top - virtualScreenBounds.top);
-		Region clipRgn(clipRect);
-		SelectClipRgn(m_compatDc, clipRgn);
-		CALL_ORIG_FUNC(DrawCaption)(m_hwnd, m_compatDc, &m_tbi.rcTitleBar, flags);
-		SelectClipRgn(m_compatDc, nullptr);
+		SelectClipRgn(dc, Region(m_tbi.rcTitleBar));
+		DrawCaption(m_hwnd, dc, &m_tbi.rcTitleBar, flags);
+		SelectClipRgn(dc, nullptr);
 
 		if (m_hasIcon)
 		{
 			RECT r = m_tbi.rcTitleBar;
 			r.right = r.left + r.bottom - r.top;
-			CALL_ORIG_FUNC(FillRect)(m_compatDc, &r,
-				GetSysColorBrush(m_isActive ? COLOR_ACTIVECAPTION : COLOR_INACTIVECAPTION));
+			FillRect(dc, &r, GetSysColorBrush(m_isActive ? COLOR_ACTIVECAPTION : COLOR_INACTIVECAPTION));
 
 			HICON icon = reinterpret_cast<HICON>(SendMessage(m_hwnd, WM_GETICON, ICON_SMALL, 96));
 			if (!icon)
@@ -135,11 +127,11 @@ namespace Gdi
 			int height = GetSystemMetrics(SM_CYSMICON);
 			int x = r.left + (r.right - r.left - width) / 2 + 2;
 			int y = r.top + (r.bottom - r.top - height) / 2;
-			CALL_ORIG_FUNC(DrawIconEx)(m_compatDc, x, y, icon, width, height, 0, nullptr, DI_NORMAL);
+			DrawIconEx(dc, x, y, icon, width, height, 0, nullptr, DI_NORMAL);
 		}
 	}
 
-	void TitleBar::drawButton(std::size_t tbiIndex, UINT dfcState) const
+	void TitleBar::drawButton(HDC dc, std::size_t tbiIndex, UINT dfcState) const
 	{
 		if (!isVisible(tbiIndex))
 		{
@@ -157,16 +149,7 @@ namespace Gdi
 		}
 
 		RECT rect = m_tbi.rgrect[tbiIndex];
-		CALL_ORIG_FUNC(DrawFrameControl)(m_compatDc, &rect, DFC_CAPTION, dfcState | stateFlags);
-	}
-
-	void TitleBar::excludeFromClipRegion() const
-	{
-		if (m_hasTitleBar)
-		{
-			const RECT& r = m_tbi.rcTitleBar;
-			ExcludeClipRect(m_compatDc, r.left, r.top, r.right, r.bottom);
-		}
+		DrawFrameControl(dc, &rect, DFC_CAPTION, dfcState | stateFlags);
 	}
 
 	bool TitleBar::isVisible(std::size_t tbiIndex) const

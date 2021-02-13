@@ -33,6 +33,7 @@ std::ostream& operator<<(std::ostream& os, const MSG& msg);
 std::ostream& operator<<(std::ostream& os, const NCCALCSIZE_PARAMS& nccs);
 std::ostream& operator<<(std::ostream& os, const NMHDR& nm);
 std::ostream& operator<<(std::ostream& os, const POINT& p);
+std::ostream& operator<<(std::ostream& os, const POINTS& p);
 std::ostream& operator<<(std::ostream& os, const RECT& rect);
 std::ostream& operator<<(std::ostream& os, const SIZE& size);
 std::ostream& operator<<(std::ostream& os, const STYLESTRUCT& ss);

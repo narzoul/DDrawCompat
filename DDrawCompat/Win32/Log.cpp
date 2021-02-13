@@ -346,6 +346,13 @@ std::ostream& operator<<(std::ostream& os, const POINT& p)
 		<< p.y;
 }
 
+std::ostream& operator<<(std::ostream& os, const POINTS& p)
+{
+	return Compat::LogStruct(os)
+		<< p.x
+		<< p.y;
+}
+
 std::ostream& operator<<(std::ostream& os, const RECT& rect)
 {
 	return Compat::LogStruct(os)

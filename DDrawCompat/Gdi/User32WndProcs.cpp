@@ -1,7 +1,6 @@
 #include <vector>
 
-#include <Gdi/AccessGuard.h>
-#include <Gdi/Dc.h>
+#include <Gdi/CompatDc.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
@@ -134,6 +133,15 @@ namespace
 	{
 		switch (msg)
 		{
+		case WM_CTLCOLORSCROLLBAR:
+			if (reinterpret_cast<HWND>(lParam) == hwnd)
+			{
+				LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+				Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+				return result;
+			}
+			break;
+
 		case WM_NCACTIVATE:
 			return onNcActivate(hwnd, wParam, lParam);
 
@@ -151,12 +159,13 @@ namespace
 
 		case WM_NCLBUTTONDOWN:
 		{
-			LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
 			if (wParam == HTHSCROLL || wParam == HTVSCROLL)
 			{
-				onNcPaint(hwnd, origDefWindowProc);
+				Gdi::ScrollBar sb(hwnd, wParam == HTHSCROLL ? SB_HORZ : SB_VERT);
+				sb.onLButtonDown(lParam);
+				return origDefWindowProc(hwnd, msg, wParam, lParam);
 			}
-			return result;
+			return origDefWindowProc(hwnd, msg, wParam, lParam);
 		}
 		}
 
@@ -347,20 +356,8 @@ namespace
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
 	{
-		if (hwnd)
-		{
-			LRESULT result = 0;
-			HDC compatDc = Gdi::Dc::getDc(dc);
-			if (compatDc)
-			{
-				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-				result = CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(compatDc), 0);
-				Gdi::Dc::releaseDc(dc);
-				return result;
-			}
-		}
-
-		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
+		return CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND,
+			reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(dc))), 0);
 	}
 
 	LRESULT onNcActivate(HWND hwnd, WPARAM /*wParam*/, LPARAM lParam)
@@ -375,73 +372,29 @@ namespace
 
 	LRESULT onNcPaint(HWND hwnd, WNDPROC origWndProc)
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		HDC windowDc = GetWindowDC(hwnd);
-		HDC compatDc = Gdi::Dc::getDc(windowDc);
-
-		if (compatDc)
-		{
-			D3dDdi::ScopedCriticalSection lock;
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			Gdi::TitleBar titleBar(hwnd, compatDc);
-			titleBar.drawAll();
-			titleBar.excludeFromClipRegion();
-
-			Gdi::ScrollBar scrollBar(hwnd, compatDc);
-			scrollBar.drawAll();
-			scrollBar.excludeFromClipRegion();
-
-			CallWindowProc(origWndProc, hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc), PRF_NONCLIENT);
-
-			Gdi::Dc::releaseDc(windowDc);
-		}
-
-		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
+		CallWindowProc(origWndProc, hwnd, WM_PRINT,
+			reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(windowDc))), PRF_NONCLIENT);
+		Gdi::TitleBar(hwnd).drawAll(windowDc);
+		ReleaseDC(hwnd, windowDc);
 		return 0;
 	}
 
 	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc)
 	{
-		if (!hwnd)
-		{
-			return CallWindowProc(origWndProc, hwnd, WM_PAINT, 0, 0);
-		}
-
 		PAINTSTRUCT paint = {};
 		HDC dc = BeginPaint(hwnd, &paint);
-		HDC compatDc = Gdi::Dc::getDc(dc);
-
-		if (compatDc)
-		{
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
-				reinterpret_cast<WPARAM>(compatDc), PRF_CLIENT);
-			Gdi::Dc::releaseDc(dc);
-		}
-		else
-		{
-			CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT, reinterpret_cast<WPARAM>(dc), PRF_CLIENT);
-		}
-
+		CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
+			reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(dc))), PRF_CLIENT);
 		EndPaint(hwnd, &paint);
-
 		return 0;
 	}
 
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc)
 	{
-		LRESULT result = 0;
-		HDC compatDc = Gdi::Dc::getDc(dc);
-		if (compatDc)
-		{
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(compatDc), flags);
-			Gdi::Dc::releaseDc(dc);
-		}
-		else
-		{
-			result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), flags);
-		}
-		return result;
+		return CallWindowProc(origWndProc, hwnd, msg,
+			reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(dc))), flags);
 	}
 
 	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
@@ -459,6 +412,13 @@ namespace
 	{
 		switch (msg)
 		{
+		case WM_LBUTTONDOWN:
+		{
+			Gdi::ScrollBar sb(hwnd, SB_CTL);
+			sb.onLButtonDown(lParam);
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+		}
+
 		case WM_PAINT:
 			return onPaint(hwnd, origWndProc);
 
@@ -468,10 +428,9 @@ namespace
 				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
 			}
 			return TRUE;
-
-		default:
-			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
+
+		return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 	}
 
 	BOOL WINAPI setMenuItemInfoW(HMENU hmenu, UINT item, BOOL fByPositon, LPCMENUITEMINFOW lpmii)

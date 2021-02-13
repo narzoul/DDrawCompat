@@ -26,12 +26,11 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_handle; }
 
-		void beginGdiAccess(bool isReadOnly);
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
-		void endGdiAccess(bool isReadOnly);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
+		void prepareForGdiRendering(bool isReadOnly);
 		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
 		void setAsGdiResource(bool isGdiResource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);

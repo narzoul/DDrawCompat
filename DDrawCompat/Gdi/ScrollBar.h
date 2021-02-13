@@ -7,42 +7,33 @@ namespace Gdi
 	class ScrollBar
 	{
 	public:
-		struct ScrollBarChildInfo
-		{
-			RECT rect;
-			LONG state;
-		};
+		ScrollBar(HWND hwnd, int bar);
+		~ScrollBar();
 
-		struct ScrollBarInfo
-		{
-			ScrollBarChildInfo topLeftArrow;
-			ScrollBarChildInfo bottomRightArrow;
-			RECT shaftRect;
-			bool isVisible;
-		};
+		void onLButtonDown(LPARAM lParam);
 
-		ScrollBar(HWND hwnd, HDC compatDc);
-
-		void drawAll() const;
-		void drawHorizArrows() const;
-		void drawVertArrows() const;
-		void excludeFromClipRegion() const;
-		const ScrollBarInfo& getHorizontalScrollBarInfo() const { return m_horizontalSbi; }
-		const ScrollBarInfo& getVerticalScrollBarInfo() const { return m_verticalSbi; }
+		static void onCtlColorScrollBar(HWND hwnd, WPARAM wParam, LPARAM lParam, LRESULT result);
 
 	private:
-		void drawArrow(const ScrollBarChildInfo& sbci, UINT dfcState) const;
-		void excludeFromClipRegion(const RECT& rect) const;
-		void excludeFromClipRegion(const ScrollBarInfo& sbi) const;
-		ScrollBarInfo getScrollBarInfo(LONG objId) const;
-		void setPressedState(ScrollBarChildInfo& sbci) const;
+		void drawAll(HDC dc, HBRUSH brush);
+		void drawArrow(HDC dc, LONG childId);
+		void drawPageRegion(HDC dc, HBRUSH brush, LONG childId);
+		void drawThumb(HDC dc, HBRUSH brush);
+		RECT getChildRect(LONG childId);
+		LONG hitTest(POINT p);
+		bool isVisible();
 
 		HWND m_hwnd;
-		HDC m_compatDc;
+		int m_bar;
 		RECT m_windowRect;
-		bool m_isLeftMouseButtonDown;
-		POINT m_cursorPos;
-		ScrollBarInfo m_horizontalSbi;
-		ScrollBarInfo m_verticalSbi;
+		SCROLLBARINFO m_sbi;
+		bool m_isVertical;
+		int m_arrowSize;
+		LONG RECT::* m_left;
+		LONG RECT::* m_top;
+		LONG RECT::* m_right;
+		LONG RECT::* m_bottom;
+		LONG m_trackedChildId;
+		LONG m_trackedThumbOffset;
 	};
 }

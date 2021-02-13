@@ -1,177 +1,285 @@
 #include <Common/Hook.h>
-#include <Gdi/Gdi.h>
 #include <Gdi/ScrollBar.h>
 
 namespace
 {
 	enum ScrollBarInfoIndex
 	{
-		SBII_SCROLLBAR = 0,
-		SBII_TOP_RIGHT_ARROW = 1,
-		SBII_PAGEUP_PAGERIGHT_REGION = 2,
+		SBII_SELF = 0,
+		SBII_TOP_ARROW = 1,
+		SBII_PAGEUP_REGION = 2,
 		SBII_THUMB = 3,
-		SBII_PAGEDOWN_PAGELEFT_REGION = 4,
-		SBII_BOTTOM_LEFT_ARROW = 5
+		SBII_PAGEDOWN_REGION = 4,
+		SBII_BOTTOM_ARROW = 5
 	};
+
+	bool isVertical(HWND hwnd, int bar)
+	{
+		if (SB_CTL == bar)
+		{
+			return CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & SBS_VERT;
+		}
+		return SB_VERT == bar;
+	}
+
+	thread_local Gdi::ScrollBar* g_trackedScrollBar = nullptr;
 }
 
 namespace Gdi
 {
-	ScrollBar::ScrollBar(HWND hwnd, HDC compatDc) :
-		m_hwnd(hwnd), m_compatDc(compatDc), m_windowRect(),
-		m_isLeftMouseButtonDown(false), m_cursorPos(),
-		m_horizontalSbi(), m_verticalSbi()
+	ScrollBar::ScrollBar(HWND hwnd, int bar)
+		: m_hwnd(hwnd)
+		, m_bar(bar)
+		, m_windowRect{}
+		, m_sbi{}
+		, m_isVertical(isVertical(hwnd, bar))
+		, m_arrowSize(CALL_ORIG_FUNC(GetSystemMetrics)(m_isVertical ? SM_CYVSCROLL : SM_CXHSCROLL))
+		, m_left(m_isVertical ? &RECT::left : &RECT::top)
+		, m_top(m_isVertical ? &RECT::top : &RECT::left)
+		, m_right(m_isVertical ? &RECT::right : &RECT::bottom)
+		, m_bottom(m_isVertical ? &RECT::bottom : &RECT::right)
+		, m_trackedChildId(-1)
+		, m_trackedThumbOffset(0)
 	{
-		const LONG windowStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE);
-
-		m_horizontalSbi.isVisible = 0 != (windowStyle & WS_HSCROLL);
-		m_verticalSbi.isVisible = 0 != (windowStyle & WS_VSCROLL);
+		LONG objectId = OBJID_CLIENT;
+		if (SB_HORZ == bar)
+		{
+			objectId = OBJID_HSCROLL;
+		}
+		else if (SB_VERT == bar)
+		{
+			objectId = OBJID_VSCROLL;
+		}
+		m_sbi.cbSize = sizeof(m_sbi);
+		GetScrollBarInfo(hwnd, objectId, &m_sbi);
 
 		GetWindowRect(hwnd, &m_windowRect);
+		OffsetRect(&m_sbi.rcScrollBar, -m_windowRect.left, -m_windowRect.top);
 
-		if (m_horizontalSbi.isVisible || m_verticalSbi.isVisible)
+		if (g_trackedScrollBar &&
+			hwnd == g_trackedScrollBar->m_hwnd &&
+			bar == g_trackedScrollBar->m_bar &&
+			GetKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) < 0)
 		{
-			m_isLeftMouseButtonDown =
-				hwnd == GetCapture() &&
-				GetAsyncKeyState(GetSystemMetrics(SM_SWAPBUTTON) ? VK_RBUTTON : VK_LBUTTON) < 0 &&
-				GetCursorPos(&m_cursorPos);
+			DWORD pos = GetMessagePos();
+			POINTS pt = *reinterpret_cast<POINTS*>(&pos);
+			POINT p = { pt.x - m_windowRect.left, pt.y - m_windowRect.top };
 
-			if (m_isLeftMouseButtonDown)
+			if (SBII_THUMB == g_trackedScrollBar->m_trackedChildId)
 			{
-				m_cursorPos.x -= m_windowRect.left;
-				m_cursorPos.y -= m_windowRect.top;
-			}
+				RECT trackRect = m_sbi.rcScrollBar;
+				if (m_isVertical)
+				{
+					InflateRect(&trackRect, 8 * (trackRect.right - trackRect.left), 2 * m_arrowSize);
+				}
+				else
+				{
+					InflateRect(&trackRect, 2 * m_arrowSize, 8 * (trackRect.bottom - trackRect.top));
+				}
+				if (PtInRect(&trackRect, p))
+				{
+					const LONG thumbSize = m_sbi.xyThumbBottom - m_sbi.xyThumbTop;
+					const LONG minThumbPos = m_arrowSize;
+					const LONG maxThumbPos = m_sbi.rcScrollBar.*m_bottom - m_sbi.rcScrollBar.*m_top - thumbSize - m_arrowSize;
 
-			if (m_horizontalSbi.isVisible)
+					LONG thumbPos = (m_isVertical ? p.y : p.x) - m_sbi.rcScrollBar.*m_top -
+						g_trackedScrollBar->m_trackedThumbOffset;
+					if (thumbPos < minThumbPos)
+					{
+						thumbPos = minThumbPos;
+					}
+					if (thumbPos > maxThumbPos)
+					{
+						thumbPos = maxThumbPos;
+					}
+
+					m_sbi.xyThumbTop = thumbPos;
+					m_sbi.xyThumbBottom = thumbPos + thumbSize;
+				}
+			}
+			else
 			{
-				m_horizontalSbi = getScrollBarInfo(OBJID_HSCROLL);
+				RECT rect = getChildRect(g_trackedScrollBar->m_trackedChildId);
+				if (PtInRect(&rect, p))
+				{
+					m_sbi.rgstate[g_trackedScrollBar->m_trackedChildId] |= STATE_SYSTEM_PRESSED;
+				}
 			}
-
-			if (m_verticalSbi.isVisible)
-			{
-				m_verticalSbi = getScrollBarInfo(OBJID_VSCROLL);
-			}
 		}
 	}
 
-	void ScrollBar::drawAll() const
+	ScrollBar::~ScrollBar()
 	{
-		drawHorizArrows();
-		drawVertArrows();
-	}
-
-	void ScrollBar::drawArrow(const ScrollBarChildInfo& sbci, UINT dfcState) const
-	{
-		UINT stateFlags = 0;
-		if (sbci.state & STATE_SYSTEM_UNAVAILABLE)
+		if (this == g_trackedScrollBar)
 		{
-			stateFlags |= DFCS_INACTIVE;
-		}
-		else if (sbci.state & STATE_SYSTEM_PRESSED)
-		{
-			stateFlags |= DFCS_PUSHED;
-		}
-
-		RECT rect = sbci.rect;
-		CALL_ORIG_FUNC(DrawFrameControl)(m_compatDc, &rect, DFC_SCROLL, dfcState | stateFlags);
-	}
-
-	void ScrollBar::drawHorizArrows() const
-	{
-		if (m_horizontalSbi.isVisible)
-		{
-			drawArrow(m_horizontalSbi.topLeftArrow, DFCS_SCROLLLEFT);
-			drawArrow(m_horizontalSbi.bottomRightArrow, DFCS_SCROLLRIGHT);
+			g_trackedScrollBar = nullptr;
 		}
 	}
 
-	void ScrollBar::drawVertArrows() const
+	void ScrollBar::drawAll(HDC dc, HBRUSH brush)
 	{
-		if (m_verticalSbi.isVisible)
+		if (isVisible())
 		{
-			drawArrow(m_verticalSbi.topLeftArrow, DFCS_SCROLLUP);
-			drawArrow(m_verticalSbi.bottomRightArrow, DFCS_SCROLLDOWN);
+			drawArrow(dc, SBII_TOP_ARROW);
+			drawPageRegion(dc, brush, SBII_PAGEUP_REGION);
+			drawThumb(dc, brush);
+			drawPageRegion(dc, brush, SBII_PAGEDOWN_REGION);
+			drawArrow(dc, SBII_BOTTOM_ARROW);
 		}
 	}
 
-	void ScrollBar::excludeFromClipRegion(const RECT& rect) const
+	void ScrollBar::drawArrow(HDC dc, LONG childId)
 	{
-		ExcludeClipRect(m_compatDc, rect.left, rect.top, rect.right, rect.bottom);
-	}
-
-	void ScrollBar::excludeFromClipRegion(const ScrollBarInfo& sbi) const
-	{
-		if (sbi.isVisible)
+		UINT state = 0;
+		if (SBII_TOP_ARROW == childId)
 		{
-			excludeFromClipRegion(sbi.topLeftArrow.rect);
-			excludeFromClipRegion(sbi.bottomRightArrow.rect);
-		}
-	}
-
-	void ScrollBar::excludeFromClipRegion() const
-	{
-		excludeFromClipRegion(m_horizontalSbi);
-		excludeFromClipRegion(m_verticalSbi);
-	}
-
-	ScrollBar::ScrollBarInfo ScrollBar::getScrollBarInfo(LONG objId) const
-	{
-		ScrollBarInfo scrollBarInfo = {};
-
-		SCROLLBARINFO sbi = {};
-		sbi.cbSize = sizeof(sbi);
-		scrollBarInfo.isVisible = GetScrollBarInfo(m_hwnd, objId, &sbi) &&
-			!(sbi.rgstate[SBII_SCROLLBAR] & (STATE_SYSTEM_INVISIBLE | STATE_SYSTEM_OFFSCREEN));
-
-		if (!scrollBarInfo.isVisible)
-		{
-			return scrollBarInfo;
-		}
-
-		OffsetRect(&sbi.rcScrollBar, -m_windowRect.left, -m_windowRect.top);
-		scrollBarInfo.topLeftArrow.rect = sbi.rcScrollBar;
-		scrollBarInfo.bottomRightArrow.rect = sbi.rcScrollBar;
-		scrollBarInfo.shaftRect = sbi.rcScrollBar;
-
-		if (OBJID_HSCROLL == objId)
-		{
-			const int w = GetSystemMetrics(SM_CXHSCROLL);
-
-			scrollBarInfo.topLeftArrow.rect.right = scrollBarInfo.topLeftArrow.rect.left + w;
-			scrollBarInfo.topLeftArrow.state = sbi.rgstate[SBII_BOTTOM_LEFT_ARROW];
-
-			scrollBarInfo.bottomRightArrow.rect.left = scrollBarInfo.bottomRightArrow.rect.right - w;
-			scrollBarInfo.bottomRightArrow.state = sbi.rgstate[SBII_TOP_RIGHT_ARROW];
-
-			InflateRect(&scrollBarInfo.shaftRect, -w, 0);
+			state = m_isVertical ? DFCS_SCROLLUP : DFCS_SCROLLLEFT;
 		}
 		else
 		{
-			const int h = GetSystemMetrics(SM_CYVSCROLL);
-
-			scrollBarInfo.topLeftArrow.rect.bottom = scrollBarInfo.topLeftArrow.rect.top + h;
-			scrollBarInfo.topLeftArrow.state = sbi.rgstate[SBII_TOP_RIGHT_ARROW];
-
-			scrollBarInfo.bottomRightArrow.rect.top = scrollBarInfo.bottomRightArrow.rect.bottom - h;
-			scrollBarInfo.bottomRightArrow.state = sbi.rgstate[SBII_BOTTOM_LEFT_ARROW];
-
-			InflateRect(&scrollBarInfo.shaftRect, 0, -h);
+			state = m_isVertical ? DFCS_SCROLLDOWN : DFCS_SCROLLRIGHT;
 		}
 
-		if (m_isLeftMouseButtonDown)
+		if (m_sbi.rgstate[childId] & STATE_SYSTEM_UNAVAILABLE)
 		{
-			setPressedState(scrollBarInfo.topLeftArrow);
-			setPressedState(scrollBarInfo.bottomRightArrow);
+			state |= DFCS_INACTIVE;
+		}
+		else if (m_sbi.rgstate[childId] & STATE_SYSTEM_PRESSED)
+		{
+			state |= DFCS_PUSHED;
 		}
 
-		return scrollBarInfo;
+		RECT rect = getChildRect(childId);
+		DrawFrameControl(dc, &rect, DFC_SCROLL, state);
 	}
 
-	void ScrollBar::setPressedState(ScrollBarChildInfo& sbci) const
+	void ScrollBar::drawPageRegion(HDC dc, HBRUSH brush, LONG childId)
 	{
-		if (!(sbci.state & STATE_SYSTEM_UNAVAILABLE) && PtInRect(&sbci.rect, m_cursorPos))
+		RECT rect = getChildRect(childId);
+		if (IsRectEmpty(&rect))
 		{
-			sbci.state |= STATE_SYSTEM_PRESSED;
+			return;
+		}
+
+		FillRect(dc, &rect, brush);
+
+		if (SB_CTL == m_bar)
+		{
+			const UINT edges = m_isVertical ? (BF_LEFT | BF_RIGHT) : (BF_TOP | BF_BOTTOM);
+			DrawEdge(dc, &rect, BDR_SUNKEN, edges | BF_FLAT);
+		}
+
+		if (m_sbi.rgstate[childId] & STATE_SYSTEM_PRESSED)
+		{
+			InvertRect(dc, &rect);
+		}
+	}
+
+	void ScrollBar::drawThumb(HDC dc, HBRUSH brush)
+	{
+		if (m_sbi.rgstate[SBII_SELF] & STATE_SYSTEM_UNAVAILABLE)
+		{
+			drawPageRegion(dc, brush, SBII_THUMB);
+		}
+		else
+		{
+			RECT rect = m_sbi.rcScrollBar;
+			rect.*m_top += m_sbi.xyThumbTop;
+			rect.*m_bottom = m_sbi.rcScrollBar.*m_top + m_sbi.xyThumbBottom;
+			DrawFrameControl(dc, &rect, DFC_BUTTON, DFCS_BUTTONPUSH);
+		}
+	}
+
+	RECT ScrollBar::getChildRect(LONG childId)
+	{
+		RECT r = m_sbi.rcScrollBar;
+		switch (childId)
+		{
+		case SBII_TOP_ARROW:
+			r.*m_bottom = r.*m_top + m_arrowSize;
+			break;
+
+		case SBII_PAGEUP_REGION:
+			r.*m_bottom = r.*m_top + m_sbi.xyThumbTop;
+			r.*m_top += m_arrowSize;
+			break;
+
+		case SBII_THUMB:
+			r.*m_bottom = r.*m_top + m_sbi.xyThumbBottom;
+			r.*m_top += m_sbi.xyThumbTop;
+			break;
+
+		case SBII_PAGEDOWN_REGION:
+			r.*m_top += m_sbi.xyThumbBottom;
+			r.*m_bottom -= m_arrowSize;
+			break;
+
+		case SBII_BOTTOM_ARROW:
+			r.*m_top = r.*m_bottom - m_arrowSize;
+			break;
+		}
+		return r;
+	}
+
+	LONG ScrollBar::hitTest(POINT p)
+	{
+		if (m_sbi.rgstate[SBII_SELF] & STATE_SYSTEM_UNAVAILABLE)
+		{
+			return -1;
+		}
+
+		for (UINT i = SBII_TOP_ARROW; i <= SBII_BOTTOM_ARROW; ++i)
+		{
+			RECT r = getChildRect(i);
+			if (PtInRect(&r, p))
+			{
+				return (m_sbi.rgstate[i] & STATE_SYSTEM_UNAVAILABLE) ? -1 : i;
+			}
+		}
+		return -1;
+	}
+
+	bool ScrollBar::isVisible()
+	{
+		return !(m_sbi.rgstate[SBII_SELF] & (STATE_SYSTEM_INVISIBLE | STATE_SYSTEM_OFFSCREEN));
+	}
+
+	void ScrollBar::onCtlColorScrollBar(HWND hwnd, WPARAM wParam, LPARAM lParam, LRESULT result)
+	{
+		HWND hwndSb = reinterpret_cast<HWND>(lParam);
+		HBRUSH brush = reinterpret_cast<HBRUSH>(result);
+
+		HDC dc = reinterpret_cast<HDC>(wParam);
+		if (hwnd == hwndSb)
+		{
+			ScrollBar(hwnd, SB_HORZ).drawAll(dc, brush);
+			ScrollBar(hwnd, SB_VERT).drawAll(dc, brush);
+		}
+		else
+		{
+			ScrollBar(hwndSb, SB_CTL).drawAll(dc, brush);
+		}
+	}
+
+	void ScrollBar::onLButtonDown(LPARAM lParam)
+	{
+		POINTS pt = *reinterpret_cast<POINTS*>(&lParam);
+		POINT p = { pt.x, pt.y };
+		if (SB_CTL != m_bar)
+		{
+			p.x -= m_windowRect.left;
+			p.y -= m_windowRect.top;
+		}
+
+		m_trackedChildId = hitTest(p);
+		if (-1 != m_trackedChildId)
+		{
+			g_trackedScrollBar = this;
+			if (SBII_THUMB == m_trackedChildId)
+			{
+				RECT rect = getChildRect(SBII_THUMB);
+				m_trackedThumbOffset = m_isVertical ? (p.y - rect.top) : (p.x - rect.left);
+			}
 		}
 	}
 }

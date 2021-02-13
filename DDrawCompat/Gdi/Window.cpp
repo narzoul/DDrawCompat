@@ -83,7 +83,7 @@ namespace
 		SelectClipRgn(screenDc, clipRegion);
 		BitBlt(screenDc, dst.left, dst.top, src.right - src.left, src.bottom - src.top, screenDc, src.left, src.top, SRCCOPY);
 		SelectClipRgn(screenDc, nullptr);
-		CALL_ORIG_FUNC(ReleaseDC)(nullptr, screenDc);
+		ReleaseDC(nullptr, screenDc);
 		return true;
 	}
 

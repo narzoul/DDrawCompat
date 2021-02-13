@@ -1,11 +1,10 @@
 #include <cstring>
 #include <deque>
 
-#include "Common/Time.h"
-#include "Config/Config.h"
-#include "DDraw/DirectDrawPalette.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
-#include "Gdi/AccessGuard.h"
+#include <Common/Time.h>
+#include <Config/Config.h>
+#include <DDraw/DirectDrawPalette.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 
 namespace DDraw
 {

@@ -2,7 +2,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Gdi/AccessGuard.h>
+#include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
@@ -14,39 +14,6 @@
 
 namespace
 {
-	class CompatDc
-	{
-	public:
-		CompatDc(HDC dc) : m_origDc(dc), m_compatDc(Gdi::Dc::getDc(dc, false))
-		{
-		}
-
-		CompatDc(const CompatDc&) = delete;
-
-		CompatDc(CompatDc&& other) : m_origDc(nullptr), m_compatDc(nullptr)
-		{
-			std::swap(m_origDc, other.m_origDc);
-			std::swap(m_compatDc, other.m_compatDc);
-		}
-
-		~CompatDc()
-		{
-			if (m_compatDc)
-			{
-				Gdi::Dc::releaseDc(m_origDc);
-			}
-		}
-
-		operator HDC() const
-		{
-			return m_compatDc ? m_compatDc : m_origDc;
-		}
-
-	private:
-		HDC m_origDc;
-		HDC m_compatDc;
-	};
-
 	std::unordered_map<void*, const char*> g_funcNames;
 	thread_local bool g_redirectToDib = true;
 
@@ -123,9 +90,9 @@ namespace
 		return t;
 	}
 
-	CompatDc replaceDc(HDC dc)
+	Gdi::CompatDc replaceDc(HDC dc)
 	{
-		return CompatDc(dc);
+		return Gdi::CompatDc(dc);
 	}
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
@@ -137,9 +104,7 @@ namespace
 
 		if (hasDisplayDcArg(hdc, params...))
 		{
-			D3dDdi::ScopedCriticalSection lock;
-			Gdi::AccessGuard accessGuard(isReadOnly<OrigFuncPtr, origFunc>() ? Gdi::ACCESS_READ : Gdi::ACCESS_WRITE);
-			CompatDc compatDc(hdc);
+			Gdi::CompatDc compatDc(hdc, isReadOnly<OrigFuncPtr, origFunc>());
 			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(compatDc, replaceDc(params)...);
 			if (isPositionUpdated<OrigFuncPtr, origFunc>() && result)
 			{
@@ -181,9 +146,7 @@ namespace
 			}
 			else
 			{
-				D3dDdi::ScopedCriticalSection lock;
-				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-				CompatDc compatDc(hdc);
+				Gdi::CompatDc compatDc(hdc);
 				BOOL result = CALL_ORIG_FUNC(ExtTextOutW)(compatDc, x, y, options, lprect, lpString, c, lpDx);
 				if (result)
 				{
@@ -255,9 +218,7 @@ namespace
 		LOG_FUNC("DrawCaption", hwnd, hdc, lprect, flags);
 		if (Gdi::isDisplayDc(hdc))
 		{
-			D3dDdi::ScopedCriticalSection lock;
-			Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-			return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, replaceDc(hdc), lprect, flags));
+			return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, Gdi::CompatDc(hdc), lprect, flags));
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, hdc, lprect, flags));
 	}

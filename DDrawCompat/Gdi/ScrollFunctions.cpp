@@ -1,10 +1,8 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Gdi/AccessGuard.h>
 #include <Gdi/Dc.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
-#include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/Window.h>
 
@@ -48,31 +46,6 @@ namespace
 
 		return LOG_RESULT(result);
 	}
-
-	int WINAPI setScrollInfo(HWND hwnd, int nBar, LPCSCROLLINFO lpsi, BOOL redraw)
-	{
-		LOG_FUNC("SetScrollInfo", hwnd, nBar, lpsi, redraw);
-		int result = CALL_ORIG_FUNC(SetScrollInfo)(hwnd, nBar, lpsi, redraw);
-		if (redraw && (SB_HORZ == nBar || SB_VERT == nBar))
-		{
-			Gdi::ScrollBar sb(hwnd, nullptr);
-			const auto& sbi = SB_HORZ == nBar ? sb.getHorizontalScrollBarInfo() : sb.getVerticalScrollBarInfo();
-			if (sbi.isVisible)
-			{
-				HDC windowDc = GetWindowDC(hwnd);
-				SelectClipRgn(windowDc, Gdi::Region(sbi.shaftRect));
-				HDC compatDc = Gdi::Dc::getDc(windowDc);
-				if (compatDc)
-				{
-					Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-					CALL_ORIG_FUNC(DefWindowProcA)(hwnd, WM_PRINT, reinterpret_cast<WPARAM>(compatDc), PRF_NONCLIENT);
-					Gdi::Dc::releaseDc(windowDc);
-				}
-				CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
-			}
-		}
-		return LOG_RESULT(result);
-	}
 }
 
 namespace Gdi
@@ -83,7 +56,6 @@ namespace Gdi
 		{
 			HOOK_FUNCTION(user32, ScrollWindow, scrollWindow);
 			HOOK_FUNCTION(user32, ScrollWindowEx, scrollWindowEx);
-			HOOK_FUNCTION(user32, SetScrollInfo, setScrollInfo);
 		}
 	}
 }

@@ -213,7 +213,7 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dViewportVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
     <ClInclude Include="Dll\Dll.h" />
-    <ClInclude Include="Gdi\AccessGuard.h" />
+    <ClInclude Include="Gdi\CompatDc.h" />
     <ClInclude Include="Gdi\Font.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
@@ -287,7 +287,7 @@
     <ClCompile Include="Direct3d\Log.cpp" />
     <ClCompile Include="Dll\DllMain.cpp" />
     <ClCompile Include="Dll\Dll.cpp" />
-    <ClCompile Include="Gdi\AccessGuard.cpp" />
+    <ClCompile Include="Gdi\CompatDc.cpp" />
     <ClCompile Include="Gdi\Font.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />

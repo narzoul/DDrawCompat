@@ -7,7 +7,7 @@
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
-#include <Gdi/AccessGuard.h>
+#include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
@@ -34,6 +34,7 @@ namespace
 
 	WindowProc getWindowProc(HWND hwnd);
 	bool isTopLevelWindow(HWND hwnd);
+	bool isUser32ScrollBar(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onWindowPosChanged(HWND hwnd);
@@ -64,6 +65,14 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_CTLCOLORSCROLLBAR:
+			if (reinterpret_cast<HWND>(lParam) != hwnd &&
+				isUser32ScrollBar(reinterpret_cast<HWND>(lParam)))
+			{
+				Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+			}
+			break;
+
 		case WM_NCDESTROY:
 			onDestroyWindow(hwnd);
 			break;
@@ -153,6 +162,25 @@ namespace
 		return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
 	}
 
+	bool isUser32ScrollBar(HWND hwnd)
+	{
+		WNDCLASS wc = {};
+		static const ATOM sbAtom = static_cast<ATOM>(GetClassInfo(nullptr, "ScrollBar", &wc));
+		if (sbAtom != GetClassLong(hwnd, GCW_ATOM))
+		{
+			return false;
+		}
+
+		auto it = g_windowProc.find(hwnd);
+		if (it == g_windowProc.end())
+		{
+			return false;
+		}
+
+		return GetModuleHandle("comctl32") != Compat::getModuleHandleFromAddress(
+			IsWindowUnicode(hwnd) ? it->second.wndProcW : it->second.wndProcA);
+	}
+
 	void CALLBACK objectCreateEvent(
 		HWINEVENTHOOK /*hWinEventHook*/,
 		DWORD /*event*/,
@@ -177,33 +205,38 @@ namespace
 		DWORD /*dwEventThread*/,
 		DWORD /*dwmsEventTime*/)
 	{
-		if (OBJID_TITLEBAR == idObject || OBJID_HSCROLL == idObject || OBJID_VSCROLL == idObject)
+		switch (idObject)
 		{
-			if (!hwnd)
-			{
-				return;
-			}
+		case OBJID_TITLEBAR:
+		{
+			HDC dc = GetWindowDC(hwnd);
+			Gdi::TitleBar(hwnd).drawButtons(dc);
+			ReleaseDC(hwnd, dc);
+			break;
+		}
 
-			HDC windowDc = GetWindowDC(hwnd);
-			HDC compatDc = Gdi::Dc::getDc(windowDc);
-			if (compatDc)
+		case OBJID_CLIENT:
+			if (!isUser32ScrollBar(hwnd))
 			{
-				Gdi::AccessGuard accessGuard(Gdi::ACCESS_WRITE);
-				if (OBJID_TITLEBAR == idObject)
-				{
-					Gdi::TitleBar(hwnd, compatDc).drawButtons();
-				}
-				else if (OBJID_HSCROLL == idObject)
-				{
-					Gdi::ScrollBar(hwnd, compatDc).drawHorizArrows();
-				}
-				else if (OBJID_VSCROLL == idObject)
-				{
-					Gdi::ScrollBar(hwnd, compatDc).drawVertArrows();
-				}
-				Gdi::Dc::releaseDc(windowDc);
+				break;
 			}
-			CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
+		case OBJID_HSCROLL:
+		case OBJID_VSCROLL:
+		{
+			HDC dc = GetWindowDC(hwnd);
+			if (OBJID_CLIENT == idObject)
+			{
+				SendMessage(GetParent(hwnd), WM_CTLCOLORSCROLLBAR,
+					reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+			}
+			else
+			{
+				DefWindowProc(hwnd, WM_CTLCOLORSCROLLBAR,
+					reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+			}
+			ReleaseDC(hwnd, dc);
+			break;
+		}
 		}
 	}
 
@@ -421,6 +454,7 @@ namespace Gdi
 			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
+			CoInitialize(nullptr);
 			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,

@@ -15,7 +15,6 @@
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Types.h>
-#include <Gdi/AccessGuard.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/VirtualScreen.h>

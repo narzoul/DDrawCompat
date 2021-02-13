@@ -22,10 +22,6 @@ namespace
 		HDC origDc;
 		DWORD threadId;
 		int savedState;
-		HGDIOBJ savedFont;
-		HGDIOBJ savedBrush;
-		HGDIOBJ savedPen;
-		HPALETTE savedPalette;
 		bool useDefaultPalette;
 	};
 
@@ -38,11 +34,10 @@ namespace
 
 	void copyDcAttributes(CompatDc& compatDc, HDC origDc, const POINT& origin)
 	{
-		SelectObject(compatDc.dc, compatDc.savedFont = GetCurrentObject(origDc, OBJ_FONT));
-		SelectObject(compatDc.dc, compatDc.savedBrush = GetCurrentObject(origDc, OBJ_BRUSH));
-		SelectObject(compatDc.dc, compatDc.savedPen = GetCurrentObject(origDc, OBJ_PEN));
-		CALL_ORIG_FUNC(SelectPalette)(
-			compatDc.dc, compatDc.savedPalette = static_cast<HPALETTE>(GetCurrentObject(origDc, OBJ_PAL)), FALSE);
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_FONT));
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_BRUSH));
+		SelectObject(compatDc.dc, GetCurrentObject(origDc, OBJ_PEN));
+		CALL_ORIG_FUNC(SelectPalette)(compatDc.dc, static_cast<HPALETTE>(GetCurrentObject(origDc, OBJ_PAL)), FALSE);
 
 		const int graphicsMode = GetGraphicsMode(origDc);
 		SetGraphicsMode(compatDc.dc, graphicsMode);
@@ -98,20 +93,10 @@ namespace
 
 	void restoreDc(const CompatDc& compatDc)
 	{
-		if (0 != compatDc.savedState)
-		{
-			// Bitmap may have changed during VirtualScreen::update, do not let RestoreDC restore the old one
-			HGDIOBJ bitmap = GetCurrentObject(compatDc.dc, OBJ_BITMAP);
-			RestoreDC(compatDc.dc, compatDc.savedState);
-			SelectObject(compatDc.dc, bitmap);
-		}
-		else
-		{
-			SelectObject(compatDc.dc, compatDc.savedFont);
-			SelectObject(compatDc.dc, compatDc.savedBrush);
-			SelectObject(compatDc.dc, compatDc.savedPen);
-			CALL_ORIG_FUNC(SelectPalette)(compatDc.dc, compatDc.savedPalette, FALSE);
-		}
+		// Bitmap may have changed during VirtualScreen::update, do not let RestoreDC restore the old one
+		HGDIOBJ bitmap = GetCurrentObject(compatDc.dc, OBJ_BITMAP);
+		RestoreDC(compatDc.dc, compatDc.savedState);
+		SelectObject(compatDc.dc, bitmap);
 	}
 
 	void setClippingRegion(const CompatDc& compatDc, HWND hwnd, const POINT& origin, const RECT& virtualScreenBounds)
@@ -135,10 +120,7 @@ namespace
 			ExtSelectClipRgn(compatDc.dc, clipRgn, RGN_AND);
 		}
 
-		if (0 != compatDc.savedState)
-		{
-			SetMetaRgn(compatDc.dc);
-		}
+		SetMetaRgn(compatDc.dc);
 	}
 }
 
@@ -177,7 +159,7 @@ namespace Gdi
 			}
 		}
 
-		HDC getDc(HDC origDc, bool useMetaRgn)
+		HDC getDc(HDC origDc)
 		{
 			if (!isDisplayDc(origDc))
 			{
@@ -222,7 +204,7 @@ namespace Gdi
 			compatDc.refCount = 1;
 			compatDc.origDc = origDc;
 			compatDc.threadId = GetCurrentThreadId();
-			compatDc.savedState = useMetaRgn ? SaveDC(compatDc.dc) : 0;
+			compatDc.savedState = SaveDC(compatDc.dc);
 			copyDcAttributes(compatDc, origDc, origin);
 			setClippingRegion(compatDc, hwnd, origin, virtualScreenBounds);
 
