@@ -37,7 +37,7 @@ namespace
 	bool isUser32ScrollBar(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
-	void onWindowPosChanged(HWND hwnd);
+	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp);
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
 
@@ -57,7 +57,7 @@ namespace
 			break;
 
 		case WM_WINDOWPOSCHANGED:
-			onWindowPosChanged(hwnd);
+			onWindowPosChanged(hwnd, *reinterpret_cast<WINDOWPOS*>(lParam));
 			break;
 		}
 
@@ -291,7 +291,7 @@ namespace
 		}
 	}
 
-	void onWindowPosChanged(HWND hwnd)
+	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp)
 	{
 		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
 		{
@@ -301,6 +301,12 @@ namespace
 		if (isTopLevelWindow(hwnd))
 		{
 			Gdi::Window::updateAll();
+		}
+
+		if (wp.flags & SWP_FRAMECHANGED)
+		{
+			RECT r = { -1, -1, 0, 0 };
+			RedrawWindow(hwnd, &r, nullptr, RDW_INVALIDATE | RDW_FRAME);
 		}
 	}
 
