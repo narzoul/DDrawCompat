@@ -9,13 +9,12 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
 #include <Gdi/VirtualScreen.h>
-#include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
 
 namespace
 {
 	std::unordered_map<void*, const char*> g_funcNames;
-	thread_local bool g_redirectToDib = true;
+	thread_local UINT g_disableDibRedirection = 0;
 
 #define CREATE_DC_FUNC_ATTRIBUTE(attribute) \
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc> \
@@ -175,7 +174,7 @@ namespace
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 	{
 		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
-		if (g_redirectToDib && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && Gdi::isDisplayDc(hdc))
 		{
 			const bool useDefaultPalette = false;
 			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, cy, useDefaultPalette));
@@ -188,7 +187,7 @@ namespace
 	{
 		LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
 		const DWORD CBM_CREATDIB = 2;
-		if (g_redirectToDib && !(fdwInit & CBM_CREATDIB) && lpbmih && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && !(fdwInit & CBM_CREATDIB) && lpbmih && Gdi::isDisplayDc(hdc))
 		{
 			const bool useDefaultPalette = false;
 			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(
@@ -205,7 +204,7 @@ namespace
 	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
 	{
 		LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
-		if (g_redirectToDib && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && Gdi::isDisplayDc(hdc))
 		{
 			const bool useDefaultPalette = false;
 			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(nWidth, nHeight, useDefaultPalette));
@@ -257,114 +256,6 @@ namespace
 			moduleName, funcName, getCompatGdiTextDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
 	}
 
-	template <typename WndClass, typename WndClassEx>
-	ATOM WINAPI registerClass(const WndClass* lpWndClass, ATOM(WINAPI* origRegisterClass)(const WndClass*),
-		ATOM(WINAPI* registerClassEx)(const WndClassEx*))
-	{
-		if (!lpWndClass)
-		{
-			return origRegisterClass(lpWndClass);
-		}
-
-		WndClassEx wc = {};
-		wc.cbSize = sizeof(wc);
-		memcpy(&wc.style, &lpWndClass->style, sizeof(WndClass));
-		return registerClassEx(&wc);
-	}
-
-	template <typename WndClassEx>
-	ATOM registerClassEx(const WndClassEx* lpWndClassEx,
-		ATOM(WINAPI* origRegisterClassEx)(const WndClassEx*),
-		decltype(&SetClassLong) origSetClassLong,
-		decltype(&DefWindowProc) origDefWindowProc)
-	{
-		if (!lpWndClassEx || (!lpWndClassEx->hIcon && !lpWndClassEx->hIconSm))
-		{
-			return origRegisterClassEx(lpWndClassEx);
-		}
-
-		WndClassEx wc = *lpWndClassEx;
-		wc.lpfnWndProc = origDefWindowProc;
-		wc.hIcon = nullptr;
-		wc.hIconSm = nullptr;
-
-		ATOM atom = origRegisterClassEx(&wc);
-		if (atom)
-		{
-			HWND hwnd = CreateWindow(reinterpret_cast<LPCSTR>(atom), "", 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
-			if (!hwnd)
-			{
-				UnregisterClass(reinterpret_cast<LPCSTR>(atom), GetModuleHandle(nullptr));
-				return origRegisterClassEx(lpWndClassEx);
-			}
-
-			if (lpWndClassEx->hIcon)
-			{
-				SetClassLong(hwnd, GCL_HICON, reinterpret_cast<LONG>(lpWndClassEx->hIcon));
-			}
-			if (lpWndClassEx->hIconSm)
-			{
-				SetClassLong(hwnd, GCL_HICONSM, reinterpret_cast<LONG>(lpWndClassEx->hIconSm));
-			}
-
-			origSetClassLong(hwnd, GCL_WNDPROC, reinterpret_cast<LONG>(lpWndClassEx->lpfnWndProc));
-			SetWindowLong(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(CALL_ORIG_FUNC(DefWindowProcA)));
-			DestroyWindow(hwnd);
-		}
-
-		return atom;
-	}
-
-	ATOM WINAPI registerClassA(const WNDCLASSA* lpWndClass)
-	{
-		LOG_FUNC("RegisterClassA", lpWndClass);
-		return LOG_RESULT(registerClass(lpWndClass, CALL_ORIG_FUNC(RegisterClassA), RegisterClassExA));
-	}
-
-	ATOM WINAPI registerClassW(const WNDCLASSW* lpWndClass)
-	{
-		LOG_FUNC("RegisterClassW", lpWndClass);
-		return LOG_RESULT(registerClass(lpWndClass, CALL_ORIG_FUNC(RegisterClassW), RegisterClassExW));
-	}
-
-	ATOM WINAPI registerClassExA(const WNDCLASSEXA* lpWndClassEx)
-	{
-		LOG_FUNC("RegisterClassExA", lpWndClassEx);
-		return LOG_RESULT(registerClassEx(lpWndClassEx, CALL_ORIG_FUNC(RegisterClassExA), CALL_ORIG_FUNC(SetClassLongA),
-			CALL_ORIG_FUNC(DefWindowProcA)));
-	}
-
-	ATOM WINAPI registerClassExW(const WNDCLASSEXW* lpWndClassEx)
-	{
-		LOG_FUNC("RegisterClassExW", lpWndClassEx);
-		return LOG_RESULT(registerClassEx(lpWndClassEx, CALL_ORIG_FUNC(RegisterClassExW), CALL_ORIG_FUNC(SetClassLongW),
-			CALL_ORIG_FUNC(DefWindowProcW)));
-	}
-
-	DWORD WINAPI setClassLong(HWND hWnd, int nIndex, LONG dwNewLong, decltype(&SetClassLong) origSetClassLong)
-	{
-		if (GCL_HICON == nIndex || GCL_HICONSM == nIndex)
-		{
-			g_redirectToDib = false;
-			DWORD result = origSetClassLong(hWnd, nIndex, dwNewLong);
-			g_redirectToDib = true;
-			return result;
-		}
-		return origSetClassLong(hWnd, nIndex, dwNewLong);
-	}
-
-	DWORD WINAPI setClassLongA(HWND hWnd, int nIndex, LONG dwNewLong)
-	{
-		LOG_FUNC("setClassLongA", hWnd, nIndex, dwNewLong);
-		return LOG_RESULT(setClassLong(hWnd, nIndex, dwNewLong, CALL_ORIG_FUNC(SetClassLongA)));
-	}
-
-	DWORD WINAPI setClassLongW(HWND hWnd, int nIndex, LONG dwNewLong)
-	{
-		LOG_FUNC("setClassLongW", hWnd, nIndex, dwNewLong);
-		return LOG_RESULT(setClassLong(hWnd, nIndex, dwNewLong, CALL_ORIG_FUNC(SetClassLongW)));
-	}
-
 	HWND WINAPI windowFromDc(HDC dc)
 	{
 		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
@@ -382,6 +273,11 @@ namespace Gdi
 {
 	namespace DcFunctions
 	{
+		void disableDibRedirection(bool disable)
+		{
+			g_disableDibRedirection += disable ? 1 : -1;
+		}
+
 		void installHooks()
 		{
 			// Bitmap functions
@@ -469,14 +365,6 @@ namespace Gdi
 			// Undocumented functions
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
 			HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
-
-			// Window class functions
-			HOOK_FUNCTION(user32, RegisterClassA, registerClassA);
-			HOOK_FUNCTION(user32, RegisterClassW, registerClassW);
-			HOOK_FUNCTION(user32, RegisterClassExA, registerClassExA);
-			HOOK_FUNCTION(user32, RegisterClassExW, registerClassExW);
-			HOOK_FUNCTION(user32, SetClassLongA, setClassLongA);
-			HOOK_FUNCTION(user32, SetClassLongW, setClassLongW);
 		}
 	}
 }

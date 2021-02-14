@@ -5,6 +5,7 @@
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/Icon.h>
 #include <Gdi/Metrics.h>
 #include <Gdi/Palette.h>
 #include <Gdi/PresentationWindow.h>
@@ -40,6 +41,7 @@ namespace Gdi
 		DisableProcessWindowsGhosting();
 
 		DcFunctions::installHooks();
+		Icon::installHooks();
 		Metrics::installHooks();
 		Palette::installHooks();
 		PresentationWindow::installHooks();

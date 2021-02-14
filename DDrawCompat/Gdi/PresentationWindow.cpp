@@ -88,7 +88,7 @@ namespace
 		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = Dll::g_currentModule;
 		wc.lpszClassName = "DDrawCompatMessageWindow";
-		RegisterClass(&wc);
+		CALL_ORIG_FUNC(RegisterClassA)(&wc);
 
 		g_messageWindow = CreateWindow(
 			"DDrawCompatMessageWindow", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
@@ -136,7 +136,7 @@ namespace Gdi
 			wc.lpfnWndProc = &presentationWindowProc;
 			wc.hInstance = Dll::g_currentModule;
 			wc.lpszClassName = "DDrawCompatPresentationWindow";
-			RegisterClass(&wc);
+			CALL_ORIG_FUNC(RegisterClassA)(&wc);
 
 			g_presentationWindowThread = CreateThread(
 				nullptr, 0, &presentationWindowThreadProc, nullptr, 0, &g_presentationWindowThreadId);
