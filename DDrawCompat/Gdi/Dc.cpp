@@ -1,20 +1,25 @@
 #include <algorithm>
-#include <unordered_map>
+#include <map>
 #include <vector>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Common/ScopedCriticalSection.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "Gdi/Dc.h"
-#include "Gdi/DcCache.h"
-#include "Gdi/Gdi.h"
-#include "Gdi/Region.h"
-#include "Gdi/VirtualScreen.h"
-#include "Gdi/Window.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Common/ScopedCriticalSection.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <Gdi/Dc.h>
+#include <Gdi/Gdi.h>
+#include <Gdi/Region.h>
+#include <Gdi/VirtualScreen.h>
+#include <Gdi/Window.h>
 
 namespace
 {
+	struct Cache
+	{
+		std::vector<std::unique_ptr<HDC__, void(*)(HDC)>> cache;
+		std::vector<std::unique_ptr<HDC__, void(*)(HDC)>> defPalCache;
+	};
+
 	struct CompatDc
 	{
 		HDC dc;
@@ -25,10 +30,11 @@ namespace
 		bool useDefaultPalette;
 	};
 
-	typedef std::unordered_map<HDC, CompatDc> CompatDcMap;
+	typedef std::map<HDC, CompatDc> CompatDcMap;
 
 	Compat::CriticalSection g_cs;
 	CompatDcMap g_origDcToCompatDc;
+	std::map<DWORD, Cache> g_threadIdToDcCache;
 
 	void restoreDc(const CompatDc& compatDc);
 
@@ -137,6 +143,7 @@ namespace Gdi
 				Gdi::VirtualScreen::deleteDc(origDcToCompatDc.second.dc);
 			}
 			g_origDcToCompatDc.clear();
+			g_threadIdToDcCache.clear();
 		}
 
 		void dllThreadDetach()
@@ -157,6 +164,7 @@ namespace Gdi
 					++it;
 				}
 			}
+			g_threadIdToDcCache.erase(GetCurrentThreadId());
 		}
 
 		HDC getDc(HDC origDc)
@@ -179,10 +187,21 @@ namespace Gdi
 
 			CompatDc compatDc;
 			compatDc.useDefaultPalette = GetStockObject(DEFAULT_PALETTE) == GetCurrentObject(origDc, OBJ_PAL);
-			compatDc.dc = Gdi::DcCache::getDc(compatDc.useDefaultPalette);
-			if (!compatDc.dc)
+
+			auto& cache = g_threadIdToDcCache[GetCurrentThreadId()];
+			auto& dcCache = compatDc.useDefaultPalette ? cache.defPalCache : cache.cache;
+			if (dcCache.empty())
 			{
-				return nullptr;
+				compatDc.dc = Gdi::VirtualScreen::createDc(compatDc.useDefaultPalette);
+				if (!compatDc.dc)
+				{
+					return nullptr;
+				}
+			}
+			else
+			{
+				compatDc.dc = dcCache.back().release();
+				dcCache.pop_back();
 			}
 
 			POINT origin = {};
@@ -235,7 +254,9 @@ namespace Gdi
 			if (0 == compatDc.refCount)
 			{
 				restoreDc(compatDc);
-				Gdi::DcCache::releaseDc(compatDc.dc, compatDc.useDefaultPalette);
+				auto& cache = g_threadIdToDcCache[GetCurrentThreadId()];
+				auto& dcCache = compatDc.useDefaultPalette ? cache.defPalCache : cache.cache;
+				dcCache.emplace_back(compatDc.dc, Gdi::VirtualScreen::deleteDc);
 				g_origDcToCompatDc.erase(origDc);
 			}
 		}

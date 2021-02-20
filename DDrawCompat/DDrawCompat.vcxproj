@@ -218,7 +218,6 @@
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
     <ClInclude Include="Gdi\Dc.h" />
-    <ClInclude Include="Gdi\DcCache.h" />
     <ClInclude Include="Gdi\DcFunctions.h" />
     <ClInclude Include="Gdi\Icon.h" />
     <ClInclude Include="Gdi\Metrics.h" />
@@ -293,7 +292,6 @@
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />
     <ClCompile Include="Gdi\Dc.cpp" />
-    <ClCompile Include="Gdi\DcCache.cpp" />
     <ClCompile Include="Gdi\DcFunctions.cpp" />
     <ClCompile Include="Gdi\Icon.cpp" />
     <ClCompile Include="Gdi\Metrics.cpp" />

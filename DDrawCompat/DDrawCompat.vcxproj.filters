@@ -90,9 +90,6 @@
     <ClInclude Include="Gdi\Dc.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
-    <ClInclude Include="Gdi\DcCache.h">
-      <Filter>Header Files\Gdi</Filter>
-    </ClInclude>
     <ClInclude Include="Gdi\DcFunctions.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
@@ -414,9 +411,6 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\Dc.cpp">
-      <Filter>Source Files\Gdi</Filter>
-    </ClCompile>
-    <ClCompile Include="Gdi\DcCache.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\DcFunctions.cpp">

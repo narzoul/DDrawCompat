@@ -1,7 +1,6 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Dc.h>
-#include <Gdi/DcCache.h>
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
 #include <Gdi/Gdi.h>
@@ -33,7 +32,6 @@ namespace Gdi
 	{
 		WinProc::dllThreadDetach();
 		Dc::dllThreadDetach();
-		DcCache::dllThreadDetach();
 	}
 
 	void installHooks()
@@ -98,7 +96,6 @@ namespace Gdi
 		PresentationWindow::uninstallHooks();
 		WinProc::uninstallHooks();
 		Dc::dllProcessDetach();
-		DcCache::dllProcessDetach();
 	}
 
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
