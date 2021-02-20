@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/ScopedCriticalSection.h"
+#include <Common/ScopedCriticalSection.h>
 
 namespace D3dDdi
 {

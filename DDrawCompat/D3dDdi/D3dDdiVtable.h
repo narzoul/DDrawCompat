@@ -2,11 +2,11 @@
 
 #include <map>
 
-#include "Common/CompatVtableInstance.h"
-#include "Common/Log.h"
-#include "Common/VtableVisitor.h"
-#include "Config/Config.h"
-#include "D3dDdi/ScopedCriticalSection.h"
+#include <Common/CompatVtableInstance.h>
+#include <Common/Log.h>
+#include <Common/VtableVisitor.h>
+#include <Config/Config.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 
 namespace D3dDdi
 {

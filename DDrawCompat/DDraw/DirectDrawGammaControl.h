@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Common/CompatVtable.h"
-#include "DDraw/Visitors/DirectDrawGammaControlVtblVisitor.h"
+#include <Common/CompatVtable.h>
+#include <DDraw/Visitors/DirectDrawGammaControlVtblVisitor.h>
 
 namespace DDraw
 {

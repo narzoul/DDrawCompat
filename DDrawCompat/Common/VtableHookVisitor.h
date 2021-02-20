@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Common/FuncNameVisitor.h"
-#include "Common/Hook.h"
-#include "D3dDdi/ScopedCriticalSection.h"
-#include "DDraw/ScopedThreadLock.h"
+#include <Common/FuncNameVisitor.h>
+#include <Common/Hook.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/ScopedThreadLock.h>
 
 struct _D3DDDI_ADAPTERCALLBACKS;
 struct _D3DDDI_ADAPTERFUNCS;

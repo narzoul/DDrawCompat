@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/CompatVtableInstance.h"
+#include <Common/CompatVtableInstance.h>
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;

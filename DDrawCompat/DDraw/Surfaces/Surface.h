@@ -5,8 +5,8 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatPtr.h"
-#include "Common/CompatRef.h"
+#include <Common/CompatPtr.h>
+#include <Common/CompatRef.h>
 
 namespace DDraw
 {

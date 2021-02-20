@@ -1,5 +1,5 @@
-#include "Common/Log.h"
-#include "D3dDdi/Log/KernelModeThunksLog.h"
+#include <Common/Log.h>
+#include <D3dDdi/Log/KernelModeThunksLog.h>
 
 std::ostream& operator<<(std::ostream& os, const LUID& luid)
 {

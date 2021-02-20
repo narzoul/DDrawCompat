@@ -1,9 +1,9 @@
 #pragma once
 
-#include "Common/LogWrapperVisitor.h"
-#include "Common/VtableHookVisitor.h"
-#include "Common/VtableUpdateVisitor.h"
-#include "Common/VtableVisitor.h"
+#include <Common/LogWrapperVisitor.h>
+#include <Common/VtableHookVisitor.h>
+#include <Common/VtableUpdateVisitor.h>
+#include <Common/VtableVisitor.h>
 
 #define SET_COMPAT_VTABLE(Vtable, CompatInterface) \
 	namespace Compat \

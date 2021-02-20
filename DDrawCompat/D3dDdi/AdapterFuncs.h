@@ -4,9 +4,9 @@
 #include <d3dumddi.h>
 #include <d3dnthal.h>
 
-#include "D3dDdi/D3dDdiVtable.h"
-#include "D3dDdi/Log/AdapterFuncsLog.h"
-#include "D3dDdi/Visitors/AdapterFuncsVisitor.h"
+#include <D3dDdi/D3dDdiVtable.h>
+#include <D3dDdi/Log/AdapterFuncsLog.h>
+#include <D3dDdi/Visitors/AdapterFuncsVisitor.h>
 
 namespace D3dDdi
 {

@@ -1,8 +1,8 @@
 #include <set>
 
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/Surfaces/Surface.h"
-#include "DDraw/Surfaces/SurfaceImpl.h"
+#include <DDraw/DirectDrawSurface.h>
+#include <DDraw/Surfaces/Surface.h>
+#include <DDraw/Surfaces/SurfaceImpl.h>
 
 namespace
 {

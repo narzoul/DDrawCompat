@@ -5,11 +5,11 @@
 #include <winternl.h>
 #include <..\km\d3dkmthk.h>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "D3dDdi/AdapterCallbacks.h"
-#include "D3dDdi/AdapterFuncs.h"
-#include "D3dDdi/KernelModeThunks.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <D3dDdi/AdapterCallbacks.h>
+#include <D3dDdi/AdapterFuncs.h>
+#include <D3dDdi/KernelModeThunks.h>
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 {

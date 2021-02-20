@@ -1,4 +1,4 @@
-#include "D3dDdi/ScopedCriticalSection.h"
+#include <D3dDdi/ScopedCriticalSection.h>
 
 namespace D3dDdi
 {

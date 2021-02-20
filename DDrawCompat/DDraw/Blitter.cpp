@@ -4,8 +4,8 @@
 
 #include <intrin.h>
 
-#include "Common/ScopedCriticalSection.h"
-#include "DDraw/Blitter.h"
+#include <Common/ScopedCriticalSection.h>
+#include <DDraw/Blitter.h>
 
 #pragma warning(disable : 4127)
 

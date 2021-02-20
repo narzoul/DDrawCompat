@@ -2,7 +2,7 @@
 
 #include <Windows.h>
 
-#include "Common/CompatPtr.h"
+#include <Common/CompatPtr.h>
 
 namespace Gdi
 {

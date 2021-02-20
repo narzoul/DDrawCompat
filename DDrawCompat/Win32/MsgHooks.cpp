@@ -1,7 +1,7 @@
 #include <Windows.h>
 
-#include "Common/Hook.h"
-#include "Win32/MsgHooks.h"
+#include <Common/Hook.h>
+#include <Win32/MsgHooks.h>
 
 namespace
 {

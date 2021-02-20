@@ -3,9 +3,9 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "D3dDdi/D3dDdiVtable.h"
-#include "D3dDdi/Log/DeviceFuncsLog.h"
-#include "D3dDdi/Visitors/DeviceFuncsVisitor.h"
+#include <D3dDdi/D3dDdiVtable.h>
+#include <D3dDdi/Log/DeviceFuncsLog.h>
+#include <D3dDdi/Visitors/DeviceFuncsVisitor.h>
 
 namespace D3dDdi
 {

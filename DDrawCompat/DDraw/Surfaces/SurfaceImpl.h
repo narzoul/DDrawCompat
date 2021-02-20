@@ -4,8 +4,8 @@
 
 #include <ddraw.h>
 
-#include "Common/CompatVtable.h"
-#include "DDraw/Types.h"
+#include <Common/CompatVtable.h>
+#include <DDraw/Types.h>
 
 namespace DDraw
 {

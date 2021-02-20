@@ -1,4 +1,4 @@
-#include "D3dDdi/AdapterCallbacks.h"
+#include <D3dDdi/AdapterCallbacks.h>
 
 namespace D3dDdi
 {

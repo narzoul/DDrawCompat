@@ -1,5 +1,5 @@
-#include "D3dDdi/Adapter.h"
-#include "D3dDdi/AdapterFuncs.h"
+#include <D3dDdi/Adapter.h>
+#include <D3dDdi/AdapterFuncs.h>
 
 namespace D3dDdi
 {

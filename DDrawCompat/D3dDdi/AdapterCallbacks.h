@@ -3,8 +3,8 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "Common/CompatVtable.h"
-#include "D3dDdi/Visitors/AdapterCallbacksVisitor.h"
+#include <Common/CompatVtable.h>
+#include <D3dDdi/Visitors/AdapterCallbacksVisitor.h>
 
 namespace D3dDdi
 {

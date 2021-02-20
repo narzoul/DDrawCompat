@@ -1,4 +1,4 @@
-#include "Direct3d/Direct3dVertexBuffer.h"
+#include <Direct3d/Direct3dVertexBuffer.h>
 
 namespace Direct3d
 {

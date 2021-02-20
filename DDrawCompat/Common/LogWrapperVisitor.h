@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Common/FuncNameVisitor.h"
-#include "Common/Log.h"
+#include <Common/FuncNameVisitor.h>
+#include <Common/Log.h>
 
 template <typename Vtable, int instanceId = 0>
 class LogWrapperVisitor

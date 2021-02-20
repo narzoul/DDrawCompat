@@ -1,6 +1,6 @@
-#include "DDraw/DirectDrawGammaControl.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "DDraw/Surfaces/PrimarySurface.h"
+#include <DDraw/DirectDrawGammaControl.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 
 namespace
 {

@@ -3,7 +3,7 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "Common/VtableVisitor.h"
+#include <Common/VtableVisitor.h>
 
 struct AdapterCallbacksIntf
 {

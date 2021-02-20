@@ -1,5 +1,5 @@
-#include "D3dDdi/Device.h"
-#include "D3dDdi/DeviceFuncs.h"
+#include <D3dDdi/Device.h>
+#include <D3dDdi/DeviceFuncs.h>
 
 namespace
 {

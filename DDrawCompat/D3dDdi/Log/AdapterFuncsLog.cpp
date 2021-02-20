@@ -1,5 +1,5 @@
-#include "Common/Log.h"
-#include "D3dDdi/Log/AdapterFuncsLog.h"
+#include <Common/Log.h>
+#include <D3dDdi/Log/AdapterFuncsLog.h>
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONLIST& data)
 {

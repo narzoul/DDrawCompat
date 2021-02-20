@@ -2,11 +2,11 @@
 
 #include <vector>
 
-#include "Common/CompatPtr.h"
-#include "Common/CompatRef.h"
-#include "Common/CompatVtable.h"
-#include "DDraw/Visitors/DirectDrawSurfaceVtblVisitor.h"
-#include "DDraw/Types.h"
+#include <Common/CompatPtr.h>
+#include <Common/CompatRef.h>
+#include <Common/CompatVtable.h>
+#include <DDraw/Visitors/DirectDrawSurfaceVtblVisitor.h>
+#include <DDraw/Types.h>
 
 namespace DDraw
 {

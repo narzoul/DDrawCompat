@@ -1,13 +1,13 @@
-#include "Common/CompatRef.h"
-#include "Common/Log.h"
-#include "DDraw/DirectDraw.h"
-#include "DDraw/DirectDrawClipper.h"
-#include "DDraw/DirectDrawGammaControl.h"
-#include "DDraw/DirectDrawPalette.h"
-#include "DDraw/DirectDrawSurface.h"
-#include "DDraw/Hooks.h"
-#include "DDraw/RealPrimarySurface.h"
-#include "Win32/Registry.h"
+#include <Common/CompatRef.h>
+#include <Common/Log.h>
+#include <DDraw/DirectDraw.h>
+#include <DDraw/DirectDrawClipper.h>
+#include <DDraw/DirectDrawGammaControl.h>
+#include <DDraw/DirectDrawPalette.h>
+#include <DDraw/DirectDrawSurface.h>
+#include <DDraw/Hooks.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <Win32/Registry.h>
 
 namespace
 {

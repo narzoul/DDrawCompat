@@ -3,8 +3,8 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include "Common/VtableVisitor.h"
-#include "D3dDdi/Hooks.h"
+#include <Common/VtableVisitor.h>
+#include <D3dDdi/Hooks.h>
 
 struct DeviceCallbacksIntf
 {

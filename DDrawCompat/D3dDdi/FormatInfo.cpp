@@ -1,4 +1,4 @@
-#include "D3dDdi/FormatInfo.h"
+#include <D3dDdi/FormatInfo.h>
 
 namespace
 {

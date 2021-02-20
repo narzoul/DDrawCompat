@@ -4,9 +4,9 @@
 #include <set>
 #include <sstream>
 
-#include "Common/Hook.h"
-#include "Common/Log.h"
-#include "Win32/Registry.h"
+#include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Win32/Registry.h>
 
 typedef long NTSTATUS;
 

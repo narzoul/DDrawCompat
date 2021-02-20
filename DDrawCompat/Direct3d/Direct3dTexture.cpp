@@ -1,4 +1,4 @@
-#include "Direct3d/Direct3dTexture.h"
+#include <Direct3d/Direct3dTexture.h>
 
 namespace Direct3d
 {

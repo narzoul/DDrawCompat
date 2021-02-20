@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Common/VtableVisitor.h"
+#include <Common/VtableVisitor.h>
 
 template <>
 struct VtableForEach<IDirectDrawGammaControlVtbl>
