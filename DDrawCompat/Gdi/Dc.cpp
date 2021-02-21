@@ -107,17 +107,13 @@ namespace
 
 	void setClippingRegion(const CompatDc& compatDc, HWND hwnd, const POINT& origin, const RECT& virtualScreenBounds)
 	{
+		Gdi::Region sysRgn;
+		GetRandomRgn(compatDc.origDc, sysRgn, SYSRGN);
 		if (hwnd)
 		{
-			Gdi::Region sysRgn;
-			GetRandomRgn(compatDc.origDc, sysRgn, SYSRGN);
 			OffsetRgn(sysRgn, -virtualScreenBounds.left, -virtualScreenBounds.top);
-			SelectClipRgn(compatDc.dc, sysRgn);
 		}
-		else
-		{
-			SelectClipRgn(compatDc.dc, nullptr);
-		}
+		SelectClipRgn(compatDc.dc, sysRgn);
 
 		Gdi::Region clipRgn;
 		if (1 == GetClipRgn(compatDc.origDc, clipRgn))
