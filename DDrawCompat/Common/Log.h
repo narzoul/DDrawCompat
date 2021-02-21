@@ -166,7 +166,7 @@ namespace Compat
 			return *this;
 		}
 
-		static void initLogging(std::string processName);
+		static void initLogging(const std::string& processDir, std::string processName);
 		static bool isPointerDereferencingAllowed() { return s_isLeaveLog || 0 == s_outParamDepth; }
 
 	protected:

@@ -76,7 +76,7 @@ namespace Compat
 		s_logFile << std::endl;
 	}
 
-	void Log::initLogging(std::string processName)
+	void Log::initLogging(const std::string& processDir, std::string processName)
 	{
 		if (processName.length() >= 4 &&
 			0 == _strcmpi(processName.substr(processName.length() - 4).c_str(), ".exe"))
@@ -87,7 +87,7 @@ namespace Compat
 		for (int i = 1; i < 100; ++i)
 		{
 			std::ostringstream logFileName;
-			logFileName << "DDrawCompat-" << processName;
+			logFileName << processDir << '\\' << "DDrawCompat-" << processName;
 			if (i > 1)
 			{
 				logFileName << '[' << i << ']';

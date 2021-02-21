@@ -230,7 +230,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		auto processPath = getModulePath(nullptr);
-		Compat::Log::initLogging(getFileName(processPath));
+		Compat::Log::initLogging(getDirName(processPath), getFileName(processPath));
 
 		Compat::Log() << "Process path: " << processPath;
 		printEnvironmentVariable("__COMPAT_LAYER");
