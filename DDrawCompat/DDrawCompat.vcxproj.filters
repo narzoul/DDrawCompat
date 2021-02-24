@@ -303,19 +303,10 @@
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
-    <ClInclude Include="Common\LogWrapperVisitor.h">
-      <Filter>Header Files\Common</Filter>
-    </ClInclude>
     <ClInclude Include="Common\CompatVtableInstance.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\VtableHookVisitor.h">
-      <Filter>Header Files\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\VtableUpdateVisitor.h">
-      <Filter>Header Files\Common</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\FuncNameVisitor.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
     <ClInclude Include="D3dDdi\Adapter.h">

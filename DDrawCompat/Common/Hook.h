@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <Windows.h>
 
 #define CALL_ORIG_FUNC(func) Compat::getOrigFuncPtr<decltype(&func), &func>()
@@ -13,6 +15,7 @@
 
 namespace Compat
 {
+	std::string funcPtrToStr(void* funcPtr);
 	HMODULE getModuleHandleFromAddress(void* address);
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>

@@ -1,5 +1,6 @@
 #include <vector>
 
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>

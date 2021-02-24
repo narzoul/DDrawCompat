@@ -41,7 +41,8 @@ namespace
 		{
 			Compat::hookFunction(g_hookedUmdModule, "OpenAdapter",
 				reinterpret_cast<void*&>(g_origOpenAdapter), &openAdapter);
-			FreeLibrary(g_hookedUmdModule);
+			HMODULE module = nullptr;
+			GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, umdFileName.c_str(), &module);
 		}
 	}
 

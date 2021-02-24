@@ -136,13 +136,10 @@
     <ClInclude Include="Common\CompatVtable.h" />
     <ClInclude Include="Common\CompatVtableInstance.h" />
     <ClInclude Include="Common\CompatWeakPtr.h" />
-    <ClInclude Include="Common\FuncNameVisitor.h" />
     <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
-    <ClInclude Include="Common\LogWrapperVisitor.h" />
     <ClInclude Include="Common\ScopedSrwLock.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
-    <ClInclude Include="Common\VtableUpdateVisitor.h" />
     <ClInclude Include="Common\VtableVisitor.h" />
     <ClInclude Include="Common\Hook.h" />
     <ClInclude Include="Common\ScopedCriticalSection.h" />

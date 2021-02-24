@@ -1,6 +1,7 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3dDevice.h>
 #include <Direct3d/Types.h>

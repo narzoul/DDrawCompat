@@ -1,12 +1,13 @@
 #pragma once
 
 #include <Common/CompatVtableInstance.h>
+#include <DDraw/ScopedThreadLock.h>
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
 template <typename Vtable>
-class CompatVtable : public CompatVtableInstance<Vtable>
+class CompatVtable : public CompatVtableInstance<Vtable, DDraw::ScopedThreadLock>
 {
 public:
 	static const Vtable& getOrigVtable(const Vtable& vtable)
@@ -21,7 +22,7 @@ public:
 			s_origVtablePtr = vtable;
 			Vtable compatVtable = {};
 			Compat::setCompatVtable(compatVtable);
-			CompatVtableInstance<Vtable>::hookVtable(*vtable, compatVtable);
+			CompatVtableInstance::hookVtable(*vtable, compatVtable);
 		}
 	}
 

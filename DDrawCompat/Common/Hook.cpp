@@ -80,15 +80,6 @@ namespace
 		return nullptr;
 	}
 
-	std::string funcAddrToStr(void* funcPtr)
-	{
-		std::ostringstream oss;
-		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
-		oss << getModulePath(module).string() << "+0x" << std::hex <<
-			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
-		return oss.str();
-	}
-
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module)
 	{
 		PIMAGE_DOS_HEADER dosHeader = reinterpret_cast<PIMAGE_DOS_HEADER>(module);
@@ -149,12 +140,12 @@ namespace
 		void* const hookedFuncPtr = origFuncPtr;
 		if (stubFuncPtr)
 		{
-			LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(stubFuncPtr) << " -> "
-				<< funcAddrToStr(origFuncPtr) << ')';
+			LOG_DEBUG << "Hooking function: " << funcName << " (" << Compat::funcPtrToStr(stubFuncPtr) << " -> "
+				<< Compat::funcPtrToStr(origFuncPtr) << ')';
 		}
 		else
 		{
-			LOG_DEBUG << "Hooking function: " << funcName << " (" << funcAddrToStr(hookedFuncPtr) << ')';
+			LOG_DEBUG << "Hooking function: " << funcName << " (" << Compat::funcPtrToStr(hookedFuncPtr) << ')';
 		}
 
 		DetourTransactionBegin();
@@ -189,6 +180,15 @@ namespace
 
 namespace Compat
 {
+	std::string funcPtrToStr(void* funcPtr)
+	{
+		std::ostringstream oss;
+		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
+		oss << getModulePath(module).string() << "+0x" << std::hex <<
+			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
+		return oss.str();
+	}
+
 	HMODULE getModuleHandleFromAddress(void* address)
 	{
 		HMODULE module = nullptr;
@@ -304,7 +304,7 @@ namespace Compat
 		FARPROC* func = findProcAddressInIat(module, importedModuleName, funcName);
 		if (func)
 		{
-			LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcAddrToStr(*func) << ')';
+			LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcPtrToStr(*func) << ')';
 			DWORD oldProtect = 0;
 			VirtualProtect(func, sizeof(func), PAGE_READWRITE, &oldProtect);
 			*func = static_cast<FARPROC>(newFuncPtr);

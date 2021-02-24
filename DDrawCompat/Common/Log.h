@@ -18,7 +18,7 @@
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
 #else
-#define LOG_DEBUG if (false) Compat::Log()
+#define LOG_DEBUG if constexpr (false) Compat::Log()
 #define LOG_FUNC(...)
 #define LOG_RESULT(...) __VA_ARGS__
 #endif
