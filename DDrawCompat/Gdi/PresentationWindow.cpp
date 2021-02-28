@@ -10,7 +10,7 @@ namespace
 	const UINT WM_SETPRESENTATIONWINDOWRGN = WM_USER + 2;
 
 	HANDLE g_presentationWindowThread = nullptr;
-	DWORD g_presentationWindowThreadId = 0;
+	unsigned g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -80,10 +80,8 @@ namespace
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
-	DWORD WINAPI presentationWindowThreadProc(LPVOID /*lpParameter*/)
+	unsigned WINAPI presentationWindowThreadProc(LPVOID /*lpParameter*/)
 	{
-		SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_TIME_CRITICAL);
-
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = Dll::g_currentModule;
@@ -138,8 +136,7 @@ namespace Gdi
 			wc.lpszClassName = "DDrawCompatPresentationWindow";
 			CALL_ORIG_FUNC(RegisterClassA)(&wc);
 
-			g_presentationWindowThread = CreateThread(
-				nullptr, 0, &presentationWindowThreadProc, nullptr, 0, &g_presentationWindowThreadId);
+			Dll::createThread(presentationWindowThreadProc, &g_presentationWindowThreadId, THREAD_PRIORITY_TIME_CRITICAL);
 
 			int i = 0;
 			while (!g_messageWindow && i < 1000)

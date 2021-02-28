@@ -240,7 +240,7 @@ namespace
 		}
 	}
 
-	DWORD WINAPI vsyncThreadProc(LPVOID /*lpParameter*/)
+	unsigned WINAPI vsyncThreadProc(LPVOID /*lpParameter*/)
 	{
 		while (!g_stopVsyncThread)
 		{
@@ -323,8 +323,7 @@ namespace D3dDdi
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTQueryAdapterInfo", queryAdapterInfo);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTSetGammaRamp", setGammaRamp);
 
-			g_vsyncThread = CreateThread(nullptr, 0, &vsyncThreadProc, nullptr, 0, nullptr);
-			SetThreadPriority(g_vsyncThread, THREAD_PRIORITY_TIME_CRITICAL);
+			g_vsyncThread = Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		void setDcFormatOverride(UINT format)

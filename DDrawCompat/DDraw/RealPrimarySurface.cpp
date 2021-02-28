@@ -213,7 +213,7 @@ namespace
 		}
 	}
 
-	DWORD WINAPI updateThreadProc(LPVOID /*lpParameter*/)
+	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
 	{
 		bool skipWaitForVsync = false;
 
@@ -356,8 +356,7 @@ namespace DDraw
 
 	void RealPrimarySurface::init()
 	{
-		g_updateThread = CreateThread(nullptr, 0, &updateThreadProc, nullptr, 0, nullptr);
-		SetThreadPriority(g_updateThread, THREAD_PRIORITY_TIME_CRITICAL);
+		g_updateThread = Dll::createThread(&updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
 	bool RealPrimarySurface::isFullScreen()

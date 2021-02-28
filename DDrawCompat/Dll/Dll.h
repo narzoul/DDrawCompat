@@ -67,6 +67,8 @@ namespace Dll
 #undef  ADD_FARPROC_MEMBER
 	};
 
+	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority);
+
 	extern HMODULE g_currentModule;
 	extern Procs g_origProcs;
 	extern Procs g_jmpTargetProcs;
