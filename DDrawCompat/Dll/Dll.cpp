@@ -17,6 +17,18 @@ namespace Dll
 		}
 		return thread;
 	}
+
+	void pinModule(LPCSTR moduleName)
+	{
+		HMODULE module = nullptr;
+		GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_PIN, moduleName, &module);
+	}
+
+	void pinModule(LPCWSTR moduleName)
+	{
+		HMODULE module = nullptr;
+		GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_PIN, moduleName, &module);
+	}
 }
 
 #define CREATE_PROC_STUB(procName) \

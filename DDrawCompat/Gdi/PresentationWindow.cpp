@@ -9,7 +9,6 @@ namespace
 	const UINT WM_SETPRESENTATIONWINDOWPOS = WM_USER + 1;
 	const UINT WM_SETPRESENTATIONWINDOWRGN = WM_USER + 2;
 
-	HANDLE g_presentationWindowThread = nullptr;
 	unsigned g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
 
@@ -164,19 +163,6 @@ namespace Gdi
 		void setWindowRgn(HWND hwnd, HRGN rgn)
 		{
 			sendMessageBlocking(hwnd, WM_SETPRESENTATIONWINDOWRGN, reinterpret_cast<WPARAM>(rgn), 0);
-		}
-
-		void uninstallHooks()
-		{
-			if (g_presentationWindowThread)
-			{
-				sendMessageBlocking(g_messageWindow, WM_CLOSE, 0, 0);
-				if (WAIT_OBJECT_0 != WaitForSingleObject(g_presentationWindowThread, 1000))
-				{
-					TerminateThread(g_presentationWindowThread, 0);
-					Compat::Log() << "The presentation window thread was terminated forcefully";
-				}
-			}
 		}
 	}
 }

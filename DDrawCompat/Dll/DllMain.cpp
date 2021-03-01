@@ -252,6 +252,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			return FALSE;
 		}
 
+		Dll::pinModule(systemDDrawDllPath.c_str());
+
 		HMODULE origModule = g_origDDrawModule;
 		VISIT_DDRAW_PROCS(LOAD_ORIG_PROC);
 
@@ -285,17 +287,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 	}
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
-		Compat::Log() << "Detaching DDrawCompat due to " << (lpvReserved ? "process termination" : "FreeLibrary");
-		if (!lpvReserved)
-		{
-			DDraw::uninstallHooks();
-			D3dDdi::uninstallHooks();
-			Gdi::uninstallHooks();
-			Compat::unhookAllFunctions();
-			FreeLibrary(g_origDciman32Module);
-			FreeLibrary(g_origDDrawModule);
-		}
-		timeEndPeriod(1);
 		Compat::Log() << "DDrawCompat detached successfully";
 	}
 	else if (fdwReason == DLL_THREAD_DETACH)

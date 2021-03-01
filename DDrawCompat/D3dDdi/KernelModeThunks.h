@@ -11,7 +11,6 @@ namespace D3dDdi
 		void installHooks(HMODULE origDDrawModule);
 		void setDcFormatOverride(UINT format);
 		void setDcPaletteOverride(bool enable);
-		void stopVsyncThread();
 		void waitForVsync();
 		bool waitForVsyncCounter(UINT counter);
 	}

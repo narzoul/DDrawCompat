@@ -7,5 +7,4 @@
 namespace DDraw
 {
 	void installHooks(CompatPtr<IDirectDraw7> dd7);
-	void uninstallHooks();
 }

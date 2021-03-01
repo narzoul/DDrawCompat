@@ -68,6 +68,8 @@ namespace Dll
 	};
 
 	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority);
+	void pinModule(LPCSTR moduleName);
+	void pinModule(LPCWSTR moduleName);
 
 	extern HMODULE g_currentModule;
 	extern Procs g_origProcs;

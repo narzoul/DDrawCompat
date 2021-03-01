@@ -10,6 +10,5 @@ namespace Gdi
 		void installHooks();
 		void onCreateWindow(HWND hwnd);
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
-		void uninstallHooks();
 	}
 }

@@ -32,8 +32,6 @@ namespace
 	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
 	std::string g_lastDDrawCreateDcDevice;
 
-	HANDLE g_vsyncThread = nullptr;
-	bool g_stopVsyncThread = false;
 	UINT g_vsyncCounter = 0;
 	CONDITION_VARIABLE g_vsyncCounterCv = CONDITION_VARIABLE_INIT;
 	Compat::SrwLock g_vsyncCounterSrwLock;
@@ -242,7 +240,7 @@ namespace
 
 	unsigned WINAPI vsyncThreadProc(LPVOID /*lpParameter*/)
 	{
-		while (!g_stopVsyncThread)
+		while (true)
 		{
 			waitForVerticalBlank();
 
@@ -323,7 +321,7 @@ namespace D3dDdi
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTQueryAdapterInfo", queryAdapterInfo);
 			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTSetGammaRamp", setGammaRamp);
 
-			g_vsyncThread = Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
+			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		void setDcFormatOverride(UINT format)
@@ -334,17 +332,6 @@ namespace D3dDdi
 		void setDcPaletteOverride(bool enable)
 		{
 			g_dcPaletteOverride = enable;
-		}
-
-		void stopVsyncThread()
-		{
-			g_stopVsyncThread = true;
-			if (WAIT_OBJECT_0 != WaitForSingleObject(g_vsyncThread, 100))
-			{
-				TerminateThread(g_vsyncThread, 0);
-				Compat::Log() << "The vsync thread was terminated forcefully";
-			}
-			g_vsyncThread = nullptr;
 		}
 
 		void waitForVsync()

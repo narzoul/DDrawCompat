@@ -39,6 +39,5 @@ namespace Compat
 	}
 
 	void removeShim(HMODULE module, const char* funcName);
-	void unhookAllFunctions();
 	void unhookFunction(void* origFunc);
 }

@@ -13,6 +13,5 @@ namespace Gdi
 		void setWindowRgn(HWND hwnd, HRGN rgn);
 
 		void installHooks();
-		void uninstallHooks();
 	}
 }

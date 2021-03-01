@@ -6,6 +6,5 @@ namespace Gdi
 	{
 		void blink();
 		void installHooks();
-		void uninstallHooks();
 	}
 }

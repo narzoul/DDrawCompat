@@ -30,8 +30,6 @@ namespace
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
 
-	bool g_stopUpdateThread = false;
-	HANDLE g_updateThread = nullptr;
 	bool g_isFullScreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
 
@@ -217,7 +215,7 @@ namespace
 	{
 		bool skipWaitForVsync = false;
 
-		while (!g_stopUpdateThread)
+		while (true)
 		{
 			if (!skipWaitForVsync)
 			{
@@ -356,7 +354,7 @@ namespace DDraw
 
 	void RealPrimarySurface::init()
 	{
-		g_updateThread = Dll::createThread(&updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
+		Dll::createThread(&updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
 	bool RealPrimarySurface::isFullScreen()
@@ -374,22 +372,6 @@ namespace DDraw
 	{
 		DDraw::ScopedThreadLock lock;
 		g_frontBuffer.release();
-	}
-
-	void RealPrimarySurface::removeUpdateThread()
-	{
-		if (!g_updateThread)
-		{
-			return;
-		}
-
-		g_stopUpdateThread = true;
-		if (WAIT_OBJECT_0 != WaitForSingleObject(g_updateThread, 1000))
-		{
-			TerminateThread(g_updateThread, 0);
-			Compat::Log() << "The update thread was terminated forcefully";
-		}
-		g_updateThread = nullptr;
 	}
 
 	HRESULT RealPrimarySurface::restore()

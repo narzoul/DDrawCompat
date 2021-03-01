@@ -158,7 +158,8 @@ namespace
 		}
 
 		HMODULE module = nullptr;
-		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, static_cast<char*>(hookedFuncPtr), &module);
+		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+			static_cast<char*>(hookedFuncPtr), &module);
 
 		g_hookedFunctions.emplace(
 			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
@@ -169,11 +170,6 @@ namespace
 		DetourTransactionBegin();
 		DetourDetach(&hookedFunc->second.origFunction, hookedFunc->second.newFunction);
 		DetourTransactionCommit();
-
-		if (hookedFunc->second.module)
-		{
-			FreeLibrary(hookedFunc->second.module);
-		}
 		g_hookedFunctions.erase(hookedFunc);
 	}
 }
@@ -327,14 +323,6 @@ namespace Compat
 				shimFuncName += funcName;
 				hookFunction(shimFuncs.back(), realFunc, shimFuncName.c_str());
 			}
-		}
-	}
-
-	void unhookAllFunctions()
-	{
-		while (!g_hookedFunctions.empty())
-		{
-			::unhookFunction(g_hookedFunctions.begin());
 		}
 	}
 

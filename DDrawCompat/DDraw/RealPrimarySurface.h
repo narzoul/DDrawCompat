@@ -23,7 +23,6 @@ namespace DDraw
 		static bool isFullScreen();
 		static bool isLost();
 		static void release();
-		static void removeUpdateThread();
 		static HRESULT restore();
 		static void scheduleUpdate();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);

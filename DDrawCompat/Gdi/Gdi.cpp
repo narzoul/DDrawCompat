@@ -90,14 +90,6 @@ namespace Gdi
 		DestroyWindow(hwnd);
 	}
 
-	void uninstallHooks()
-	{
-		Caret::uninstallHooks();
-		PresentationWindow::uninstallHooks();
-		WinProc::uninstallHooks();
-		Dc::dllProcessDetach();
-	}
-
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
 	{
 		WinProc::watchWindowPosChanges(notifyFunc);

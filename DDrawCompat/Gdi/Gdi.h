@@ -16,6 +16,5 @@ namespace Gdi
 	void redraw(HRGN rgn);
 	void redrawWindow(HWND hwnd, HRGN rgn);
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
-	void uninstallHooks();
 	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 };

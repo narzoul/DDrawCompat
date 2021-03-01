@@ -25,8 +25,7 @@ namespace
 		WNDPROC wndProcW;
 	};
 
-	HWINEVENTHOOK g_objectCreateEventHook = nullptr;
-	HWINEVENTHOOK g_objectStateChangeEventHook = nullptr;
+	bool g_isInitialized = false;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	Compat::SrwLock g_windowProcSrwLock;
@@ -461,10 +460,12 @@ namespace Gdi
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
 			CoInitialize(nullptr);
-			g_objectCreateEventHook = SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
+			SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
-			g_objectStateChangeEventHook = SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
+			SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 				Dll::g_currentModule, &objectStateChangeEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+
+			g_isInitialized = true;
 
 			EnumWindows(initTopLevelWindow, 0);
 			Gdi::Window::updateAll();
@@ -472,7 +473,7 @@ namespace Gdi
 
 		void onCreateWindow(HWND hwnd)
 		{
-			if (g_objectCreateEventHook)
+			if (g_isInitialized)
 			{
 				::onCreateWindow(hwnd);
 			}
@@ -481,19 +482,6 @@ namespace Gdi
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
 		{
 			g_windowPosChangeNotifyFuncs.insert(notifyFunc);
-		}
-
-		void uninstallHooks()
-		{
-			UnhookWinEvent(g_objectStateChangeEventHook);
-			UnhookWinEvent(g_objectCreateEventHook);
-
-			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
-			for (const auto& windowProc : g_windowProc)
-			{
-				setWindowProc(windowProc.first, windowProc.second.wndProcA, windowProc.second.wndProcW);
-			}
-			g_windowProc.clear();
 		}
 	}
 }

@@ -9,9 +9,6 @@
 
 namespace
 {
-	HWINEVENTHOOK g_caretGeneralEventHook = nullptr;
-	HWINEVENTHOOK g_caretLocationChangeEventHook = nullptr;
-
 	struct CaretData
 	{
 		HWND hwnd;
@@ -114,16 +111,10 @@ namespace Gdi
 
 		void installHooks()
 		{
-			g_caretGeneralEventHook = SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
+			SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
 				Dll::g_currentModule, &caretEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
-			g_caretLocationChangeEventHook = SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
+			SetWinEventHook(EVENT_OBJECT_LOCATIONCHANGE, EVENT_OBJECT_LOCATIONCHANGE,
 				Dll::g_currentModule, &caretEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
-		}
-
-		void uninstallHooks()
-		{
-			UnhookWinEvent(g_caretLocationChangeEventHook);
-			UnhookWinEvent(g_caretGeneralEventHook);
 		}
 	}
 }

@@ -130,18 +130,6 @@ namespace Gdi
 {
 	namespace Dc
 	{
-		void dllProcessDetach()
-		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			for (auto& origDcToCompatDc : g_origDcToCompatDc)
-			{
-				restoreDc(origDcToCompatDc.second);
-				Gdi::VirtualScreen::deleteDc(origDcToCompatDc.second.dc);
-			}
-			g_origDcToCompatDc.clear();
-			g_threadIdToDcCache.clear();
-		}
-
 		void dllThreadDetach()
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
