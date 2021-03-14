@@ -53,7 +53,7 @@ namespace DDraw
 
 		const DWORD origCaps = desc.ddsCaps.dwCaps;
 
-		const auto& dm = DDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
+		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
 		desc.dwHeight = dm.dwHeight;
@@ -78,7 +78,7 @@ namespace DDraw
 		}
 
 		g_origCaps = origCaps;
-		g_deviceWindow = DDraw::getDeviceWindow(dd.get());
+		g_deviceWindow = DDraw::DirectDraw::getDeviceWindow(dd.get());
 
 		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8)
 		{
@@ -192,7 +192,7 @@ namespace DDraw
 	template <typename TSurface>
 	static bool PrimarySurface::isGdiSurface(TSurface* surface)
 	{
-		return surface && getRuntimeResourceHandle(*surface) == g_gdiResourceHandle;
+		return surface && DirectDrawSurface::getRuntimeResourceHandle(*surface) == g_gdiResourceHandle;
 	}
 
 	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface*);
@@ -207,7 +207,7 @@ namespace DDraw
 
 		Gdi::VirtualScreen::update();
 		g_primarySurface = m_surface;
-		g_gdiResourceHandle = getRuntimeResourceHandle(*g_primarySurface);
+		g_gdiResourceHandle = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
 
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
@@ -229,7 +229,7 @@ namespace DDraw
 
 	void PrimarySurface::updateFrontResource()
 	{
-		g_frontResource = getDriverResourceHandle(*g_primarySurface);
+		g_frontResource = DirectDrawSurface::getDriverResourceHandle(*g_primarySurface);
 	}
 
 	void PrimarySurface::updatePalette()

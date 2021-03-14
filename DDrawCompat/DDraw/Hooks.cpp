@@ -7,19 +7,17 @@
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Hooks.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <Win32/Registry.h>
 
 namespace
 {
-	template <typename Interface>
-	void hookVtable(const CompatPtr<Interface>& intf);
-
 	void hookDirectDraw(CompatPtr<IDirectDraw7> dd)
 	{
-		hookVtable<IDirectDraw>(dd);
-		hookVtable<IDirectDraw2>(dd);
-		hookVtable<IDirectDraw4>(dd);
-		hookVtable<IDirectDraw7>(dd);
+		DDraw::DirectDraw::hookVtable(*CompatPtr<IDirectDraw>(dd).get()->lpVtbl);
+		DDraw::DirectDraw::hookVtable(*CompatPtr<IDirectDraw2>(dd).get()->lpVtbl);
+		DDraw::DirectDraw::hookVtable(*CompatPtr<IDirectDraw4>(dd).get()->lpVtbl);
+		DDraw::DirectDraw::hookVtable(*CompatPtr<IDirectDraw7>(dd).get()->lpVtbl);
 	}
 
 	void hookDirectDrawClipper(CompatRef<IDirectDraw7> dd)
@@ -28,7 +26,7 @@ namespace
 		HRESULT result = dd->CreateClipper(&dd, 0, &clipper.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			DDraw::DirectDrawClipper::hookVtable(clipper.get()->lpVtbl);
+			DDraw::DirectDrawClipper::hookVtable(*clipper.get()->lpVtbl);
 		}
 		else
 		{
@@ -40,11 +38,10 @@ namespace
 	{
 		PALETTEENTRY paletteEntries[2] = {};
 		CompatPtr<IDirectDrawPalette> palette;
-		HRESULT result = dd->CreatePalette(&dd,
-			DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
+		HRESULT result = dd->CreatePalette(&dd, DDPCAPS_1BIT, paletteEntries, &palette.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			DDraw::DirectDrawPalette::hookVtable(palette.get()->lpVtbl);
+			DDraw::DirectDrawPalette::hookVtable(*palette.get()->lpVtbl);
 		}
 		else
 		{
@@ -65,26 +62,19 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 		if (SUCCEEDED(result))
 		{
-			DDraw::DirectDrawSurface<IDirectDrawSurface7>::s_origVtable = *surface.get()->lpVtbl;
-			hookVtable<IDirectDrawSurface>(surface);
-			hookVtable<IDirectDrawSurface2>(surface);
-			hookVtable<IDirectDrawSurface3>(surface);
-			hookVtable<IDirectDrawSurface4>(surface);
-			hookVtable<IDirectDrawSurface7>(surface);
-			hookVtable<IDirectDrawGammaControl>(surface);
+			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtable = *surface.get()->lpVtbl;
+			DDraw::DirectDrawSurface::hookVtable(*CompatPtr<IDirectDrawSurface>(surface).get()->lpVtbl);
+			DDraw::DirectDrawSurface::hookVtable(*CompatPtr<IDirectDrawSurface2>(surface).get()->lpVtbl);
+			DDraw::DirectDrawSurface::hookVtable(*CompatPtr<IDirectDrawSurface3>(surface).get()->lpVtbl);
+			DDraw::DirectDrawSurface::hookVtable(*CompatPtr<IDirectDrawSurface4>(surface).get()->lpVtbl);
+			DDraw::DirectDrawSurface::hookVtable(*CompatPtr<IDirectDrawSurface7>(surface).get()->lpVtbl);
+
+			CompatPtr<IDirectDrawGammaControl> gammaControl(surface);
+			DDraw::DirectDrawGammaControl::hookVtable(*gammaControl.get()->lpVtbl);
 		}
 		else
 		{
 			Compat::Log() << "ERROR: Failed to create a DirectDraw surface for hooking: " << result;
-		}
-	}
-
-	template <typename Interface>
-	void hookVtable(const CompatPtr<Interface>& intf)
-	{
-		if (intf)
-		{
-			CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
 		}
 	}
 }

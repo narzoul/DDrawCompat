@@ -32,9 +32,9 @@ namespace
 			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.origFunction; });
 	}
 
-	FARPROC* findProcAddressInIat(HMODULE module, const char* importedModuleName, const char* procName)
+	FARPROC* findProcAddressInIat(HMODULE module, const char* procName)
 	{
-		if (!module || !importedModuleName || !procName)
+		if (!module || !procName)
 		{
 			return nullptr;
 		}
@@ -53,11 +53,6 @@ namespace
 			0 != desc->Characteristics && 0xFFFF != desc->Name;
 			++desc)
 		{
-			if (0 != _stricmp(moduleBase + desc->Name, importedModuleName))
-			{
-				continue;
-			}
-
 			auto thunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->FirstThunk);
 			auto origThunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->OriginalFirstThunk);
 			while (0 != thunk->u1.AddressOfData && 0 != origThunk->u1.AddressOfData)
@@ -73,8 +68,6 @@ namespace
 				++thunk;
 				++origThunk;
 			}
-
-			break;
 		}
 
 		return nullptr;
@@ -180,8 +173,15 @@ namespace Compat
 	{
 		std::ostringstream oss;
 		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
-		oss << getModulePath(module).string() << "+0x" << std::hex <<
-			reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
+		if (module)
+		{
+			oss << getModulePath(module).string() << "+0x" << std::hex <<
+				reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
+		}
+		else
+		{
+			oss << funcPtr;
+		}
 		return oss.str();
 	}
 
@@ -295,9 +295,9 @@ namespace Compat
 		FreeLibrary(module);
 	}
 
-	void hookIatFunction(HMODULE module, const char* importedModuleName, const char* funcName, void* newFuncPtr)
+	void hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr)
 	{
-		FARPROC* func = findProcAddressInIat(module, importedModuleName, funcName);
+		FARPROC* func = findProcAddressInIat(module, funcName);
 		if (func)
 		{
 			LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcPtrToStr(*func) << ')';

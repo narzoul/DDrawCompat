@@ -2,8 +2,11 @@
 #include <vector>
 
 #include <Common/CompatRef.h>
+#include <Common/CompatVtable.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <DDraw/DirectDrawClipper.h>
+#include <DDraw/ScopedThreadLock.h>
+#include <DDraw/Visitors/DirectDrawClipperVtblVisitor.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
 
@@ -60,12 +63,12 @@ namespace
 				return DD_OK;
 			}
 		}
-		return DDraw::DirectDrawClipper::s_origVtable.GetHWnd(This, lphWnd);
+		return getOrigVtable(This).GetHWnd(This, lphWnd);
 	}
 	
 	ULONG STDMETHODCALLTYPE Release(IDirectDrawClipper* This)
 	{
-		ULONG result = DDraw::DirectDrawClipper::s_origVtable.Release(This);
+		ULONG result = getOrigVtable(This).Release(This);
 		if (0 == result)
 		{
 			g_clipperData.erase(This);
@@ -79,14 +82,12 @@ namespace
 		{
 			return DDERR_CLIPPERISUSINGHWND;
 		}
-		return DDraw::DirectDrawClipper::s_origVtable.SetClipList(This, lpClipList, dwFlags);
+		return getOrigVtable(This).SetClipList(This, lpClipList, dwFlags);
 	}
 
 	HRESULT STDMETHODCALLTYPE SetHWnd(IDirectDrawClipper* This, DWORD dwFlags, HWND hWnd)
 	{
-		const auto& origVtable = DDraw::DirectDrawClipper::s_origVtable;
-
-		HRESULT result = origVtable.SetHWnd(This, dwFlags, hWnd);
+		HRESULT result = getOrigVtable(This).SetHWnd(This, dwFlags, hWnd);
 		if (SUCCEEDED(result))
 		{
 			auto it = g_clipperData.find(This);
@@ -98,9 +99,9 @@ namespace
 					it->second.hwnd = hWnd;
 
 					DWORD size = 0;
-					origVtable.GetClipList(This, nullptr, nullptr, &size);
+					getOrigVtable(This).GetClipList(This, nullptr, nullptr, &size);
 					it->second.oldClipList.resize(size);
-					origVtable.GetClipList(This, nullptr,
+					getOrigVtable(This).GetClipList(This, nullptr,
 						reinterpret_cast<RGNDATA*>(it->second.oldClipList.data()), &size);
 				}
 				updateWindowClipList(*This, it->second);
@@ -108,52 +109,60 @@ namespace
 			}
 			else if (it != g_clipperData.end())
 			{
-				origVtable.SetClipList(This, it->second.oldClipList.empty() ? nullptr :
+				getOrigVtable(This).SetClipList(This, it->second.oldClipList.empty() ? nullptr :
 					reinterpret_cast<RGNDATA*>(it->second.oldClipList.data()), 0);
 				g_clipperData.erase(it);
 			}
 		}
 		return result;
 	}
-}
 
-namespace DDraw
-{
-	HRGN DirectDrawClipper::getClipRgn(CompatRef<IDirectDrawClipper> clipper)
-	{
-		std::vector<unsigned char> rgnData;
-		DWORD size = 0;
-		clipper->GetClipList(&clipper, nullptr, nullptr, &size);
-		rgnData.resize(size);
-		clipper->GetClipList(&clipper, nullptr, reinterpret_cast<RGNDATA*>(rgnData.data()), &size);
-		return ExtCreateRegion(nullptr, size, reinterpret_cast<RGNDATA*>(rgnData.data()));
-	}
-
-	HRESULT DirectDrawClipper::setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn)
-	{
-		std::vector<unsigned char> rgnData;
-		rgnData.resize(GetRegionData(rgn, 0, nullptr));
-		GetRegionData(rgn, rgnData.size(), reinterpret_cast<RGNDATA*>(rgnData.data()));
-		return clipper->SetClipList(&clipper, reinterpret_cast<RGNDATA*>(rgnData.data()), 0);
-	}
-
-	void DirectDrawClipper::setCompatVtable(IDirectDrawClipperVtbl& vtable)
+	constexpr void setCompatVtable(IDirectDrawClipperVtbl& vtable)
 	{
 		vtable.GetHWnd = &GetHWnd;
 		vtable.Release = &Release;
 		vtable.SetClipList = &SetClipList;
 		vtable.SetHWnd = &SetHWnd;
 	}
+}
 
-	void DirectDrawClipper::update()
+namespace DDraw
+{
+	namespace DirectDrawClipper
 	{
-		if (g_isInvalidated)
+		HRGN getClipRgn(CompatRef<IDirectDrawClipper> clipper)
 		{
-			g_isInvalidated = false;
-			for (auto& clipperData : g_clipperData)
+			std::vector<unsigned char> rgnData;
+			DWORD size = 0;
+			clipper->GetClipList(&clipper, nullptr, nullptr, &size);
+			rgnData.resize(size);
+			clipper->GetClipList(&clipper, nullptr, reinterpret_cast<RGNDATA*>(rgnData.data()), &size);
+			return ExtCreateRegion(nullptr, size, reinterpret_cast<RGNDATA*>(rgnData.data()));
+		}
+
+		HRESULT setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn)
+		{
+			std::vector<unsigned char> rgnData;
+			rgnData.resize(GetRegionData(rgn, 0, nullptr));
+			GetRegionData(rgn, rgnData.size(), reinterpret_cast<RGNDATA*>(rgnData.data()));
+			return clipper->SetClipList(&clipper, reinterpret_cast<RGNDATA*>(rgnData.data()), 0);
+		}
+
+		void update()
+		{
+			if (g_isInvalidated)
 			{
-				updateWindowClipList(*clipperData.first, clipperData.second);
+				g_isInvalidated = false;
+				for (auto& clipperData : g_clipperData)
+				{
+					updateWindowClipList(*clipperData.first, clipperData.second);
+				}
 			}
+		}
+
+		void hookVtable(const IDirectDrawClipperVtbl& vtable)
+		{
+			CompatVtable<IDirectDrawClipperVtbl>::hookVtable<ScopedThreadLock>(vtable);
 		}
 	}
 }

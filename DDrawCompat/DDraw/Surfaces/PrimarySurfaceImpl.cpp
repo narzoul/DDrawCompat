@@ -133,7 +133,7 @@ namespace DDraw
 			{
 				TDdsCaps caps = {};
 				caps.dwCaps = DDSCAPS_BACKBUFFER;
-				s_origVtable.GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
+				getOrigVtable(This).GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
 			}
 			return Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
 		}

@@ -1,55 +1,66 @@
 #include <cstring>
 #include <deque>
 
+#include <Common/CompatVtable.h>
 #include <Common/Time.h>
 #include <Config/Config.h>
 #include <DDraw/DirectDrawPalette.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Visitors/DirectDrawPaletteVtblVisitor.h>
 
-namespace DDraw
+namespace
 {
-	void DirectDrawPalette::setCompatVtable(IDirectDrawPaletteVtbl& vtable)
+	HRESULT STDMETHODCALLTYPE SetEntries(
+		IDirectDrawPalette* This, DWORD dwFlags, DWORD dwStartingEntry, DWORD dwCount, LPPALETTEENTRY lpEntries)
 	{
-		vtable.SetEntries = &SetEntries;
-	}
-
-	HRESULT STDMETHODCALLTYPE DirectDrawPalette::SetEntries(
-		IDirectDrawPalette* This,
-		DWORD dwFlags,
-		DWORD dwStartingEntry,
-		DWORD dwCount,
-		LPPALETTEENTRY lpEntries)
-	{
-		if (This == PrimarySurface::s_palette)
+		if (This == DDraw::PrimarySurface::s_palette)
 		{
-			waitForNextUpdate();
+			DDraw::DirectDrawPalette::waitForNextUpdate();
 		}
 
-		HRESULT result = s_origVtable.SetEntries(This, dwFlags, dwStartingEntry, dwCount, lpEntries);
-		if (SUCCEEDED(result) && This == PrimarySurface::s_palette)
+		HRESULT result = getOrigVtable(This).SetEntries(
+			This, dwFlags, dwStartingEntry, dwCount, lpEntries);
+		if (SUCCEEDED(result) && This == DDraw::PrimarySurface::s_palette)
 		{
-			PrimarySurface::updatePalette();
+			DDraw::PrimarySurface::updatePalette();
 		}
 		return result;
 	}
 
-	void DirectDrawPalette::waitForNextUpdate()
+	constexpr void setCompatVtable(IDirectDrawPaletteVtbl& vtable)
 	{
-		static std::deque<long long> updatesInLastMs;
+		vtable.SetEntries = &SetEntries;
+	}
+}
 
-		const long long qpcNow = Time::queryPerformanceCounter();
-		const long long qpcLastMsBegin = qpcNow - Time::g_qpcFrequency / 1000;
-		while (!updatesInLastMs.empty() && qpcLastMsBegin - updatesInLastMs.front() > 0)
+namespace DDraw
+{
+	namespace DirectDrawPalette
+	{
+		void waitForNextUpdate()
 		{
-			updatesInLastMs.pop_front();
+			static std::deque<long long> updatesInLastMs;
+
+			const long long qpcNow = Time::queryPerformanceCounter();
+			const long long qpcLastMsBegin = qpcNow - Time::g_qpcFrequency / 1000;
+			while (!updatesInLastMs.empty() && qpcLastMsBegin - updatesInLastMs.front() > 0)
+			{
+				updatesInLastMs.pop_front();
+			}
+
+			if (updatesInLastMs.size() >= Config::maxPaletteUpdatesPerMs)
+			{
+				Sleep(1);
+				updatesInLastMs.clear();
+			}
+
+			updatesInLastMs.push_back(Time::queryPerformanceCounter());
 		}
 
-		if (updatesInLastMs.size() >= Config::maxPaletteUpdatesPerMs)
+		void hookVtable(const IDirectDrawPaletteVtbl& vtable)
 		{
-			Sleep(1);
-			updatesInLastMs.clear();
+			CompatVtable<IDirectDrawPaletteVtbl>::hookVtable<ScopedThreadLock>(vtable);
 		}
-
-		updatesInLastMs.push_back(Time::queryPerformanceCounter());
 	}
 }

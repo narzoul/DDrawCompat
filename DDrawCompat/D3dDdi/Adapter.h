@@ -11,21 +11,33 @@ namespace D3dDdi
 	class Adapter
 	{
 	public:
-		Adapter(HANDLE adapter, HMODULE module);
+		Adapter(const D3DDDIARG_OPENADAPTER& data);
+		Adapter(const Adapter&) = delete;
+		Adapter(Adapter&&) = delete;
+		Adapter& operator=(const Adapter&) = delete;
+		Adapter& operator=(Adapter&&) = delete;
 
 		operator HANDLE() const { return m_adapter; }
 
-		const DDRAW_CAPS& getDDrawCaps() const { return m_ddrawCaps; }
 		const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps() const { return m_d3dExtendedCaps; }
-		HMODULE getModule() const { return m_module; }
+		const DDRAW_CAPS& getDDrawCaps() const { return m_ddrawCaps; }
+		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 
-		static void add(HANDLE adapter, HMODULE module);
-		static Adapter& get(HANDLE adapter);
-		static void remove(HANDLE adapter);
+		HRESULT pfnCloseAdapter();
+		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
+		HRESULT pfnGetCaps(const D3DDDIARG_GETCAPS* pData);
+
+		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
+		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
 
 	private:
+		DWORD getSupportedZBufferBitDepths();
+
 		HANDLE m_adapter;
-		HMODULE m_module;
+		D3DDDI_ADAPTERFUNCS m_origVtable;
+		UINT m_runtimeVersion;
+		UINT m_driverVersion;
+
 		D3DNTHAL_D3DEXTENDEDCAPS m_d3dExtendedCaps;
 		DDRAW_CAPS m_ddrawCaps;
 

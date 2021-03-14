@@ -1,12 +1,27 @@
+#include <Common/CompatVtable.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <Direct3d/Direct3dTexture.h>
+#include <Direct3d/Visitors/Direct3dTextureVtblVisitor.h>
+
+namespace
+{
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& /*vtable*/)
+	{
+	}
+}
 
 namespace Direct3d
 {
-	template <typename TDirect3dTexture>
-	void Direct3dTexture<TDirect3dTexture>::setCompatVtable(Vtable<TDirect3dTexture>& /*vtable*/)
+	namespace Direct3dTexture
 	{
-	}
+		template <typename Vtable>
+		void hookVtable(const Vtable& vtable)
+		{
+			CompatVtable<Vtable>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+		}
 
-	template Direct3dTexture<IDirect3DTexture>;
-	template Direct3dTexture<IDirect3DTexture2>;
+		template void hookVtable(const IDirect3DTextureVtbl&);
+		template void hookVtable(const IDirect3DTexture2Vtbl&);
+	}
 }

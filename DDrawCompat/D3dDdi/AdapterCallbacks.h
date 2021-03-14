@@ -3,16 +3,10 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include <Common/CompatVtable.h>
-#include <D3dDdi/Visitors/AdapterCallbacksVisitor.h>
-
 namespace D3dDdi
 {
-	class AdapterCallbacks : public CompatVtable<D3DDDI_ADAPTERCALLBACKS>
+	namespace AdapterCallbacks
 	{
-	public:
-		static void setCompatVtable(D3DDDI_ADAPTERCALLBACKS& vtable);
-	};
+		void hookVtable(const D3DDDI_ADAPTERCALLBACKS& vtable, UINT version);
+	}
 }
-
-SET_COMPAT_VTABLE(D3DDDI_ADAPTERCALLBACKS, D3dDdi::AdapterCallbacks);

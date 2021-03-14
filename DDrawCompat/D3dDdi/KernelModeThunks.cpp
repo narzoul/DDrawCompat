@@ -5,7 +5,6 @@
 #include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
 #include <D3dDdi/Device.h>
-#include <D3dDdi/Hooks.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/KernelModeThunksLog.h>
 #include <D3dDdi/Resource.h>
@@ -165,13 +164,6 @@ namespace
 		{
 			switch (pData->Type)
 			{
-			case KMTQAITYPE_UMDRIVERNAME:
-			{
-				auto info = static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData);
-				D3dDdi::onUmdFileNameQueried(info->UmdFileName);
-			}
-			break;
-
 			case KMTQAITYPE_GETSEGMENTSIZE:
 			{
 				auto info = static_cast<D3DKMT_SEGMENTSIZEINFO*>(pData->pPrivateDriverData);
@@ -312,14 +304,14 @@ namespace D3dDdi
 			return g_vsyncCounter;
 		}
 
-		void installHooks(HMODULE origDDrawModule)
+		void installHooks()
 		{
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "CreateDCA", ddrawCreateDcA);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCloseAdapter", closeAdapter);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTCreateDCFromMemory", createDcFromMemory);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTQueryAdapterInfo", queryAdapterInfo);
-			Compat::hookIatFunction(origDDrawModule, "gdi32.dll", "D3DKMTSetGammaRamp", setGammaRamp);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "CreateDCA", ddrawCreateDcA);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCloseAdapter", closeAdapter);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCreateDCFromMemory", createDcFromMemory);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTQueryAdapterInfo", queryAdapterInfo);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetGammaRamp", setGammaRamp);
 
 			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}

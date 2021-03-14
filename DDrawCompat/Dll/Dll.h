@@ -68,10 +68,13 @@ namespace Dll
 	};
 
 	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority);
+	void pinModule(HMODULE module);
 	void pinModule(LPCSTR moduleName);
 	void pinModule(LPCWSTR moduleName);
 
 	extern HMODULE g_currentModule;
+	extern HMODULE g_origDDrawModule;
+	extern HMODULE g_origDciman32Module;
 	extern Procs g_origProcs;
 	extern Procs g_jmpTargetProcs;
 }

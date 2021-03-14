@@ -1,10 +1,12 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
+#include <Common/CompatVtable.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3dDevice.h>
-#include <Direct3d/Types.h>
+#include <Direct3d/Visitors/Direct3dDeviceVtblVisitor.h>
 
 namespace
 {
@@ -13,8 +15,7 @@ namespace
 	{
 		D3dDdi::ScopedCriticalSection lock;
 		D3dDdi::Device::enableFlush(false);
-		HRESULT result = CompatVtable<IDirect3DDeviceVtbl>::s_origVtable.Execute(
-			This, lpDirect3DExecuteBuffer, lpDirect3DViewport, dwFlags);
+		HRESULT result = getOrigVtable(This).Execute(This, lpDirect3DExecuteBuffer, lpDirect3DViewport, dwFlags);
 		D3dDdi::Device::enableFlush(true);
 		return result;
 	}
@@ -22,44 +23,47 @@ namespace
 	template <typename TDirect3DDevice, typename TSurface>
 	HRESULT STDMETHODCALLTYPE setRenderTarget(TDirect3DDevice* This, TSurface* lpNewRenderTarget, DWORD dwFlags)
 	{
-		HRESULT result = CompatVtable<Vtable<TDirect3DDevice>>::s_origVtable.SetRenderTarget(
-			This, lpNewRenderTarget, dwFlags);
+		HRESULT result = getOrigVtable(This).SetRenderTarget(This, lpNewRenderTarget, dwFlags);
 		if (DDERR_INVALIDPARAMS == result && lpNewRenderTarget)
 		{
 			auto surface = DDraw::Surface::getSurface(*lpNewRenderTarget);
 			if (surface)
 			{
 				surface->setSizeOverride(1, 1);
-				result = CompatVtable<Vtable<TDirect3DDevice>>::s_origVtable.SetRenderTarget(
-					This, lpNewRenderTarget, dwFlags);
+				result = getOrigVtable(This).SetRenderTarget(This, lpNewRenderTarget, dwFlags);
 				surface->setSizeOverride(0, 0);
 			}
 		}
 		return result;
 	}
 
-	void setCompatVtable(IDirect3DDeviceVtbl& vtable)
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& vtable)
 	{
-		vtable.Execute = &execute;
-	}
-
-	template <typename TDirect3dDeviceVtbl>
-	void setCompatVtable(TDirect3dDeviceVtbl& vtable)
-	{
-		vtable.SetRenderTarget = &setRenderTarget;
+		if constexpr (std::is_same_v<Vtable, IDirect3DDeviceVtbl>)
+		{
+			vtable.Execute = &execute;
+		}
+		else
+		{
+			vtable.SetRenderTarget = &setRenderTarget;
+		}
 	}
 }
 
 namespace Direct3d
 {
-	template <typename TDirect3dDevice>
-	void Direct3dDevice<TDirect3dDevice>::setCompatVtable(Vtable<TDirect3dDevice>& vtable)
+	namespace Direct3dDevice
 	{
-		::setCompatVtable(vtable);
-	}
+		template <typename Vtable>
+		void hookVtable(const Vtable& vtable)
+		{
+			CompatVtable<Vtable>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+		}
 
-	template Direct3dDevice<IDirect3DDevice>;
-	template Direct3dDevice<IDirect3DDevice2>;
-	template Direct3dDevice<IDirect3DDevice3>;
-	template Direct3dDevice<IDirect3DDevice7>;
+		template void hookVtable(const IDirect3DDeviceVtbl&);
+		template void hookVtable(const IDirect3DDevice2Vtbl&);
+		template void hookVtable(const IDirect3DDevice3Vtbl&);
+		template void hookVtable(const IDirect3DDevice7Vtbl&);
+	}
 }

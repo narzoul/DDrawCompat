@@ -1,65 +1,73 @@
+#include <Common/CompatVtable.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceFuncs.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <D3dDdi/Visitors/DeviceFuncsVisitor.h>
 
 namespace
 {
-	template <typename MethodPtr, MethodPtr deviceMethod, typename... Params>
+	template <auto deviceMethod, typename... Params>
 	HRESULT WINAPI deviceFunc(HANDLE device, Params... params)
 	{
 		return (D3dDdi::Device::get(device).*deviceMethod)(params...);
 	}
 
-	template <typename MethodPtr, MethodPtr deviceStateMethod, typename... Params>
+	template <auto deviceMethod, typename... Params>
 	HRESULT WINAPI deviceStateFunc(HANDLE device, Params... params)
 	{
-		return (D3dDdi::Device::get(device).getState().*deviceStateMethod)(params...);
+		return (D3dDdi::Device::get(device).getState().*deviceMethod)(params...);
 	}
 
-	HRESULT APIENTRY destroyDevice(HANDLE hDevice)
+	template <auto memberPtr, typename... Params>
+	HRESULT WINAPI flushPrimitivesFunc(HANDLE hDevice, Params... params)
 	{
-		D3dDdi::Device::remove(hDevice);
-		return D3dDdi::DeviceFuncs::s_origVtablePtr->pfnDestroyDevice(hDevice);
+		auto& device = D3dDdi::Device::get(hDevice);
+		device.flushPrimitives();
+		return (device.getOrigVtable().*memberPtr)(hDevice, params...);
 	}
 
-	template <typename DeviceMethodPtr, DeviceMethodPtr deviceMethod, typename... Params>
-	HRESULT APIENTRY flushPrimitives(HANDLE hDevice, Params... params)
+	template <auto memberPtr, typename... Params>
+	auto WINAPI origDeviceFunc(HANDLE device, Params... params)
 	{
-		D3dDdi::Device::get(hDevice).flushPrimitives();
-		return (D3dDdi::DeviceFuncs::s_origVtablePtr->*deviceMethod)(hDevice, params...);
+		return (D3dDdi::Device::get(device).getOrigVtable().*memberPtr)(device, params...);
 	}
-}
 
-#define DEVICE_FUNC(func) deviceFunc<decltype(&Device::func), &Device::func>
-#define SET_DEVICE_STATE_FUNC(func) vtable.func = &deviceStateFunc<decltype(&DeviceState::func), &DeviceState::func>
-
-namespace D3dDdi
-{
-	void DeviceFuncs::onCreateDevice(HANDLE adapter, HANDLE device)
+	template <auto memberPtr>
+	constexpr auto getCompatFunc(D3DDDI_DEVICEFUNCS*)
 	{
-		Device::add(adapter, device);
+		auto func = getCompatVtable<D3DDDI_DEVICEFUNCS>().*memberPtr;
+		if (!func)
+		{
+			func = &origDeviceFunc<memberPtr>;
+		}
+		return func;
 	}
-	
-	void DeviceFuncs::setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
+
+	constexpr void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
-		vtable.pfnBlt = &DEVICE_FUNC(blt);
-		vtable.pfnClear = &DEVICE_FUNC(clear);
-		vtable.pfnColorFill = &DEVICE_FUNC(colorFill);
-		vtable.pfnCreateResource = &DEVICE_FUNC(createResource);
-		vtable.pfnCreateResource2 = &DEVICE_FUNC(createResource2);
-		vtable.pfnDestroyDevice = &destroyDevice;
-		vtable.pfnDestroyResource = &DEVICE_FUNC(destroyResource);
-		vtable.pfnDrawIndexedPrimitive2 = &DEVICE_FUNC(drawIndexedPrimitive2);
-		vtable.pfnDrawPrimitive = &DEVICE_FUNC(drawPrimitive);
-		vtable.pfnFlush = &DEVICE_FUNC(flush);
-		vtable.pfnFlush1 = &DEVICE_FUNC(flush1);
-		vtable.pfnLock = &DEVICE_FUNC(lock);
-		vtable.pfnOpenResource = &DEVICE_FUNC(openResource);
-		vtable.pfnPresent = &DEVICE_FUNC(present);
-		vtable.pfnPresent1 = &DEVICE_FUNC(present1);
-		vtable.pfnSetRenderTarget = &DEVICE_FUNC(setRenderTarget);
-		vtable.pfnSetStreamSource = &DEVICE_FUNC(setStreamSource);
-		vtable.pfnSetStreamSourceUm = &DEVICE_FUNC(setStreamSourceUm);
-		vtable.pfnUnlock = &DEVICE_FUNC(unlock);
+#define SET_DEVICE_FUNC(func) vtable.func = &deviceFunc<&D3dDdi::Device::func>
+#define SET_DEVICE_STATE_FUNC(func) vtable.func = &deviceStateFunc<&D3dDdi::DeviceState::func>
+#define SET_FLUSH_PRIMITIVES_FUNC(func) vtable.func = &flushPrimitivesFunc<&D3DDDI_DEVICEFUNCS::func>
+
+		SET_DEVICE_FUNC(pfnBlt);
+		SET_DEVICE_FUNC(pfnClear);
+		SET_DEVICE_FUNC(pfnColorFill);
+		SET_DEVICE_FUNC(pfnCreateResource);
+		SET_DEVICE_FUNC(pfnCreateResource2);
+		SET_DEVICE_FUNC(pfnDestroyDevice);
+		SET_DEVICE_FUNC(pfnDestroyResource);
+		SET_DEVICE_FUNC(pfnDrawIndexedPrimitive2);
+		SET_DEVICE_FUNC(pfnDrawPrimitive);
+		SET_DEVICE_FUNC(pfnFlush);
+		SET_DEVICE_FUNC(pfnFlush1);
+		SET_DEVICE_FUNC(pfnLock);
+		SET_DEVICE_FUNC(pfnOpenResource);
+		SET_DEVICE_FUNC(pfnPresent);
+		SET_DEVICE_FUNC(pfnPresent1);
+		SET_DEVICE_FUNC(pfnSetRenderTarget);
+		SET_DEVICE_FUNC(pfnSetStreamSource);
+		SET_DEVICE_FUNC(pfnSetStreamSourceUm);
+		SET_DEVICE_FUNC(pfnUnlock);
 
 		SET_DEVICE_STATE_FUNC(pfnCreateVertexShaderDecl);
 		SET_DEVICE_STATE_FUNC(pfnDeletePixelShader);
@@ -80,21 +88,31 @@ namespace D3dDdi
 		SET_DEVICE_STATE_FUNC(pfnSetZRange);
 		SET_DEVICE_STATE_FUNC(pfnUpdateWInfo);
 
-#define FLUSH_PRIMITIVES(func) vtable.func = &flushPrimitives<decltype(&D3DDDI_DEVICEFUNCS::func), &D3DDDI_DEVICEFUNCS::func>
-		FLUSH_PRIMITIVES(pfnBufBlt);
-		FLUSH_PRIMITIVES(pfnBufBlt1);
-		FLUSH_PRIMITIVES(pfnDepthFill);
-		FLUSH_PRIMITIVES(pfnDiscard);
-		FLUSH_PRIMITIVES(pfnGenerateMipSubLevels);
-		FLUSH_PRIMITIVES(pfnSetClipPlane);
-		FLUSH_PRIMITIVES(pfnSetDepthStencil);
-		FLUSH_PRIMITIVES(pfnSetPalette);
-		FLUSH_PRIMITIVES(pfnSetScissorRect);
-		FLUSH_PRIMITIVES(pfnSetViewport);
-		FLUSH_PRIMITIVES(pfnStateSet);
-		FLUSH_PRIMITIVES(pfnTexBlt);
-		FLUSH_PRIMITIVES(pfnTexBlt1);
-		FLUSH_PRIMITIVES(pfnUpdatePalette);
-#undef  FLUSH_PRIMITIVES
+		SET_FLUSH_PRIMITIVES_FUNC(pfnBufBlt);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnBufBlt1);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnDepthFill);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnDiscard);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnGenerateMipSubLevels);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnSetClipPlane);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnSetDepthStencil);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnSetPalette);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnSetScissorRect);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnSetViewport);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnStateSet);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnTexBlt);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnTexBlt1);
+		SET_FLUSH_PRIMITIVES_FUNC(pfnUpdatePalette);
+	}
+}
+
+namespace D3dDdi
+{
+	namespace DeviceFuncs
+	{
+		void hookVtable(const D3DDDI_DEVICEFUNCS& vtable, UINT version)
+		{
+			CompatVtable<D3DDDI_DEVICEFUNCS>::s_origVtable = {};
+			CompatVtable<D3DDDI_DEVICEFUNCS>::hookVtable<ScopedCriticalSection>(vtable, version);
+		}
 	}
 }

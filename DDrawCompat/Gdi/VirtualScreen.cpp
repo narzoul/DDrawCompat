@@ -81,7 +81,7 @@ namespace
 		}
 		else
 		{
-			const auto pf = DDraw::getRgbPixelFormat(g_bpp);
+			const auto pf = DDraw::DirectDraw::getRgbPixelFormat(g_bpp);
 			reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = pf.dwRBitMask;
 			reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = pf.dwGBitMask;
 			reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = pf.dwBBitMask;
@@ -201,7 +201,7 @@ namespace Gdi
 			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS | DDSD_PITCH | DDSD_LPSURFACE;
 			desc.dwWidth = rect.right - rect.left;
 			desc.dwHeight = rect.bottom - rect.top;
-			desc.ddpfPixelFormat = DDraw::getRgbPixelFormat(g_bpp);
+			desc.ddpfPixelFormat = DDraw::DirectDraw::getRgbPixelFormat(g_bpp);
 			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 			desc.lPitch = g_pitch;
 			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + 8 +

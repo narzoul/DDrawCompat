@@ -1,5 +1,6 @@
 #include <set>
 
+#include <Common/CompatPtr.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -7,6 +8,15 @@
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Dll/Dll.h>
+
+namespace
+{
+	void* getSurface7VtablePtr(IUnknown* surface)
+	{
+		static void* vtable = CompatPtr<IDirectDrawSurface7>::from(surface).get()->lpVtbl;
+		return vtable;
+	}
+}
 
 namespace DDraw
 {
@@ -31,7 +41,7 @@ namespace DDraw
 			return DDERR_WASSTILLDRAWING;
 		}
 		DirectDrawClipper::update();
-		return s_origVtable.Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		return getOrigVtable(This).Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
 
 	template <typename TSurface>
@@ -42,19 +52,19 @@ namespace DDraw
 		{
 			return DDERR_WASSTILLDRAWING;
 		}
-		return s_origVtable.BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
+		return getOrigVtable(This).BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	}
 
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
-		return s_origVtable.Flip(This, lpDDSurfaceTargetOverride, dwFlags);
+		return getOrigVtable(This).Flip(This, lpDDSurfaceTargetOverride, dwFlags);
 	}
 
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetBltStatus(TSurface* This, DWORD dwFlags)
 	{
-		HRESULT result = s_origVtable.GetBltStatus(This, dwFlags);
+		HRESULT result = getOrigVtable(This).GetBltStatus(This, dwFlags);
 		if (SUCCEEDED(result) && (dwFlags & DDGBS_CANBLT))
 		{
 			const bool wait = false;
@@ -69,13 +79,13 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
-		return s_origVtable.GetCaps(This, lpDDSCaps);
+		return getOrigVtable(This).GetCaps(This, lpDDSCaps);
 	}
 
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
-		HRESULT result = s_origVtable.GetDC(This, lphDC);
+		HRESULT result = getOrigVtable(This).GetDC(This, lphDC);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::waitForFlip(m_data);
@@ -87,7 +97,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetFlipStatus(TSurface* This, DWORD dwFlags)
 	{
-		HRESULT result = s_origVtable.GetFlipStatus(This, dwFlags);
+		HRESULT result = getOrigVtable(This).GetFlipStatus(This, dwFlags);
 		if (SUCCEEDED(result))
 		{
 			const bool wait = false;
@@ -102,7 +112,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
-		HRESULT result = s_origVtable.GetSurfaceDesc(This, lpDDSurfaceDesc);
+		HRESULT result = getOrigVtable(This).GetSurfaceDesc(This, lpDDSurfaceDesc);
 		if (SUCCEEDED(result) && 0 != m_data->m_sizeOverride.cx)
 		{
 			lpDDSurfaceDesc->dwWidth = m_data->m_sizeOverride.cx;
@@ -115,7 +125,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::IsLost(TSurface* This)
 	{
-		return s_origVtable.IsLost(This);
+		return getOrigVtable(This).IsLost(This);
 	}
 
 	template <typename TSurface>
@@ -128,15 +138,15 @@ namespace DDraw
 			return DDERR_WASSTILLDRAWING;
 		}
 
-		HRESULT result = s_origVtable.Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
+		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (DDERR_SURFACELOST == result)
 		{
 			TSurfaceDesc desc = {};
 			desc.dwSize = sizeof(desc);
-			if (SUCCEEDED(s_origVtable.GetSurfaceDesc(This, &desc)) && !(desc.dwFlags & DDSD_HEIGHT))
+			if (SUCCEEDED(getOrigVtable(This).GetSurfaceDesc(This, &desc)) && !(desc.dwFlags & DDSD_HEIGHT))
 			{
 				// Fixes missing handling for lost vertex buffers in Messiah
-				s_origVtable.Restore(This);
+				getOrigVtable(This).Restore(This);
 				// Still, pass back DDERR_SURFACELOST to the application in case it handles it
 			}
 		}
@@ -148,11 +158,11 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
 		auto iid = (IID_IDirect3DRampDevice == riid) ? &IID_IDirect3DRGBDevice : &riid;
-		HRESULT result = s_origVtable.QueryInterface(This, *iid, obp);
+		HRESULT result = getOrigVtable(This).QueryInterface(This, *iid, obp);
 		if (DDERR_INVALIDOBJECT == result)
 		{
 			m_data->setSizeOverride(1, 1);
-			result = s_origVtable.QueryInterface(This, *iid, obp);
+			result = getOrigVtable(This).QueryInterface(This, *iid, obp);
 			m_data->setSizeOverride(0, 0);
 		}
 		return result;
@@ -161,7 +171,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
-		HRESULT result = s_origVtable.ReleaseDC(This, hDC);
+		HRESULT result = getOrigVtable(This).ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
 			Dll::g_origProcs.AcquireDDThreadLock();
@@ -172,7 +182,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Restore(TSurface* This)
 	{
-		HRESULT result = s_origVtable.Restore(This);
+		HRESULT result = getOrigVtable(This).Restore(This);
 		if (SUCCEEDED(result))
 		{
 			m_data->restore();
@@ -183,26 +193,22 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette)
 	{
-		return s_origVtable.SetPalette(This, lpDDPalette);
+		return getOrigVtable(This).SetPalette(This, lpDDPalette);
 	}
 
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 	{
-		return s_origVtable.Unlock(This, lpRect);
+		return getOrigVtable(This).Unlock(This, lpRect);
 	}
 
 	template <typename TSurface>
 	bool SurfaceImpl<TSurface>::waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
 	{
 		const bool wait = (flags & waitFlag) || !(flags & doNotWaitFlag) &&
-			CompatVtable<IDirectDrawSurface7Vtbl>::s_origVtablePtr == static_cast<void*>(This->lpVtbl);
+			getSurface7VtablePtr(reinterpret_cast<IUnknown*>(This)) == This->lpVtbl;
 		return DDraw::RealPrimarySurface::waitForFlip(m_data, wait);
 	}
-
-	template <typename TSurface>
-	const Vtable<TSurface>& SurfaceImpl<TSurface>::s_origVtable =
-		CompatVtable<Vtable<TSurface>>::s_origVtable;
 
 	template SurfaceImpl<IDirectDrawSurface>;
 	template SurfaceImpl<IDirectDrawSurface2>;

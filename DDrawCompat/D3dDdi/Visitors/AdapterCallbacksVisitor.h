@@ -5,18 +5,13 @@
 
 #include <Common/VtableVisitor.h>
 
-struct AdapterCallbacksIntf
-{
-	D3DDDI_ADAPTERCALLBACKS* lpVtbl;
-};
-
 template <>
 struct VtableForEach<D3DDDI_ADAPTERCALLBACKS>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT /*version*/)
 	{
 		DD_VISIT(pfnQueryAdapterInfoCb);
-		// DD_VISIT(pfnGetMultisampleMethodListCb);   -- not set by ddraw, potentially garbage
+		DD_VISIT(pfnGetMultisampleMethodListCb);
 	}
 };

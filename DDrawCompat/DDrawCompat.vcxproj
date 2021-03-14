@@ -134,12 +134,12 @@
     <ClInclude Include="Common\CompatQueryInterface.h" />
     <ClInclude Include="Common\CompatRef.h" />
     <ClInclude Include="Common\CompatVtable.h" />
-    <ClInclude Include="Common\CompatVtableInstance.h" />
     <ClInclude Include="Common\CompatWeakPtr.h" />
     <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
     <ClInclude Include="Common\ScopedSrwLock.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
+    <ClInclude Include="Common\VtableSizeVisitor.h" />
     <ClInclude Include="Common\VtableVisitor.h" />
     <ClInclude Include="Common\Hook.h" />
     <ClInclude Include="Common\ScopedCriticalSection.h" />
@@ -148,7 +148,6 @@
     <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
     <ClInclude Include="D3dDdi\AdapterFuncs.h" />
-    <ClInclude Include="D3dDdi\D3dDdiVtable.h" />
     <ClInclude Include="D3dDdi\Device.h" />
     <ClInclude Include="D3dDdi\DeviceCallbacks.h" />
     <ClInclude Include="D3dDdi\DeviceFuncs.h" />

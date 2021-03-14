@@ -1,33 +1,64 @@
 #pragma once
 
-#include <Common/CompatVtableInstance.h>
-#include <DDraw/ScopedThreadLock.h>
+#include <Windows.h>
+
+#include <Common/VtableHookVisitor.h>
+#include <Common/VtableSizeVisitor.h>
+#include <Common/VtableVisitor.h>
 
 template <typename Interface>
 using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
 
+template <typename Interface>
+const Vtable<Interface>& getOrigVtable(Interface* /*This*/)
+{
+	return CompatVtable<Vtable<Interface>>::s_origVtable;
+}
+
 template <typename Vtable>
-class CompatVtable : public CompatVtableInstance<Vtable, DDraw::ScopedThreadLock>
+class CompatVtable
 {
 public:
-	static const Vtable& getOrigVtable(const Vtable& vtable)
+	static void hookCallbackVtable(const Vtable& vtable, UINT version)
 	{
-		return s_origVtable.AddRef ? s_origVtable : vtable;
-	}
+		static unsigned origVtableSize = 0;
+		auto vtableSize = getVtableSize(version);
+		memcpy(const_cast<Vtable*>(&vtable), &s_origVtable, min(vtableSize, origVtableSize));
 
-	static void hookVtable(const Vtable* vtable)
-	{
-		if (!s_origVtablePtr && vtable)
+		class NullLock {};
+		hookVtable<NullLock>(vtable, version);
+
+		if (vtableSize > origVtableSize)
 		{
-			s_origVtablePtr = vtable;
-			Vtable compatVtable = {};
-			Compat::setCompatVtable(compatVtable);
-			CompatVtableInstance::hookVtable(*vtable, compatVtable);
+			origVtableSize = vtableSize;
 		}
 	}
 
-	static const Vtable* s_origVtablePtr;
+	template <typename Lock>
+	static void hookVtable(const Vtable& vtable, UINT version = 0)
+	{
+		auto vtableSize = getVtableSize(version);
+		memcpy(&s_origVtable, &vtable, vtableSize);
+
+		DWORD oldProtect = 0;
+		VirtualProtect(const_cast<Vtable*>(&vtable), vtableSize, PAGE_READWRITE, &oldProtect);
+
+		VtableHookVisitor<Vtable, Lock> vtableHookVisitor(vtable);
+		forEach<Vtable>(vtableHookVisitor, version);
+
+		VirtualProtect(const_cast<Vtable*>(&vtable), vtableSize, oldProtect, &oldProtect);
+	}
+
+	static Vtable s_origVtable;
+
+private:
+	static unsigned getVtableSize(UINT version)
+	{
+		VtableSizeVisitor<Vtable> vtableSizeVisitor;
+		forEach<Vtable>(vtableSizeVisitor, version);
+		return vtableSizeVisitor.getSize();
+	}
 };
 
 template <typename Vtable>
-const Vtable* CompatVtable<Vtable>::s_origVtablePtr = nullptr;
+Vtable CompatVtable<Vtable>::s_origVtable = {};

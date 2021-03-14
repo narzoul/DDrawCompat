@@ -8,9 +8,9 @@ template <>
 struct VtableForEach<IDirect3DDeviceVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(Initialize);
 		DD_VISIT(GetCaps);
@@ -38,9 +38,9 @@ template <>
 struct VtableForEach<IDirect3DDevice2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(SwapTextureHandles);
@@ -79,9 +79,9 @@ template <>
 struct VtableForEach<IDirect3DDevice3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(GetStats);
@@ -129,9 +129,9 @@ template <>
 struct VtableForEach<IDirect3DDevice7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetCaps);
 		DD_VISIT(EnumTextureFormats);

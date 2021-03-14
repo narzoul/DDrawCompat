@@ -6,9 +6,9 @@ template <>
 struct VtableForEach<IDirectDrawSurfaceVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(AddAttachedSurface);
 		DD_VISIT(AddOverlayDirtyRect);
@@ -50,9 +50,9 @@ template <>
 struct VtableForEach<IDirectDrawSurface2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDrawSurfaceVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurfaceVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetDDInterface);
 		DD_VISIT(PageLock);
@@ -64,9 +64,9 @@ template <>
 struct VtableForEach<IDirectDrawSurface3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDrawSurface2Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface2Vtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(SetSurfaceDesc);
 	}
@@ -76,9 +76,9 @@ template <>
 struct VtableForEach<IDirectDrawSurface4Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDrawSurface3Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface3Vtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(SetPrivateData);
 		DD_VISIT(GetPrivateData);
@@ -92,9 +92,9 @@ template <>
 struct VtableForEach<IDirectDrawSurface7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDrawSurface4Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawSurface4Vtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(SetPriority);
 		DD_VISIT(GetPriority);

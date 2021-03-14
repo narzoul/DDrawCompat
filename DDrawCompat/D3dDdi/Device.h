@@ -18,7 +18,7 @@ namespace D3dDdi
 	class Device
 	{
 	public:
-		Device(HANDLE adapter, HANDLE device);
+		Device(Adapter& adapter, HANDLE device);
 
 		Device(const Device&) = delete;
 		Device(Device&&) = delete;
@@ -27,25 +27,26 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_device; }
 
-		HRESULT blt(const D3DDDIARG_BLT* data);
-		HRESULT clear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect);
-		HRESULT colorFill(const D3DDDIARG_COLORFILL* data);
-		HRESULT createResource(D3DDDIARG_CREATERESOURCE* data);
-		HRESULT createResource2(D3DDDIARG_CREATERESOURCE2* data);
-		HRESULT destroyResource(HANDLE resource);
-		HRESULT drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
+		HRESULT pfnBlt(const D3DDDIARG_BLT* data);
+		HRESULT pfnClear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect);
+		HRESULT pfnColorFill(const D3DDDIARG_COLORFILL* data);
+		HRESULT pfnCreateResource(D3DDDIARG_CREATERESOURCE* data);
+		HRESULT pfnCreateResource2(D3DDDIARG_CREATERESOURCE2* data);
+		HRESULT pfnDestroyDevice();
+		HRESULT pfnDestroyResource(HANDLE resource);
+		HRESULT pfnDrawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 			UINT indicesSize, const void* indexBuffer, const UINT* flagBuffer);
-		HRESULT drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer);
-		HRESULT flush();
-		HRESULT flush1(UINT FlushFlags);
-		HRESULT lock(D3DDDIARG_LOCK* data);
-		HRESULT openResource(D3DDDIARG_OPENRESOURCE* data);
-		HRESULT present(const D3DDDIARG_PRESENT* data);
-		HRESULT present1(D3DDDIARG_PRESENT1* data);
-		HRESULT setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
-		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
-		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
-		HRESULT unlock(const D3DDDIARG_UNLOCK* data);
+		HRESULT pfnDrawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer);
+		HRESULT pfnFlush();
+		HRESULT pfnFlush1(UINT FlushFlags);
+		HRESULT pfnLock(D3DDDIARG_LOCK* data);
+		HRESULT pfnOpenResource(D3DDDIARG_OPENRESOURCE* data);
+		HRESULT pfnPresent(const D3DDDIARG_PRESENT* data);
+		HRESULT pfnPresent1(D3DDDIARG_PRESENT1* data);
+		HRESULT pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
+		HRESULT pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
+		HRESULT pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
+		HRESULT pfnUnlock(const D3DDDIARG_UNLOCK* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
@@ -60,9 +61,8 @@ namespace D3dDdi
 
 		bool isSrcColorKeySupported() const { return m_isSrcColorKeySupported; }
 
-		static void add(HANDLE adapter, HANDLE device);
-		static Device& get(HANDLE device);
-		static void remove(HANDLE device);
+		static void add(Adapter& adapter, HANDLE device);
+		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
 		static Resource* findResource(HANDLE resource);
@@ -75,7 +75,7 @@ namespace D3dDdi
 		template <typename Arg>
 		HRESULT createResourceImpl(Arg& data);
 
-		const D3DDDI_DEVICEFUNCS& m_origVtable;
+		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
 		std::unordered_map<HANDLE, Resource> m_resources;

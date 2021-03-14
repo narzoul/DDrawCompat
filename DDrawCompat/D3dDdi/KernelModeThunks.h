@@ -8,7 +8,7 @@ namespace D3dDdi
 	{
 		RECT getMonitorRect();
 		UINT getVsyncCounter();
-		void installHooks(HMODULE origDDrawModule);
+		void installHooks();
 		void setDcFormatOverride(UINT format);
 		void setDcPaletteOverride(bool enable);
 		void waitForVsync();

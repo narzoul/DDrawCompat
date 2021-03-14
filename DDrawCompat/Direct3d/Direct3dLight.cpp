@@ -1,8 +1,22 @@
+#include <Common/CompatVtable.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <Direct3d/Direct3dLight.h>
+#include <Direct3d/Visitors/Direct3dLightVtblVisitor.h>
+
+namespace
+{
+	constexpr void setCompatVtable(IDirect3DLightVtbl& /*vtable*/)
+	{
+	}
+}
 
 namespace Direct3d
 {
-	void Direct3dLight::setCompatVtable(IDirect3DLightVtbl& /*vtable*/)
+	namespace Direct3dLight
 	{
+		void hookVtable(const IDirect3DLightVtbl & vtable)
+		{
+			CompatVtable<IDirect3DLightVtbl>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+		}
 	}
 }

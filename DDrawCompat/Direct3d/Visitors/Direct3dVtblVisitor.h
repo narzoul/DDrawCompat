@@ -8,9 +8,9 @@ template <>
 struct VtableForEach<IDirect3DVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(Initialize);
 		DD_VISIT(EnumDevices);
@@ -25,9 +25,9 @@ template <>
 struct VtableForEach<IDirect3D2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateLight);
@@ -42,9 +42,9 @@ template <>
 struct VtableForEach<IDirect3D3Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateLight);
@@ -62,9 +62,9 @@ template <>
 struct VtableForEach<IDirect3D7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(EnumDevices);
 		DD_VISIT(CreateDevice);

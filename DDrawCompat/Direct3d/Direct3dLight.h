@@ -1,16 +1,13 @@
 #pragma once
 
-#include <Common/CompatVtable.h>
+#include <d3d.h>
+
 #include <Direct3d/Log.h>
-#include <Direct3d/Visitors/Direct3dLightVtblVisitor.h>
 
 namespace Direct3d
 {
-	class Direct3dLight : public CompatVtable<IDirect3DLightVtbl>
+	namespace Direct3dLight
 	{
-	public:
-		static void setCompatVtable(IDirect3DLightVtbl& vtable);
-	};
+		void hookVtable(const IDirect3DLightVtbl& vtable);
+	}
 }
-
-SET_COMPAT_VTABLE(IDirect3DLightVtbl, Direct3d::Direct3dLight);

@@ -1,20 +1,17 @@
 #pragma once
 
+#include <ddraw.h>
+
 #include <Common/CompatRef.h>
-#include <Common/CompatVtable.h>
-#include <DDraw/Visitors/DirectDrawClipperVtblVisitor.h>
 
 namespace DDraw
 {
-	class DirectDrawClipper : public CompatVtable<IDirectDrawClipperVtbl>
+	namespace DirectDrawClipper
 	{
-	public:
-		static HRGN getClipRgn(CompatRef<IDirectDrawClipper> clipper);
-		static HRESULT setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn);
-		static void update();
+		HRGN getClipRgn(CompatRef<IDirectDrawClipper> clipper);
+		HRESULT setClipRgn(CompatRef<IDirectDrawClipper> clipper, HRGN rgn);
+		void update();
 
-		static void setCompatVtable(IDirectDrawClipperVtbl& vtable);
-	};
+		void hookVtable(const IDirectDrawClipperVtbl& vtable);
+	}
 }
-
-SET_COMPAT_VTABLE(IDirectDrawClipperVtbl, DDraw::DirectDrawClipper);

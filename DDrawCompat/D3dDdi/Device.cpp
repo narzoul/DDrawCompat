@@ -1,15 +1,17 @@
-#include <memory>
 #include <sstream>
 
 #include <d3d.h>
 #include <winternl.h>
 #include <../km/d3dkmthk.h>
 
+#include <Common/CompatVtable.h>
 #include <Common/HResultException.h>
+#include <Common/Log.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceFuncs.h>
 #include <D3dDdi/Resource.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 
 namespace
 {
@@ -32,9 +34,9 @@ namespace
 
 namespace D3dDdi
 {
-	Device::Device(HANDLE adapter, HANDLE device)
-		: m_origVtable(*DeviceFuncs::s_origVtablePtr)
-		, m_adapter(Adapter::get(adapter))
+	Device::Device(Adapter& adapter, HANDLE device)
+		: m_origVtable(CompatVtable<D3DDDI_DEVICEFUNCS>::s_origVtable)
+		, m_adapter(adapter)
 		, m_device(device)
 		, m_isSrcColorKeySupported(checkSrcColorKeySupport())
 		, m_renderTarget(nullptr)
@@ -45,18 +47,10 @@ namespace D3dDdi
 	{
 	}
 
-	HRESULT Device::blt(const D3DDDIARG_BLT* data)
+	void Device::add(Adapter& adapter, HANDLE device)
 	{
-		flushPrimitives();
-		auto it = m_resources.find(data->hDstResource);
-		if (it != m_resources.end())
-		{
-			return it->second.blt(*data);
-		}
-		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
-		return m_origVtable.pfnBlt(m_device, data);
+		s_devices.try_emplace(device, adapter, device);
 	}
-
 	bool Device::checkSrcColorKeySupport()
 	{
 		if (!(m_adapter.getDDrawCaps().CKeyCaps & DDRAW_CKEYCAPS_SRCBLT))
@@ -162,27 +156,6 @@ namespace D3dDdi
 		return true;
 	}
 
-	HRESULT Device::clear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
-	{
-		flushPrimitives();
-		if (data->Flags & D3DCLEAR_TARGET)
-		{
-			prepareForRendering();
-		}
-		return m_origVtable.pfnClear(m_device, data, numRect, rect);
-	}
-
-	HRESULT Device::colorFill(const D3DDDIARG_COLORFILL* data)
-	{
-		flushPrimitives();
-		auto it = m_resources.find(data->hResource);
-		if (it != m_resources.end())
-		{
-			return it->second.colorFill(*data);
-		}
-		return m_origVtable.pfnColorFill(m_device, data);
-	}
-
 	HRESULT Device::createPrivateResource(D3DDDIARG_CREATERESOURCE2& data)
 	{
 		if (m_origVtable.pfnCreateResource2)
@@ -214,17 +187,122 @@ namespace D3dDdi
 		}
 	}
 
-	HRESULT Device::createResource(D3DDDIARG_CREATERESOURCE* data)
+	Resource* Device::findResource(HANDLE resource)
+	{
+		for (auto& device : s_devices)
+		{
+			auto res = device.second.getResource(resource);
+			if (res)
+			{
+				return res;
+			}
+		}
+		return nullptr;
+	}
+
+	Resource* Device::getGdiResource()
+	{
+		return g_gdiResource;
+	}
+
+	Resource* Device::getResource(HANDLE resource)
+	{
+		auto it = m_resources.find(resource);
+		return it != m_resources.end() ? &it->second : nullptr;
+	}
+
+	void Device::setGdiResourceHandle(HANDLE resource)
+	{
+		ScopedCriticalSection lock;
+		if ((!resource && !g_gdiResource) ||
+			(g_gdiResource && resource == *g_gdiResource))
+		{
+			return;
+		}
+
+		if (g_gdiResource)
+		{
+			g_gdiResource->setAsGdiResource(false);
+		}
+
+		g_gdiResourceHandle = resource;
+		g_gdiResource = findResource(resource);
+
+		if (g_gdiResource)
+		{
+			g_gdiResource->setAsGdiResource(true);
+		}
+	}
+
+	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
+	{
+		auto it = m_resources.find(resource);
+		if (it != m_resources.end())
+		{
+			it->second.prepareForRendering(subResourceIndex, isReadOnly);
+		}
+	}
+
+	void Device::prepareForRendering()
+	{
+		if (m_renderTarget)
+		{
+			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
+		}
+	}
+
+	HRESULT Device::pfnBlt(const D3DDDIARG_BLT* data)
+	{
+		flushPrimitives();
+		auto it = m_resources.find(data->hDstResource);
+		if (it != m_resources.end())
+		{
+			return it->second.blt(*data);
+		}
+		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
+		return m_origVtable.pfnBlt(m_device, data);
+	}
+
+	HRESULT Device::pfnClear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
+	{
+		flushPrimitives();
+		if (data->Flags & D3DCLEAR_TARGET)
+		{
+			prepareForRendering();
+		}
+		return m_origVtable.pfnClear(m_device, data, numRect, rect);
+	}
+
+	HRESULT Device::pfnColorFill(const D3DDDIARG_COLORFILL* data)
+	{
+		flushPrimitives();
+		auto it = m_resources.find(data->hResource);
+		if (it != m_resources.end())
+		{
+			return it->second.colorFill(*data);
+		}
+		return m_origVtable.pfnColorFill(m_device, data);
+	}
+
+	HRESULT Device::pfnCreateResource(D3DDDIARG_CREATERESOURCE* data)
 	{
 		return createResourceImpl(*data);
 	}
 
-	HRESULT Device::createResource2(D3DDDIARG_CREATERESOURCE2* data)
+	HRESULT Device::pfnCreateResource2(D3DDDIARG_CREATERESOURCE2* data)
 	{
 		return createResourceImpl(*data);
 	}
 
-	HRESULT Device::destroyResource(HANDLE resource)
+	HRESULT Device::pfnDestroyDevice()
+	{
+		auto device = m_device;
+		auto pfnDestroyDevice = m_origVtable.pfnDestroyDevice;
+		s_devices.erase(device);
+		return pfnDestroyDevice(device);
+	}
+
+	HRESULT Device::pfnDestroyResource(HANDLE resource)
 	{
 		flushPrimitives();
 		if (g_gdiResource && resource == *g_gdiResource)
@@ -263,20 +341,20 @@ namespace D3dDdi
 		return result;
 	}
 
-	HRESULT Device::drawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
+	HRESULT Device::pfnDrawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 		UINT /*indicesSize*/, const void* indexBuffer, const UINT* flagBuffer)
 	{
 		prepareForRendering();
 		return m_drawPrimitive.drawIndexed(*data, static_cast<const UINT16*>(indexBuffer), flagBuffer);
 	}
 
-	HRESULT Device::drawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
+	HRESULT Device::pfnDrawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
 	{
 		prepareForRendering();
 		return m_drawPrimitive.draw(*data, flagBuffer);
 	}
 
-	HRESULT Device::flush()
+	HRESULT Device::pfnFlush()
 	{
 		if (!s_isFlushEnabled)
 		{
@@ -286,7 +364,7 @@ namespace D3dDdi
 		return m_origVtable.pfnFlush(m_device);
 	}
 
-	HRESULT Device::flush1(UINT FlushFlags)
+	HRESULT Device::pfnFlush1(UINT FlushFlags)
 	{
 		if (!s_isFlushEnabled && 0 == FlushFlags)
 		{
@@ -296,7 +374,7 @@ namespace D3dDdi
 		return m_origVtable.pfnFlush1(m_device, FlushFlags);
 	}
 
-	HRESULT Device::lock(D3DDDIARG_LOCK* data)
+	HRESULT Device::pfnLock(D3DDDIARG_LOCK* data)
 	{
 		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
@@ -307,7 +385,7 @@ namespace D3dDdi
 		return m_origVtable.pfnLock(m_device, data);
 	}
 
-	HRESULT Device::openResource(D3DDDIARG_OPENRESOURCE* data)
+	HRESULT Device::pfnOpenResource(D3DDDIARG_OPENRESOURCE* data)
 	{
 		HRESULT result = m_origVtable.pfnOpenResource(m_device, data);
 		if (SUCCEEDED(result) && data->Flags.Fullscreen)
@@ -317,14 +395,14 @@ namespace D3dDdi
 		return result;
 	}
 
-	HRESULT Device::present(const D3DDDIARG_PRESENT* data)
+	HRESULT Device::pfnPresent(const D3DDDIARG_PRESENT* data)
 	{
 		flushPrimitives();
 		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnPresent(m_device, data);
 	}
 
-	HRESULT Device::present1(D3DDDIARG_PRESENT1* data)
+	HRESULT Device::pfnPresent1(D3DDDIARG_PRESENT1* data)
 	{
 		flushPrimitives();
 		for (UINT i = 0; i < data->SrcResources; ++i)
@@ -334,7 +412,7 @@ namespace D3dDdi
 		return m_origVtable.pfnPresent1(m_device, data);
 	}
 
-	HRESULT Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
+	HRESULT Device::pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
 	{
 		flushPrimitives();
 		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, data);
@@ -346,17 +424,17 @@ namespace D3dDdi
 		return result;
 	}
 
-	HRESULT Device::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
+	HRESULT Device::pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
 	{
 		return m_drawPrimitive.setStreamSource(*data);
 	}
 
-	HRESULT Device::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
+	HRESULT Device::pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
 	{
 		return m_drawPrimitive.setStreamSourceUm(*data, umBuffer);
 	}
 
-	HRESULT Device::unlock(const D3DDDIARG_UNLOCK* data)
+	HRESULT Device::pfnUnlock(const D3DDDIARG_UNLOCK* data)
 	{
 		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
@@ -365,91 +443,6 @@ namespace D3dDdi
 			return it->second.unlock(*data);
 		}
 		return m_origVtable.pfnUnlock(m_device, data);
-	}
-
-	Resource* Device::getGdiResource()
-	{
-		return g_gdiResource;
-	}
-
-	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
-	{
-		auto it = m_resources.find(resource);
-		if (it != m_resources.end())
-		{
-			it->second.prepareForRendering(subResourceIndex, isReadOnly);
-		}
-	}
-
-	void Device::prepareForRendering()
-	{
-		if (m_renderTarget)
-		{
-			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
-		}
-	}
-
-	void Device::add(HANDLE adapter, HANDLE device)
-	{
-		s_devices.try_emplace(device, adapter, device);
-	}
-
-	Device& Device::get(HANDLE device)
-	{
-		auto it = s_devices.find(device);
-		if (it != s_devices.end())
-		{
-			return it->second;
-		}
-
-		return s_devices.try_emplace(device, nullptr, device).first->second;
-	}
-
-	void Device::remove(HANDLE device)
-	{
-		s_devices.erase(device);
-	}
-
-	Resource* Device::getResource(HANDLE resource)
-	{
-		auto it = m_resources.find(resource);
-		return it != m_resources.end() ? &it->second : nullptr;
-	}
-
-	Resource* Device::findResource(HANDLE resource)
-	{
-		for (auto& device : s_devices)
-		{
-			auto res = device.second.getResource(resource);
-			if (res)
-			{
-				return res;
-			}
-		}
-		return nullptr;
-	}
-
-	void Device::setGdiResourceHandle(HANDLE resource)
-	{
-		ScopedCriticalSection lock;
-		if ((!resource && !g_gdiResource) ||
-			(g_gdiResource && resource == *g_gdiResource))
-		{
-			return;
-		}
-
-		if (g_gdiResource)
-		{
-			g_gdiResource->setAsGdiResource(false);
-		}
-
-		g_gdiResourceHandle = resource;
-		g_gdiResource = findResource(resource);
-
-		if (g_gdiResource)
-		{
-			g_gdiResource->setAsGdiResource(true);
-		}
 	}
 
 	std::map<HANDLE, Device> Device::s_devices;

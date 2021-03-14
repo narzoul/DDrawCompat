@@ -8,9 +8,9 @@ template <>
 struct VtableForEach<IDirect3DExecuteBufferVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
         DD_VISIT(Initialize);
         DD_VISIT(Lock);

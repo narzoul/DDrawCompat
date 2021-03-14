@@ -1,15 +1,11 @@
 #pragma once
 
-#include <Common/CompatVtable.h>
-#include <DDraw/Visitors/DirectDrawGammaControlVtblVisitor.h>
+#include <ddraw.h>
 
 namespace DDraw
 {
-	class DirectDrawGammaControl : public CompatVtable<IDirectDrawGammaControlVtbl>
+	namespace DirectDrawGammaControl
 	{
-	public:
-		static void setCompatVtable(IDirectDrawGammaControlVtbl& vtable);
-	};
+		void hookVtable(const IDirectDrawGammaControlVtbl& vtable);
+	}
 }
-
-SET_COMPAT_VTABLE(IDirectDrawGammaControlVtbl, DDraw::DirectDrawGammaControl);

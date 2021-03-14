@@ -1,24 +1,13 @@
 #pragma once
 
-#include <Common/CompatVtable.h>
-#include <DDraw/Visitors/DirectDrawPaletteVtblVisitor.h>
+#include <ddraw.h>
 
 namespace DDraw
 {
-	class DirectDrawPalette : public CompatVtable<IDirectDrawPaletteVtbl>
+	namespace DirectDrawPalette
 	{
-	public:
-		static void setCompatVtable(IDirectDrawPaletteVtbl& vtable);
+		void waitForNextUpdate();
 
-		static HRESULT STDMETHODCALLTYPE SetEntries(
-			IDirectDrawPalette* This,
-			DWORD dwFlags,
-			DWORD dwStartingEntry,
-			DWORD dwCount,
-			LPPALETTEENTRY lpEntries);
-
-		static void waitForNextUpdate();
-	};
+		void hookVtable(const IDirectDrawPaletteVtbl& vtable);
+	}
 }
-
-SET_COMPAT_VTABLE(IDirectDrawPaletteVtbl, DDraw::DirectDrawPalette);

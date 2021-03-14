@@ -1,8 +1,14 @@
+#include <set>
+#include <type_traits>
+
 #include <Common/CompatPtr.h>
+#include <Common/CompatVtable.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3d.h>
 #include <Direct3d/Direct3dDevice.h>
-#include <Direct3d/Types.h>
+#include <Direct3d/Direct3dVertexBuffer.h>
+#include <Direct3d/Visitors/Direct3dVtblVisitor.h>
 
 namespace
 {
@@ -15,47 +21,70 @@ namespace
 		Params... params)
 	{
 		auto iid = (IID_IDirect3DRampDevice == rclsid) ? &IID_IDirect3DRGBDevice : &rclsid;
-		HRESULT result = CompatVtable<Vtable<TDirect3d>>::s_origVtable.CreateDevice(
-			This, *iid, lpDDS, lplpD3DDevice, params...);
+		HRESULT result = getOrigVtable(This).CreateDevice(This, *iid, lpDDS, lplpD3DDevice, params...);
 		if (DDERR_INVALIDOBJECT == result && lpDDS)
 		{
 			auto surface = DDraw::Surface::getSurface(*lpDDS);
 			if (surface)
 			{
 				surface->setSizeOverride(1, 1);
-				result = CompatVtable<Vtable<TDirect3d>>::s_origVtable.CreateDevice(
-					This, *iid, lpDDS, lplpD3DDevice, params...);
+				result = getOrigVtable(This).CreateDevice(This, *iid, lpDDS, lplpD3DDevice, params...);
 				surface->setSizeOverride(0, 0);
 			}
 		}
-		if (SUCCEEDED(result))
+
+		if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
 		{
-			CompatVtable<Vtable<TDirect3dDevice>>::hookVtable((*lplpD3DDevice)->lpVtbl);
+			if (SUCCEEDED(result))
+			{
+				Direct3d::Direct3dDevice::hookVtable(*(*lplpD3DDevice)->lpVtbl);
+			}
 		}
 		return result;
 	}
 
-	void setCompatVtable2(IDirect3DVtbl& /*vtable*/)
+	HRESULT STDMETHODCALLTYPE createVertexBuffer(
+		IDirect3D7* This,
+		LPD3DVERTEXBUFFERDESC lpVBDesc,
+		LPDIRECT3DVERTEXBUFFER7* lplpD3DVertexBuffer,
+		DWORD dwFlags)
 	{
+		HRESULT result = getOrigVtable(This).CreateVertexBuffer(This, lpVBDesc, lplpD3DVertexBuffer, dwFlags);
+		if (SUCCEEDED(result))
+		{
+			Direct3d::Direct3dVertexBuffer::hookVtable(*(*lplpD3DVertexBuffer)->lpVtbl);
+		}
+		return result;
 	}
 
-	template <typename TDirect3dVtbl>
-	void setCompatVtable2(TDirect3dVtbl& vtable)
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& vtable)
 	{
-		vtable.CreateDevice = &createDevice;
+		if constexpr (!std::is_same_v<Vtable, IDirect3DVtbl>)
+		{
+			vtable.CreateDevice = &createDevice;
+		}
+
+		if constexpr (std::is_same_v<Vtable, IDirect3D7Vtbl>)
+		{
+			vtable.CreateVertexBuffer = &createVertexBuffer;
+		}
 	}
 }
 
 namespace Direct3d
 {
-	template <typename TDirect3d>
-	void Direct3d<TDirect3d>::setCompatVtable(Vtable<TDirect3d>& vtable)
+	namespace Direct3d
 	{
-		setCompatVtable2(vtable);
-	}
+		template <typename Vtable>
+		void hookVtable(const Vtable& vtable)
+		{
+			CompatVtable<Vtable>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+		}
 
-	template Direct3d<IDirect3D>;
-	template Direct3d<IDirect3D2>;
-	template Direct3d<IDirect3D3>;
-	template Direct3d<IDirect3D7>;
+		template void hookVtable(const IDirect3DVtbl&);
+		template void hookVtable(const IDirect3D2Vtbl&);
+		template void hookVtable(const IDirect3D3Vtbl&);
+		template void hookVtable(const IDirect3D7Vtbl&);
+	}
 }

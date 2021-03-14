@@ -6,9 +6,9 @@ template <>
 struct VtableForEach<IDirectDrawClipperVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetClipList);
 		DD_VISIT(GetHWnd);

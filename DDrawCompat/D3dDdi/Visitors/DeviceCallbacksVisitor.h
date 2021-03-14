@@ -4,24 +4,18 @@
 #include <d3dumddi.h>
 
 #include <Common/VtableVisitor.h>
-#include <D3dDdi/Hooks.h>
-
-struct DeviceCallbacksIntf
-{
-	D3DDDI_DEVICECALLBACKS* lpVtbl;
-};
 
 template <>
 struct VtableForEach<D3DDDI_DEVICECALLBACKS>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
 		DD_VISIT(pfnAllocateCb);
 		DD_VISIT(pfnDeallocateCb);
 		DD_VISIT(pfnSetPriorityCb);
 		DD_VISIT(pfnQueryResidencyCb);
-		// DD_VISIT(pfnSetDisplayModeCb);   -- not set by ddraw
+		DD_VISIT(pfnSetDisplayModeCb);
 		DD_VISIT(pfnPresentCb);
 		DD_VISIT(pfnRenderCb);
 		DD_VISIT(pfnLockCb);
@@ -37,25 +31,25 @@ struct VtableForEach<D3DDDI_DEVICECALLBACKS>
 		DD_VISIT(pfnDestroySynchronizationObjectCb);
 		DD_VISIT(pfnWaitForSynchronizationObjectCb);
 		DD_VISIT(pfnSignalSynchronizationObjectCb);
-		// DD_VISIT(pfnSetAsyncCallbacksCb);   -- not set by ddraw
+		DD_VISIT(pfnSetAsyncCallbacksCb);
 		DD_VISIT(pfnSetDisplayPrivateDriverFormatCb);
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WIN8)
 		{
 			DD_VISIT(pfnOfferAllocationsCb);
 			DD_VISIT(pfnReclaimAllocationsCb);
 			DD_VISIT(pfnCreateSynchronizationObject2Cb);
 			DD_VISIT(pfnWaitForSynchronizationObject2Cb);
 			DD_VISIT(pfnSignalSynchronizationObject2Cb);
-			// DD_VISIT(pfnPresentMultiPlaneOverlayCb);   -- not set by ddraw
+			DD_VISIT(pfnPresentMultiPlaneOverlayCb);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
 		{
-			// DD_VISIT(pfnLogUMDMarkerCb);   -- not set by ddraw
+			DD_VISIT(pfnLogUMDMarkerCb);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
 		{
 			DD_VISIT(pfnMakeResidentCb);
 			DD_VISIT(pfnEvictCb);

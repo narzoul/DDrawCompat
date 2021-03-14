@@ -29,7 +29,7 @@ namespace Compat
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName);
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
-	void hookIatFunction(HMODULE module, const char* importedModuleName, const char* funcName, void* newFuncPtr);
+	void hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr);
 
 	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
 	void hookFunction(const char* moduleName, const char* funcName, OrigFuncPtr newFuncPtr)

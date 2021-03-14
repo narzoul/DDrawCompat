@@ -1,13 +1,27 @@
+#include <Common/CompatVtable.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <Direct3d/Direct3dVertexBuffer.h>
+#include <Direct3d/Visitors/Direct3dVertexBufferVtblVisitor.h>
+
+namespace
+{
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& /*vtable*/)
+	{
+	}
+}
 
 namespace Direct3d
 {
-	template <typename TDirect3dVertexBuffer>
-	void Direct3dVertexBuffer<TDirect3dVertexBuffer>::setCompatVtable(
-		Vtable<TDirect3dVertexBuffer>& /*vtable*/)
+	namespace Direct3dVertexBuffer
 	{
-	}
+		template <typename Vtable>
+		void hookVtable(const Vtable& vtable)
+		{
+			CompatVtable<Vtable>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+		}
 
-	template Direct3dVertexBuffer<IDirect3DVertexBuffer>;
-	template Direct3dVertexBuffer<IDirect3DVertexBuffer7>;
+		template void hookVtable(const IDirect3DVertexBufferVtbl&);
+		template void hookVtable(const IDirect3DVertexBuffer7Vtbl&);
+	}
 }

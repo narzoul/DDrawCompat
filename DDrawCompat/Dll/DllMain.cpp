@@ -30,9 +30,6 @@ namespace
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI*)(Params...);
 
-	HMODULE g_origDDrawModule = nullptr;
-	HMODULE g_origDciman32Module = nullptr;
-
 	template <FARPROC(Dll::Procs::* origFunc)>
 	const char* getFuncName();
 
@@ -104,14 +101,14 @@ namespace
 			Compat::Log() << "Installing registry hooks";
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
-			D3dDdi::installHooks(g_origDDrawModule);
+			D3dDdi::installHooks();
 			Compat::Log() << "Installing Win32 hooks";
 			Win32::WaitFunctions::installHooks();
 			Gdi::VirtualScreen::init();
 
 			CompatPtr<IDirectDraw> dd;
 			CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
-			CompatPtr<IDirectDraw> dd7;
+			CompatPtr<IDirectDraw7> dd7;
 			CALL_ORIG_PROC(DirectDrawCreateEx)(nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
 			if (!dd || !dd7)
 			{
@@ -119,9 +116,11 @@ namespace
 				return;
 			}
 
+			CompatVtable<IDirectDrawVtbl>::s_origVtable = *dd.get()->lpVtbl;
 			HRESULT result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 			if (SUCCEEDED(result))
 			{
+				CompatVtable<IDirectDraw7Vtbl>::s_origVtable = *dd7.get()->lpVtbl;
 				dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL);
 			}
 			if (FAILED(result))
@@ -199,7 +198,7 @@ namespace
 
 	void suppressEmulatedDirectDraw(GUID*& guid)
 	{
-		DDraw::suppressEmulatedDirectDraw(guid);
+		DDraw::DirectDraw::suppressEmulatedDirectDraw(guid);
 	}
 }
 
@@ -245,23 +244,24 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		auto systemDDrawDllPath = systemDirectory + "\\ddraw.dll";
-		g_origDDrawModule = LoadLibrary(systemDDrawDllPath.c_str());
-		if (!g_origDDrawModule)
+		Dll::g_origDDrawModule = LoadLibrary(systemDDrawDllPath.c_str());
+		if (!Dll::g_origDDrawModule)
 		{
 			Compat::Log() << "ERROR: Failed to load system ddraw.dll from " << systemDDrawDllPath;
 			return FALSE;
 		}
 
-		Dll::pinModule(systemDDrawDllPath.c_str());
+		Dll::pinModule(Dll::g_origDDrawModule);
+		Dll::pinModule(Dll::g_currentModule);
 
-		HMODULE origModule = g_origDDrawModule;
+		HMODULE origModule = Dll::g_origDDrawModule;
 		VISIT_DDRAW_PROCS(LOAD_ORIG_PROC);
 
 		auto systemDciman32DllPath = systemDirectory + "\\dciman32.dll";
-		g_origDciman32Module = LoadLibrary(systemDciman32DllPath.c_str());
-		if (g_origDciman32Module)
+		Dll::g_origDciman32Module = LoadLibrary(systemDciman32DllPath.c_str());
+		if (Dll::g_origDciman32Module)
 		{
-			origModule = g_origDciman32Module;
+			origModule = Dll::g_origDciman32Module;
 			VISIT_DCIMAN32_PROCS(LOAD_ORIG_PROC);
 		}
 

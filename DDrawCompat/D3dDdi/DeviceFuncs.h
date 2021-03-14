@@ -3,18 +3,12 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include <D3dDdi/D3dDdiVtable.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
-#include <D3dDdi/Visitors/DeviceFuncsVisitor.h>
 
 namespace D3dDdi
 {
-	class DeviceFuncs : public D3dDdiVtable<D3DDDI_DEVICEFUNCS>
+	namespace DeviceFuncs
 	{
-	public:
-		static void onCreateDevice(HANDLE adapter, HANDLE device);
-		static void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable);
-	};
+		void hookVtable(const D3DDDI_DEVICEFUNCS& vtable, UINT version);
+	}
 }
-
-SET_COMPAT_VTABLE(D3DDDI_DEVICEFUNCS, D3dDdi::DeviceFuncs);

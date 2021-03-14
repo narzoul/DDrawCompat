@@ -97,8 +97,7 @@ namespace Compat
 	template <typename NewIntf>
 	void queryInterface(IUnknown& origIntf, NewIntf*& newIntf)
 	{
-		auto vtable(reinterpret_cast<NewIntf&>(origIntf).lpVtbl);
-		CompatVtable<Vtable<NewIntf>>::getOrigVtable(*vtable).QueryInterface(
+		getOrigVtable(newIntf).QueryInterface(
 			reinterpret_cast<NewIntf*>(&origIntf),
 			getIntfId<NewIntf>(),
 			reinterpret_cast<void**>(&newIntf));
@@ -107,16 +106,14 @@ namespace Compat
 	template <typename OrigIntf>
 	void queryInterface(OrigIntf& origIntf, IUnknown*& newIntf)
 	{
-		CompatVtable<Vtable<OrigIntf>>::getOrigVtable(*origIntf.lpVtbl).QueryInterface(
-			&origIntf, IID_IUnknown, reinterpret_cast<void**>(&newIntf));
+		getOrigVtable(&origIntf).QueryInterface(&origIntf, IID_IUnknown, reinterpret_cast<void**>(&newIntf));
 	}
 
 	template <typename NewIntf, typename OrigIntf>
 	std::enable_if_t<IsConvertible<OrigIntf, NewIntf>::value>
 	queryInterface(OrigIntf& origIntf, NewIntf*& newIntf)
 	{
-		CompatVtable<Vtable<OrigIntf>>::getOrigVtable(*origIntf.lpVtbl).QueryInterface(
-			&origIntf, getIntfId<NewIntf>(), reinterpret_cast<void**>(&newIntf));
+		getOrigVtable(&origIntf).QueryInterface(&origIntf, getIntfId<NewIntf>(), reinterpret_cast<void**>(&newIntf));
 	}
 
 	template <typename NewIntf, typename OrigIntf>

@@ -6,9 +6,9 @@ template <>
 struct VtableForEach<IDirectDrawVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(Compact);
 		DD_VISIT(CreateClipper);
@@ -37,9 +37,9 @@ template <>
 struct VtableForEach<IDirectDraw2Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDrawVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDrawVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetAvailableVidMem);
 	}
@@ -49,9 +49,9 @@ template <>
 struct VtableForEach<IDirectDraw4Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDraw2Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDraw2Vtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(GetSurfaceFromDC);
 		DD_VISIT(RestoreAllSurfaces);
@@ -64,9 +64,9 @@ template <>
 struct VtableForEach<IDirectDraw7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirectDraw4Vtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirectDraw4Vtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(StartModeTest);
 		DD_VISIT(EvaluateMode);

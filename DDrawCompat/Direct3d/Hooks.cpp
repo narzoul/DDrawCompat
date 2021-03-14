@@ -20,15 +20,7 @@ namespace
 	void hookDirect3dMaterial(CompatRef<IDirect3D3> d3d);
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd);
 	void hookDirect3dVertexBuffer(CompatRef<IDirect3D3> d3d);
-	void hookDirect3dVertexBuffer7(CompatRef<IDirect3D7> d3d);
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d);
-
-	template <typename TDirect3dVertexBuffer>
-	void hookVertexBuffer(
-		const std::function<HRESULT(D3DVERTEXBUFFERDESC&, TDirect3dVertexBuffer*&)> createVertexBuffer);
-
-	template <typename Interface>
-	void hookVtable(const CompatPtr<Interface>& intf);
 
 	template <typename TDirect3d, typename TDirectDraw>
 	CompatPtr<TDirect3d> createDirect3d(CompatRef<TDirectDraw> dd)
@@ -72,9 +64,10 @@ namespace
 		CompatPtr<IDirect3D3> d3d(createDirect3d<IDirect3D3>(dd));
 		if (d3d)
 		{
-			hookVtable<IDirect3D>(d3d);
-			hookVtable<IDirect3D2>(d3d);
-			hookVtable<IDirect3D3>(d3d);
+			CompatVtable<IDirect3D3Vtbl>::s_origVtable = *d3d.get()->lpVtbl;
+			Direct3d::Direct3d::hookVtable(*CompatPtr<IDirect3D>(d3d).get()->lpVtbl);
+			Direct3d::Direct3d::hookVtable(*CompatPtr<IDirect3D2>(d3d).get()->lpVtbl);
+			Direct3d::Direct3d::hookVtable(*CompatPtr<IDirect3D3>(d3d).get()->lpVtbl);
 			hookDirect3dDevice(*d3d, renderTarget);
 			hookDirect3dLight(*d3d);
 			hookDirect3dMaterial(*d3d);
@@ -89,9 +82,14 @@ namespace
 		CompatPtr<IDirect3D7> d3d(createDirect3d<IDirect3D7>(dd));
 		if (d3d)
 		{
-			hookVtable<IDirect3D7>(d3d);
-			hookDirect3dVertexBuffer7(*d3d);
+			Direct3d::Direct3d::hookVtable(*d3d.get()->lpVtbl);
 		}
+	}
+
+	template <typename TDirect3dDevice>
+	void hookDirect3dDevice(const CompatPtr<TDirect3dDevice>& d3d)
+	{
+		Direct3d::Direct3dDevice::hookVtable(*d3d.get()->lpVtbl);
 	}
 
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget)
@@ -105,9 +103,10 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DDevice>(d3dDevice);
-		hookVtable<IDirect3DDevice2>(d3dDevice);
-		hookVtable<IDirect3DDevice3>(d3dDevice);
+		CompatVtable<IDirect3DDevice3Vtbl>::s_origVtable = *d3dDevice.get()->lpVtbl;
+		Direct3d::Direct3dDevice::hookVtable(*CompatPtr<IDirect3DDevice>(d3dDevice).get()->lpVtbl);
+		Direct3d::Direct3dDevice::hookVtable(*CompatPtr<IDirect3DDevice2>(d3dDevice).get()->lpVtbl);
+		Direct3d::Direct3dDevice::hookVtable(*CompatPtr<IDirect3DDevice3>(d3dDevice).get()->lpVtbl);
 
 		CompatPtr<IDirect3DDevice> dev(d3dDevice);
 		if (dev)
@@ -131,7 +130,7 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DExecuteBuffer>(buffer);
+		Direct3d::Direct3dExecuteBuffer::hookVtable(*buffer.get()->lpVtbl);
 	}
 
 	void hookDirect3dLight(CompatRef<IDirect3D3> d3d)
@@ -144,7 +143,7 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DLight>(light);
+		Direct3d::Direct3dLight::hookVtable(*light.get()->lpVtbl);
 	}
 
 	void hookDirect3dMaterial(CompatRef<IDirect3D3> d3d)
@@ -157,9 +156,10 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DMaterial>(material);
-		hookVtable<IDirect3DMaterial2>(material);
-		hookVtable<IDirect3DMaterial3>(material);
+		CompatVtable<IDirect3DMaterial3Vtbl>::s_origVtable = *material.get()->lpVtbl;
+		Direct3d::Direct3dMaterial::hookVtable(*CompatPtr<IDirect3DMaterial>(material).get()->lpVtbl);
+		Direct3d::Direct3dMaterial::hookVtable(*CompatPtr<IDirect3DMaterial2>(material).get()->lpVtbl);
+		Direct3d::Direct3dMaterial::hookVtable(*CompatPtr<IDirect3DMaterial3>(material).get()->lpVtbl);
 	}
 
 	void hookDirect3dTexture(CompatRef<IDirectDraw> dd)
@@ -179,22 +179,26 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DTexture>(texture);
-		hookVtable<IDirect3DTexture2>(texture);
+		Direct3d::Direct3dTexture::hookVtable(*CompatPtr<IDirect3DTexture>(texture).get()->lpVtbl);
+		Direct3d::Direct3dTexture::hookVtable(*CompatPtr<IDirect3DTexture2>(texture).get()->lpVtbl);
 	}
 
 	void hookDirect3dVertexBuffer(CompatRef<IDirect3D3> d3d)
 	{
-		hookVertexBuffer<IDirect3DVertexBuffer>(
-			[&](D3DVERTEXBUFFERDESC& desc, IDirect3DVertexBuffer*& vb) {
-			return d3d->CreateVertexBuffer(&d3d, &desc, &vb, 0, nullptr); });
-	}
+		D3DVERTEXBUFFERDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwCaps = D3DVBCAPS_SYSTEMMEMORY;
+		desc.dwFVF = D3DFVF_VERTEX;
+		desc.dwNumVertices = 1;
 
-	void hookDirect3dVertexBuffer7(CompatRef<IDirect3D7> d3d)
-	{
-		hookVertexBuffer<IDirect3DVertexBuffer7>(
-			[&](D3DVERTEXBUFFERDESC& desc, IDirect3DVertexBuffer7*& vb) {
-			return d3d->CreateVertexBuffer(&d3d, &desc, &vb, 0); });
+		CompatPtr<IDirect3DVertexBuffer> vertexBuffer = nullptr;
+		HRESULT result = d3d->CreateVertexBuffer(&d3d, &desc, &vertexBuffer.getRef(), 0, nullptr);
+		if (FAILED(result))
+		{
+			Compat::Log() << "ERROR: Failed to create a vertex buffer for hooking: " << Compat::hex(result);
+		}
+
+		Direct3d::Direct3dVertexBuffer::hookVtable(*vertexBuffer.get()->lpVtbl);
 	}
 
 	void hookDirect3dViewport(CompatRef<IDirect3D3> d3d)
@@ -207,35 +211,10 @@ namespace
 			return;
 		}
 
-		hookVtable<IDirect3DViewport>(viewport);
-		hookVtable<IDirect3DViewport2>(viewport);
-		hookVtable<IDirect3DViewport3>(viewport);
-	}
-
-	template <typename TDirect3dVertexBuffer>
-	void hookVertexBuffer(
-		const std::function<HRESULT(D3DVERTEXBUFFERDESC&, TDirect3dVertexBuffer*&)> createVertexBuffer)
-	{
-		D3DVERTEXBUFFERDESC desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwCaps = D3DVBCAPS_SYSTEMMEMORY;
-		desc.dwFVF = D3DFVF_VERTEX;
-		desc.dwNumVertices = 1;
-
-		CompatPtr<TDirect3dVertexBuffer> vertexBuffer = nullptr;
-		HRESULT result = createVertexBuffer(desc, vertexBuffer.getRef());
-		if (FAILED(result))
-		{
-			Compat::Log() << "ERROR: Failed to create a vertex buffer for hooking: " << Compat::hex(result);
-		}
-
-		hookVtable<TDirect3dVertexBuffer>(vertexBuffer);
-	}
-
-	template <typename Interface>
-	void hookVtable(const CompatPtr<Interface>& intf)
-	{
-		CompatVtable<Vtable<Interface>>::hookVtable(intf.get()->lpVtbl);
+		CompatVtable<IDirect3DViewport3Vtbl>::s_origVtable = *viewport.get()->lpVtbl;
+		Direct3d::Direct3dViewport::hookVtable(*CompatPtr<IDirect3DViewport>(viewport).get()->lpVtbl);
+		Direct3d::Direct3dViewport::hookVtable(*CompatPtr<IDirect3DViewport2>(viewport).get()->lpVtbl);
+		Direct3d::Direct3dViewport::hookVtable(*CompatPtr<IDirect3DViewport3>(viewport).get()->lpVtbl);
 	}
 }
 

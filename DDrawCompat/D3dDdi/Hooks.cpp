@@ -1,15 +1,14 @@
 #include <set>
 
-#include <d3d.h>
-#include <d3dumddi.h>
-#include <winternl.h>
-#include <..\km\d3dkmthk.h>
-
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <D3dDdi/Adapter.h>
 #include <D3dDdi/AdapterCallbacks.h>
 #include <D3dDdi/AdapterFuncs.h>
+#include <D3dDdi/Hooks.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <Dll/Dll.h>
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 {
@@ -24,76 +23,52 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 
 namespace
 {
-	UINT g_ddiVersion = 0;
-	std::wstring g_hookedUmdFileName;
-	HMODULE g_hookedUmdModule = nullptr;
 	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
 
-	void hookOpenAdapter(const std::wstring& umdFileName);
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData);
-	void unhookOpenAdapter();
 
-	void hookOpenAdapter(const std::wstring& umdFileName)
+	FARPROC WINAPI getProcAddress(HMODULE hModule, LPCSTR lpProcName)
 	{
-		g_hookedUmdFileName = umdFileName;
-		g_hookedUmdModule = LoadLibraryW(umdFileName.c_str());
-		if (g_hookedUmdModule)
+		LOG_FUNC("GetProcAddress", hModule, lpProcName);
+		if (lpProcName && std::string(lpProcName) == "OpenAdapter")
 		{
-			Compat::hookFunction(g_hookedUmdModule, "OpenAdapter",
-				reinterpret_cast<void*&>(g_origOpenAdapter), &openAdapter);
-			Dll::pinModule(umdFileName.c_str());
+			g_origOpenAdapter = reinterpret_cast<PFND3DDDI_OPENADAPTER>(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+			if (g_origOpenAdapter)
+			{
+				static std::set<HMODULE> hookedModules;
+				if (hookedModules.find(hModule) == hookedModules.end())
+				{
+					Compat::Log() << "Hooking user mode display driver: " << Compat::funcPtrToStr(g_origOpenAdapter);
+					Dll::pinModule(hModule);
+					hookedModules.insert(hModule);
+				}
+				return reinterpret_cast<FARPROC>(&openAdapter);
+			}
 		}
+		return LOG_RESULT(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
 	}
 
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
 	{
-		D3dDdi::ScopedCriticalSection lock;
 		LOG_FUNC("openAdapter", pOpenData);
-		D3dDdi::AdapterCallbacks::hookVtable(pOpenData->pAdapterCallbacks);
+		D3dDdi::ScopedCriticalSection lock;
+		D3dDdi::AdapterCallbacks::hookVtable(*pOpenData->pAdapterCallbacks, pOpenData->Version);
 		HRESULT result = g_origOpenAdapter(pOpenData);
 		if (SUCCEEDED(result))
 		{
-			static std::set<std::wstring> hookedUmdFileNames;
-			if (hookedUmdFileNames.find(g_hookedUmdFileName) == hookedUmdFileNames.end())
-			{
-				Compat::Log() << "Hooking user mode display driver: " << g_hookedUmdFileName.c_str();
-				hookedUmdFileNames.insert(g_hookedUmdFileName);
-			}
-			g_ddiVersion = min(pOpenData->Version, pOpenData->DriverVersion);
-			D3dDdi::AdapterFuncs::hookVtable(g_hookedUmdModule, pOpenData->pAdapterFuncs);
-			D3dDdi::AdapterFuncs::onOpenAdapter(pOpenData->hAdapter, g_hookedUmdModule);
+			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, pOpenData->DriverVersion);
+			D3dDdi::Adapter::add(*pOpenData);
 		}
 		return LOG_RESULT(result);
-	}
-
-	void unhookOpenAdapter()
-	{
-		if (g_origOpenAdapter)
-		{
-			Compat::unhookFunction(g_origOpenAdapter);
-			g_hookedUmdFileName.clear();
-		}
 	}
 }
 
 namespace D3dDdi
 {
-	UINT getDdiVersion()
+	void installHooks()
 	{
-		return g_ddiVersion;
-	}
+		Compat::hookIatFunction(Dll::g_origDDrawModule, "GetProcAddress", getProcAddress);
 
-	void installHooks(HMODULE origDDrawModule)
-	{
-		KernelModeThunks::installHooks(origDDrawModule);
-	}
-
-	void onUmdFileNameQueried(const std::wstring& umdFileName)
-	{
-		if (g_hookedUmdFileName != umdFileName)
-		{
-			unhookOpenAdapter();
-			hookOpenAdapter(umdFileName);
-		}
+		KernelModeThunks::installHooks();
 	}
 }

@@ -297,14 +297,8 @@
     <ClInclude Include="Gdi\Palette.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
-    <ClInclude Include="D3dDdi\D3dDdiVtable.h">
-      <Filter>Header Files\D3dDdi</Filter>
-    </ClInclude>
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h">
       <Filter>Header Files\D3dDdi</Filter>
-    </ClInclude>
-    <ClInclude Include="Common\CompatVtableInstance.h">
-      <Filter>Header Files\Common</Filter>
     </ClInclude>
     <ClInclude Include="Common\VtableHookVisitor.h">
       <Filter>Header Files\Common</Filter>
@@ -392,6 +386,9 @@
     </ClInclude>
     <ClInclude Include="Gdi\Icon.h">
       <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\VtableSizeVisitor.h">
+      <Filter>Header Files\Common</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

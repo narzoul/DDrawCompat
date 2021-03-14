@@ -67,7 +67,7 @@ namespace DDraw
 		auto surface7(CompatPtr<IDirectDrawSurface7>::from(surface));
 		if (desc.ddsCaps.dwCaps & DDSCAPS_COMPLEX)
 		{
-			auto attachedSurfaces(getAllAttachedSurfaces(*surface7));
+			auto attachedSurfaces(DirectDrawSurface::getAllAttachedSurfaces(*surface7));
 			for (DWORD i = 0; i < attachedSurfaces.size(); ++i)
 			{
 				attach(*attachedSurfaces[i], std::make_unique<Surface>());

@@ -5,16 +5,11 @@
 
 #include <Common/VtableVisitor.h>
 
-struct AdapterFuncsIntf
-{
-	D3DDDI_ADAPTERFUNCS* lpVtbl;
-};
-
 template <>
 struct VtableForEach<D3DDDI_ADAPTERFUNCS>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT /*version*/)
 	{
 		DD_VISIT(pfnGetCaps);
 		DD_VISIT(pfnCreateDevice);

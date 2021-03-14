@@ -14,7 +14,7 @@ public:
 
 	const Vtable<Intf>* operator->() const
 	{
-		return &CompatVtable<Vtable<Intf>>::getOrigVtable(*m_intf.lpVtbl);
+		return &getOrigVtable(&m_intf);
 	}
 
 	Intf* operator&() const

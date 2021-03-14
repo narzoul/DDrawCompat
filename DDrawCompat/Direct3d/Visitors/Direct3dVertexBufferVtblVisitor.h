@@ -8,9 +8,9 @@ template <>
 struct VtableForEach<IDirect3DVertexBufferVtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IUnknownVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(Lock);
 		DD_VISIT(Unlock);
@@ -24,9 +24,9 @@ template <>
 struct VtableForEach<IDirect3DVertexBuffer7Vtbl>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
-		VtableForEach<IDirect3DVertexBufferVtbl>::forEach<Vtable>(visitor);
+		VtableForEach<IDirect3DVertexBufferVtbl>::forEach<Vtable>(visitor, version);
 
 		DD_VISIT(ProcessVerticesStrided);
 	}

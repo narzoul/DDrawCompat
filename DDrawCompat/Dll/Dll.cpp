@@ -5,6 +5,8 @@
 namespace Dll
 {
 	HMODULE g_currentModule = nullptr;
+	HMODULE g_origDDrawModule = nullptr;
+	HMODULE g_origDciman32Module = nullptr;
 	Procs g_origProcs = {};
 	Procs g_jmpTargetProcs = {};
 
@@ -16,6 +18,13 @@ namespace Dll
 			SetThreadPriority(thread, priority);
 		}
 		return thread;
+	}
+
+	void pinModule(HMODULE module)
+	{
+		HMODULE dummy = nullptr;
+		GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+			reinterpret_cast<LPCSTR>(module), &dummy);
 	}
 
 	void pinModule(LPCSTR moduleName)

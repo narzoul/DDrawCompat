@@ -7,11 +7,67 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 
-template <typename Vtable>
-class VtableHookVisitorBase
+template <auto memberPtr, typename Interface, typename... Params>
+auto __stdcall callOrigFunc(Interface This, Params... params)
 {
-protected:
-	template <typename MemberDataPtr, MemberDataPtr ptr>
+	return (getOrigVtable(This).*memberPtr)(This, params...);
+}
+
+template <auto memberPtr, typename Vtable>
+constexpr auto getCompatFunc(Vtable*)
+{
+	auto func = getCompatVtable<Vtable>().*memberPtr;
+#ifdef DEBUGLOGS
+	if (!func)
+	{
+		func = &callOrigFunc<memberPtr>;
+	}
+#endif
+	return func;
+}
+
+template <auto memberPtr, typename Vtable>
+constexpr auto getCompatFunc()
+{
+	return getCompatFunc<memberPtr>(static_cast<Vtable*>(nullptr));
+}
+
+template <typename Vtable>
+constexpr auto getCompatVtable()
+{
+	Vtable vtable = {};
+	setCompatVtable(vtable);
+	return vtable;
+}
+
+template <typename Vtable, typename Lock>
+class VtableHookVisitor
+{
+public:
+	VtableHookVisitor(const Vtable& vtable)
+		: m_vtable(const_cast<Vtable&>(vtable))
+	{
+	}
+
+	template <auto memberPtr>
+	void visit([[maybe_unused]] const char* funcName)
+	{
+		if constexpr (getCompatFunc<memberPtr, Vtable>())
+		{
+			if (m_vtable.*memberPtr)
+			{
+#ifdef DEBUGLOGS
+				getFuncName<memberPtr>() = s_vtableTypeName + "::" + funcName;
+				Compat::Log() << "Hooking function: " << getFuncName<memberPtr>()
+					<< " (" << Compat::funcPtrToStr(m_vtable.*memberPtr) << ')';
+#endif
+				m_vtable.*memberPtr = &hookFunc<memberPtr>;
+			}
+		}
+	}
+
+private:
+	template <auto memberPtr>
 	static std::string& getFuncName()
 	{
 		static std::string funcName;
@@ -28,76 +84,31 @@ protected:
 		return name;
 	}
 
-	static std::string s_vtableTypeName;
-};
-
-template <typename Vtable, typename Lock, int instanceId>
-class VtableHookVisitor : public VtableHookVisitorBase<Vtable>
-{
-public:
-	VtableHookVisitor(const Vtable& hookedVtable, Vtable& origVtable, const Vtable& compatVtable)
-		: m_hookedVtable(const_cast<Vtable&>(hookedVtable))
-		, m_origVtable(origVtable)
-	{
-		s_compatVtable = compatVtable;
-	}
-
-	template <typename MemberDataPtr, MemberDataPtr ptr>
-	void visit([[maybe_unused]] const char* funcName)
+	template <auto memberPtr, typename Result, typename FirstParam, typename... Params>
+	static Result STDMETHODCALLTYPE hookFunc(FirstParam firstParam, Params... params)
 	{
 #ifdef DEBUGLOGS
-		getFuncName<MemberDataPtr, ptr>() = s_vtableTypeName + "::" + funcName;
-		if (!(s_compatVtable.*ptr))
-		{
-			s_compatVtable.*ptr = m_hookedVtable.*ptr;
-		}
+		const char* funcName = getFuncName<memberPtr>().c_str();
 #endif
-
-		m_origVtable.*ptr = m_hookedVtable.*ptr;
-		if (m_hookedVtable.*ptr && s_compatVtable.*ptr)
+		LOG_FUNC(funcName, firstParam, params...);
+		[[maybe_unused]] Lock lock;
+		constexpr auto compatFunc = getCompatFunc<memberPtr, Vtable>();
+		if constexpr (std::is_void_v<Result>)
 		{
-			LOG_DEBUG << "Hooking function: " << getFuncName<MemberDataPtr, ptr>()
-				<< " (" << Compat::funcPtrToStr(m_hookedVtable.*ptr) << ')';
-			DWORD oldProtect = 0;
-			VirtualProtect(&(m_hookedVtable.*ptr), sizeof(m_hookedVtable.*ptr), PAGE_READWRITE, &oldProtect);
-			m_hookedVtable.*ptr = &hookFunc<MemberDataPtr, ptr>;
-			VirtualProtect(&(m_hookedVtable.*ptr), sizeof(m_hookedVtable.*ptr), oldProtect, &oldProtect);
-		}
-	}
-
-private:
-	template <typename MemberDataPtr, MemberDataPtr ptr, typename Result, typename... Params>
-	static Result STDMETHODCALLTYPE hookFunc(Params... params)
-	{
-#ifdef DEBUGLOGS
-		const char* funcName = getFuncName<MemberDataPtr, ptr>().c_str();
-#endif
-		LOG_FUNC(funcName, params...);
-		Lock lock;
-		if constexpr (-1 != instanceId)
-		{
-			CompatVtableInstanceBase<Vtable>::s_origVtablePtr = &CompatVtableInstance<Vtable, Lock, instanceId>::s_origVtable;
-		}
-		if constexpr (std::is_same_v<Result, void>)
-		{
-			(s_compatVtable.*ptr)(params...);
+			compatFunc(firstParam, params...);
 		}
 		else
 		{
-			return LOG_RESULT((s_compatVtable.*ptr)(params...));
+			return LOG_RESULT(compatFunc(firstParam, params...));
 		}
 	}
 
-	Vtable& m_hookedVtable;
-	Vtable& m_origVtable;
+	Vtable& m_vtable;
 
-	static Vtable s_compatVtable;
+	static std::string s_vtableTypeName;
 };
 
 #ifdef DEBUGLOGS
-template <typename Vtable>
-std::string VtableHookVisitorBase<Vtable>::s_vtableTypeName(getVtableTypeName());
+template <typename Vtable, typename Lock>
+std::string VtableHookVisitor<Vtable, Lock>::s_vtableTypeName(getVtableTypeName());
 #endif
-
-template <typename Vtable, typename Lock, int instanceId>
-Vtable VtableHookVisitor<Vtable, Lock, instanceId>::s_compatVtable = {};

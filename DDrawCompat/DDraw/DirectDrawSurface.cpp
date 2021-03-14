@@ -1,11 +1,23 @@
-#include <set>
-
+#include <Common/CompatVtable.h>
 #include <DDraw/DirectDrawSurface.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <DDraw/Visitors/DirectDrawSurfaceVtblVisitor.h>
+
+#define SET_COMPAT_METHOD(method) \
+	vtable.method = &callImpl<decltype(&DDraw::SurfaceImpl<TSurface>::method), &DDraw::SurfaceImpl<TSurface>::method, \
+							  decltype(&Vtable::method), &Vtable::method>
 
 namespace
 {
+	template <typename Vtable> struct GetSurfaceType {};
+	template <> struct GetSurfaceType<IDirectDrawSurfaceVtbl> { typedef IDirectDrawSurface Type; };
+	template <> struct GetSurfaceType<IDirectDrawSurface2Vtbl> { typedef IDirectDrawSurface2 Type; };
+	template <> struct GetSurfaceType<IDirectDrawSurface3Vtbl> { typedef IDirectDrawSurface3 Type; };
+	template <> struct GetSurfaceType<IDirectDrawSurface4Vtbl> { typedef IDirectDrawSurface4 Type; };
+	template <> struct GetSurfaceType<IDirectDrawSurface7Vtbl> { typedef IDirectDrawSurface7 Type; };
+
 	struct AddAttachedSurfacesContext
 	{
 		IDirectDrawSurface7* rootSurface;
@@ -31,31 +43,18 @@ namespace
 		typename TSurface, typename... Params>
 	HRESULT STDMETHODCALLTYPE callImpl(TSurface* This, Params... params)
 	{
-		DDraw::Surface* surface = This ? DDraw::Surface::getSurface(*This) : nullptr;
+		DDraw::Surface* surface = DDraw::Surface::getSurface(*This);
 		if (!surface || !(surface->getImpl<TSurface>()))
 		{
-			return (CompatVtable<Vtable<TSurface>>::s_origVtable.*origMethod)(This, params...);
+			return (getOrigVtable(This).*origMethod)(This, params...);
 		}
 		return (surface->getImpl<TSurface>()->*compatMethod)(This, params...);
 	}
-}
 
-#define SET_COMPAT_METHOD(method) \
-	vtable.method = &callImpl<decltype(&SurfaceImpl<TSurface>::method), &SurfaceImpl<TSurface>::method, \
-							  decltype(&Vtable<TSurface>::method), &Vtable<TSurface>::method>
-
-namespace DDraw
-{
-	std::vector<CompatPtr<IDirectDrawSurface7>> getAllAttachedSurfaces(CompatRef<IDirectDrawSurface7> surface)
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& vtable)
 	{
-		AddAttachedSurfacesContext context = { &surface };
-		surface->EnumAttachedSurfaces(&surface, &context, &addAttachedSurfaces);
-		return context.surfaces;
-	}
-
-	template <typename TSurface>
-	void DirectDrawSurface<TSurface>::setCompatVtable(Vtable<TSurface>& vtable)
-	{
+		typedef GetSurfaceType<Vtable>::Type TSurface;
 		SET_COMPAT_METHOD(Blt);
 		SET_COMPAT_METHOD(BltFast);
 		SET_COMPAT_METHOD(Flip);
@@ -72,10 +71,29 @@ namespace DDraw
 		SET_COMPAT_METHOD(SetPalette);
 		SET_COMPAT_METHOD(Unlock);
 	}
+}
 
-	template DirectDrawSurface<IDirectDrawSurface>;
-	template DirectDrawSurface<IDirectDrawSurface2>;
-	template DirectDrawSurface<IDirectDrawSurface3>;
-	template DirectDrawSurface<IDirectDrawSurface4>;
-	template DirectDrawSurface<IDirectDrawSurface7>;
+namespace DDraw
+{
+	namespace DirectDrawSurface
+	{
+		std::vector<CompatPtr<IDirectDrawSurface7>> getAllAttachedSurfaces(CompatRef<IDirectDrawSurface7> surface)
+		{
+			AddAttachedSurfacesContext context = { &surface };
+			surface->EnumAttachedSurfaces(&surface, &context, &addAttachedSurfaces);
+			return context.surfaces;
+		}
+
+		template <typename Vtable>
+		void hookVtable(const Vtable& vtable)
+		{
+			CompatVtable<Vtable>::hookVtable<ScopedThreadLock>(vtable);
+		}
+
+		template void hookVtable(const IDirectDrawSurfaceVtbl&);
+		template void hookVtable(const IDirectDrawSurface2Vtbl&);
+		template void hookVtable(const IDirectDrawSurface3Vtbl&);
+		template void hookVtable(const IDirectDrawSurface4Vtbl&);
+		template void hookVtable(const IDirectDrawSurface7Vtbl&);
+	}
 }

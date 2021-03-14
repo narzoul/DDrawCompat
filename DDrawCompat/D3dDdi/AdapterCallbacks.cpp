@@ -1,8 +1,26 @@
+#include <Common/CompatVtable.h>
 #include <D3dDdi/AdapterCallbacks.h>
+#include <D3dDdi/Visitors/AdapterCallbacksVisitor.h>
+
+namespace
+{
+	const D3DDDI_ADAPTERCALLBACKS& getOrigVtable(HANDLE /*adapter*/)
+	{
+		return CompatVtable<D3DDDI_ADAPTERCALLBACKS>::s_origVtable;
+	}
+
+	constexpr void setCompatVtable(D3DDDI_ADAPTERCALLBACKS& /*vtable*/)
+	{
+	}
+}
 
 namespace D3dDdi
 {
-	void AdapterCallbacks::setCompatVtable(D3DDDI_ADAPTERCALLBACKS& /*vtable*/)
+	namespace AdapterCallbacks
 	{
+		void hookVtable(const D3DDDI_ADAPTERCALLBACKS& vtable, UINT version)
+		{
+			CompatVtable<D3DDDI_ADAPTERCALLBACKS>::hookCallbackVtable(vtable, version);
+		}
 	}
 }

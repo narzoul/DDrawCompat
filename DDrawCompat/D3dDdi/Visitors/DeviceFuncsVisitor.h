@@ -4,18 +4,12 @@
 #include <d3dumddi.h>
 
 #include <Common/VtableVisitor.h>
-#include <D3dDdi/Hooks.h>
-
-struct DeviceFuncsIntf
-{
-	D3DDDI_DEVICEFUNCS* lpVtbl;
-};
 
 template <>
 struct VtableForEach<D3DDDI_DEVICEFUNCS>
 {
 	template <typename Vtable, typename Visitor>
-	static void forEach(Visitor& visitor)
+	static void forEach(Visitor& visitor, UINT version)
 	{
 		DD_VISIT(pfnSetRenderState);
 		DD_VISIT(pfnUpdateWInfo);
@@ -117,7 +111,7 @@ struct VtableForEach<D3DDDI_DEVICEFUNCS>
 		DD_VISIT(pfnUnlockAsync);
 		DD_VISIT(pfnRename);
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN7)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WIN7)
 		{
 			DD_VISIT(pfnCreateVideoProcessor);
 			DD_VISIT(pfnSetVideoProcessBltState);
@@ -143,7 +137,7 @@ struct VtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnResolveSharedResource);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WIN8)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WIN8)
 		{
 			DD_VISIT(pfnVolBlt1);
 			DD_VISIT(pfnBufBlt1);
@@ -157,9 +151,9 @@ struct VtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnPresentMultiPlaneOverlay);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM1_3)
 		{
-			// DD_VISIT(pfnReserved1);   -- unused
+			// DD_VISIT(pfnReserved1);
 			DD_VISIT(pfnFlush1);
 			DD_VISIT(pfnCheckCounterInfo);
 			DD_VISIT(pfnCheckCounter);
@@ -171,12 +165,12 @@ struct VtableForEach<D3DDDI_DEVICEFUNCS>
 			DD_VISIT(pfnSetMarkerMode);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
 		{
 			DD_VISIT(pfnTrimResidencySet);
 		}
 
-		if (D3dDdi::getDdiVersion() >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_2)
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_2)
 		{
 			DD_VISIT(pfnAcquireResource);
 			DD_VISIT(pfnReleaseResource);
