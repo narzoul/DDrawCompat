@@ -2,6 +2,7 @@
 #include <Common/Log.h>
 #include <Dll/Dll.h>
 #include <Gdi/PresentationWindow.h>
+#include <Gdi/WinProc.h>
 
 namespace
 {
@@ -91,8 +92,11 @@ namespace
 			"DDrawCompatMessageWindow", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
 		if (!g_messageWindow)
 		{
+			Compat::Log() << "ERROR: Failed to create a message-only window";
 			return 0;
 		}
+
+		Gdi::WinProc::installHooks();
 
 		MSG msg = {};
 		while (GetMessage(&msg, nullptr, 0, 0))
@@ -136,18 +140,6 @@ namespace Gdi
 			CALL_ORIG_FUNC(RegisterClassA)(&wc);
 
 			Dll::createThread(presentationWindowThreadProc, &g_presentationWindowThreadId, THREAD_PRIORITY_TIME_CRITICAL);
-
-			int i = 0;
-			while (!g_messageWindow && i < 1000)
-			{
-				Sleep(1);
-				++i;
-			}
-
-			if (!g_messageWindow)
-			{
-				Compat::Log() << "ERROR: Failed to create a message-only window";
-			}
 		}
 
 		bool isPresentationWindow(HWND hwnd)

@@ -45,7 +45,6 @@ namespace Gdi
 		PresentationWindow::installHooks();
 		ScrollFunctions::installHooks();
 		User32WndProcs::installHooks();
-		WinProc::installHooks();
 		Caret::installHooks();
 		Font::installHooks();
 	}
