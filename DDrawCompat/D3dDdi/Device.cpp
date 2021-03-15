@@ -2,7 +2,7 @@
 
 #include <d3d.h>
 #include <winternl.h>
-#include <../km/d3dkmthk.h>
+#include <d3dkmthk.h>
 
 #include <Common/CompatVtable.h>
 #include <Common/HResultException.h>

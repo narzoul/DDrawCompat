@@ -73,5 +73,43 @@ struct VtableForEach<D3DDDI_DEVICECALLBACKS>
 			DD_VISIT(pfnReclaimAllocations2Cb);
 			DD_VISIT(pfnGetResourcePresentPrivateDriverDataCb);
 		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_1)
+		{
+			DD_VISIT(pfnUpdateAllocationPropertyCb);
+			DD_VISIT(pfnOfferAllocations2Cb);
+		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_2)
+		{
+			DD_VISIT(pfnReclaimAllocations3Cb);
+			DD_VISIT(pfnAcquireResourceCb);
+		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_3)
+		{
+			DD_VISIT(pfnReleaseResourceCb);
+		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_2_1)
+		{
+			DD_VISIT(pfnCreateHwContextCb);
+			DD_VISIT(pfnDestroyHwContextCb);
+			DD_VISIT(pfnCreateHwQueueCb);
+			DD_VISIT(pfnDestroyHwQueueCb);
+			DD_VISIT(pfnSubmitCommandToHwQueueCb);
+			DD_VISIT(pfnSubmitWaitForSyncObjectsToHwQueueCb);
+			DD_VISIT(pfnSubmitSignalSyncObjectsToHwQueueCb);
+		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_4_2)
+		{
+			DD_VISIT(pfnSubmitPresentBltToHwQueueCb);
+		}
+
+		if (version >= D3D_UMD_INTERFACE_VERSION_WDDM2_5_2)
+		{
+			DD_VISIT(pfnSubmitPresentToHwQueueCb);
+		}
 	}
 };
