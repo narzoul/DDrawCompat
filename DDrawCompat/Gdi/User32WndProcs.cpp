@@ -1,5 +1,3 @@
-#include <vector>
-
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/ScrollBar.h>
@@ -39,6 +37,11 @@ namespace
 		std::string className;
 		bool isUnicode;
 	};
+
+	template <WndProcHook>
+	User32WndProc g_user32WndProcA = {};
+	template <WndProcHook>
+	User32WndProc g_user32WndProcW = {};
 
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc,
@@ -218,20 +221,6 @@ namespace
 		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
 	}
 
-	template <WndProcHook>
-	User32WndProc& getUser32WndProcA()
-	{
-		static User32WndProc user32WndProcA = {};
-		return user32WndProcA;
-	}
-
-	template <WndProcHook>
-	User32WndProc& getUser32WndProcW()
-	{
-		static User32WndProc user32WndProcW = {};
-		return user32WndProcW;
-	}
-
 	void hookUser32WndProc(User32WndProc& user32WndProc, WNDPROC newWndProc,
 		const std::string& procName, const std::string& className, bool isUnicode)
 	{
@@ -270,14 +259,14 @@ namespace
 	template <WndProcHook wndProcHook>
 	void hookUser32WndProcA(const std::string& className, const std::string& procName)
 	{
-		hookUser32WndProc(getUser32WndProcA<wndProcHook>(), user32WndProcA<wndProcHook>,
+		hookUser32WndProc(g_user32WndProcA<wndProcHook>, user32WndProcA<wndProcHook>,
 			procName + 'A', className, false);
 	}
 
 	template <WndProcHook wndProcHook>
 	void hookUser32WndProcW(const std::string& className, const std::string& procName)
 	{
-		hookUser32WndProc(getUser32WndProcW<wndProcHook>(), user32WndProcW<wndProcHook>,
+		hookUser32WndProc(g_user32WndProcW<wndProcHook>, user32WndProcW<wndProcHook>,
 			procName + 'W', className, true);
 	}
 
@@ -465,14 +454,14 @@ namespace
 	template <WndProcHook wndProcHook>
 	LRESULT CALLBACK user32WndProcA(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		auto& wp = getUser32WndProcA<wndProcHook>();
+		auto& wp = g_user32WndProcA<wndProcHook>;
 		return user32WndProc(hwnd, uMsg, wParam, lParam, wp.procName, wndProcHook, wp.oldWndProcTrampoline);
 	}
 
 	template <WndProcHook wndProcHook>
 	LRESULT CALLBACK user32WndProcW(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		auto& wp = getUser32WndProcW<wndProcHook>();
+		auto& wp = g_user32WndProcW<wndProcHook>;
 		return user32WndProc(hwnd, uMsg, wParam, lParam, wp.procName, wndProcHook, wp.oldWndProcTrampoline);
 	}
 }

@@ -19,16 +19,16 @@ namespace
 		}
 	}
 
-	template <typename FuncPtr, FuncPtr func, typename Result, typename... Params>
+	template <auto func, typename Result, typename... Params>
 	Result WINAPI mitigatedBusyWaitingFunc(Params... params)
 	{
 		mitigateBusyWaiting();
-		return Compat::getOrigFuncPtr<FuncPtr, func>()(params...);
+		return Compat::g_origFuncPtr<func>(params...);
 	}
 }
 
 #define MITIGATE_BUSY_WAITING(module, func) \
-		Compat::hookFunction<decltype(&func), &func>(#module, #func, &mitigatedBusyWaitingFunc<decltype(&func), func>)
+		Compat::hookFunction<&func>(#module, #func, &mitigatedBusyWaitingFunc<&func>)
 
 namespace Win32
 {

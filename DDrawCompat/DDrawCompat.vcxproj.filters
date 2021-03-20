@@ -135,9 +135,6 @@
     <ClInclude Include="Direct3d\Direct3dDevice.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>
-    <ClInclude Include="Direct3d\Types.h">
-      <Filter>Header Files\Direct3d</Filter>
-    </ClInclude>
     <ClInclude Include="Direct3d\Hooks.h">
       <Filter>Header Files\Direct3d</Filter>
     </ClInclude>

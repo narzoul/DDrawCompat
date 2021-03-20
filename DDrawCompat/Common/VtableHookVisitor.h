@@ -57,8 +57,8 @@ public:
 			if (m_vtable.*memberPtr)
 			{
 #ifdef DEBUGLOGS
-				getFuncName<memberPtr>() = s_vtableTypeName + "::" + funcName;
-				Compat::Log() << "Hooking function: " << getFuncName<memberPtr>()
+				s_funcName<memberPtr> = s_vtableTypeName + "::" + funcName;
+				Compat::Log() << "Hooking function: " << s_funcName<memberPtr>
 					<< " (" << Compat::funcPtrToStr(m_vtable.*memberPtr) << ')';
 #endif
 				m_vtable.*memberPtr = &hookFunc<memberPtr>;
@@ -67,13 +67,6 @@ public:
 	}
 
 private:
-	template <auto memberPtr>
-	static std::string& getFuncName()
-	{
-		static std::string funcName;
-		return funcName;
-	}
-
 	static std::string getVtableTypeName()
 	{
 		std::string name = typeid(Vtable).name();
@@ -87,10 +80,7 @@ private:
 	template <auto memberPtr, typename Result, typename FirstParam, typename... Params>
 	static Result STDMETHODCALLTYPE hookFunc(FirstParam firstParam, Params... params)
 	{
-#ifdef DEBUGLOGS
-		const char* funcName = getFuncName<memberPtr>().c_str();
-#endif
-		LOG_FUNC(funcName, firstParam, params...);
+		LOG_FUNC(s_funcName<memberPtr>.c_str(), firstParam, params...);
 		[[maybe_unused]] Lock lock;
 		constexpr auto compatFunc = getCompatFunc<memberPtr, Vtable>();
 		if constexpr (std::is_void_v<Result>)
@@ -105,10 +95,17 @@ private:
 
 	Vtable& m_vtable;
 
+	template <auto memberPtr>
+	static std::string s_funcName;
+
 	static std::string s_vtableTypeName;
 };
 
 #ifdef DEBUGLOGS
+template <typename Vtable, typename Lock>
+template <auto memberPtr>
+std::string VtableHookVisitor<Vtable, Lock>::s_funcName;
+
 template <typename Vtable, typename Lock>
 std::string VtableHookVisitor<Vtable, Lock>::s_vtableTypeName(getVtableTypeName());
 #endif

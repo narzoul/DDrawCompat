@@ -1,5 +1,3 @@
-#include <map>
-
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Gdi/DcFunctions.h>
@@ -7,71 +5,57 @@
 
 namespace
 {
-	std::map<void*, const char*> g_funcNames;
+	template <auto func>
+	const char* g_funcName = nullptr;
 
-	template <typename Result, typename... Params>
-	using FuncPtr = Result(WINAPI*)(Params...);
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename... Params>
-	struct EnableDibRedirection
+	template <auto origFunc, typename... Params>
+	bool isDibRedirectionEnabled(Params...)
 	{
-		bool operator()(Params...) { return false; }
-	};
+		return false;
+	}
 
-	template <typename... Params>
-	struct EnableDibRedirection<decltype(&CopyImage), &CopyImage, Params...>
+	template <>
+	bool isDibRedirectionEnabled<&CopyImage>(HANDLE, UINT type, int, int, UINT)
 	{
-		bool operator()(HANDLE, UINT type, int, int, UINT)
-		{
-			return IMAGE_CURSOR != type && IMAGE_ICON != type;
-		}
-	};
+		return IMAGE_CURSOR != type && IMAGE_ICON != type;
+	}
 
-	struct EnableDibRedirectionLoadImage
+	template <>
+	bool isDibRedirectionEnabled<&LoadImageA>(HINSTANCE, LPCSTR, UINT type, int, int, UINT)
 	{
-		template <typename String>
-		bool operator()(HINSTANCE, String, UINT type, int, int, UINT)
-		{
-			return IMAGE_CURSOR != type && IMAGE_ICON != type;
-		}
-	};
+		return IMAGE_CURSOR != type && IMAGE_ICON != type;
+	}
 
-	template <typename... Params>
-	struct EnableDibRedirection<decltype(&LoadImageA), &LoadImageA, Params...> : EnableDibRedirectionLoadImage {};
-	template <typename... Params>
-	struct EnableDibRedirection<decltype(&LoadImageW), &LoadImageW, Params...> : EnableDibRedirectionLoadImage {};
+	template <>
+	bool isDibRedirectionEnabled<&LoadImageW>(HINSTANCE, LPCWSTR, UINT type, int, int, UINT)
+	{
+		return IMAGE_CURSOR != type && IMAGE_ICON != type;
+	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	template <auto origFunc, typename Result, typename... Params>
 	Result WINAPI iconFunc(Params... params)
 	{
-		LOG_FUNC(g_funcNames[origFunc], params...);
+		LOG_FUNC(g_funcName<origFunc>, params...);
 
-		if (EnableDibRedirection<OrigFuncPtr, origFunc, Params...>()(params...))
+		if (isDibRedirectionEnabled<origFunc>(params...))
 		{
-			return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...));
+			return LOG_RESULT(Compat::g_origFuncPtr<origFunc>(params...));
 		}
 
 		Gdi::DcFunctions::disableDibRedirection(true);
-		Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(params...);
+		Result result = Compat::g_origFuncPtr<origFunc>(params...);
 		Gdi::DcFunctions::disableDibRedirection(false);
 		return LOG_RESULT(result);
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getIconFuncPtr(FuncPtr<Result, Params...>)
-	{
-		return &iconFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
+	template <auto origFunc>
 	void hookIconFunc(const char* moduleName, const char* funcName)
 	{
 #ifdef DEBUGLOGS
-		g_funcNames[origFunc] = funcName;
+		g_funcName<origFunc> = funcName;
 #endif
 
-		Compat::hookFunction<OrigFuncPtr, origFunc>(
-			moduleName, funcName, getIconFuncPtr<OrigFuncPtr, origFunc>(origFunc));
+		Compat::hookFunction<origFunc>(moduleName, funcName, &iconFunc<origFunc>);
 	}
 
 	template <typename WndClass, typename WndClassEx>
@@ -130,7 +114,7 @@ namespace
 	}
 }
 
-#define HOOK_ICON_FUNCTION(module, func) hookIconFunc<decltype(&func), &func>(#module, #func)
+#define HOOK_ICON_FUNCTION(module, func) hookIconFunc<&func>(#module, #func)
 
 namespace Gdi
 {

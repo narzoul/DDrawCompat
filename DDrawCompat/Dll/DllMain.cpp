@@ -1,8 +1,6 @@
 #include <string>
-#include <vector>
 
 #include <Windows.h>
-#include <Psapi.h>
 #include <ShellScalingApi.h>
 #include <timeapi.h>
 #include <Uxtheme.h>
@@ -73,17 +71,6 @@ namespace
 		return path;
 	}
 
-	std::vector<HMODULE> getProcessModules(HANDLE process)
-	{
-		std::vector<HMODULE> modules(10000);
-		DWORD bytesNeeded = 0;
-		if (EnumProcessModules(process, modules.data(), modules.size(), &bytesNeeded))
-		{
-			modules.resize(bytesNeeded / sizeof(modules[0]));
-		}
-		return modules;
-	}
-
 	std::string getSystemDirectory()
 	{
 		char path[MAX_PATH] = {};
@@ -140,28 +127,20 @@ namespace
 		}
 	}
 
-	bool isEqualPath(const std::string& p1, const std::string& p2)
+	bool isEqual(const std::string& p1, const std::string& p2)
 	{
-		return 0 == _strcmpi(p1.c_str(), p2.c_str());
+		return 0 == _stricmp(p1.c_str(), p2.c_str());
 	}
 
 	bool isOtherDDrawWrapperLoaded()
 	{
-		auto currentDllPath = getModulePath(Dll::g_currentModule);
-		auto systemDirectory = getSystemDirectory();
-		auto processModules = getProcessModules(GetCurrentProcess());
-		for (HMODULE module : processModules)
-		{
-			auto path = getModulePath(module);
-			auto fileName = getFileName(path);
-			if ((isEqualPath(fileName, "ddraw.dll") || isEqualPath(fileName, "dciman32.dll")) &&
-				!isEqualPath(path, currentDllPath) &&
-				!isEqualPath(getDirName(path), systemDirectory))
-			{
-				return true;
-			}
-		}
-		return false;
+		const auto currentDllPath = getModulePath(Dll::g_currentModule);
+		const auto currentDllDir = getDirName(currentDllPath);
+		const auto ddrawDllPath = currentDllDir + "\\ddraw.dll";
+		const auto dciman32DllPath = currentDllDir + "\\dciman32.dll";
+
+		return (!isEqual(currentDllPath, ddrawDllPath) && GetModuleHandle(ddrawDllPath.c_str())) ||
+			(!isEqual(currentDllPath, dciman32DllPath) && GetModuleHandle(dciman32DllPath.c_str()));
 	}
 
 	void printEnvironmentVariable(const char* var)
@@ -237,7 +216,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath;
 
 		auto systemDirectory = getSystemDirectory();
-		if (isEqualPath(getDirName(currentDllPath), systemDirectory))
+		if (isEqual(getDirName(currentDllPath), systemDirectory))
 		{
 			Compat::Log() << "DDrawCompat cannot be installed in the Windows system directory";
 			return FALSE;

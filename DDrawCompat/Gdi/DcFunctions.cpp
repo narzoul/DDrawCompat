@@ -1,5 +1,3 @@
-#include <unordered_map>
-
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Gdi/CompatDc.h>
@@ -13,11 +11,13 @@
 
 namespace
 {
-	std::unordered_map<void*, const char*> g_funcNames;
+	template <auto func>
+	const char* g_funcName = nullptr;
+
 	thread_local UINT g_disableDibRedirection = 0;
 
 #define CREATE_DC_FUNC_ATTRIBUTE(attribute) \
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc> \
+	template <auto origFunc> \
 	bool attribute() \
 	{ \
 		return false; \
@@ -25,7 +25,7 @@ namespace
 
 #define SET_DC_FUNC_ATTRIBUTE(attribute, func) \
 	template <> \
-	bool attribute<decltype(&func), &func>() \
+	bool attribute<&func>() \
 	{ \
 		return true; \
 	}
@@ -52,9 +52,6 @@ namespace
 
 	BOOL WINAPI GdiDrawStream(HDC, DWORD, DWORD) { return FALSE; }
 	BOOL WINAPI PolyPatBlt(HDC, DWORD, DWORD, DWORD, DWORD) { return FALSE; }
-
-	template <typename Result, typename... Params>
-	using FuncPtr = Result(WINAPI *)(Params...);
 
 	bool hasDisplayDcArg(HDC dc)
 	{
@@ -94,18 +91,16 @@ namespace
 		return Gdi::CompatDc(dc);
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	template <auto origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiDcFunc(HDC hdc, Params... params)
 	{
-#ifdef DEBUGLOGS
-		LOG_FUNC(g_funcNames[origFunc], hdc, params...);
-#endif
+		LOG_FUNC(g_funcName<origFunc>, hdc, params...);
 
 		if (hasDisplayDcArg(hdc, params...))
 		{
-			Gdi::CompatDc compatDc(hdc, isReadOnly<OrigFuncPtr, origFunc>());
-			Result result = Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(compatDc, replaceDc(params)...);
-			if (isPositionUpdated<OrigFuncPtr, origFunc>() && result)
+			Gdi::CompatDc compatDc(hdc, isReadOnly<origFunc>());
+			Result result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
+			if (isPositionUpdated<origFunc>() && result)
 			{
 				POINT currentPos = {};
 				GetCurrentPositionEx(compatDc, &currentPos);
@@ -114,11 +109,11 @@ namespace
 			return LOG_RESULT(result);
 		}
 
-		return LOG_RESULT(Compat::getOrigFuncPtr<OrigFuncPtr, origFunc>()(hdc, params...));
+		return LOG_RESULT(Compat::g_origFuncPtr<origFunc>(hdc, params...));
 	}
 
 	template <>
-	BOOL WINAPI compatGdiDcFunc<decltype(&ExtTextOutW), &ExtTextOutW>(
+	BOOL WINAPI compatGdiDcFunc<&ExtTextOutW>(
 		HDC hdc, int x, int y, UINT options, const RECT* lprect, LPCWSTR lpString, UINT c, const INT* lpDx)
 	{
 		LOG_FUNC("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
@@ -164,11 +159,11 @@ namespace
 		return LOG_RESULT(TRUE);
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
+	template <auto origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiTextDcFunc(HDC dc, Params... params)
 	{
 		Gdi::Font::Mapper fontMapper(dc);
-		return compatGdiDcFunc<OrigFuncPtr, origFunc, Result>(dc, params...);
+		return compatGdiDcFunc<origFunc, Result>(dc, params...);
 	}
 
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
@@ -222,38 +217,24 @@ namespace
 		return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, hdc, lprect, flags));
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getCompatGdiDcFuncPtr(FuncPtr<Result, HDC, Params...>)
-	{
-		return &compatGdiDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc, typename Result, typename... Params>
-	OrigFuncPtr getCompatGdiTextDcFuncPtr(FuncPtr<Result, HDC, Params...>)
-	{
-		return &compatGdiTextDcFunc<OrigFuncPtr, origFunc, Result, Params...>;
-	}
-
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
+	template <auto origFunc>
 	void hookGdiDcFunction(const char* moduleName, const char* funcName)
 	{
 #ifdef DEBUGLOGS
-		g_funcNames[origFunc] = funcName;
+		g_funcName<origFunc> = funcName;
 #endif
 
-		Compat::hookFunction<OrigFuncPtr, origFunc>(
-			moduleName, funcName, getCompatGdiDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
+		Compat::hookFunction<origFunc>(moduleName, funcName, &compatGdiDcFunc<origFunc>);
 	}
 
-	template <typename OrigFuncPtr, OrigFuncPtr origFunc>
+	template <auto origFunc>
 	void hookGdiTextDcFunction(const char* moduleName, const char* funcName)
 	{
 #ifdef DEBUGLOGS
-		g_funcNames[origFunc] = funcName;
+		g_funcName<origFunc> = funcName;
 #endif
 
-		Compat::hookFunction<OrigFuncPtr, origFunc>(
-			moduleName, funcName, getCompatGdiTextDcFuncPtr<OrigFuncPtr, origFunc>(origFunc));
+		Compat::hookFunction<origFunc>(moduleName, funcName, &compatGdiTextDcFunc<origFunc>);
 	}
 
 	HWND WINAPI windowFromDc(HDC dc)
@@ -263,11 +244,11 @@ namespace
 }
 
 #define HOOK_GDI_DC_FUNCTION(module, func) \
-	hookGdiDcFunction<decltype(&func), &func>(#module, #func)
+	hookGdiDcFunction<&func>(#module, #func)
 
 #define HOOK_GDI_TEXT_DC_FUNCTION(module, func) \
-	HOOK_GDI_DC_FUNCTION(module, func##A); \
-	HOOK_GDI_DC_FUNCTION(module, func##W)
+	hookGdiTextDcFunction<&func##A>(#module, #func"A"); \
+	hookGdiTextDcFunction<&func##W>(#module, #func"W")
 
 namespace Gdi
 {
