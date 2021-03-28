@@ -10,6 +10,7 @@ namespace
 	const UINT WM_SETPRESENTATIONWINDOWPOS = WM_USER + 1;
 	const UINT WM_SETPRESENTATIONWINDOWRGN = WM_USER + 2;
 
+	HANDLE g_presentationWindowThread = nullptr;
 	unsigned g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
 
@@ -97,6 +98,7 @@ namespace
 		}
 
 		Gdi::WinProc::installHooks();
+		Compat::closeDbgEng();
 
 		MSG msg = {};
 		while (GetMessage(&msg, nullptr, 0, 0))
@@ -139,7 +141,8 @@ namespace Gdi
 			wc.lpszClassName = "DDrawCompatPresentationWindow";
 			CALL_ORIG_FUNC(RegisterClassA)(&wc);
 
-			Dll::createThread(presentationWindowThreadProc, &g_presentationWindowThreadId, THREAD_PRIORITY_TIME_CRITICAL);
+			g_presentationWindowThread = Dll::createThread(presentationWindowThreadProc, &g_presentationWindowThreadId,
+				THREAD_PRIORITY_TIME_CRITICAL, CREATE_SUSPENDED);
 		}
 
 		bool isPresentationWindow(HWND hwnd)
@@ -155,6 +158,11 @@ namespace Gdi
 		void setWindowRgn(HWND hwnd, HRGN rgn)
 		{
 			sendMessageBlocking(hwnd, WM_SETPRESENTATIONWINDOWRGN, reinterpret_cast<WPARAM>(rgn), 0);
+		}
+
+		void startThread()
+		{
+			ResumeThread(g_presentationWindowThread);
 		}
 	}
 }

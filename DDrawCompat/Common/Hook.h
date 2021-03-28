@@ -13,6 +13,7 @@
 
 namespace Compat
 {
+	void closeDbgEng();
 	std::string funcPtrToStr(void* funcPtr);
 	HMODULE getModuleHandleFromAddress(void* address);
 
@@ -32,5 +33,4 @@ namespace Compat
 	}
 
 	void removeShim(HMODULE module, const char* funcName);
-	void unhookFunction(void* origFunc);
 }

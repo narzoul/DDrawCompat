@@ -11,6 +11,7 @@ namespace Gdi
 		bool isPresentationWindow(HWND hwnd);
 		void setWindowPos(HWND hwnd, const WINDOWPOS& wp);
 		void setWindowRgn(HWND hwnd, HRGN rgn);
+		void startThread();
 
 		void installHooks();
 	}

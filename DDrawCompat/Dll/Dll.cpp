@@ -10,9 +10,9 @@ namespace Dll
 	Procs g_origProcs = {};
 	Procs g_jmpTargetProcs = {};
 
-	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority)
+	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority, unsigned initFlags)
 	{
-		HANDLE thread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, threadProc, nullptr, 0, threadId));
+		HANDLE thread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, threadProc, nullptr, initFlags, threadId));
 		if (thread)
 		{
 			SetThreadPriority(thread, priority);

@@ -1,36 +1,30 @@
-#include <algorithm>
+#undef CINTERFACE
+
 #include <filesystem>
 #include <list>
-#include <map>
 #include <sstream>
 #include <string>
-#include <utility>
 
 #include <Windows.h>
-#include <detours.h>
+#include <initguid.h>
+#include <DbgEng.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Dll/Dll.h>
 
 namespace
 {
-	struct HookedFunctionInfo
-	{
-		HMODULE module;
-		void*& origFunction;
-		void* newFunction;
-	};
-
-	std::map<void*, HookedFunctionInfo> g_hookedFunctions;
+	IDebugClient* g_debugClient = nullptr;
+	IDebugControl* g_debugControl = nullptr;
+	IDebugSymbols* g_debugSymbols = nullptr;
+	IDebugDataSpaces4* g_debugDataSpaces = nullptr;
+	ULONG64 g_debugBase = 0;
+	bool g_isDbgEngInitialized = false;
 
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
 	std::filesystem::path getModulePath(HMODULE module);
-
-	std::map<void*, HookedFunctionInfo>::iterator findOrigFunc(void* origFunc)
-	{
-		return std::find_if(g_hookedFunctions.begin(), g_hookedFunctions.end(),
-			[=](const auto& i) { return origFunc == i.first || origFunc == i.second.origFunction; });
-	}
+	bool initDbgEng();
 
 	FARPROC* findProcAddressInIat(HMODULE module, const char* procName)
 	{
@@ -91,6 +85,28 @@ namespace
 		return ntHeaders;
 	}
 
+	unsigned getInstructionSize(void* instruction)
+	{
+		const unsigned MAX_INSTRUCTION_SIZE = 15;
+		HRESULT result = g_debugDataSpaces->WriteVirtual(g_debugBase, instruction, MAX_INSTRUCTION_SIZE, nullptr);
+		if (FAILED(result))
+		{
+			LOG_ONCE("ERROR: DbgEng: WriteVirtual failed: " << Compat::hex(result));
+			return 0;
+		}
+
+		ULONG64 endOffset = 0;
+		result = g_debugControl->Disassemble(g_debugBase, 0, nullptr, 0, nullptr, &endOffset);
+		if (FAILED(result))
+		{
+			LOG_ONCE("ERROR: DbgEng: Disassemble failed: " << Compat::hex(result) << " "
+				<< Compat::hexDump(instruction, MAX_INSTRUCTION_SIZE));
+			return 0;
+		}
+
+		return static_cast<unsigned>(endOffset - g_debugBase);
+	}
+
 	std::filesystem::path getModulePath(HMODULE module)
 	{
 		char path[MAX_PATH] = {};
@@ -100,28 +116,11 @@ namespace
 
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
-		void* stubFuncPtr = nullptr;
-		if (GetModuleHandle("ntdll") == Compat::getModuleHandleFromAddress(origFuncPtr))
-		{
-			// Avoid hooking ntdll stubs (e.g. ntdll/NtdllDialogWndProc_A instead of user32/DefDlgProcA)
-			if (0xFF == reinterpret_cast<BYTE*>(origFuncPtr)[0] &&
-				0x25 == reinterpret_cast<BYTE*>(origFuncPtr)[1])
-			{
-				void* jmpTarget = **reinterpret_cast<void***>(reinterpret_cast<BYTE*>(origFuncPtr) + 2);
-				if (GetModuleHandle("user32") == Compat::getModuleHandleFromAddress(jmpTarget))
-				{
-					stubFuncPtr = origFuncPtr;
-					origFuncPtr = jmpTarget;
-				}
-			}
-		}
+		BYTE* targetFunc = reinterpret_cast<BYTE*>(origFuncPtr);
 
-		const auto it = findOrigFunc(origFuncPtr);
-		if (it != g_hookedFunctions.end())
-		{
-			origFuncPtr = it->second.origFunction;
-			return;
-		}
+		std::ostringstream oss;
+#ifdef DEBUGLOGS
+		oss << Compat::funcPtrToStr(targetFunc);
 
 		char origFuncPtrStr[20] = {};
 		if (!funcName)
@@ -129,46 +128,171 @@ namespace
 			sprintf_s(origFuncPtrStr, "%p", origFuncPtr);
 			funcName = origFuncPtrStr;
 		}
+#endif
 
-		void* const hookedFuncPtr = origFuncPtr;
-		if (stubFuncPtr)
+		while (true)
 		{
-			LOG_DEBUG << "Hooking function: " << funcName << " (" << Compat::funcPtrToStr(stubFuncPtr) << " -> "
-				<< Compat::funcPtrToStr(origFuncPtr) << ')';
-		}
-		else
-		{
-			LOG_DEBUG << "Hooking function: " << funcName << " (" << Compat::funcPtrToStr(hookedFuncPtr) << ')';
+			if (0xE9 == targetFunc[0])
+			{
+				targetFunc += 1 + *reinterpret_cast<int*>(targetFunc + 1);
+			}
+			else if (0xEB == targetFunc[0])
+			{
+				targetFunc += 1 + static_cast<signed char>(targetFunc[1]);
+			}
+			else if (0xFF == targetFunc[0] && 0x25 == targetFunc[1])
+			{
+				targetFunc = **reinterpret_cast<BYTE***>(targetFunc + 2);
+			}
+			else
+			{
+				break;
+			}
+#ifdef DEBUGLOGS
+			oss << " -> " << Compat::funcPtrToStr(targetFunc);
+#endif
 		}
 
-		DetourTransactionBegin();
-		const bool attachSuccessful = NO_ERROR == DetourAttach(&origFuncPtr, newFuncPtr);
-		const bool commitSuccessful = NO_ERROR == DetourTransactionCommit();
-		if (!attachSuccessful || !commitSuccessful)
+		LOG_DEBUG << "Hooking function: " << funcName << " (" << oss.str() << ')';
+
+		if (Compat::getModuleHandleFromAddress(targetFunc) == Dll::g_currentModule)
 		{
-			LOG_DEBUG << "ERROR: Failed to hook a function: " << funcName;
+			Compat::Log() << "ERROR: Target function is already hooked: " << funcName;
 			return;
 		}
 
+		if (!initDbgEng())
+		{
+			return;
+		}
+
+		unsigned totalInstructionSize = 0;
+		while (totalInstructionSize < 5)
+		{
+			unsigned instructionSize = getInstructionSize(targetFunc + totalInstructionSize);
+			if (0 == instructionSize)
+			{
+				return;
+			}
+			totalInstructionSize += instructionSize;
+		}
+
+		LOG_DEBUG << "Decoded instructions: " << Compat::hexDump(targetFunc, totalInstructionSize);
+
+		BYTE* trampoline = static_cast<BYTE*>(
+			VirtualAlloc(nullptr, totalInstructionSize + 5, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		memcpy(trampoline, targetFunc, totalInstructionSize);
+		trampoline[totalInstructionSize] = 0xE9;
+		reinterpret_cast<int&>(trampoline[totalInstructionSize + 1]) = targetFunc - (trampoline + 5);
+		DWORD oldProtect = 0;
+		VirtualProtect(trampoline, totalInstructionSize + 5, PAGE_EXECUTE_READ, &oldProtect);
+
+		VirtualProtect(targetFunc, totalInstructionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+		targetFunc[0] = 0xE9;
+		reinterpret_cast<int&>(targetFunc[1]) = static_cast<BYTE*>(newFuncPtr) - (targetFunc + 5);
+		memset(targetFunc + 5, 0xCC, totalInstructionSize - 5);
+		VirtualProtect(targetFunc, totalInstructionSize, PAGE_EXECUTE_READ, &oldProtect);
+
+		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
+
 		HMODULE module = nullptr;
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
-			static_cast<char*>(hookedFuncPtr), &module);
+			reinterpret_cast<char*>(targetFunc), &module);
 
-		g_hookedFunctions.emplace(
-			std::make_pair(hookedFuncPtr, HookedFunctionInfo{ module, origFuncPtr, newFuncPtr }));
+		origFuncPtr = trampoline;
 	}
 
-	void unhookFunction(const std::map<void*, HookedFunctionInfo>::iterator& hookedFunc)
+	bool initDbgEng()
 	{
-		DetourTransactionBegin();
-		DetourDetach(&hookedFunc->second.origFunction, hookedFunc->second.newFunction);
-		DetourTransactionCommit();
-		g_hookedFunctions.erase(hookedFunc);
+		if (g_isDbgEngInitialized)
+		{
+			return 0 != g_debugBase;
+		}
+		g_isDbgEngInitialized = true;
+
+		CoInitialize(nullptr);
+
+		HRESULT result = S_OK;
+		if (FAILED(result = DebugCreate(IID_IDebugClient, reinterpret_cast<void**>(&g_debugClient))) ||
+			FAILED(result = g_debugClient->QueryInterface(IID_IDebugControl, reinterpret_cast<void**>(&g_debugControl))) ||
+			FAILED(result = g_debugClient->QueryInterface(IID_IDebugSymbols, reinterpret_cast<void**>(&g_debugSymbols))) ||
+			FAILED(result = g_debugClient->QueryInterface(IID_IDebugDataSpaces4, reinterpret_cast<void**>(&g_debugDataSpaces))))
+		{
+			Compat::Log() << "ERROR: DbgEng: object creation failed: " << Compat::hex(result);
+			return false;
+		}
+
+		char dllPath[MAX_PATH] = {};
+		GetModuleFileName(Dll::g_currentModule, dllPath, sizeof(dllPath));
+
+		result = g_debugClient->OpenDumpFile(dllPath);
+		if (FAILED(result))
+		{
+			Compat::Log() << "ERROR: DbgEng: OpenDumpFile failed: " << Compat::hex(result);
+			return false;
+		}
+
+		g_debugControl->SetEngineOptions(DEBUG_ENGOPT_DISABLE_MODULE_SYMBOL_LOAD);
+		result = g_debugControl->WaitForEvent(0, INFINITE);
+		if (FAILED(result))
+		{
+			Compat::Log() << "ERROR: DbgEng: WaitForEvent failed: " << Compat::hex(result);
+			return false;
+		}
+
+		DEBUG_MODULE_PARAMETERS dmp = {};
+		result = g_debugSymbols->GetModuleParameters(1, 0, 0, &dmp);
+		if (FAILED(result))
+		{
+			Compat::Log() << "ERROR: DbgEng: GetModuleParameters failed: " << Compat::hex(result);
+			return false;
+		}
+
+		ULONG size = 0;
+		result = g_debugDataSpaces->GetValidRegionVirtual(dmp.Base, dmp.Size, &g_debugBase, &size);
+		if (FAILED(result) || 0 == g_debugBase)
+		{
+			Compat::Log() << "ERROR: DbgEng: GetValidRegionVirtual failed: " << Compat::hex(result);
+			return false;
+		}
+
+		return true;
 	}
 }
 
 namespace Compat
 {
+	void closeDbgEng()
+	{
+		if (g_debugClient)
+		{
+			g_debugClient->EndSession(DEBUG_END_PASSIVE);
+		}
+		if (g_debugDataSpaces)
+		{
+			g_debugDataSpaces->Release();
+			g_debugDataSpaces = nullptr;
+		}
+		if (g_debugSymbols)
+		{
+			g_debugSymbols->Release();
+			g_debugSymbols = nullptr;
+		}
+		if (g_debugControl)
+		{
+			g_debugControl->Release();
+			g_debugControl = nullptr;
+		}
+		if (g_debugClient)
+		{
+			g_debugClient->Release();
+			g_debugClient = nullptr;
+		}
+
+		g_debugBase = 0;
+		g_isDbgEngInitialized = false;
+	}
+
 	std::string funcPtrToStr(void* funcPtr)
 	{
 		std::ostringstream oss;
@@ -323,15 +447,6 @@ namespace Compat
 				shimFuncName += funcName;
 				hookFunction(shimFuncs.back(), realFunc, shimFuncName.c_str());
 			}
-		}
-	}
-
-	void unhookFunction(void* origFunc)
-	{
-		auto it = findOrigFunc(origFunc);
-		if (it != g_hookedFunctions.end())
-		{
-			::unhookFunction(it);
 		}
 	}
 }

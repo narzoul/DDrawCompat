@@ -59,19 +59,21 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>$(ProjectDir);C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\include;$(IncludePath)</IncludePath>
-    <LibraryPath>C:\Program Files %28x86%29\Microsoft Research\Detours Express 3.0\lib.X86;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
+    <LibraryPath>$(LibraryPath)</LibraryPath>
+    <LinkIncremental>false</LinkIncremental>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -87,7 +89,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
@@ -105,7 +107,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
@@ -123,7 +125,7 @@
       <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>dxguid.lib;detours.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>

@@ -14,6 +14,7 @@
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/MemoryManagement.h>
@@ -122,6 +123,8 @@ namespace
 			Direct3d::installHooks(dd, dd7);
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
+			Compat::closeDbgEng();
+			Gdi::PresentationWindow::startThread();
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
@@ -258,6 +261,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::MemoryManagement::installHooks();
 		Win32::MsgHooks::installHooks();
 		Time::init();
+		Compat::closeDbgEng();
 
 		const DWORD disableMaxWindowedMode = 12;
 		CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);

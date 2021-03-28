@@ -56,6 +56,14 @@ namespace Compat
 	{
 		using ::operator<<;
 
+		template <typename Elem>
+		struct Array
+		{
+			Array(const Elem* elem, const unsigned long size) : elem(elem), size(size) {}
+			const Elem* elem;
+			const unsigned long size;
+		};
+
 		template <typename T>
 		struct Hex
 		{
@@ -63,12 +71,10 @@ namespace Compat
 			T val;
 		};
 
-		template <typename Elem>
-		struct Array
+		struct HexByte
 		{
-			Array(const Elem* elem, const unsigned long size) : elem(elem), size(size) {}
-			const Elem* elem;
-			const unsigned long size;
+			explicit HexByte(BYTE val) : val(val) {}
+			BYTE val;
 		};
 
 		template <typename T>
@@ -102,13 +108,6 @@ namespace Compat
 			std::ostream& m_os;
 		};
 
-		template <typename T>
-		std::ostream& operator<<(std::ostream& os, Hex<T> hex)
-		{
-			os << "0x" << std::hex << hex.val << std::dec;
-			return os;
-		}
-
 		template <typename Elem>
 		std::ostream& operator<<(std::ostream& os, Array<Elem> array)
 		{
@@ -128,6 +127,19 @@ namespace Compat
 		}
 
 		template <typename T>
+		std::ostream& operator<<(std::ostream& os, Hex<T> hex)
+		{
+			return os << "0x" << std::hex << hex.val << std::dec;
+		}
+
+		inline std::ostream& operator<<(std::ostream& os, HexByte hexByte)
+		{
+			os.fill('0');
+			os.width(2);
+			return os << std::hex << static_cast<DWORD>(hexByte.val) << std::dec;
+		}
+
+		template <typename T>
 		std::ostream& operator<<(std::ostream& os, Out<T> out)
 		{
 			++Log::s_outParamDepth;
@@ -137,15 +149,20 @@ namespace Compat
 		}
 	}
 
+	template <typename Elem>
+	detail::Array<Elem> array(const Elem* elem, const unsigned long size)
+	{
+		return detail::Array<Elem>(elem, size);
+	}
+
 	template <typename T> detail::Hex<T> hex(T val)
 	{
 		return detail::Hex<T>(val);
 	}
 
-	template <typename Elem>
-	detail::Array<Elem> array(const Elem* elem, const unsigned long size)
+	inline detail::Array<detail::HexByte> hexDump(const void* buf, const unsigned long size)
 	{
-		return detail::Array<Elem>(elem, size);
+		return detail::Array<detail::HexByte>(static_cast<const detail::HexByte*>(buf), size);
 	}
 
 	template <typename T> detail::Out<T> out(const T& val)
