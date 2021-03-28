@@ -531,7 +531,6 @@ namespace D3dDdi
 			D3DDDIARG_LOCK lock = {};
 			lock.hResource = m_handle;
 			lock.SubResourceIndex = data.DstSubResourceIndex;
-			lock.Flags.Discard = 1;
 			HRESULT result = m_device.getOrigVtable().pfnLock(m_device, &lock);
 			if (FAILED(result))
 			{
