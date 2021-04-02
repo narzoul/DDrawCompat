@@ -1,6 +1,5 @@
 #undef CINTERFACE
 
-#include <filesystem>
 #include <list>
 #include <sstream>
 #include <string>
@@ -23,7 +22,7 @@ namespace
 	bool g_isDbgEngInitialized = false;
 
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
-	std::filesystem::path getModulePath(HMODULE module);
+	std::string getModulePath(HMODULE module);
 	bool initDbgEng();
 
 	FARPROC* findProcAddressInIat(HMODULE module, const char* procName)
@@ -107,7 +106,7 @@ namespace
 		return static_cast<unsigned>(endOffset - g_debugBase);
 	}
 
-	std::filesystem::path getModulePath(HMODULE module)
+	std::string getModulePath(HMODULE module)
 	{
 		char path[MAX_PATH] = {};
 		GetModuleFileName(module, path, sizeof(path));
@@ -120,7 +119,7 @@ namespace
 
 		std::ostringstream oss;
 #ifdef DEBUGLOGS
-		oss << Compat::funcPtrToStr(targetFunc);
+		oss << Compat::funcPtrToStr(targetFunc) << ' ';
 
 		char origFuncPtrStr[20] = {};
 		if (!funcName)
@@ -128,20 +127,26 @@ namespace
 			sprintf_s(origFuncPtrStr, "%p", origFuncPtr);
 			funcName = origFuncPtrStr;
 		}
+
+		auto prevTargetFunc = targetFunc;
 #endif
 
 		while (true)
 		{
+			unsigned instructionSize = 0;
 			if (0xE9 == targetFunc[0])
 			{
-				targetFunc += 1 + *reinterpret_cast<int*>(targetFunc + 1);
+				instructionSize = 5;
+				targetFunc += instructionSize + *reinterpret_cast<int*>(targetFunc + 1);
 			}
 			else if (0xEB == targetFunc[0])
 			{
-				targetFunc += 1 + static_cast<signed char>(targetFunc[1]);
+				instructionSize = 2;
+				targetFunc += instructionSize + *reinterpret_cast<signed char*>(targetFunc + 1);
 			}
 			else if (0xFF == targetFunc[0] && 0x25 == targetFunc[1])
 			{
+				instructionSize = 6;
 				targetFunc = **reinterpret_cast<BYTE***>(targetFunc + 2);
 			}
 			else
@@ -149,11 +154,10 @@ namespace
 				break;
 			}
 #ifdef DEBUGLOGS
-			oss << " -> " << Compat::funcPtrToStr(targetFunc);
+			oss << Compat::hexDump(prevTargetFunc, instructionSize) << " -> " << Compat::funcPtrToStr(targetFunc) << ' ';
+			prevTargetFunc = targetFunc;
 #endif
 		}
-
-		LOG_DEBUG << "Hooking function: " << funcName << " (" << oss.str() << ')';
 
 		if (Compat::getModuleHandleFromAddress(targetFunc) == Dll::g_currentModule)
 		{
@@ -177,7 +181,8 @@ namespace
 			totalInstructionSize += instructionSize;
 		}
 
-		LOG_DEBUG << "Decoded instructions: " << Compat::hexDump(targetFunc, totalInstructionSize);
+		LOG_DEBUG << "Hooking function: " << funcName
+			<< " (" << oss.str() << Compat::hexDump(targetFunc, totalInstructionSize) << ')';
 
 		BYTE* trampoline = static_cast<BYTE*>(
 			VirtualAlloc(nullptr, totalInstructionSize + 5, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
@@ -299,7 +304,7 @@ namespace Compat
 		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
 		if (module)
 		{
-			oss << getModulePath(module).string() << "+0x" << std::hex <<
+			oss << getModulePath(module) << "+0x" << std::hex <<
 				reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
 		}
 		else

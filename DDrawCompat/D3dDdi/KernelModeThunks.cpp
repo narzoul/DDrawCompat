@@ -292,7 +292,7 @@ namespace D3dDdi
 				CompatPtr<IDirectDraw7> dd7(ddUnk);
 
 				DDDEVICEIDENTIFIER2 di = {};
-				dd7->GetDeviceIdentifier(dd7, &di, 0);
+				dd7.get()->lpVtbl->GetDeviceIdentifier(dd7, &di, 0);
 			}
 
 			return g_lastOpenAdapterInfo.monitorRect;

@@ -20,6 +20,9 @@ namespace Compat
 	{
 	};
 
+	template <typename SrcIntf> struct IsConvertible<SrcIntf, IUnknown> : std::true_type {};
+	template <typename DestIntf> struct IsConvertible<IUnknown, DestIntf> : std::true_type {};
+
 	template<> struct IsConvertible<IDirect3D, IDirect3D7> : std::false_type {};
 	template<> struct IsConvertible<IDirect3D2, IDirect3D7> : std::false_type {};
 	template<> struct IsConvertible<IDirect3D3, IDirect3D7> : std::false_type {};
@@ -61,6 +64,8 @@ namespace Compat
 #define DEFINE_INTF_ID(Intf) \
 	template<> inline const IID& getIntfId<Intf>() { return IID_##Intf; }
 
+	DEFINE_INTF_ID(IUnknown);
+
 	DEFINE_INTF_ID(IDirectDraw);
 	DEFINE_INTF_ID(IDirectDraw2);
 	DEFINE_INTF_ID(IDirectDraw4);
@@ -93,21 +98,6 @@ namespace Compat
 	DEFINE_INTF_ID(IDirect3DViewport3);
 
 #undef DEFINE_INTF_ID
-
-	template <typename NewIntf>
-	void queryInterface(IUnknown& origIntf, NewIntf*& newIntf)
-	{
-		getOrigVtable(newIntf).QueryInterface(
-			reinterpret_cast<NewIntf*>(&origIntf),
-			getIntfId<NewIntf>(),
-			reinterpret_cast<void**>(&newIntf));
-	}
-
-	template <typename OrigIntf>
-	void queryInterface(OrigIntf& origIntf, IUnknown*& newIntf)
-	{
-		getOrigVtable(&origIntf).QueryInterface(&origIntf, IID_IUnknown, reinterpret_cast<void**>(&newIntf));
-	}
 
 	template <typename NewIntf, typename OrigIntf>
 	std::enable_if_t<IsConvertible<OrigIntf, NewIntf>::value>
