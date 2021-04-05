@@ -606,4 +606,14 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="DDrawCompat.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="genversion.ps1">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>
