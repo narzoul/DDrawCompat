@@ -459,7 +459,6 @@ namespace Gdi
 			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
-			CoInitialize(nullptr);
 			SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,

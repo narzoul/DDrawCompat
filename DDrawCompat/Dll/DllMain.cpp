@@ -38,20 +38,13 @@ namespace
 
 	void installHooks();
 
-	template <FARPROC(Dll::Procs::* origFunc), typename Result, typename FirstParam, typename... Params>
-	Result WINAPI directDrawFunc(FirstParam firstParam, Params... params)
+	template <FARPROC(Dll::Procs::* origFunc), typename OrigFuncPtrType, typename FirstParam, typename... Params>
+	HRESULT WINAPI directDrawFunc(FirstParam firstParam, Params... params)
 	{
 		LOG_FUNC(getFuncName<origFunc>(), firstParam, params...);
 		installHooks();
 		suppressEmulatedDirectDraw(firstParam);
-		return LOG_RESULT(reinterpret_cast<FuncPtr<Result, FirstParam, Params...>>(Dll::g_origProcs.*origFunc)(
-			firstParam, params...));
-	}
-
-	template <FARPROC(Dll::Procs::* origFunc), typename Result, typename... Params>
-	FuncPtr<Result, Params...> getDirectDrawFuncPtr(FuncPtr<Result, Params...>)
-	{
-		return &directDrawFunc<origFunc, Result, Params...>;
+		return LOG_RESULT(reinterpret_cast<OrigFuncPtrType>(Dll::g_origProcs.*origFunc)(firstParam, params...));
 	}
 
 	std::string getDirName(const std::string& path)
@@ -190,7 +183,7 @@ namespace
 #define HOOK_DDRAW_PROC(proc) \
 	Compat::hookFunction( \
 		reinterpret_cast<void*&>(Dll::g_origProcs.proc), \
-		getDirectDrawFuncPtr<&Dll::Procs::proc>(static_cast<decltype(&proc)>(nullptr)), \
+		static_cast<decltype(&proc)>(&directDrawFunc<&Dll::Procs::proc, decltype(&proc)>), \
 		#proc);
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)

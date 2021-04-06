@@ -215,8 +215,6 @@ namespace
 		}
 		g_isDbgEngInitialized = true;
 
-		CoInitialize(nullptr);
-
 		HRESULT result = S_OK;
 		if (FAILED(result = DebugCreate(IID_IDebugClient, reinterpret_cast<void**>(&g_debugClient))) ||
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugControl, reinterpret_cast<void**>(&g_debugControl))) ||
