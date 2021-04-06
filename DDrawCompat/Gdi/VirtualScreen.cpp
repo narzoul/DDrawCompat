@@ -11,6 +11,7 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
 #include <Gdi/VirtualScreen.h>
+#include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -275,6 +276,7 @@ namespace Gdi
 				}
 			}
 
+			Gdi::Window::updateAll();
 			Gdi::redraw(nullptr);
 			return LOG_RESULT(true);
 		}

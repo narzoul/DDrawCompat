@@ -13,6 +13,7 @@ namespace
 	HANDLE g_presentationWindowThread = nullptr;
 	unsigned g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
+	bool g_isThreadReady = false;
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -97,6 +98,7 @@ namespace
 			return 0;
 		}
 
+		g_isThreadReady = true;
 		Gdi::WinProc::installHooks();
 		Compat::closeDbgEng();
 
@@ -148,6 +150,11 @@ namespace Gdi
 		bool isPresentationWindow(HWND hwnd)
 		{
 			return GetWindowThreadProcessId(hwnd, nullptr) == g_presentationWindowThreadId;
+		}
+
+		bool isThreadReady()
+		{
+			return g_isThreadReady;
 		}
 
 		void setWindowPos(HWND hwnd, const WINDOWPOS& wp)

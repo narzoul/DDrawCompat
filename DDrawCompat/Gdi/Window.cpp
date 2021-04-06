@@ -512,6 +512,11 @@ namespace Gdi
 		void updateAll()
 		{
 			LOG_FUNC("Window::updateAll");
+			if (!Gdi::PresentationWindow::isThreadReady())
+			{
+				return;
+			}
+
 			UpdateWindowContext context;
 			context.processId = GetCurrentProcessId();
 			context.virtualScreenRegion = VirtualScreen::getRegion();

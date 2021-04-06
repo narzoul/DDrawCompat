@@ -9,6 +9,7 @@ namespace Gdi
 		HWND create(HWND owner);
 		void destroy(HWND hwnd);
 		bool isPresentationWindow(HWND hwnd);
+		bool isThreadReady();
 		void setWindowPos(HWND hwnd, const WINDOWPOS& wp);
 		void setWindowRgn(HWND hwnd, HRGN rgn);
 		void startThread();
