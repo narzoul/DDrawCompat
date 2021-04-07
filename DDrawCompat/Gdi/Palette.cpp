@@ -134,7 +134,7 @@ namespace
 			HPALETTE palette = reinterpret_cast<HPALETTE>(GetCurrentObject(hdc, OBJ_PAL));
 			if (!palette || GetStockObject(DEFAULT_PALETTE) == palette)
 			{
-				return 0;
+				return LOG_RESULT(0);
 			}
 
 			PALETTEENTRY entries[256] = {};
@@ -203,6 +203,7 @@ namespace
 				{
 					Compat::ScopedSrwLockExclusive lock(g_srwLock);
 					g_paletteInfo[hpal].isForeground = true;
+					g_paletteInfo[hpal].isRealized = false;
 				}
 			}
 		}
