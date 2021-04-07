@@ -45,6 +45,8 @@ namespace DDraw
 		bool waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag);
 
 	private:
+		void restoreOrigCaps(DWORD& caps);
+
 		Surface* m_data;
 	};
 }

@@ -79,7 +79,12 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
-		return getOrigVtable(This).GetCaps(This, lpDDSCaps);
+		HRESULT result = getOrigVtable(This).GetCaps(This, lpDDSCaps);
+		if (SUCCEEDED(result))
+		{
+			restoreOrigCaps(lpDDSCaps->dwCaps);
+		}
+		return result;
 	}
 
 	template <typename TSurface>
@@ -113,11 +118,15 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
 		HRESULT result = getOrigVtable(This).GetSurfaceDesc(This, lpDDSurfaceDesc);
-		if (SUCCEEDED(result) && 0 != m_data->m_sizeOverride.cx)
+		if (SUCCEEDED(result))
 		{
-			lpDDSurfaceDesc->dwWidth = m_data->m_sizeOverride.cx;
-			lpDDSurfaceDesc->dwHeight = m_data->m_sizeOverride.cy;
-			m_data->m_sizeOverride = {};
+			if (0 != m_data->m_sizeOverride.cx)
+			{
+				lpDDSurfaceDesc->dwWidth = m_data->m_sizeOverride.cx;
+				lpDDSurfaceDesc->dwHeight = m_data->m_sizeOverride.cy;
+				m_data->m_sizeOverride = {};
+			}
+			restoreOrigCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
 		}
 		return result;
 	}
@@ -139,7 +148,11 @@ namespace DDraw
 		}
 
 		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
-		if (DDERR_SURFACELOST == result)
+		if (SUCCEEDED(result))
+		{
+			restoreOrigCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
+		}
+		else if (DDERR_SURFACELOST == result)
 		{
 			TSurfaceDesc desc = {};
 			desc.dwSize = sizeof(desc);
@@ -200,6 +213,15 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 	{
 		return getOrigVtable(This).Unlock(This, lpRect);
+	}
+
+	template <typename TSurface>
+	void SurfaceImpl<TSurface>::restoreOrigCaps(DWORD& caps)
+	{
+		if (m_data->m_origCaps & DDSCAPS_3DDEVICE)
+		{
+			caps |= DDSCAPS_3DDEVICE;
+		}
 	}
 
 	template <typename TSurface>

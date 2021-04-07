@@ -20,7 +20,7 @@ namespace DDraw
 		virtual ULONG STDMETHODCALLTYPE AddRef();
 		virtual ULONG STDMETHODCALLTYPE Release();
 
-		Surface();
+		Surface(DWORD origCaps);
 		virtual ~Surface();
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
@@ -54,6 +54,7 @@ namespace DDraw
 		template <typename TDirectDrawSurface>
 		friend class SurfaceImpl;
 
+		DWORD m_origCaps;
 		DWORD m_refCount;
 		SIZE m_sizeOverride;
 	};

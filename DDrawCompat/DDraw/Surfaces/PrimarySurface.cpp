@@ -61,13 +61,8 @@ namespace DDraw
 			DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
 		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
 		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
-		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8 && (desc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE))
-		{
-			desc.ddsCaps.dwCaps &= ~DDSCAPS_3DDEVICE;
-			desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
-		}
 
-		auto privateData(std::make_unique<PrimarySurface>());
+		auto privateData(std::make_unique<PrimarySurface>(origCaps));
 		auto data = privateData.get();
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))

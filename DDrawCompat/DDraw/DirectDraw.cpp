@@ -1,7 +1,10 @@
+#include <type_traits>
+
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <DDraw/DirectDraw.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
@@ -29,7 +32,7 @@ namespace
 		else
 		{
 			return DDraw::Surface::create<TDirectDraw>(
-				*This, *lpDDSurfaceDesc, *lplpDDSurface, std::make_unique<DDraw::Surface>());
+				*This, *lpDDSurfaceDesc, *lplpDDSurface, std::make_unique<DDraw::Surface>(lpDDSurfaceDesc->ddsCaps.dwCaps));
 		}
 	}
 
@@ -66,6 +69,17 @@ namespace
 	}
 
 	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE RestoreAllSurfaces(TDirectDraw* This)
+	{
+		auto primary(DDraw::PrimarySurface::getPrimary());
+		if (primary)
+		{
+			primary.get()->lpVtbl->Restore(primary);
+		}
+		return getOrigVtable(This).RestoreAllSurfaces(This);
+	}
+
+	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent)
 	{
 		if (!This || (DDWAITVB_BLOCKBEGIN != dwFlags && DDWAITVB_BLOCKEND != dwFlags))
@@ -95,6 +109,11 @@ namespace
 		vtable.GetGDISurface = &GetGDISurface;
 		vtable.Initialize = &Initialize;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
+
+		if constexpr (std::is_same_v<Vtable, IDirectDraw4Vtbl> || std::is_same_v<Vtable, IDirectDraw7Vtbl>)
+		{
+			vtable.RestoreAllSurfaces = &RestoreAllSurfaces;
+		}
 	}
 }
 

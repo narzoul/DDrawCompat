@@ -6,6 +6,7 @@
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <Win32/DisplayMode.h>
 
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
 DEFINE_GUID(IID_CompatSurfacePrivateData,
@@ -33,8 +34,9 @@ namespace DDraw
 		return refCount;
 	}
 
-	Surface::Surface()
-		: m_refCount(0)
+	Surface::Surface(DWORD origCaps)
+		: m_origCaps(origCaps)
+		, m_refCount(0)
 		, m_sizeOverride{}
 	{
 	}
@@ -58,6 +60,13 @@ namespace DDraw
 	HRESULT Surface::create(
 		CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData)
 	{
+		if ((desc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE) &&
+			((desc.dwFlags & DDSD_PIXELFORMAT) && (desc.ddpfPixelFormat.dwRGBBitCount <= 8)) ||
+			(!(desc.dwFlags & DDSD_PIXELFORMAT) && Win32::DisplayMode::getBpp() <= 8))
+		{
+			desc.ddsCaps.dwCaps &= ~DDSCAPS_3DDEVICE;
+		}
+
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
 		if (FAILED(result))
 		{
@@ -70,7 +79,7 @@ namespace DDraw
 			auto attachedSurfaces(DirectDrawSurface::getAllAttachedSurfaces(*surface7));
 			for (DWORD i = 0; i < attachedSurfaces.size(); ++i)
 			{
-				attach(*attachedSurfaces[i], std::make_unique<Surface>());
+				attach(*attachedSurfaces[i], std::make_unique<Surface>(privateData->m_origCaps));
 			}
 		}
 
