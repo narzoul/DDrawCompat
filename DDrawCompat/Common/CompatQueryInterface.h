@@ -106,6 +106,13 @@ namespace Compat
 		getOrigVtable(&origIntf).QueryInterface(&origIntf, getIntfId<NewIntf>(), reinterpret_cast<void**>(&newIntf));
 	}
 
+	template <typename Intf>
+	void queryInterface(Intf& origIntf, Intf*& newIntf)
+	{
+		newIntf = &origIntf;
+		getOrigVtable(newIntf).AddRef(newIntf);
+	}
+
 	template <typename NewIntf, typename OrigIntf>
 	NewIntf* queryInterface(OrigIntf* origIntf)
 	{

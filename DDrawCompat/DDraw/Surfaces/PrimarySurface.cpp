@@ -163,7 +163,8 @@ namespace DDraw
 		while (SUCCEEDED(surface->GetAttachedSurface(surface, &caps, &nextSurface.getRef())) &&
 			nextSurface != g_primarySurface)
 		{
-			surface = nextSurface;
+			surface.swap(nextSurface);
+			nextSurface.release();
 		}
 
 		return surface;
