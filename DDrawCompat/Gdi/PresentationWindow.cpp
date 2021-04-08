@@ -1,8 +1,10 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/WinProc.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -14,6 +16,28 @@ namespace
 	unsigned g_presentationWindowThreadId = 0;
 	HWND g_messageWindow = nullptr;
 	bool g_isThreadReady = false;
+
+	BOOL CALLBACK initChildWindow(HWND hwnd, LPARAM /*lParam*/)
+	{
+		Gdi::WinProc::onCreateWindow(hwnd);
+		return TRUE;
+	}
+
+	BOOL CALLBACK initTopLevelWindow(HWND hwnd, LPARAM /*lParam*/)
+	{
+		DWORD windowPid = 0;
+		GetWindowThreadProcessId(hwnd, &windowPid);
+		if (GetCurrentProcessId() == windowPid)
+		{
+			Gdi::WinProc::onCreateWindow(hwnd);
+			EnumChildWindows(hwnd, &initChildWindow, 0);
+			if (8 == Win32::DisplayMode::getBpp())
+			{
+				PostMessage(hwnd, WM_PALETTECHANGED, reinterpret_cast<WPARAM>(GetDesktopWindow()), 0);
+			}
+		}
+		return TRUE;
+	}
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -98,8 +122,13 @@ namespace
 			return 0;
 		}
 
-		g_isThreadReady = true;
-		Gdi::WinProc::installHooks();
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			Gdi::WinProc::installHooks();
+			g_isThreadReady = true;
+			EnumWindows(initTopLevelWindow, 0);
+		}
+
 		Compat::closeDbgEng();
 
 		MSG msg = {};
@@ -132,7 +161,7 @@ namespace Gdi
 
 		void destroy(HWND hwnd)
 		{
-			sendMessageBlocking(hwnd, WM_CLOSE, 0, 0);
+			PostMessage(hwnd, WM_CLOSE, 0, 0);
 		}
 
 		void installHooks()

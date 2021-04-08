@@ -15,7 +15,6 @@
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
-#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -25,7 +24,6 @@ namespace
 		WNDPROC wndProcW;
 	};
 
-	bool g_isInitialized = false;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	Compat::SrwLock g_windowProcSrwLock;
@@ -132,28 +130,6 @@ namespace
 	{
 		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		return g_windowProc[hwnd];
-	}
-
-	BOOL CALLBACK initChildWindow(HWND hwnd, LPARAM /*lParam*/)
-	{
-		onCreateWindow(hwnd);
-		return TRUE;
-	}
-
-	BOOL CALLBACK initTopLevelWindow(HWND hwnd, LPARAM /*lParam*/)
-	{
-		DWORD windowPid = 0;
-		GetWindowThreadProcessId(hwnd, &windowPid);
-		if (GetCurrentProcessId() == windowPid)
-		{
-			onCreateWindow(hwnd);
-			EnumChildWindows(hwnd, &initChildWindow, 0);
-			if (8 == Win32::DisplayMode::getBpp())
-			{
-				PostMessage(hwnd, WM_PALETTECHANGED, reinterpret_cast<WPARAM>(GetDesktopWindow()), 0);
-			}
-		}
-		return TRUE;
 	}
 
 	bool isTopLevelWindow(HWND hwnd)
@@ -463,16 +439,11 @@ namespace Gdi
 				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
 				Dll::g_currentModule, &objectStateChangeEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
-
-			g_isInitialized = true;
-
-			EnumWindows(initTopLevelWindow, 0);
-			Gdi::Window::updateAll();
 		}
 
 		void onCreateWindow(HWND hwnd)
 		{
-			if (g_isInitialized)
+			if (PresentationWindow::isThreadReady())
 			{
 				::onCreateWindow(hwnd);
 			}
