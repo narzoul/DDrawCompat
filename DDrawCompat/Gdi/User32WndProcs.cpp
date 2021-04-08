@@ -137,6 +137,16 @@ namespace
 	{
 		switch (msg)
 		{
+		case WM_CREATE:
+		{
+			LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+			if (-1 != result)
+			{
+				Gdi::WinProc::onCreateWindow(hwnd);
+			}
+			return result;
+		}
+
 		case WM_CTLCOLORSCROLLBAR:
 			if (reinterpret_cast<HWND>(lParam) == hwnd)
 			{
