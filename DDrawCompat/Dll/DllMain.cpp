@@ -9,6 +9,7 @@
 #include <Common/Log.h>
 #include <Common/Path.h>
 #include <Common/Time.h>
+#include <Config/Parser.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
@@ -111,14 +112,7 @@ namespace
 
 	void printEnvironmentVariable(const char* var)
 	{
-		const DWORD size = GetEnvironmentVariable(var, nullptr, 0);
-		std::string value(size, 0);
-		if (!value.empty())
-		{
-			GetEnvironmentVariable(var, &value.front(), size);
-			value.pop_back();
-		}
-		Compat::Log() << "Environment variable " << var << " = \"" << value << '"';
+		Compat::Log() << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
 	}
 
 	void setDpiAwareness()
@@ -175,11 +169,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		auto processPath(Compat::getModulePath(nullptr));
 		Compat::Log::initLogging(processPath);
-
 		Compat::Log() << "Process path: " << processPath.u8string();
-		printEnvironmentVariable("__COMPAT_LAYER");
+
 		auto currentDllPath(Compat::getModulePath(hinstDLL));
 		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
+		printEnvironmentVariable("__COMPAT_LAYER");
+
+		Config::Parser::loadAllConfigFiles(processPath);
 
 		auto systemPath(Compat::getSystemPath());
 		if (Compat::isEqual(currentDllPath.parent_path(), systemPath))

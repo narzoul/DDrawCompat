@@ -20,6 +20,18 @@ namespace Dll
 		return thread;
 	}
 
+	std::string getEnvVar(const char* var)
+	{
+		const DWORD size = GetEnvironmentVariable(var, nullptr, 0);
+		std::string value(size, 0);
+		if (!value.empty())
+		{
+			GetEnvironmentVariable(var, &value.front(), size);
+			value.pop_back();
+		}
+		return value;
+	}
+
 	void pinModule(HMODULE module)
 	{
 		HMODULE dummy = nullptr;

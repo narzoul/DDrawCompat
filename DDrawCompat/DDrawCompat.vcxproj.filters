@@ -79,6 +79,9 @@
     <Filter Include="Source Files\D3dDdi\Log">
       <UniqueIdentifier>{c4d03748-2333-40af-90c7-ae875b07434f}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Config">
+      <UniqueIdentifier>{9d313de7-b8ca-49d0-84d2-217f2818d9d3}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Gdi\Gdi.h">
@@ -390,6 +393,9 @@
     <ClInclude Include="Common\Path.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Parser.h">
+      <Filter>Header Files\Config</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -610,6 +616,9 @@
     </ClCompile>
     <ClCompile Include="Common\Path.cpp">
       <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Parser.cpp">
+      <Filter>Source Files\Config</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

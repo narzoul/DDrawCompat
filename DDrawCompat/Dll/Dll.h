@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <Windows.h>
 
 #define VISIT_PUBLIC_DDRAW_PROCS(visit) \
@@ -68,6 +70,7 @@ namespace Dll
 	};
 
 	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority, unsigned initFlags = 0);
+	std::string getEnvVar(const char* var);
 	void pinModule(HMODULE module);
 	void pinModule(LPCSTR moduleName);
 	void pinModule(LPCWSTR moduleName);

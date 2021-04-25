@@ -1,7 +1,13 @@
 #include <Common/Path.h>
+#include <Dll/Dll.h>
 
 namespace Compat
 {
+	std::filesystem::path getEnvPath(const char* envVar)
+	{
+		return Dll::getEnvVar(envVar);
+	}
+
 	std::filesystem::path getModulePath(HMODULE module)
 	{
 		wchar_t path[MAX_PATH];
