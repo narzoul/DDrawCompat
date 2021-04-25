@@ -1,6 +1,5 @@
-#include <sstream>
-
 #include <Common/Log.h>
+#include <Common/Path.h>
 
 namespace
 {
@@ -61,8 +60,12 @@ namespace Compat
 		GetLocalTime(&st);
 
 		char header[20];
+#ifdef DEBUGLOGS
 		sprintf_s(header, "%04hx %02hu:%02hu:%02hu.%03hu ",
 			GetCurrentThreadId(), st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+#else
+		sprintf_s(header, "%02hu:%02hu:%02hu.%03hu ", st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+#endif
 		s_logFile << header;
 
 		if (0 != s_indent)
@@ -76,25 +79,24 @@ namespace Compat
 		s_logFile << std::endl;
 	}
 
-	void Log::initLogging(const std::string& processDir, std::string processName)
+	void Log::initLogging(std::filesystem::path processPath)
 	{
-		if (processName.length() >= 4 &&
-			0 == _strcmpi(processName.substr(processName.length() - 4).c_str(), ".exe"))
+		if (Compat::isEqual(processPath.extension(), ".exe"))
 		{
-			processName.resize(processName.length() - 4);
+			processPath.replace_extension();
 		}
+		processPath.replace_filename(L"DDrawCompat-" + processPath.filename().native());
 
 		for (int i = 1; i < 100; ++i)
 		{
-			std::ostringstream logFileName;
-			logFileName << processDir << '\\' << "DDrawCompat-" << processName;
+			auto logFilePath(processPath);
 			if (i > 1)
 			{
-				logFileName << '[' << i << ']';
+				logFilePath += '[' + std::to_string(i) + ']';
 			}
-			logFileName << ".log";
+			logFilePath += ".log";
 
-			s_logFile.open(logFileName.str(), std::ios_base::out, SH_DENYWR);
+			s_logFile.open(logFilePath, std::ios_base::out, SH_DENYWR);
 			if (!s_logFile.fail())
 			{
 				return;

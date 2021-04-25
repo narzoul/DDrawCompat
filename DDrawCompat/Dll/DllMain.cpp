@@ -7,6 +7,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/Path.h>
 #include <Common/Time.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
@@ -45,31 +46,6 @@ namespace
 		installHooks();
 		suppressEmulatedDirectDraw(firstParam);
 		return LOG_RESULT(reinterpret_cast<OrigFuncPtrType>(Dll::g_origProcs.*origFunc)(firstParam, params...));
-	}
-
-	std::string getDirName(const std::string& path)
-	{
-		return path.substr(0, path.find_last_of('\\'));
-	}
-
-	std::string getFileName(const std::string& path)
-	{
-		auto lastSeparatorPos = path.find_last_of('\\');
-		return std::string::npos == lastSeparatorPos ? path : path.substr(lastSeparatorPos + 1, std::string::npos);
-	}
-
-	std::string getModulePath(HMODULE module)
-	{
-		char path[MAX_PATH] = {};
-		GetModuleFileName(module, path, sizeof(path));
-		return path;
-	}
-
-	std::string getSystemDirectory()
-	{
-		char path[MAX_PATH] = {};
-		GetSystemDirectory(path, sizeof(path));
-		return path;
 	}
 
 	void installHooks()
@@ -123,20 +99,14 @@ namespace
 		}
 	}
 
-	bool isEqual(const std::string& p1, const std::string& p2)
-	{
-		return 0 == _stricmp(p1.c_str(), p2.c_str());
-	}
-
 	bool isOtherDDrawWrapperLoaded()
 	{
-		const auto currentDllPath = getModulePath(Dll::g_currentModule);
-		const auto currentDllDir = getDirName(currentDllPath);
-		const auto ddrawDllPath = currentDllDir + "\\ddraw.dll";
-		const auto dciman32DllPath = currentDllDir + "\\dciman32.dll";
+		const auto currentDllPath(Compat::getModulePath(Dll::g_currentModule));
+		const auto ddrawDllPath(Compat::replaceFilename(currentDllPath, "ddraw.dll"));
+		const auto dciman32DllPath(Compat::replaceFilename(currentDllPath, "dciman32.dll"));
 
-		return (!isEqual(currentDllPath, ddrawDllPath) && GetModuleHandle(ddrawDllPath.c_str())) ||
-			(!isEqual(currentDllPath, dciman32DllPath) && GetModuleHandle(dciman32DllPath.c_str()));
+		return (!Compat::isEqual(currentDllPath, ddrawDllPath) && GetModuleHandleW(ddrawDllPath.c_str())) ||
+			(!Compat::isEqual(currentDllPath, dciman32DllPath) && GetModuleHandleW(dciman32DllPath.c_str()));
 	}
 
 	void printEnvironmentVariable(const char* var)
@@ -203,26 +173,25 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			return TRUE;
 		}
 
-		auto processPath = getModulePath(nullptr);
-		Compat::Log::initLogging(getDirName(processPath), getFileName(processPath));
+		auto processPath(Compat::getModulePath(nullptr));
+		Compat::Log::initLogging(processPath);
 
-		Compat::Log() << "Process path: " << processPath;
+		Compat::Log() << "Process path: " << processPath.u8string();
 		printEnvironmentVariable("__COMPAT_LAYER");
-		auto currentDllPath = getModulePath(hinstDLL);
-		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath;
+		auto currentDllPath(Compat::getModulePath(hinstDLL));
+		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
 
-		auto systemDirectory = getSystemDirectory();
-		if (isEqual(getDirName(currentDllPath), systemDirectory))
+		auto systemPath(Compat::getSystemPath());
+		if (Compat::isEqual(currentDllPath.parent_path(), systemPath))
 		{
 			Compat::Log() << "DDrawCompat cannot be installed in the Windows system directory";
 			return FALSE;
 		}
 
-		auto systemDDrawDllPath = systemDirectory + "\\ddraw.dll";
-		Dll::g_origDDrawModule = LoadLibrary(systemDDrawDllPath.c_str());
+		Dll::g_origDDrawModule = LoadLibraryW((systemPath / "ddraw.dll").c_str());
 		if (!Dll::g_origDDrawModule)
 		{
-			Compat::Log() << "ERROR: Failed to load system ddraw.dll from " << systemDDrawDllPath;
+			Compat::Log() << "ERROR: Failed to load system ddraw.dll from " << systemPath.u8string();
 			return FALSE;
 		}
 
@@ -232,8 +201,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		HMODULE origModule = Dll::g_origDDrawModule;
 		VISIT_DDRAW_PROCS(LOAD_ORIG_PROC);
 
-		auto systemDciman32DllPath = systemDirectory + "\\dciman32.dll";
-		Dll::g_origDciman32Module = LoadLibrary(systemDciman32DllPath.c_str());
+		Dll::g_origDciman32Module = LoadLibraryW((systemPath / "dciman32.dll").c_str());
 		if (Dll::g_origDciman32Module)
 		{
 			origModule = Dll::g_origDciman32Module;

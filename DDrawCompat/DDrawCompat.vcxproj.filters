@@ -387,6 +387,9 @@
     <ClInclude Include="Common\VtableSizeVisitor.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Common\Path.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -604,6 +607,9 @@
     </ClCompile>
     <ClCompile Include="Gdi\Icon.cpp">
       <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Path.cpp">
+      <Filter>Source Files\Common</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -169,6 +169,7 @@
     <ClInclude Include="Common\CompatWeakPtr.h" />
     <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
+    <ClInclude Include="Common\Path.h" />
     <ClInclude Include="Common\ScopedSrwLock.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
     <ClInclude Include="Common\VtableSizeVisitor.h" />
@@ -268,6 +269,7 @@
   <ItemGroup>
     <ClCompile Include="Common\Log.cpp" />
     <ClCompile Include="Common\Hook.cpp" />
+    <ClCompile Include="Common\Path.cpp" />
     <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />

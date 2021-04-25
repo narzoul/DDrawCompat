@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <fstream>
 #include <functional>
 #include <ostream>
@@ -183,7 +184,7 @@ namespace Compat
 			return *this;
 		}
 
-		static void initLogging(const std::string& processDir, std::string processName);
+		static void initLogging(std::filesystem::path processPath);
 		static bool isPointerDereferencingAllowed() { return s_isLeaveLog || 0 == s_outParamDepth; }
 
 	protected:
