@@ -178,7 +178,10 @@
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
     <ClInclude Include="Config\Config.h" />
+    <ClInclude Include="Config\EnumSetting.h" />
     <ClInclude Include="Config\Parser.h" />
+    <ClInclude Include="Config\Setting.h" />
+    <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
     <ClInclude Include="D3dDdi\AdapterFuncs.h" />
@@ -265,14 +268,17 @@
     <ClInclude Include="Win32\MemoryManagement.h" />
     <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
-    <ClInclude Include="Win32\WaitFunctions.h" />
+    <ClInclude Include="Win32\Thread.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\Log.cpp" />
     <ClCompile Include="Common\Hook.cpp" />
     <ClCompile Include="Common\Path.cpp" />
     <ClCompile Include="Common\Time.cpp" />
+    <ClCompile Include="Config\Config.cpp" />
+    <ClCompile Include="Config\EnumSetting.cpp" />
     <ClCompile Include="Config\Parser.cpp" />
+    <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
     <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />
@@ -341,7 +347,7 @@
     <ClCompile Include="Win32\MemoryManagement.cpp" />
     <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
-    <ClCompile Include="Win32\WaitFunctions.cpp" />
+    <ClCompile Include="Win32\Thread.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc" />

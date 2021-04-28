@@ -2,8 +2,9 @@
 
 namespace Win32
 {
-	namespace WaitFunctions
+	namespace Thread
 	{
+		void applyConfig();
 		void installHooks();
 	}
 }

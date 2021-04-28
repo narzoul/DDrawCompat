@@ -11,8 +11,11 @@ namespace Config
 		ParsingError(const std::string& error) : runtime_error(error) {}
 	};
 
+	class Setting;
+
 	namespace Parser
 	{
 		void loadAllConfigFiles(const std::filesystem::path& processPath);
+		void registerSetting(Setting& setting);
 	}
 }

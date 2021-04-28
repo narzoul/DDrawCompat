@@ -9,6 +9,7 @@
 #include <Common/Log.h>
 #include <Common/Path.h>
 #include <Common/Time.h>
+#include <Config/Config.h>
 #include <Config/Parser.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
@@ -22,7 +23,7 @@
 #include <Win32/MemoryManagement.h>
 #include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
-#include <Win32/WaitFunctions.h>
+#include <Win32/Thread.h>
 
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
@@ -60,8 +61,6 @@ namespace
 			Win32::Registry::installHooks();
 			Compat::Log() << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks();
-			Compat::Log() << "Installing Win32 hooks";
-			Win32::WaitFunctions::installHooks();
 			Gdi::VirtualScreen::init();
 
 			CompatPtr<IDirectDraw> dd;
@@ -206,19 +205,19 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		Dll::g_jmpTargetProcs = Dll::g_origProcs;
 
-		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC)
+		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);
 
-		const BOOL disablePriorityBoost = TRUE;
-		SetProcessPriorityBoost(GetCurrentProcess(), disablePriorityBoost);
+		Win32::MemoryManagement::installHooks();
+		Win32::MsgHooks::installHooks();
+		Win32::Thread::installHooks();
+		Compat::closeDbgEng();
+
 		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		timeBeginPeriod(1);
 		setDpiAwareness();
 		SetThemeAppProperties(0);
-
-		Win32::MemoryManagement::installHooks();
-		Win32::MsgHooks::installHooks();
 		Time::init();
-		Compat::closeDbgEng();
+		Win32::Thread::applyConfig();
 
 		const DWORD disableMaxWindowedMode = 12;
 		CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
