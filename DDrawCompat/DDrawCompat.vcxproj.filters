@@ -85,6 +85,9 @@
     <Filter Include="Header Files\Config\Settings">
       <UniqueIdentifier>{bdde0d15-27ab-43a7-9c0a-294df6a52bad}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\Config\Settings">
+      <UniqueIdentifier>{0b4eec6c-ece5-4417-913c-8829b34ec08c}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Gdi\Gdi.h">
@@ -408,6 +411,12 @@
     <ClInclude Include="Win32\Thread.h">
       <Filter>Header Files\Win32</Filter>
     </ClInclude>
+    <ClInclude Include="Config\ListSetting.h">
+      <Filter>Header Files\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Settings\CpuAffinity.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -638,8 +647,14 @@
     <ClCompile Include="Config\EnumSetting.cpp">
       <Filter>Source Files\Config</Filter>
     </ClCompile>
+    <ClCompile Include="Config\ListSetting.cpp">
+      <Filter>Source Files\Config</Filter>
+    </ClCompile>
     <ClCompile Include="Win32\Thread.cpp">
       <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\CpuAffinity.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

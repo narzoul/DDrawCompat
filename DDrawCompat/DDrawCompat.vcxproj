@@ -179,8 +179,10 @@
     <ClInclude Include="Common\Time.h" />
     <ClInclude Include="Config\Config.h" />
     <ClInclude Include="Config\EnumSetting.h" />
+    <ClInclude Include="Config\ListSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
+    <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
@@ -277,8 +279,10 @@
     <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="Config\Config.cpp" />
     <ClCompile Include="Config\EnumSetting.cpp" />
+    <ClCompile Include="Config\ListSetting.cpp" />
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
+    <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
     <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />

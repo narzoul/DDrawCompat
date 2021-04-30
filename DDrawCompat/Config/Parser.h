@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <stdexcept>
+#include <string>
 
 namespace Config
 {
@@ -16,6 +17,8 @@ namespace Config
 	namespace Parser
 	{
 		void loadAllConfigFiles(const std::filesystem::path& processPath);
+		unsigned parseUnsigned(const std::string& value);
 		void registerSetting(Setting& setting);
+		std::string trim(const std::string& str);
 	}
 }

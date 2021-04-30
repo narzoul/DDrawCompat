@@ -11,7 +11,6 @@ namespace
 {
 	void setConfig(const std::string& name, const std::string& value, const std::string& source);
 	std::string tolower(const std::string& str);
-	std::string trim(const std::string& str);
 
 	auto& getSettings()
 	{
@@ -52,7 +51,7 @@ namespace
 					throw Config::ParsingError("missing '=' separator");
 				}
 
-				setConfig(trim(line.substr(0, pos)), trim(line.substr(pos + 1)), source);
+				setConfig(Config::Parser::trim(line.substr(0, pos)), Config::Parser::trim(line.substr(pos + 1)), source);
 			}
 			catch (const Config::ParsingError& error)
 			{
@@ -91,23 +90,6 @@ namespace
 		for (auto& c : result)
 		{
 			c = std::tolower(c, std::locale());
-		}
-		return result;
-	}
-
-	std::string trim(const std::string& str)
-	{
-		auto result(str);
-		auto pos = str.find_last_not_of(" \t");
-		if (pos != std::string::npos)
-		{
-			result.resize(pos + 1);
-		}
-
-		pos = result.find_first_not_of(" \t");
-		if (pos != std::string::npos)
-		{
-			result = result.substr(pos);
 		}
 		return result;
 	}
@@ -160,10 +142,36 @@ namespace Config
 			}
 		}
 
+		unsigned parseUnsigned(const std::string& value)
+		{
+			if (value.empty() || std::string::npos != value.find_first_not_of("0123456789"))
+			{
+				throw ParsingError("not an unsigned integer: '" + value + "'");
+			}
+			return std::strtoul(value.c_str(), nullptr, 10);
+		}
+
 		void registerSetting(Setting& setting)
 		{
 			const auto& name = setting.getName();
 			getSettings().emplace(name, setting);
+		}
+
+		std::string trim(const std::string& str)
+		{
+			auto result(str);
+			auto pos = str.find_last_not_of(" \t");
+			if (pos != std::string::npos)
+			{
+				result.resize(pos + 1);
+			}
+
+			pos = result.find_first_not_of(" \t");
+			if (pos != std::string::npos)
+			{
+				result = result.substr(pos);
+			}
+			return result;
 		}
 	}
 }

@@ -7,6 +7,16 @@
 
 namespace
 {
+	BOOL WINAPI setProcessAffinityMask(HANDLE hProcess, DWORD_PTR dwProcessAffinityMask)
+	{
+		LOG_FUNC("SetProcessAffinityMask", hProcess, Compat::hex(dwProcessAffinityMask));
+		if (0 != Config::cpuAffinity.get())
+		{
+			return LOG_RESULT(TRUE);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(SetProcessAffinityMask)(hProcess, dwProcessAffinityMask));
+	}
+
 	BOOL WINAPI setProcessPriorityBoost(HANDLE hProcess, BOOL bDisablePriorityBoost)
 	{
 		LOG_FUNC("SetProcessPriorityBoost", hProcess, bDisablePriorityBoost);
@@ -34,6 +44,22 @@ namespace Win32
 	{
 		void applyConfig()
 		{
+			auto cpuAffinity = Config::cpuAffinity.get();
+			if (0 != cpuAffinity)
+			{
+				SYSTEM_INFO si = {};
+				GetSystemInfo(&si);
+				const unsigned cpuCount = min(si.dwNumberOfProcessors, 32);
+				cpuAffinity &= UINT_MAX >> (32 - cpuCount);
+
+				if (0 == cpuAffinity || !CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), cpuAffinity))
+				{
+					Compat::Log() << (0 == cpuAffinity ? "Invalid" : "Failed to set") << " CPU affinity, falling back to default";
+					Config::cpuAffinity.reset();
+					CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), Config::cpuAffinity.get());
+				}
+			}
+
 			switch (Config::threadPriorityBoost.get())
 			{
 			case Config::Settings::ThreadPriorityBoost::OFF:
@@ -53,6 +79,7 @@ namespace Win32
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(kernel32, SetProcessAffinityMask, setProcessAffinityMask);
 			HOOK_FUNCTION(kernel32, SetProcessPriorityBoost, setProcessPriorityBoost);
 			HOOK_FUNCTION(kernel32, SetThreadPriorityBoost, setThreadPriorityBoost);
 		}

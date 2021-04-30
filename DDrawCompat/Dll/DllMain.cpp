@@ -212,7 +212,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::Thread::installHooks();
 		Compat::closeDbgEng();
 
-		SetProcessAffinityMask(GetCurrentProcess(), 1);
 		timeBeginPeriod(1);
 		setDpiAwareness();
 		SetThemeAppProperties(0);

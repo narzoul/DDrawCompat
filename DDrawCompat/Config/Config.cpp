@@ -2,5 +2,6 @@
 
 namespace Config
 {
+	Settings::CpuAffinity cpuAffinity;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
 }
