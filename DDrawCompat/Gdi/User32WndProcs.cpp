@@ -66,7 +66,7 @@ namespace
 		case BM_SETSTATE:
 		{
 			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW);
+			InvalidateRect(hwnd, nullptr, TRUE);
 			return result;
 		}
 
