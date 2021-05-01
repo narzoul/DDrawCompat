@@ -28,7 +28,11 @@ namespace
 		CompatPtr<TDirect3d> d3d;
 		HRESULT result = dd->QueryInterface(&dd, Compat::getIntfId<TDirect3d>(),
 			reinterpret_cast<void**>(&d3d.getRef()));
-		if (FAILED(result))
+		if (SUCCEEDED(result))
+		{
+			CompatVtable<Vtable<TDirect3d>>::s_origVtable = *d3d.get()->lpVtbl;
+		}
+		else
 		{
 			Compat::Log() << "ERROR: Failed to create a Direct3D object for hooking: " << Compat::hex(result);
 		}
