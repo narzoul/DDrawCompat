@@ -3,6 +3,7 @@
 #include <Common/CompatPtr.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
+#include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
@@ -43,6 +44,7 @@ namespace DDraw
 
 	Surface::~Surface()
 	{
+		DirectDrawClipper::setClipper(*this, nullptr);
 	}
 
 	void Surface::attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData)
