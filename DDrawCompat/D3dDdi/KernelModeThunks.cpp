@@ -1,3 +1,4 @@
+#include <atomic>
 #include <string>
 
 #include <Common/Log.h>
@@ -31,6 +32,7 @@ namespace
 	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
 	std::string g_lastDDrawCreateDcDevice;
 
+	std::atomic<long long> g_qpcLastVsync = 0;
 	UINT g_vsyncCounter = 0;
 	CONDITION_VARIABLE g_vsyncCounterCv = CONDITION_VARIABLE_INIT;
 	Compat::SrwLock g_vsyncCounterSrwLock;
@@ -235,6 +237,7 @@ namespace
 		while (true)
 		{
 			waitForVerticalBlank();
+			g_qpcLastVsync = Time::queryPerformanceCounter();
 
 			{
 				Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
@@ -296,6 +299,11 @@ namespace D3dDdi
 			}
 
 			return g_lastOpenAdapterInfo.monitorRect;
+		}
+
+		long long getQpcLastVsync()
+		{
+			return g_qpcLastVsync;
 		}
 
 		UINT getVsyncCounter()
