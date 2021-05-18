@@ -128,11 +128,12 @@ namespace
 
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
-		BYTE* targetFunc = reinterpret_cast<BYTE*>(origFuncPtr);
+		BYTE* targetFunc = static_cast<BYTE*>(origFuncPtr);
 
 		std::ostringstream oss;
 #ifdef DEBUGLOGS
 		oss << Compat::funcPtrToStr(targetFunc) << ' ';
+#endif
 
 		char origFuncPtrStr[20] = {};
 		if (!funcName)
@@ -142,8 +143,6 @@ namespace
 		}
 
 		auto prevTargetFunc = targetFunc;
-#endif
-
 		while (true)
 		{
 			unsigned instructionSize = 0;
@@ -161,6 +160,11 @@ namespace
 			{
 				instructionSize = 6;
 				targetFunc = **reinterpret_cast<BYTE***>(targetFunc + 2);
+				if (Compat::getModuleHandleFromAddress(targetFunc) == Compat::getModuleHandleFromAddress(prevTargetFunc))
+				{
+					targetFunc = prevTargetFunc;
+					break;
+				}
 			}
 			else
 			{
@@ -168,8 +172,8 @@ namespace
 			}
 #ifdef DEBUGLOGS
 			oss << Compat::hexDump(prevTargetFunc, instructionSize) << " -> " << Compat::funcPtrToStr(targetFunc) << ' ';
-			prevTargetFunc = targetFunc;
 #endif
+			prevTargetFunc = targetFunc;
 		}
 
 		if (Compat::getModuleHandleFromAddress(targetFunc) == Dll::g_currentModule)
