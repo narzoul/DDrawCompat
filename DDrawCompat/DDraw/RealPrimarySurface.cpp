@@ -255,7 +255,7 @@ namespace DDraw
 		typename Types<DirectDraw>::TSurfaceDesc desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
-		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
+		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 		desc.dwBackBufferCount = 2;
 
 		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;

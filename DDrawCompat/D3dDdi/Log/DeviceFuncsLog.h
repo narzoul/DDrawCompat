@@ -25,6 +25,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT1& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENTSURFACE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_RENDERSTATE& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETDEPTHSTENCIL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETPIXELSHADERCONST& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETRENDERTARGET& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCE& val);

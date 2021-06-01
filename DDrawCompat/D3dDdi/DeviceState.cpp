@@ -4,37 +4,138 @@
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 
-namespace
-{
-	const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
-	const HANDLE UNINITIALIZED_HANDLE = reinterpret_cast<HANDLE>(0xBAADBAAD);
-
-	bool operator==(const D3DDDIARG_ZRANGE& lhs, const D3DDDIARG_ZRANGE& rhs)
-	{
-		return lhs.MinZ == rhs.MinZ && lhs.MaxZ == rhs.MaxZ;
-	}
-
-	bool operator==(const D3DDDIARG_WINFO& lhs, const D3DDDIARG_WINFO& rhs)
-	{
-		return lhs.WNear == rhs.WNear && lhs.WFar == rhs.WFar;
-	}
-}
-
 namespace D3dDdi
 {
 	DeviceState::DeviceState(Device& device)
 		: m_device(device)
-		, m_pixelShader(UNINITIALIZED_HANDLE)
-		, m_vertexShaderDecl(UNINITIALIZED_HANDLE)
-		, m_vertexShaderFunc(UNINITIALIZED_HANDLE)
-		, m_wInfo{ NAN, NAN }
-		, m_zRange{ NAN, NAN }
+		, m_depthStencil{}
+		, m_pixelShader(nullptr)
+		, m_renderTarget{}
+		, m_streamSource{}
+		, m_streamSourceUm{}
+		, m_streamSourceUmBuffer(nullptr)
+		, m_textures{}
+		, m_vertexShaderDecl(nullptr)
+		, m_vertexShaderFunc(nullptr)
+		, m_viewport{}
+		, m_wInfo{}
+		, m_zRange{}
 	{
+		const UINT D3DBLENDOP_ADD = 1;
+		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
+
+		m_device.getOrigVtable().pfnSetDepthStencil(m_device, &m_depthStencil);
+		m_device.getOrigVtable().pfnSetPixelShader(m_device, nullptr);
+		m_device.getOrigVtable().pfnSetRenderTarget(m_device, &m_renderTarget);
+		m_device.getOrigVtable().pfnSetVertexShaderDecl(m_device, nullptr);
+		m_device.getOrigVtable().pfnSetVertexShaderFunc(m_device, nullptr);
+		m_device.getOrigVtable().pfnSetViewport(m_device, &m_viewport);
+		m_device.getOrigVtable().pfnUpdateWInfo(m_device, &m_wInfo);
+		m_device.getOrigVtable().pfnSetZRange(m_device, &m_zRange);
+
 		m_renderState.fill(UNINITIALIZED_STATE);
-		m_textures.fill(UNINITIALIZED_HANDLE);
+		m_renderState[D3DDDIRS_ZENABLE] = D3DZB_TRUE;
+		m_renderState[D3DDDIRS_FILLMODE] = D3DFILL_SOLID;
+		m_renderState[D3DDDIRS_SHADEMODE] = D3DSHADE_GOURAUD;
+		m_renderState[D3DDDIRS_LINEPATTERN] = 0;
+		m_renderState[D3DDDIRS_ZWRITEENABLE] = TRUE;
+		m_renderState[D3DDDIRS_ALPHATESTENABLE] = FALSE;
+		m_renderState[D3DDDIRS_LASTPIXEL] = TRUE;
+		m_renderState[D3DDDIRS_SRCBLEND] = D3DBLEND_ONE;
+		m_renderState[D3DDDIRS_DESTBLEND] = D3DBLEND_ZERO;
+		m_renderState[D3DDDIRS_CULLMODE] = D3DCULL_CCW;
+		m_renderState[D3DDDIRS_ZFUNC] = D3DCMP_LESSEQUAL;
+		m_renderState[D3DDDIRS_ALPHAREF] = 0;
+		m_renderState[D3DDDIRS_ALPHAFUNC] = D3DCMP_ALWAYS;
+		m_renderState[D3DDDIRS_DITHERENABLE] = FALSE;
+		m_renderState[D3DDDIRS_ALPHABLENDENABLE] = FALSE;
+		m_renderState[D3DDDIRS_FOGENABLE] = FALSE;
+		m_renderState[D3DDDIRS_SPECULARENABLE] = FALSE;
+		m_renderState[D3DDDIRS_ZVISIBLE] = 0;
+		m_renderState[D3DDDIRS_FOGCOLOR] = 0;
+		m_renderState[D3DDDIRS_FOGTABLEMODE] = D3DFOG_NONE;
+		m_renderState[D3DDDIRS_FOGSTART] = 0;
+		m_renderState[D3DDDIRS_FOGEND] = 0x3F800000;
+		m_renderState[D3DDDIRS_FOGDENSITY] = 0x3F800000;
+		m_renderState[D3DDDIRS_COLORKEYENABLE] = FALSE;
+		m_renderState[D3DDDIRS_EDGEANTIALIAS] = 0;
+		m_renderState[D3DDDIRS_ZBIAS] = 0;
+		m_renderState[D3DDDIRS_RANGEFOGENABLE] = FALSE;
+		for (UINT i = D3DDDIRS_STIPPLEPATTERN00; i <= D3DDDIRS_STIPPLEPATTERN31; ++i)
+		{
+			m_renderState[i] = 0;
+		}
+		m_renderState[D3DDDIRS_STENCILENABLE] = FALSE;
+		m_renderState[D3DDDIRS_STENCILFAIL] = D3DSTENCILOP_KEEP;
+		m_renderState[D3DDDIRS_STENCILZFAIL] = D3DSTENCILOP_KEEP;
+		m_renderState[D3DDDIRS_STENCILPASS] = D3DSTENCILOP_KEEP;
+		m_renderState[D3DDDIRS_STENCILFUNC] = D3DCMP_ALWAYS;
+		m_renderState[D3DDDIRS_STENCILREF] = 0;
+		m_renderState[D3DDDIRS_STENCILMASK] = 0xFFFFFFFF;
+		m_renderState[D3DDDIRS_STENCILWRITEMASK] = 0xFFFFFFFF;
+		m_renderState[D3DDDIRS_TEXTUREFACTOR] = 0xFFFFFFFF;
+		for (UINT i = D3DDDIRS_WRAP0; i <= D3DDDIRS_WRAP7; ++i)
+		{
+			m_renderState[i] = 0;
+		}
+		m_renderState[D3DDDIRS_CLIPPING] = TRUE;
+		m_renderState[D3DDDIRS_CLIPPLANEENABLE] = 0;
+		m_renderState[D3DDDIRS_SOFTWAREVERTEXPROCESSING] = FALSE;
+		m_renderState[D3DDDIRS_POINTSIZE_MAX] = 0x3F800000;
+		m_renderState[D3DDDIRS_POINTSIZE] = 0x3F800000;
+		m_renderState[D3DDDIRS_POINTSIZE_MIN] = 0;
+		m_renderState[D3DDDIRS_POINTSPRITEENABLE] = 0;
+		m_renderState[D3DDDIRS_MULTISAMPLEMASK] = 0xFFFFFFFF;
+		m_renderState[D3DDDIRS_MULTISAMPLEANTIALIAS] = TRUE;
+		m_renderState[D3DDDIRS_PATCHEDGESTYLE] = FALSE;
+		m_renderState[D3DDDIRS_PATCHSEGMENTS] = 0x3F800000;
+		m_renderState[D3DDDIRS_COLORWRITEENABLE] = 0xF;
+		m_renderState[D3DDDIRS_BLENDOP] = D3DBLENDOP_ADD;
+
+		for (UINT i = 0; i < m_renderState.size(); i++)
+		{
+			if (UNINITIALIZED_STATE != m_renderState[i])
+			{
+				D3DDDIARG_RENDERSTATE data = {};
+				data.State = static_cast<D3DDDIRENDERSTATETYPE>(i);
+				data.Value = m_renderState[i];
+				m_device.getOrigVtable().pfnSetRenderState(m_device, &data);
+			}
+		}
+
+		for (UINT i = 0; i < m_textures.size(); ++i)
+		{
+			m_device.getOrigVtable().pfnSetTexture(m_device, i, nullptr);
+		}
+
 		for (UINT i = 0; i < m_textureStageState.size(); ++i)
 		{
 			m_textureStageState[i].fill(UNINITIALIZED_STATE);
+			m_textureStageState[i][D3DDDITSS_TEXCOORDINDEX] = i;
+			m_textureStageState[i][D3DDDITSS_ADDRESSU] = D3DTADDRESS_WRAP;
+			m_textureStageState[i][D3DDDITSS_ADDRESSV] = D3DTADDRESS_WRAP;
+			m_textureStageState[i][D3DDDITSS_BORDERCOLOR] = 0;
+			m_textureStageState[i][D3DDDITSS_MAGFILTER] = D3DTEXF_POINT;
+			m_textureStageState[i][D3DDDITSS_MINFILTER] = D3DTEXF_POINT;
+			m_textureStageState[i][D3DDDITSS_MIPFILTER] = D3DTEXF_NONE;
+			m_textureStageState[i][D3DDDITSS_MIPMAPLODBIAS] = 0;
+			m_textureStageState[i][D3DDDITSS_MAXMIPLEVEL] = 0;
+			m_textureStageState[i][D3DDDITSS_MAXANISOTROPY] = 1;
+			m_textureStageState[i][D3DDDITSS_TEXTURETRANSFORMFLAGS] = D3DTTFF_DISABLE;
+			m_textureStageState[i][D3DDDITSS_ADDRESSW] = D3DTADDRESS_WRAP;
+			m_textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY] = TRUE;
+
+			for (UINT j = 0; j < m_textureStageState[i].size(); ++j)
+			{
+				if (UNINITIALIZED_STATE != m_textureStageState[i][j])
+				{
+					D3DDDIARG_TEXTURESTAGESTATE data = {};
+					data.Stage = i;
+					data.State = static_cast<D3DDDITEXTURESTAGESTATETYPE>(j);
+					data.Value = m_textureStageState[i][j];
+					m_device.getOrigVtable().pfnSetTextureStageState(m_device, &data);
+				}
+			}
 		}
 	}
 
@@ -76,6 +177,11 @@ namespace D3dDdi
 		return deleteShader(shader, m_vertexShaderFunc, m_device.getOrigVtable().pfnDeleteVertexShaderFunc);
 	}
 
+	HRESULT DeviceState::pfnSetDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL* data)
+	{
+		return setState(data, m_depthStencil, m_device.getOrigVtable().pfnSetDepthStencil);
+	}
+
 	HRESULT DeviceState::pfnSetPixelShader(HANDLE shader)
 	{
 		return setShader(shader, m_pixelShader, m_device.getOrigVtable().pfnSetPixelShader);
@@ -107,6 +213,40 @@ namespace D3dDdi
 		return setStateArray(data, m_renderState, m_device.getOrigVtable().pfnSetRenderState);
 	}
 
+	HRESULT DeviceState::pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
+	{
+		HRESULT result = setState(data, m_renderTarget, m_device.getOrigVtable().pfnSetRenderTarget);
+		if (SUCCEEDED(result))
+		{
+			m_device.setRenderTarget(*data);
+		}
+		return result;
+	}
+
+	HRESULT DeviceState::pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
+	{
+		HRESULT result = m_device.getDrawPrimitive().setStreamSource(*data);
+		if (SUCCEEDED(result))
+		{
+			m_streamSource = *data;
+			m_streamSourceUm = {};
+			m_streamSourceUmBuffer = nullptr;
+		}
+		return result;
+	}
+
+	HRESULT DeviceState::pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
+	{
+		HRESULT result = m_device.getDrawPrimitive().setStreamSourceUm(*data, umBuffer);
+		if (SUCCEEDED(result))
+		{
+			m_streamSourceUm = *data;
+			m_streamSourceUmBuffer = umBuffer;
+			m_streamSource = {};
+		}
+		return result;
+	}
+
 	HRESULT DeviceState::pfnSetTexture(UINT stage, HANDLE texture)
 	{
 		if (stage >= m_textures.size())
@@ -115,8 +255,7 @@ namespace D3dDdi
 			return m_device.getOrigVtable().pfnSetTexture(m_device, stage, texture);
 		}
 
-		if (texture == m_textures[stage] &&
-			texture != UNINITIALIZED_HANDLE)
+		if (texture == m_textures[stage])
 		{
 			return S_OK;
 		}
@@ -126,23 +265,22 @@ namespace D3dDdi
 		if (SUCCEEDED(result))
 		{
 			m_textures[stage] = texture;
-			m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = UNINITIALIZED_STATE;
-			m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = UNINITIALIZED_STATE;
+			m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = TRUE;
+
+			D3DDDIARG_TEXTURESTAGESTATE data = {};
+			data.Stage = stage;
+			data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
+			data.Value = TRUE;
+			m_device.getOrigVtable().pfnSetTextureStageState(m_device, &data);
 		}
 		return result;
 	}
 
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
-		switch (data->State)
+		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
 		{
-		case D3DDDITSS_DISABLETEXTURECOLORKEY:
-			m_textureStageState[data->Stage][D3DDDITSS_TEXTURECOLORKEYVAL] = UNINITIALIZED_STATE;
-			break;
-
-		case D3DDDITSS_TEXTURECOLORKEYVAL:
-			m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = UNINITIALIZED_STATE;
-			break;
+			m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
 		}
 		return setStateArray(data, m_textureStageState[data->Stage], m_device.getOrigVtable().pfnSetTextureStageState);
 	}
@@ -185,6 +323,11 @@ namespace D3dDdi
 		return setShader(shader, m_vertexShaderFunc, m_device.getOrigVtable().pfnSetVertexShaderFunc);
 	}
 
+	HRESULT DeviceState::pfnSetViewport(const D3DDDIARG_VIEWPORTINFO* data)
+	{
+		return setState(data, m_viewport, m_device.getOrigVtable().pfnSetViewport);
+	}
+
 	HRESULT DeviceState::pfnSetZRange(const D3DDDIARG_ZRANGE* data)
 	{
 		return setState(data, m_zRange, m_device.getOrigVtable().pfnSetZRange);
@@ -211,27 +354,32 @@ namespace D3dDdi
 		HRESULT result = origDeleteShaderFunc(m_device, shader);
 		if (SUCCEEDED(result) && shader == currentShader)
 		{
-			currentShader = UNINITIALIZED_HANDLE;
+			currentShader = nullptr;
 		}
 		return result;
 	}
 
-	void DeviceState::removeTexture(HANDLE texture)
+	void DeviceState::onDestroyResource(HANDLE resource)
 	{
 		for (UINT i = 0; i < m_textures.size(); ++i)
 		{
-			if (m_textures[i] == texture)
+			if (m_textures[i] == resource)
 			{
-				m_textures[i] = UNINITIALIZED_HANDLE;
+				m_textures[i] = nullptr;
+				m_device.getOrigVtable().pfnSetTexture(m_device, i, nullptr);
 			}
+		}
+
+		if (m_renderTarget.hRenderTarget == resource)
+		{
+			m_renderTarget = {};
 		}
 	}
 
 	HRESULT DeviceState::setShader(HANDLE shader, HANDLE& currentShader,
 		HRESULT(APIENTRY* origSetShaderFunc)(HANDLE, HANDLE))
 	{
-		if (shader == currentShader &&
-			shader != UNINITIALIZED_HANDLE)
+		if (shader == currentShader)
 		{
 			return S_OK;
 		}
@@ -273,7 +421,7 @@ namespace D3dDdi
 	HRESULT DeviceState::setState(const StateData* data, StateData& currentState,
 		HRESULT(APIENTRY* origSetState)(HANDLE, const StateData*))
 	{
-		if (*data == currentState)
+		if (0 == memcmp(data, &currentState, sizeof(currentState)))
 		{
 			return S_OK;
 		}
@@ -297,8 +445,7 @@ namespace D3dDdi
 			return origSetState(m_device, data);
 		}
 
-		if (data->Value == currentState[data->State] &&
-			data->Value != UNINITIALIZED_STATE)
+		if (data->Value == currentState[data->State])
 		{
 			return S_OK;
 		}

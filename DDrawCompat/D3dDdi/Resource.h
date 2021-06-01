@@ -25,6 +25,8 @@ namespace D3dDdi
 		Resource& operator=(Resource&&) = default;
 
 		operator HANDLE() const { return m_handle; }
+		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
+		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);

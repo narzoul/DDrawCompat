@@ -4,6 +4,10 @@
 #include <map>
 #include <vector>
 
+const UINT D3DTEXF_NONE = 0;
+const UINT D3DTEXF_POINT = 1;
+const UINT D3DTEXF_LINEAR = 2;
+
 namespace D3dDdi
 {
 	class Device;
@@ -17,11 +21,15 @@ namespace D3dDdi
 		HRESULT pfnDeletePixelShader(HANDLE shader);
 		HRESULT pfnDeleteVertexShaderDecl(HANDLE shader);
 		HRESULT pfnDeleteVertexShaderFunc(HANDLE shader);
+		HRESULT pfnSetDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL* data);
 		HRESULT pfnSetPixelShader(HANDLE shader);
 		HRESULT pfnSetPixelShaderConst(const D3DDDIARG_SETPIXELSHADERCONST* data, const FLOAT* registers);
 		HRESULT pfnSetPixelShaderConstB(const D3DDDIARG_SETPIXELSHADERCONSTB* data, const BOOL* registers);
 		HRESULT pfnSetPixelShaderConstI(const D3DDDIARG_SETPIXELSHADERCONSTI* data, const INT* registers);
 		HRESULT pfnSetRenderState(const D3DDDIARG_RENDERSTATE* data);
+		HRESULT pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
+		HRESULT pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
+		HRESULT pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
 		HRESULT pfnSetTexture(UINT stage, HANDLE texture);
 		HRESULT pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data);
 		HRESULT pfnSetVertexShaderConst(const D3DDDIARG_SETVERTEXSHADERCONST* data, const void* registers);
@@ -29,10 +37,11 @@ namespace D3dDdi
 		HRESULT pfnSetVertexShaderConstI(const D3DDDIARG_SETVERTEXSHADERCONSTI* data, const INT* registers);
 		HRESULT pfnSetVertexShaderDecl(HANDLE shader);
 		HRESULT pfnSetVertexShaderFunc(HANDLE shader);
+		HRESULT pfnSetViewport(const D3DDDIARG_VIEWPORTINFO* data);
 		HRESULT pfnSetZRange(const D3DDDIARG_ZRANGE* data);
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
-		void removeTexture(HANDLE texture);
+		void onDestroyResource(HANDLE resource);
 
 	private:
 		typedef std::tuple<FLOAT, FLOAT, FLOAT, FLOAT> ShaderConstF;
@@ -57,11 +66,16 @@ namespace D3dDdi
 			HRESULT(APIENTRY* origSetState)(HANDLE, const StateData*));
 
 		Device& m_device;
+		D3DDDIARG_SETDEPTHSTENCIL m_depthStencil;
 		HANDLE m_pixelShader;
 		std::vector<ShaderConstF> m_pixelShaderConst;
 		std::vector<BOOL> m_pixelShaderConstB;
 		std::vector<ShaderConstI> m_pixelShaderConstI;
 		std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> m_renderState;
+		D3DDDIARG_SETRENDERTARGET m_renderTarget;
+		D3DDDIARG_SETSTREAMSOURCE m_streamSource;
+		D3DDDIARG_SETSTREAMSOURCEUM m_streamSourceUm;
+		const void* m_streamSourceUmBuffer;
 		std::array<HANDLE, 8> m_textures;
 		std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> m_textureStageState;
 		std::vector<ShaderConstF> m_vertexShaderConst;
@@ -70,7 +84,228 @@ namespace D3dDdi
 		std::map<HANDLE, std::vector<D3DDDIVERTEXELEMENT>> m_vertexShaderDecls;
 		HANDLE m_vertexShaderDecl;
 		HANDLE m_vertexShaderFunc;
+		D3DDDIARG_VIEWPORTINFO m_viewport;
 		D3DDDIARG_WINFO m_wInfo;
 		D3DDDIARG_ZRANGE m_zRange;
+
+	public:
+		template <auto setterMethod, auto dataMemberPtr>
+		class ScopedData
+		{
+		public:
+			typedef std::remove_reference_t<decltype(std::declval<DeviceState>().*dataMemberPtr)> Data;
+
+			ScopedData(DeviceState& deviceState, const Data& data)
+				: m_deviceState(deviceState)
+				, m_prevData(deviceState.*dataMemberPtr)
+			{
+				(m_deviceState.*setterMethod)(&data);
+			}
+
+			~ScopedData()
+			{
+				(m_deviceState.*setterMethod)(&m_prevData);
+			}
+
+		protected:
+			DeviceState& m_deviceState;
+			Data m_prevData;
+		};
+
+		class ScopedDepthStencil : public ScopedData<&DeviceState::pfnSetDepthStencil, &DeviceState::m_depthStencil>
+		{
+		public:
+			using ScopedData::ScopedData;
+		};
+
+		template <HRESULT(DeviceState::* setHandle)(HANDLE), HANDLE DeviceState::* storedHandle>
+		class ScopedHandle
+		{
+		public:
+			ScopedHandle(DeviceState& deviceState, HANDLE handle)
+				: m_deviceState(deviceState)
+				, m_prevHandle(deviceState.*storedHandle)
+			{
+				(m_deviceState.*setHandle)(handle);
+			}
+
+			~ScopedHandle()
+			{
+				if (m_prevHandle)
+				{
+					(m_deviceState.*setHandle)(m_prevHandle);
+				}
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			HANDLE m_prevHandle;
+		};
+
+		class ScopedPixelShader : public ScopedHandle<&DeviceState::pfnSetPixelShader, &DeviceState::m_pixelShader>
+		{
+		public:
+			using ScopedHandle::ScopedHandle;
+		};
+
+		class ScopedRenderState
+		{
+		public:
+			ScopedRenderState(DeviceState& deviceState, const D3DDDIARG_RENDERSTATE& data)
+				: m_deviceState(deviceState)
+				, m_prevData{ data.State, deviceState.m_renderState[data.State] }
+			{
+				m_deviceState.pfnSetRenderState(&data);
+			}
+
+			~ScopedRenderState()
+			{
+				m_deviceState.pfnSetRenderState(&m_prevData);
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			D3DDDIARG_RENDERSTATE m_prevData;
+		};
+
+		class ScopedRenderTarget : public ScopedData<&DeviceState::pfnSetRenderTarget, &DeviceState::m_renderTarget>
+		{
+		public:
+			ScopedRenderTarget(DeviceState& deviceState, const D3DDDIARG_SETRENDERTARGET& data)
+				: ScopedData(deviceState, data)
+			{
+				if (!m_prevData.hRenderTarget)
+				{
+					m_prevData = data;
+				}
+			}
+		};
+
+		class ScopedStreamSourceUm
+		{
+		public:
+			ScopedStreamSourceUm(DeviceState& deviceState, const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer)
+				: m_deviceState(deviceState)
+				, m_prevStreamSource(deviceState.m_streamSource)
+				, m_prevStreamSourceUm(deviceState.m_streamSourceUm)
+				, m_prevStreamSourceUmBuffer(deviceState.m_streamSourceUmBuffer)
+			{
+				m_deviceState.pfnSetStreamSourceUm(&data, umBuffer);
+			}
+
+			~ScopedStreamSourceUm()
+			{
+				if (m_prevStreamSourceUmBuffer)
+				{
+					m_deviceState.pfnSetStreamSourceUm(&m_prevStreamSourceUm, m_prevStreamSourceUmBuffer);
+				}
+				else if (m_prevStreamSource.hVertexBuffer)
+				{
+					m_deviceState.pfnSetStreamSource(&m_prevStreamSource);
+				}
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			D3DDDIARG_SETSTREAMSOURCE m_prevStreamSource;
+			D3DDDIARG_SETSTREAMSOURCEUM m_prevStreamSourceUm;
+			const void* m_prevStreamSourceUmBuffer;
+		};
+
+		class ScopedTextureStageState
+		{
+		public:
+			ScopedTextureStageState(DeviceState& deviceState, const D3DDDIARG_TEXTURESTAGESTATE& data)
+				: m_deviceState(deviceState)
+				, m_prevData{ data.Stage, data.State, deviceState.m_textureStageState[data.Stage][data.State] }
+			{
+				m_deviceState.pfnSetTextureStageState(&data);
+			}
+
+			~ScopedTextureStageState()
+			{
+				m_deviceState.pfnSetTextureStageState(&m_prevData);
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			D3DDDIARG_TEXTURESTAGESTATE m_prevData;
+		};
+
+		class ScopedTexture
+		{
+		public:
+			ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter)
+				: m_deviceState(deviceState)
+				, m_stage(stage)
+				, m_prevTexture(deviceState.m_textures[stage])
+				, m_scopedAddressU(deviceState, { stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP })
+				, m_scopedAddressV(deviceState, { stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP })
+				, m_scopedMagFilter(deviceState, { stage, D3DDDITSS_MAGFILTER, filter })
+				, m_scopedMinFilter(deviceState, { stage, D3DDDITSS_MINFILTER, filter })
+				, m_scopedMipFilter(deviceState, { stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE })
+				, m_scopedWrap(deviceState, { static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 })
+				, m_prevTextureColorKeyVal(deviceState.m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
+				, m_prevDisableTextureColorKey(deviceState.m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
+			{
+				m_deviceState.pfnSetTexture(stage, texture);
+
+				D3DDDIARG_TEXTURESTAGESTATE data = {};
+				data.Stage = stage;
+				data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
+				data.Value = TRUE;
+				m_deviceState.pfnSetTextureStageState(&data);
+			}
+
+			~ScopedTexture()
+			{
+				m_deviceState.pfnSetTexture(m_stage, m_prevTexture);
+
+				D3DDDIARG_TEXTURESTAGESTATE data = {};
+				data.Stage = m_stage;
+				if (m_prevDisableTextureColorKey)
+				{
+					data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
+					data.Value = TRUE;
+				}
+				else
+				{
+					data.State = D3DDDITSS_TEXTURECOLORKEYVAL;
+					data.Value = m_prevTextureColorKeyVal;
+				}
+				m_deviceState.pfnSetTextureStageState(&data);
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			UINT m_stage;
+			HANDLE m_prevTexture;
+			ScopedTextureStageState m_scopedAddressU;
+			ScopedTextureStageState m_scopedAddressV;
+			ScopedTextureStageState m_scopedMagFilter;
+			ScopedTextureStageState m_scopedMinFilter;
+			ScopedTextureStageState m_scopedMipFilter;
+			ScopedRenderState m_scopedWrap;
+			UINT m_prevTextureColorKeyVal;
+			UINT m_prevDisableTextureColorKey;
+		};
+
+		class ScopedVertexShaderDecl : public ScopedHandle<&DeviceState::pfnSetVertexShaderDecl, &DeviceState::m_vertexShaderDecl>
+		{
+		public:
+			using ScopedHandle::ScopedHandle;
+		};
+
+		class ScopedViewport : public ScopedData<&DeviceState::pfnSetViewport, &DeviceState::m_viewport>
+		{
+		public:
+			using ScopedData::ScopedData;
+		};
+
+		class ScopedZRange : public ScopedData<&DeviceState::pfnSetZRange, &DeviceState::m_zRange>
+		{
+		public:
+			using ScopedData::ScopedData;
+		};
 	};
 }

@@ -88,6 +88,9 @@
     <Filter Include="Source Files\Config\Settings">
       <UniqueIdentifier>{0b4eec6c-ece5-4417-913c-8829b34ec08c}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{00e06bd4-3f10-46dc-af0f-99834dfac835}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Gdi\Gdi.h">
@@ -417,6 +420,9 @@
     <ClInclude Include="Config\Settings\CpuAffinity.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\ShaderBlitter.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -656,6 +662,9 @@
     <ClCompile Include="Config\Settings\CpuAffinity.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="D3dDdi\ShaderBlitter.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc">
@@ -666,5 +675,10 @@
     <None Include="genversion.ps1">
       <Filter>Resource Files</Filter>
     </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\PaletteLookup.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
 </Project>

@@ -154,12 +154,25 @@ namespace D3dDdi
 		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(m_fixedData));
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 
+		const bool isPalettized = D3DDDIFMT_P8 == m_fixedData.Format;
+		if (isPalettized)
+		{
+			m_fixedData.Format = D3DDDIFMT_L8;
+			m_fixedData.Flags.Texture = 1;
+		}
+
 		HRESULT result = createResourceFunc(device, reinterpret_cast<Arg*>(&m_fixedData));
 		if (FAILED(result))
 		{
 			throw HResultException(result);
 		}
 		m_handle = m_fixedData.hResource;
+
+		if (isPalettized)
+		{
+			m_fixedData.Format = D3DDDIFMT_P8;
+			m_fixedData.Flags.Texture = 0;
+		}
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
 			0 != m_formatInfo.bytesPerPixel)
@@ -432,7 +445,7 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Resource::createSysMemResource", Compat::array(surfaceInfo.data(), surfaceInfo.size()));
 		D3DDDIARG_CREATERESOURCE2 data = {};
-		data.Format = m_fixedData.Format;
+		data.Format = (D3DDDIFMT_P8 == m_fixedData.Format) ? D3DDDIFMT_L8 : m_fixedData.Format;
 		data.Pool = D3DDDIPOOL_SYSTEMMEM;
 		data.pSurfList = surfaceInfo.data();
 		data.SurfCount = surfaceInfo.size();
@@ -526,47 +539,27 @@ namespace D3dDdi
 
 	HRESULT Resource::presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
 	{
-		if (D3DDDIFMT_P8 == srcResource.m_origData.Format)
-		{
-			D3DDDIARG_LOCK lock = {};
-			lock.hResource = m_handle;
-			lock.SubResourceIndex = data.DstSubResourceIndex;
-			HRESULT result = m_device.getOrigVtable().pfnLock(m_device, &lock);
-			if (FAILED(result))
-			{
-				return result;
-			}
-
-			auto entries(Gdi::Palette::getHardwarePalette());
-			DWORD pal[256] = {};
-			for (UINT i = 0; i < 256; ++i)
-			{
-				pal[i] = (entries[i].peRed << 16) | (entries[i].peGreen << 8) | entries[i].peBlue;
-			}
-
-			auto& srcLockData = srcResource.m_lockData[data.SrcSubResourceIndex];
-			for (UINT y = 0; y < srcResource.m_fixedData.surfaceData[data.SrcSubResourceIndex].Height; ++y)
-			{
-				auto src = static_cast<const BYTE*>(srcLockData.data) + y * srcLockData.pitch;
-				auto dst = reinterpret_cast<DWORD*>(static_cast<BYTE*>(lock.pSurfData) + y * lock.Pitch);
-				for (UINT x = 0; x < srcResource.m_fixedData.surfaceData[data.SrcSubResourceIndex].Width; ++x)
-				{
-					dst[x] = pal[*src];
-					++src;
-				}
-			}
-
-			D3DDDIARG_UNLOCK unlock = {};
-			unlock.hResource = m_handle;
-			unlock.SubResourceIndex = data.DstSubResourceIndex;
-			return m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
-		}
-
 		if (srcResource.m_lockResource &&
 			srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 		{
 			srcResource.copyToVidMem(data.SrcSubResourceIndex);
 		}
+
+		if (D3DDDIFMT_P8 == srcResource.m_origData.Format)
+		{
+			auto entries(Gdi::Palette::getHardwarePalette());
+			RGBQUAD pal[256] = {};
+			for (UINT i = 0; i < 256; ++i)
+			{
+				pal[i].rgbRed = entries[i].peRed;
+				pal[i].rgbGreen = entries[i].peGreen;
+				pal[i].rgbBlue = entries[i].peBlue;
+			}
+
+			m_device.getShaderBlitter().palettizedBlt(*this, data.DstSubResourceIndex, srcResource, pal);
+			return S_OK;
+		}
+
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 

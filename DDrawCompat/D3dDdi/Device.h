@@ -9,6 +9,7 @@
 
 #include <D3dDdi/DeviceState.h>
 #include <D3dDdi/DrawPrimitive.h>
+#include <D3dDdi/ShaderBlitter.h>
 
 namespace D3dDdi
 {
@@ -43,9 +44,6 @@ namespace D3dDdi
 		HRESULT pfnOpenResource(D3DDDIARG_OPENRESOURCE* data);
 		HRESULT pfnPresent(const D3DDDIARG_PRESENT* data);
 		HRESULT pfnPresent1(D3DDDIARG_PRESENT1* data);
-		HRESULT pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data);
-		HRESULT pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data);
-		HRESULT pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer);
 		HRESULT pfnUnlock(const D3DDDIARG_UNLOCK* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
@@ -53,11 +51,13 @@ namespace D3dDdi
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }
+		ShaderBlitter& getShaderBlitter() { return m_shaderBlitter; }
 
 		HRESULT createPrivateResource(D3DDDIARG_CREATERESOURCE2& data);
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
 		void prepareForRendering();
+		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 
 		bool isSrcColorKeySupported() const { return m_isSrcColorKeySupported; }
 
@@ -84,6 +84,7 @@ namespace D3dDdi
 		HANDLE m_sharedPrimary;
 		DrawPrimitive m_drawPrimitive;
 		DeviceState m_state;
+		ShaderBlitter m_shaderBlitter;
 		bool m_isSrcColorKeySupported;
 
 		static std::map<HANDLE, Device> s_devices;

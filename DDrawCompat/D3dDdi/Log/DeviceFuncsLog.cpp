@@ -204,6 +204,12 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_RENDERSTATE& val)
 		<< val.Value;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETDEPTHSTENCIL& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hZBuffer;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETPIXELSHADERCONST& val)
 {
 	return Compat::LogStruct(os)

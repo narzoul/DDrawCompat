@@ -61,26 +61,23 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <TargetName>ddraw</TargetName>
     <LinkIncremental>false</LinkIncremental>
-    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
-    <LibraryPath>$(LibraryPath)</LibraryPath>
     <GenerateManifest>false</GenerateManifest>
     <IntDir>$(SolutionDir)Build\$(Configuration)\</IntDir>
+    <MultiProcFXC>true</MultiProcFXC>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
-    <LibraryPath>$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <GenerateManifest>false</GenerateManifest>
     <IntDir>$(SolutionDir)Build\$(Configuration)\</IntDir>
+    <MultiProcFXC>true</MultiProcFXC>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">
     <TargetName>ddraw</TargetName>
-    <IncludePath>$(ProjectDir);$(IncludePath)</IncludePath>
-    <LibraryPath>$(LibraryPath)</LibraryPath>
     <LinkIncremental>false</LinkIncremental>
     <GenerateManifest>false</GenerateManifest>
     <IntDir>$(SolutionDir)Build\$(Configuration)\</IntDir>
+    <MultiProcFXC>true</MultiProcFXC>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -94,6 +91,7 @@
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -109,6 +107,15 @@
       <AdditionalIncludeDirectories>$(IntDir)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>SPECIALBUILD=\"$(Configuration)\"</PreprocessorDefinitions>
     </ResourceCompile>
+    <FxCompile>
+      <VariableName>g_ps%(Filename)</VariableName>
+    </FxCompile>
+    <FxCompile>
+      <ObjectFileOutput />
+      <ShaderModel>2.0</ShaderModel>
+      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
+      <ShaderType>Pixel</ShaderType>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -120,6 +127,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -134,6 +142,17 @@
     <ResourceCompile>
       <AdditionalIncludeDirectories>$(IntDir)</AdditionalIncludeDirectories>
     </ResourceCompile>
+    <FxCompile>
+      <VariableName>g_ps%(Filename)</VariableName>
+    </FxCompile>
+    <FxCompile>
+      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
+    </FxCompile>
+    <FxCompile>
+      <ObjectFileOutput />
+      <ShaderModel>2.0</ShaderModel>
+      <ShaderType>Pixel</ShaderType>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">
     <ClCompile>
@@ -145,6 +164,7 @@
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalDependencies>dbgeng.lib;dxguid.lib;msimg32.lib;oleacc.lib;uxtheme.lib;dwmapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
@@ -160,6 +180,15 @@
       <AdditionalIncludeDirectories>$(IntDir)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions>SPECIALBUILD=\"$(Configuration)\"</PreprocessorDefinitions>
     </ResourceCompile>
+    <FxCompile>
+      <VariableName>g_ps%(Filename)</VariableName>
+    </FxCompile>
+    <FxCompile>
+      <ObjectFileOutput />
+      <ShaderModel>2.0</ShaderModel>
+      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
+      <ShaderType>Pixel</ShaderType>
+    </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Common\CompatPtr.h" />
@@ -203,6 +232,7 @@
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h" />
     <ClInclude Include="D3dDdi\Resource.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
+    <ClInclude Include="D3dDdi\ShaderBlitter.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
@@ -302,6 +332,7 @@
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />
     <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
+    <ClCompile Include="D3dDdi\ShaderBlitter.cpp" />
     <ClCompile Include="DDraw\Blitter.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
     <ClCompile Include="DDraw\DirectDrawClipper.cpp" />
@@ -358,6 +389,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="genversion.ps1" />
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Shaders\PaletteLookup.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

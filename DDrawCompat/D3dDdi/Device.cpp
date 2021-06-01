@@ -44,6 +44,7 @@ namespace D3dDdi
 		, m_sharedPrimary(nullptr)
 		, m_drawPrimitive(*this)
 		, m_state(*this)
+		, m_shaderBlitter(*this)
 	{
 	}
 
@@ -51,6 +52,7 @@ namespace D3dDdi
 	{
 		s_devices.try_emplace(device, adapter, device);
 	}
+
 	bool Device::checkSrcColorKeySupport()
 	{
 		if (!(m_adapter.getDDrawCaps().CKeyCaps & DDRAW_CKEYCAPS_SRCBLT))
@@ -211,6 +213,23 @@ namespace D3dDdi
 		return it != m_resources.end() ? &it->second : nullptr;
 	}
 
+	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
+	{
+		auto it = m_resources.find(resource);
+		if (it != m_resources.end())
+		{
+			it->second.prepareForRendering(subResourceIndex, isReadOnly);
+		}
+	}
+
+	void Device::prepareForRendering()
+	{
+		if (m_renderTarget)
+		{
+			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
+		}
+	}
+
 	void Device::setGdiResourceHandle(HANDLE resource)
 	{
 		ScopedCriticalSection lock;
@@ -234,20 +253,12 @@ namespace D3dDdi
 		}
 	}
 
-	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
+	void Device::setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data)
 	{
-		auto it = m_resources.find(resource);
-		if (it != m_resources.end())
+		if (0 == data.RenderTargetIndex)
 		{
-			it->second.prepareForRendering(subResourceIndex, isReadOnly);
-		}
-	}
-
-	void Device::prepareForRendering()
-	{
-		if (m_renderTarget)
-		{
-			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
+			m_renderTarget = getResource(data.hRenderTarget);
+			m_renderTargetSubResourceIndex = data.SubResourceIndex;
 		}
 	}
 
@@ -335,7 +346,7 @@ namespace D3dDdi
 				g_gdiResource = nullptr;
 			}
 			m_drawPrimitive.removeSysMemVertexBuffer(resource);
-			m_state.removeTexture(resource);
+			m_state.onDestroyResource(resource);
 		}
 
 		return result;
@@ -410,28 +421,6 @@ namespace D3dDdi
 			prepareForRendering(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
 		}
 		return m_origVtable.pfnPresent1(m_device, data);
-	}
-
-	HRESULT Device::pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
-	{
-		flushPrimitives();
-		HRESULT result = m_origVtable.pfnSetRenderTarget(m_device, data);
-		if (SUCCEEDED(result) && 0 == data->RenderTargetIndex)
-		{
-			m_renderTarget = getResource(data->hRenderTarget);
-			m_renderTargetSubResourceIndex = data->SubResourceIndex;
-		}
-		return result;
-	}
-
-	HRESULT Device::pfnSetStreamSource(const D3DDDIARG_SETSTREAMSOURCE* data)
-	{
-		return m_drawPrimitive.setStreamSource(*data);
-	}
-
-	HRESULT Device::pfnSetStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM* data, const void* umBuffer)
-	{
-		return m_drawPrimitive.setStreamSourceUm(*data, umBuffer);
 	}
 
 	HRESULT Device::pfnUnlock(const D3DDDIARG_UNLOCK* data)
