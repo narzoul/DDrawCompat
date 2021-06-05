@@ -15,7 +15,6 @@ namespace D3dDdi
 	class Resource
 	{
 	public:
-		Resource(Device& device, D3DDDIARG_CREATERESOURCE& data);
 		Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data);
 
 		Resource(const Resource&) = delete;
@@ -41,8 +40,6 @@ namespace D3dDdi
 		class Data : public D3DDDIARG_CREATERESOURCE2
 		{
 		public:
-			Data();
-			Data(const D3DDDIARG_CREATERESOURCE& data);
 			Data(const D3DDDIARG_CREATERESOURCE2& data);
 
 			Data(const Data&) = delete;
@@ -73,9 +70,6 @@ namespace D3dDdi
 		private:
 			Device& m_device;
 		};
-
-		template <typename Arg>
-		Resource(Device& device, Arg& data, HRESULT(APIENTRY *createResourceFunc)(HANDLE, Arg*));
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltUnlock(const D3DDDIARG_UNLOCK& data);

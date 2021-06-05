@@ -1,6 +1,8 @@
 #pragma once
 
-#include <Windows.h>
+#include <ddraw.h>
+
+#include <Common/CompatWeakPtr.h>
 
 namespace D3dDdi
 {
@@ -15,7 +17,6 @@ namespace D3dDdi
 		ShaderBlitter(ShaderBlitter&&) = delete;
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
-		~ShaderBlitter();
 
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, RGBQUAD palette[256]);
@@ -28,7 +29,7 @@ namespace D3dDdi
 		HANDLE createVertexShaderDecl();
 
 		Device& m_device;
-		HANDLE m_paletteTexture;
+		CompatWeakPtr<IDirectDrawSurface7> m_paletteTexture;
 		HANDLE m_psPaletteLookup;
 		HANDLE m_vertexShaderDecl;
 	};

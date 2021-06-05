@@ -1,7 +1,10 @@
-#include <type_traits>
+#include <map>
+#include <sstream>
 
+#include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
+#include <D3dDdi/Adapter.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -11,9 +14,106 @@
 
 namespace
 {
-	void logComInstantiation()
+	void logSrcColorKeySupportFailure(const char* reason, UINT32 resultCode);
+
+	bool checkSrcColorKeySupport(CompatRef<IDirectDraw7> dd)
 	{
-		LOG_ONCE("COM instantiation of DirectDraw detected");
+		DDCAPS caps = {};
+		caps.dwSize = sizeof(caps);
+		dd->GetCaps(&dd, &caps, nullptr);
+		if (!(caps.dwCaps & DDCAPS_COLORKEY) || !(caps.dwCKeyCaps & DDCKEYCAPS_SRCBLT))
+		{
+			logSrcColorKeySupportFailure("driver indicates no support", 0);
+			return false;
+		}
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
+		desc.dwWidth = 2;
+		desc.dwHeight = 1;
+		desc.ddpfPixelFormat = DDraw::DirectDraw::getRgbPixelFormat(16);
+		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY;
+
+		CompatPtr<IDirectDrawSurface7> src;
+		HRESULT result = dd->CreateSurface(&dd, &desc, &src.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error creating source surface", result);
+			return false;
+		}
+
+		CompatPtr<IDirectDrawSurface7> dst;
+		result = dd->CreateSurface(&dd, &desc, &dst.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error creating destination surface", result);
+			return false;
+		}
+
+		result = src->Lock(src, nullptr, &desc, DDLOCK_WAIT, nullptr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking source surface", result);
+			return false;
+		}
+
+		const UINT16 colorKey = 0xFA9F;
+		*static_cast<UINT32*>(desc.lpSurface) = colorKey;
+		src->Unlock(src, nullptr);
+
+		result = dst->Lock(dst, nullptr, &desc, DDLOCK_WAIT, nullptr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking destination surface", result);
+			return false;
+		}
+
+		*static_cast<UINT32*>(desc.lpSurface) = 0xFFFFFFFF;
+		dst->Unlock(dst, nullptr);
+
+		DDBLTFX fx = {};
+		fx.dwSize = sizeof(fx);
+		fx.ddckSrcColorkey.dwColorSpaceLowValue = colorKey;
+		fx.ddckSrcColorkey.dwColorSpaceHighValue = colorKey;
+		result = dst->Blt(dst, nullptr, src, nullptr, DDBLT_KEYSRCOVERRIDE | DDBLT_WAIT, &fx);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("blt error", result);
+			return false;
+		}
+
+		result = dst->Lock(dst, nullptr, &desc, DDLOCK_WAIT, nullptr);
+		if (FAILED(result))
+		{
+			logSrcColorKeySupportFailure("error locking destination resource after blt", result);
+			return false;
+		}
+
+		const UINT32 dstPixels = *static_cast<UINT32*>(desc.lpSurface);
+		dst->Unlock(dst, nullptr);
+		
+		if (dstPixels != 0xFFFF)
+		{
+			logSrcColorKeySupportFailure("test result pattern is incorrect", dstPixels);
+			return false;
+		}
+
+		Compat::Log() << "Source color key support: yes";
+		return true;
+	}
+
+	void logSrcColorKeySupportFailure(const char* reason, UINT32 resultCode)
+	{
+		std::ostringstream oss;
+		oss << "Source color key support: no (" << reason;
+		if (resultCode)
+		{
+			oss << ": " << Compat::hex(resultCode);
+		}
+		oss << ')';
+
+		Compat::Log() << oss.str();
 	}
 
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>
@@ -61,14 +161,6 @@ namespace
 	}
 
 	template <typename TDirectDraw>
-	HRESULT STDMETHODCALLTYPE Initialize(TDirectDraw* This, GUID* lpGUID)
-	{
-		logComInstantiation();
-		DDraw::DirectDraw::suppressEmulatedDirectDraw(lpGUID);
-		return getOrigVtable(This).Initialize(This, lpGUID);
-	}
-
-	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE RestoreAllSurfaces(TDirectDraw* This)
 	{
 		auto primary(DDraw::PrimarySurface::getPrimary());
@@ -107,7 +199,6 @@ namespace
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
 		vtable.GetGDISurface = &GetGDISurface;
-		vtable.Initialize = &Initialize;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
 
 		if constexpr (std::is_same_v<Vtable, IDirectDraw4Vtbl> || std::is_same_v<Vtable, IDirectDraw7Vtbl>)
@@ -164,6 +255,26 @@ namespace DDraw
 			}
 
 			return pf;
+		}
+
+		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)
+		{
+			static std::map<LUID, Repository> repositories;
+			auto adapterInfo = D3dDdi::KernelModeThunks::getAdapterInfo(dd);
+			auto it = repositories.find(adapterInfo.luid);
+			if (it == repositories.end())
+			{
+				CompatPtr<IDirectDraw7> repo;
+				CALL_ORIG_PROC(DirectDrawCreateEx)(guid, reinterpret_cast<void**>(&repo.getRef()), IID_IDirectDraw7, nullptr);
+				if (!repo)
+				{
+					return;
+				}
+				repo->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL);
+				it = repositories.insert({ adapterInfo.luid, { repo, checkSrcColorKeySupport(*repo) } }).first;
+				repo.detach();
+			}
+			D3dDdi::Adapter::setRepository(adapterInfo.luid, it->second);
 		}
 
 		void suppressEmulatedDirectDraw(GUID*& guid)

@@ -191,6 +191,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Common\Comparison.h" />
     <ClInclude Include="Common\CompatPtr.h" />
     <ClInclude Include="Common\CompatQueryInterface.h" />
     <ClInclude Include="Common\CompatRef.h" />

@@ -1,9 +1,11 @@
+#include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/AdapterFuncs.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceCallbacks.h>
 #include <D3dDdi/DeviceFuncs.h>
+#include <D3dDdi/KernelModeThunks.h>
 
 namespace
 {
@@ -30,7 +32,10 @@ namespace D3dDdi
 		, m_origVtable(CompatVtable<D3DDDI_ADAPTERFUNCS>::s_origVtable)
 		, m_runtimeVersion(data.Version)
 		, m_driverVersion(data.DriverVersion)
+		, m_luid(KernelModeThunks::getLastOpenAdapterInfo().luid)
+		, m_repository{}
 		, m_d3dExtendedCaps{}
+		, m_ddrawCaps{}
 	{
 		if (m_adapter)
 		{
@@ -141,6 +146,17 @@ namespace D3dDdi
 		}
 
 		return result;
+	}
+
+	void Adapter::setRepository(LUID luid, const DDraw::DirectDraw::Repository& repository)
+	{
+		for (auto& adapter : s_adapters)
+		{
+			if (adapter.second.m_luid == luid)
+			{
+				adapter.second.m_repository = repository;
+			}
+		}
 	}
 
 	std::map<HANDLE, Adapter> Adapter::s_adapters;

@@ -1,44 +1,62 @@
+#include <map>
+
+#include <Common/Comparison.h>
 #include <Common/Log.h>
+#include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderBlitter.h>
+#include <DDraw/DirectDrawSurface.h>
 #include <Shaders/PaletteLookup.h>
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
 #define SCOPED_STATE(state, ...) DeviceState::Scoped##state CONCAT(scopedState, __LINE__)(m_device.getState(), __VA_ARGS__)
 
+namespace
+{
+	std::map<LUID, CompatWeakPtr<IDirectDrawSurface7>> g_paletteTextures;
+
+	CompatWeakPtr<IDirectDrawSurface7> getPaletteTexture(CompatWeakPtr<IDirectDraw7> dd, LUID luid)
+	{
+		LOG_FUNC("ShaderBlitter::getPaletteTexture", dd.get(), luid);
+		if (!dd)
+		{
+			LOG_ONCE("Failed to create palette texture: no DirectDraw repository available")
+			return LOG_RESULT(nullptr);
+		}
+
+		auto it = g_paletteTextures.find(luid);
+		if (it == g_paletteTextures.end())
+		{
+			CompatPtr<IDirectDrawSurface7> paletteTexture;
+			DDSURFACEDESC2 desc = {};
+			desc.dwSize = sizeof(desc);
+			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;
+			desc.dwWidth = 256;
+			desc.dwHeight = 1;
+			desc.ddpfPixelFormat = DDraw::DirectDraw::getRgbPixelFormat(32);
+			desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY;
+
+			HRESULT result = dd->CreateSurface(dd, &desc, &paletteTexture.getRef(), nullptr);
+			if (FAILED(result))
+			{
+				LOG_ONCE("Failed to create palette texture: " << Compat::hex(result));
+				return nullptr;
+			}
+			it = g_paletteTextures.insert({ luid, paletteTexture.detach() }).first;
+		}
+		return LOG_RESULT(it->second.get());
+	}
+}
+
 namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
-		, m_paletteTexture(nullptr)
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup, sizeof(g_psPaletteLookup)))
 		, m_vertexShaderDecl(createVertexShaderDecl())
 	{
-		D3DDDI_SURFACEINFO si = {};
-		si.Width = 256;
-		si.Height = 1;
-
-		D3DDDIARG_CREATERESOURCE2 cr = {};
-		cr.Format = D3DDDIFMT_X8R8G8B8;
-		cr.Pool = D3DDDIPOOL_VIDEOMEMORY;
-		cr.pSurfList = &si;
-		cr.SurfCount = 1;
-		cr.Rotation = D3DDDI_ROTATION_IDENTITY;
-		cr.Flags.Texture = 1;
-
-		m_device.createPrivateResource(cr);
-		m_paletteTexture = cr.hResource;
-	}
-
-	ShaderBlitter::~ShaderBlitter()
-	{
-		if (m_paletteTexture)
-		{
-			m_device.getOrigVtable().pfnDestroyResource(m_device, m_paletteTexture);
-			m_paletteTexture = nullptr;
-		}
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -146,32 +164,42 @@ namespace D3dDdi
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 		const Resource& srcResource, RGBQUAD palette[256])
 	{
+		LOG_FUNC("ShaderBlitter::palettizedBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex,
+			static_cast<HANDLE>(srcResource), Compat::array(reinterpret_cast<void**>(palette), 256));
+
+		if (m_paletteTexture && FAILED(m_paletteTexture->IsLost(m_paletteTexture)))
+		{
+			g_paletteTextures.erase(m_device.getAdapter().getLuid());
+			m_paletteTexture->Release(m_paletteTexture);
+			m_paletteTexture = nullptr;
+		}
+
 		if (!m_paletteTexture)
 		{
-			return;
+			m_paletteTexture = getPaletteTexture(m_device.getAdapter().getRepository(), m_device.getAdapter().getLuid());
+			if (!m_paletteTexture)
+			{
+				return;
+			}
 		}
 
-		D3DDDIARG_LOCK lock = {};
-		lock.hResource = m_paletteTexture;
-		lock.Flags.Discard = 1;
-		m_device.getOrigVtable().pfnLock(m_device, &lock);
-		if (!lock.pSurfData)
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		m_paletteTexture->Lock(m_paletteTexture, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
+		if (!desc.lpSurface)
 		{
 			return;
 		}
 
-		memcpy(lock.pSurfData, palette, 256 * sizeof(RGBQUAD));
-
-		D3DDDIARG_UNLOCK unlock = {};
-		unlock.hResource = m_paletteTexture;
-		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+		memcpy(desc.lpSurface, palette, 256 * sizeof(RGBQUAD));
+		m_paletteTexture->Unlock(m_paletteTexture, nullptr);
 
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
 		const RECT dstRect = { 0, 0, static_cast<LONG>(dstSurface.Width), static_cast<LONG>(dstSurface.Height) };
 		const RECT srcRect = { 0, 0, static_cast<LONG>(srcSurface.Width), static_cast<LONG>(srcSurface.Height) };
 
-		SCOPED_STATE(Texture, 1, m_paletteTexture, D3DTEXF_POINT);
+		SCOPED_STATE(Texture, 1, DDraw::DirectDrawSurface::getDriverResourceHandle(*m_paletteTexture), D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psPaletteLookup, D3DTEXF_POINT);
 	}
 }

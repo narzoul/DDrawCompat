@@ -59,8 +59,6 @@ namespace D3dDdi
 		void prepareForRendering();
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 
-		bool isSrcColorKeySupported() const { return m_isSrcColorKeySupported; }
-
 		static void add(Adapter& adapter, HANDLE device);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
 
@@ -70,11 +68,6 @@ namespace D3dDdi
 		static void setGdiResourceHandle(HANDLE resource);
 
 	private:
-		bool checkSrcColorKeySupport();
-
-		template <typename Arg>
-		HRESULT createResourceImpl(Arg& data);
-
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
@@ -85,7 +78,6 @@ namespace D3dDdi
 		DrawPrimitive m_drawPrimitive;
 		DeviceState m_state;
 		ShaderBlitter m_shaderBlitter;
-		bool m_isSrcColorKeySupported;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

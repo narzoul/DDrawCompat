@@ -18,17 +18,10 @@
 
 namespace
 {
-	struct AdapterInfo
-	{
-		UINT adapter;
-		UINT vidPnSourceId;
-		RECT monitorRect;
-	};
-
 	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
 	bool g_dcPaletteOverride = false;
-	AdapterInfo g_gdiAdapterInfo = {};
-	AdapterInfo g_lastOpenAdapterInfo = {};
+	D3dDdi::KernelModeThunks::AdapterInfo g_gdiAdapterInfo = {};
+	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
 	std::string g_lastDDrawCreateDcDevice;
 
@@ -109,7 +102,17 @@ namespace
 	HDC WINAPI ddrawCreateDcA(LPCSTR pwszDriver, LPCSTR pwszDevice, LPCSTR pszPort, const DEVMODEA* pdm)
 	{
 		LOG_FUNC("ddrawCreateDCA", pwszDriver, pwszDevice, pszPort, pdm);
-		g_lastDDrawCreateDcDevice = pwszDevice ? pwszDevice : std::string();
+		if (pwszDevice)
+		{
+			g_lastDDrawCreateDcDevice = pwszDevice;
+		}
+		else
+		{
+			MONITORINFOEXA mi = {};
+			mi.cbSize = sizeof(mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+			g_lastDDrawCreateDcDevice = mi.szDevice;
+		}
 		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
 
@@ -126,11 +129,12 @@ namespace
 		return TRUE;
 	}
 
-	AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
+	D3dDdi::KernelModeThunks::AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
 	{
-		AdapterInfo adapterInfo = {};
+		D3dDdi::KernelModeThunks::AdapterInfo adapterInfo = {};
 		adapterInfo.adapter = data.hAdapter;
 		adapterInfo.vidPnSourceId = data.VidPnSourceId;
+		adapterInfo.luid = data.AdapterLuid;
 
 		EnumDisplayMonitors(nullptr, nullptr, findDDrawMonitorRect,
 			reinterpret_cast<LPARAM>(&adapterInfo.monitorRect));
@@ -277,6 +281,20 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
+		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd)
+		{
+			DDraw::ScopedThreadLock lock;
+			DDDEVICEIDENTIFIER2 di = {};
+			dd.get().lpVtbl->GetDeviceIdentifier(&dd, &di, 0);
+			return getLastOpenAdapterInfo();
+		}
+
+		AdapterInfo getLastOpenAdapterInfo()
+		{
+			Compat::ScopedSrwLockShared srwLock(g_lastOpenAdapterInfoSrwLock);
+			return g_lastOpenAdapterInfo;
+		}
+
 		RECT getMonitorRect()
 		{
 			auto primary(DDraw::PrimarySurface::getPrimary());
@@ -298,7 +316,7 @@ namespace D3dDdi
 				dd7.get()->lpVtbl->GetDeviceIdentifier(dd7, &di, 0);
 			}
 
-			return g_lastOpenAdapterInfo.monitorRect;
+			return getLastOpenAdapterInfo().monitorRect;
 		}
 
 		long long getQpcLastVsync()

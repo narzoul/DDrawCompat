@@ -6,6 +6,9 @@
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
+#include <Common/CompatPtr.h>
+#include <DDraw/DirectDraw.h>
+
 namespace D3dDdi
 {
 	class Adapter
@@ -21,7 +24,10 @@ namespace D3dDdi
 
 		const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps() const { return m_d3dExtendedCaps; }
 		const DDRAW_CAPS& getDDrawCaps() const { return m_ddrawCaps; }
+		LUID getLuid() const { return m_luid; }
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
+		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository.repo; }
+		bool isSrcColorKeySupported() const { return m_repository.isSrcColorKeySupported; }
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
@@ -29,6 +35,7 @@ namespace D3dDdi
 
 		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
 		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
+		static void setRepository(LUID luid, const DDraw::DirectDraw::Repository& repository);
 
 	private:
 		DWORD getSupportedZBufferBitDepths();
@@ -37,6 +44,8 @@ namespace D3dDdi
 		D3DDDI_ADAPTERFUNCS m_origVtable;
 		UINT m_runtimeVersion;
 		UINT m_driverVersion;
+		LUID m_luid;
+		DDraw::DirectDraw::Repository m_repository;
 
 		D3DNTHAL_D3DEXTENDEDCAPS m_d3dExtendedCaps;
 		DDRAW_CAPS m_ddrawCaps;

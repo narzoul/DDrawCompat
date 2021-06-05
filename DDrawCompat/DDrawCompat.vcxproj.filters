@@ -423,6 +423,9 @@
     <ClInclude Include="D3dDdi\ShaderBlitter.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="Common\Comparison.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

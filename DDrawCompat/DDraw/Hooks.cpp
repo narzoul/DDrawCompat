@@ -12,6 +12,8 @@
 
 namespace
 {
+	decltype(IDirectDraw7Vtbl::Initialize) g_origInitialize = nullptr;
+
 	void hookDirectDraw(CompatPtr<IDirectDraw7> dd)
 	{
 		DDraw::DirectDraw::hookVtable(*CompatPtr<IDirectDraw>(dd).get()->lpVtbl);
@@ -77,6 +79,19 @@ namespace
 			Compat::Log() << "ERROR: Failed to create a DirectDraw surface for hooking: " << result;
 		}
 	}
+
+	HRESULT STDMETHODCALLTYPE initialize(IUnknown* This, GUID* lpGUID)
+	{
+		LOG_FUNC("IDirectDrawVtbl::Initialize", This, lpGUID);
+		LOG_ONCE("COM instantiation of DirectDraw detected");
+		DDraw::DirectDraw::suppressEmulatedDirectDraw(lpGUID);
+		HRESULT result = g_origInitialize(reinterpret_cast<IDirectDraw7*>(This), lpGUID);
+		if (SUCCEEDED(result))
+		{
+			DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(This));
+		}
+		return result;
+	}
 }
 
 namespace DDraw
@@ -89,6 +104,9 @@ namespace DDraw
 			HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\DirectDraw", "EmulationOnly");
 		Win32::Registry::unsetValue(
 			HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\DirectDraw", "EmulationOnly");
+
+		g_origInitialize = dd7.get()->lpVtbl->Initialize;
+		Compat::hookFunction(reinterpret_cast<void*&>(g_origInitialize), initialize, "IDirectDrawVtbl::Initialize");
 
 		hookDirectDraw(dd7);
 		hookDirectDrawClipper(*dd7);

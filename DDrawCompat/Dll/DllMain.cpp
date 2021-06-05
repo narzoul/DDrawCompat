@@ -40,14 +40,27 @@ namespace
 #undef  DEFINE_FUNC_NAME
 
 	void installHooks();
+	void onDirectDrawCreate(GUID* lpGUID, LPDIRECTDRAW* lplpDD, IUnknown* pUnkOuter);
+	void onDirectDrawCreate(GUID* lpGUID, LPVOID* lplpDD, REFIID iid, IUnknown* pUnkOuter);
 
 	template <FARPROC(Dll::Procs::* origFunc), typename OrigFuncPtrType, typename FirstParam, typename... Params>
 	HRESULT WINAPI directDrawFunc(FirstParam firstParam, Params... params)
 	{
-		LOG_FUNC(getFuncName<origFunc>(), firstParam, params...);
+		LOG_FUNC(getFuncName<origFunc>(), params...);
 		installHooks();
-		suppressEmulatedDirectDraw(firstParam);
-		return LOG_RESULT(reinterpret_cast<OrigFuncPtrType>(Dll::g_origProcs.*origFunc)(firstParam, params...));
+		if constexpr (&Dll::Procs::DirectDrawCreate == origFunc || &Dll::Procs::DirectDrawCreateEx == origFunc)
+		{
+			DDraw::DirectDraw::suppressEmulatedDirectDraw(firstParam);
+		}
+		HRESULT result = reinterpret_cast<OrigFuncPtrType>(Dll::g_origProcs.*origFunc)(firstParam, params...);
+		if constexpr (&Dll::Procs::DirectDrawCreate == origFunc || &Dll::Procs::DirectDrawCreateEx == origFunc)
+		{
+			if (SUCCEEDED(result))
+			{
+				onDirectDrawCreate(firstParam, params...);
+			}
+		}
+		return LOG_RESULT(result);
 	}
 
 	void installHooks()
@@ -109,6 +122,16 @@ namespace
 			(!Compat::isEqual(currentDllPath, dciman32DllPath) && GetModuleHandleW(dciman32DllPath.c_str()));
 	}
 
+	void onDirectDrawCreate(GUID* lpGUID, LPDIRECTDRAW* lplpDD, IUnknown* /*pUnkOuter*/)
+	{
+		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(*lplpDD));
+	}
+
+	void onDirectDrawCreate(GUID* lpGUID, LPVOID* lplpDD, REFIID /*iid*/, IUnknown* /*pUnkOuter*/)
+	{
+		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(static_cast<IDirectDraw7*>(*lplpDD)));
+	}
+
 	void printEnvironmentVariable(const char* var)
 	{
 		Compat::Log() << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
@@ -127,16 +150,6 @@ namespace
 			}
 		}
 		SetProcessDPIAware();
-	}
-
-	template <typename Param>
-	void suppressEmulatedDirectDraw(Param)
-	{
-	}
-
-	void suppressEmulatedDirectDraw(GUID*& guid)
-	{
-		DDraw::DirectDraw::suppressEmulatedDirectDraw(guid);
 	}
 }
 

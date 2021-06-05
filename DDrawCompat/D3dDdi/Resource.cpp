@@ -103,27 +103,10 @@ namespace
 		data.pSurfList = tiles.data();
 		data.Flags.Texture = 0;
 	}
-
-	D3DDDIARG_CREATERESOURCE2 upgradeResourceData(const D3DDDIARG_CREATERESOURCE& data)
-	{
-		D3DDDIARG_CREATERESOURCE2 data2 = {};
-		reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(data2) = data;
-		return data2;
-	}
 }
 
 namespace D3dDdi
 {
-	Resource::Data::Data()
-		: D3DDDIARG_CREATERESOURCE2{}
-	{
-	}
-
-	Resource::Data::Data(const D3DDDIARG_CREATERESOURCE& data)
-		: Data(upgradeResourceData(data))
-	{
-	}
-
 	Resource::Data::Data(const D3DDDIARG_CREATERESOURCE2& data)
 		: D3DDDIARG_CREATERESOURCE2(data)
 	{
@@ -135,8 +118,7 @@ namespace D3dDdi
 		pSurfList = surfaceData.data();
 	}
 
-	template <typename Arg>
-	Resource::Resource(Device& device, Arg& data, HRESULT(APIENTRY* createResourceFunc)(HANDLE, Arg*))
+	Resource::Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data)
 		: m_device(device)
 		, m_handle(nullptr)
 		, m_origData(data)
@@ -154,25 +136,12 @@ namespace D3dDdi
 		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(m_fixedData));
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 
-		const bool isPalettized = D3DDDIFMT_P8 == m_fixedData.Format;
-		if (isPalettized)
-		{
-			m_fixedData.Format = D3DDDIFMT_L8;
-			m_fixedData.Flags.Texture = 1;
-		}
-
-		HRESULT result = createResourceFunc(device, reinterpret_cast<Arg*>(&m_fixedData));
+		HRESULT result = m_device.createPrivateResource(m_fixedData);
 		if (FAILED(result))
 		{
 			throw HResultException(result);
 		}
 		m_handle = m_fixedData.hResource;
-
-		if (isPalettized)
-		{
-			m_fixedData.Format = D3DDDIFMT_P8;
-			m_fixedData.Flags.Texture = 0;
-		}
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
 			0 != m_formatInfo.bytesPerPixel)
@@ -188,16 +157,6 @@ namespace D3dDdi
 
 		createLockResource();
 		data.hResource = m_fixedData.hResource;
-	}
-
-	Resource::Resource(Device& device, D3DDDIARG_CREATERESOURCE& data)
-		: Resource(device, data, device.getOrigVtable().pfnCreateResource)
-	{
-	}
-
-	Resource::Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data)
-		: Resource(device, data, device.getOrigVtable().pfnCreateResource2)
-	{
 	}
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
@@ -445,7 +404,7 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Resource::createSysMemResource", Compat::array(surfaceInfo.data(), surfaceInfo.size()));
 		D3DDDIARG_CREATERESOURCE2 data = {};
-		data.Format = (D3DDDIFMT_P8 == m_fixedData.Format) ? D3DDDIFMT_L8 : m_fixedData.Format;
+		data.Format = m_fixedData.Format;
 		data.Pool = D3DDDIPOOL_SYSTEMMEM;
 		data.pSurfList = surfaceInfo.data();
 		data.SurfCount = surfaceInfo.size();
@@ -653,7 +612,7 @@ namespace D3dDdi
 			if (D3DDDIFMT_P8 != m_fixedData.Format)
 			{
 				if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-					(data.Flags.SrcColorKey && !m_device.isSrcColorKeySupported()))
+					(data.Flags.SrcColorKey && !m_device.getAdapter().isSrcColorKeySupported()))
 				{
 					dstLockData.qpcLastForcedLock = now;
 					srcLockData.qpcLastForcedLock = now;
