@@ -18,6 +18,7 @@ namespace DDraw
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static void flush();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
+		static RECT getMonitorRect();
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static void init();
 		static bool isFullScreen();

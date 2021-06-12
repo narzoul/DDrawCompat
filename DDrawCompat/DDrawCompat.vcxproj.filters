@@ -426,6 +426,15 @@
     <ClInclude Include="Common\Comparison.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\DisplayResolution.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\MappedSetting.h">
+      <Filter>Header Files\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\SurfaceRepository.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -666,6 +675,12 @@
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
     <ClCompile Include="D3dDdi\ShaderBlitter.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\DisplayResolution.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\SurfaceRepository.cpp">
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>

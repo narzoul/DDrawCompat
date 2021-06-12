@@ -9,44 +9,47 @@
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
+#include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Blitter.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 
 namespace
 {
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
-	void splitToTiles(D3DDDIARG_CREATERESOURCE& data, const UINT tileWidth, const UINT tileHeight);
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
+	RECT g_presentationRect = {};
+
+	RECT calculatePresentationRect()
+	{
+		const RECT srcRect = DDraw::PrimarySurface::getMonitorRect();
+		const RECT dstRect = DDraw::RealPrimarySurface::getMonitorRect();
+
+		const int srcWidth = srcRect.right - srcRect.left;
+		const int srcHeight = srcRect.bottom - srcRect.top;
+		const int dstWidth = dstRect.right - dstRect.left;
+		const int dstHeight = dstRect.bottom - dstRect.top;
+
+		RECT rect = { 0, 0, dstWidth, dstHeight };
+		if (dstWidth * srcHeight > dstHeight * srcWidth)
+		{
+			rect.right = dstHeight * srcWidth / srcHeight;
+		}
+		else
+		{
+			rect.bottom = dstWidth * srcHeight / srcWidth;
+		}
+
+		OffsetRect(&rect, (dstWidth - rect.right) / 2, (dstHeight - rect.bottom) / 2);
+		return rect;
+	}
 
 	LONG divCeil(LONG n, LONG d)
 	{
 		return (n + d - 1) / d;
-	}
-
-	void fixResourceData(D3dDdi::Device& device, D3DDDIARG_CREATERESOURCE& data)
-	{
-		if (data.Flags.Primary)
-		{
-			data.Format = D3DDDIFMT_X8R8G8B8;
-		}
-
-		const bool isOffScreenPlain = 0 == (data.Flags.Value & g_resourceTypeFlags);
-		if (D3DDDIPOOL_SYSTEMMEM == data.Pool &&
-			(isOffScreenPlain || data.Flags.Texture) &&
-			1 == data.SurfCount &&
-			0 == data.pSurfList[0].Depth &&
-			0 != D3dDdi::getFormatInfo(data.Format).bytesPerPixel)
-		{
-			const auto& caps = device.getAdapter().getD3dExtendedCaps();
-			const auto& surfaceInfo = data.pSurfList[0];
-			if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
-				0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
-			{
-				splitToTiles(data, caps.dwMaxTextureWidth, caps.dwMaxTextureHeight);
-			}
-		}
 	}
 
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags()
@@ -76,32 +79,6 @@ namespace
 	void heapFree(void* p)
 	{
 		HeapFree(GetProcessHeap(), 0, p);
-	}
-
-	void splitToTiles(D3DDDIARG_CREATERESOURCE& data, const UINT tileWidth, const UINT tileHeight)
-	{
-		static std::vector<D3DDDI_SURFACEINFO> tiles;
-		tiles.clear();
-
-		const UINT bytesPerPixel = D3dDdi::getFormatInfo(data.Format).bytesPerPixel;
-
-		for (UINT y = 0; y < data.pSurfList[0].Height; y += tileHeight)
-		{
-			for (UINT x = 0; x < data.pSurfList[0].Width; x += tileWidth)
-			{
-				D3DDDI_SURFACEINFO tile = {};
-				tile.Width = min(data.pSurfList[0].Width - x, tileWidth);
-				tile.Height = min(data.pSurfList[0].Height - y, tileHeight);
-				tile.pSysMem = static_cast<const unsigned char*>(data.pSurfList[0].pSysMem) +
-					y * data.pSurfList[0].SysMemPitch + x * bytesPerPixel;
-				tile.SysMemPitch = data.pSurfList[0].SysMemPitch;
-				tiles.push_back(tile);
-			}
-		}
-
-		data.SurfCount = tiles.size();
-		data.pSurfList = tiles.data();
-		data.Flags.Texture = 0;
 	}
 }
 
@@ -133,7 +110,12 @@ namespace D3dDdi
 			throw HResultException(E_FAIL);
 		}
 
-		fixResourceData(device, reinterpret_cast<D3DDDIARG_CREATERESOURCE&>(m_fixedData));
+		if (m_origData.Flags.Primary)
+		{
+			g_presentationRect = calculatePresentationRect();
+		}
+
+		fixResourceData();
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 
 		HRESULT result = m_device.createPrivateResource(m_fixedData);
@@ -327,7 +309,7 @@ namespace D3dDdi
 
 	void Resource::createGdiLockResource()
 	{
-		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(D3dDdi::KernelModeThunks::getMonitorRect()));
+		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::RealPrimarySurface::getMonitorRect()));
 		if (!gdiSurfaceDesc.lpSurface)
 		{
 			return;
@@ -431,6 +413,39 @@ namespace D3dDdi
 #endif
 	}
 
+	void Resource::fixResourceData()
+	{
+		if (m_fixedData.Flags.Primary)
+		{
+			RECT r = DDraw::RealPrimarySurface::getMonitorRect();
+			if (!IsRectEmpty(&r))
+			{
+				for (auto& surface : m_fixedData.surfaceData)
+				{
+					surface.Width = r.right - r.left;
+					surface.Height = r.bottom - r.top;
+				}
+			}
+			m_fixedData.Format = D3DDDIFMT_X8R8G8B8;
+		}
+
+		const bool isOffScreenPlain = 0 == (m_fixedData.Flags.Value & g_resourceTypeFlags);
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
+			(isOffScreenPlain || m_fixedData.Flags.Texture) &&
+			1 == m_fixedData.SurfCount &&
+			0 == m_fixedData.pSurfList[0].Depth &&
+			0 != D3dDdi::getFormatInfo(m_fixedData.Format).bytesPerPixel)
+		{
+			const auto& caps = m_device.getAdapter().getD3dExtendedCaps();
+			const auto& surfaceInfo = m_fixedData.pSurfList[0];
+			if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
+				0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
+			{
+				splitToTiles(caps.dwMaxTextureWidth, caps.dwMaxTextureHeight);
+			}
+		}
+	}
+
 	void* Resource::getLockPtr(UINT subResourceIndex)
 	{
 		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
@@ -496,16 +511,24 @@ namespace D3dDdi
 		}
 	}
 
-	HRESULT Resource::presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource)
+	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource& srcResource)
 	{
 		if (srcResource.m_lockResource &&
-			srcResource.m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
+			srcResource.m_lockData[0].isSysMemUpToDate)
 		{
-			srcResource.copyToVidMem(data.SrcSubResourceIndex);
+			srcResource.copyToVidMem(0);
 		}
 
 		if (D3DDDIFMT_P8 == srcResource.m_origData.Format)
 		{
+			const auto& si = srcResource.m_fixedData.pSurfList[0];
+			auto palettizedBltRenderTarget(SurfaceRepository::get(m_device.getAdapter()).getPaletteBltRenderTarget(
+				si.Width, si.Height));
+			if (!palettizedBltRenderTarget)
+			{
+				return E_OUTOFMEMORY;
+			}
+
 			auto entries(Gdi::Palette::getHardwarePalette());
 			RGBQUAD pal[256] = {};
 			for (UINT i = 0; i < 256; ++i)
@@ -515,10 +538,14 @@ namespace D3dDdi
 				pal[i].rgbBlue = entries[i].peBlue;
 			}
 
-			m_device.getShaderBlitter().palettizedBlt(*this, data.DstSubResourceIndex, srcResource, pal);
-			return S_OK;
+			m_device.getShaderBlitter().palettizedBlt(*palettizedBltRenderTarget, 0, srcResource, pal);
+			data.hSrcResource = *palettizedBltRenderTarget;
+			data.SrcSubResourceIndex = 0;
 		}
 
+		data.DstRect = g_presentationRect;
+		data.Flags.Linear = 1;
+		data.Flags.Point = 0;
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 
@@ -596,6 +623,31 @@ namespace D3dDdi
 		}
 
 		return LOG_RESULT(S_OK);
+	}
+
+	void Resource::splitToTiles(UINT tileWidth, UINT tileHeight)
+	{
+		std::vector<D3DDDI_SURFACEINFO> tiles;
+		const UINT bytesPerPixel = getFormatInfo(m_fixedData.Format).bytesPerPixel;
+
+		for (UINT y = 0; y < m_fixedData.pSurfList[0].Height; y += tileHeight)
+		{
+			for (UINT x = 0; x < m_fixedData.pSurfList[0].Width; x += tileWidth)
+			{
+				D3DDDI_SURFACEINFO tile = {};
+				tile.Width = min(m_fixedData.pSurfList[0].Width - x, tileWidth);
+				tile.Height = min(m_fixedData.pSurfList[0].Height - y, tileHeight);
+				tile.pSysMem = static_cast<const unsigned char*>(m_fixedData.pSurfList[0].pSysMem) +
+					y * m_fixedData.pSurfList[0].SysMemPitch + x * bytesPerPixel;
+				tile.SysMemPitch = m_fixedData.pSurfList[0].SysMemPitch;
+				tiles.push_back(tile);
+			}
+		}
+
+		m_fixedData.surfaceData = tiles;
+		m_fixedData.SurfCount = m_fixedData.surfaceData.size();
+		m_fixedData.pSurfList = m_fixedData.surfaceData.data();
+		m_fixedData.Flags.Texture = 0;
 	}
 
 	HRESULT Resource::sysMemPreferredBlt(const D3DDDIARG_BLT& data, Resource& srcResource)

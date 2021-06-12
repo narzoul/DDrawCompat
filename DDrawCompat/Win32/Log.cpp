@@ -32,7 +32,7 @@ namespace
 			<< dm.dmPelsHeight
 			<< dm.dmBitsPerPel
 			<< dm.dmDisplayFrequency
-			<< dm.dmDisplayFlags;
+			<< Compat::hex(dm.dmDisplayFlags);
 	}
 
 	template <typename MdiCreateStruct>

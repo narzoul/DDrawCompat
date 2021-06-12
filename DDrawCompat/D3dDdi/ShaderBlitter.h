@@ -1,8 +1,6 @@
 #pragma once
 
-#include <ddraw.h>
-
-#include <Common/CompatWeakPtr.h>
+#include <Windows.h>
 
 namespace D3dDdi
 {
@@ -29,7 +27,6 @@ namespace D3dDdi
 		HANDLE createVertexShaderDecl();
 
 		Device& m_device;
-		CompatWeakPtr<IDirectDrawSurface7> m_paletteTexture;
 		HANDLE m_psPaletteLookup;
 		HANDLE m_vertexShaderDecl;
 	};

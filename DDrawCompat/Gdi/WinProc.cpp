@@ -15,6 +15,7 @@
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -34,6 +35,7 @@ namespace
 	bool isUser32ScrollBar(HWND hwnd);
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
+	void onGetMinMaxInfo(MINMAXINFO& mmi);
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp);
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
@@ -45,6 +47,20 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_DISPLAYCHANGE:
+		{
+			if (0 != wParam)
+			{
+				return 0;
+			}
+			wParam = Win32::DisplayMode::getBpp();
+			break;
+		}
+
+		case WM_GETMINMAXINFO:
+			onGetMinMaxInfo(*reinterpret_cast<MINMAXINFO*>(lParam));
+			break;
+
 		case WM_SYNCPAINT:
 			if (isTopLevelWindow(hwnd))
 			{
@@ -264,6 +280,15 @@ namespace
 			setWindowProc(hwnd, it->second.wndProcA, it->second.wndProcW);
 			g_windowProc.erase(it);
 		}
+	}
+
+	void onGetMinMaxInfo(MINMAXINFO& mmi)
+	{
+		MONITORINFOEXA mi = {};
+		mi.cbSize = sizeof(mi);
+		GetMonitorInfoA(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+		mmi.ptMaxSize.x = mi.rcMonitor.right - 2 * mmi.ptMaxPosition.x;
+		mmi.ptMaxSize.y = mi.rcMonitor.bottom - 2 * mmi.ptMaxPosition.y;
 	}
 
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp)

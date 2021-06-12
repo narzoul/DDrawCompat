@@ -80,14 +80,16 @@ namespace D3dDdi
 		void createGdiLockResource();
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
+		void fixResourceData();
 		bool isOversized() const;
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
-		HRESULT presentationBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
+		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource& srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
 		template <typename Arg>
 		HRESULT splitLock(Arg& data, HRESULT(APIENTRY *lockFunc)(HANDLE, Arg*));
 
+		void splitToTiles(UINT tileWidth, UINT tileHeight);
 		HRESULT sysMemPreferredBlt(const D3DDDIARG_BLT& data, Resource& srcResource);
 
 		Device& m_device;

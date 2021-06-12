@@ -5,6 +5,7 @@
 #include <Common/CompatVtable.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <DDraw/DirectDrawClipper.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Visitors/DirectDrawClipperVtblVisitor.h>
@@ -45,7 +46,7 @@ namespace
 		GetRandomRgn(dc, rgn, SYSRGN);
 		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);
 
-		RECT primaryRect = D3dDdi::KernelModeThunks::getMonitorRect();
+		RECT primaryRect = DDraw::RealPrimarySurface::getMonitorRect();
 		if (0 != primaryRect.left || 0 != primaryRect.top)
 		{
 			rgn.offset(-primaryRect.left, -primaryRect.top);

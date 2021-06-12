@@ -13,12 +13,11 @@ namespace D3dDdi
 			UINT adapter;
 			UINT vidPnSourceId;
 			LUID luid;
-			RECT monitorRect;
+			MONITORINFOEXW monitorInfo;
 		};
 
 		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd);
 		AdapterInfo getLastOpenAdapterInfo();
-		RECT getMonitorRect();
 		long long getQpcLastVsync();
 		UINT getVsyncCounter();
 		void installHooks();

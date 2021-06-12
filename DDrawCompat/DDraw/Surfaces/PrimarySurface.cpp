@@ -19,6 +19,7 @@ namespace
 	DWORD g_origCaps = 0;
 	HWND g_deviceWindow = nullptr;
 	HPALETTE g_palette = nullptr;
+	RECT g_monitorRect = {};
 }
 
 namespace DDraw
@@ -37,6 +38,7 @@ namespace DDraw
 			DeleteObject(g_palette);
 			g_palette = nullptr;
 		}
+		g_monitorRect = {};
 		s_palette = nullptr;
 
 		DDraw::RealPrimarySurface::release();
@@ -45,6 +47,11 @@ namespace DDraw
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT PrimarySurface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
+		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
+		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
+		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;
+		g_monitorRect.bottom = g_monitorRect.top + dm.dwHeight;
+
 		HRESULT result = RealPrimarySurface::create(dd);
 		if (FAILED(result))
 		{
@@ -53,7 +60,6 @@ namespace DDraw
 
 		const DWORD origCaps = desc.ddsCaps.dwCaps;
 
-		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
 		desc.dwHeight = dm.dwHeight;
@@ -68,6 +74,7 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			Compat::Log() << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
+			g_monitorRect = {};
 			RealPrimarySurface::release();
 			return result;
 		}
@@ -180,6 +187,11 @@ namespace DDraw
 		return g_frontResource;
 	}
 
+	RECT PrimarySurface::getMonitorRect()
+	{
+		return g_monitorRect;
+	}
+
 	DWORD PrimarySurface::getOrigCaps()
 	{
 		return g_origCaps;
@@ -210,7 +222,7 @@ namespace DDraw
 		m_surface->GetSurfaceDesc(m_surface, &desc);
 		if (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
 		{
-			DDSURFACEDESC2 gdiDesc = Gdi::VirtualScreen::getSurfaceDesc(D3dDdi::KernelModeThunks::getMonitorRect());
+			DDSURFACEDESC2 gdiDesc = Gdi::VirtualScreen::getSurfaceDesc(g_monitorRect);
 			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH | DDSD_LPSURFACE;
 			desc.lPitch = gdiDesc.lPitch;
 			desc.lpSurface = gdiDesc.lpSurface;

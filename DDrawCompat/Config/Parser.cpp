@@ -142,6 +142,30 @@ namespace Config
 			}
 		}
 
+		SIZE parseResolution(const std::string& value)
+		{
+			try
+			{
+				auto pos = value.find('x');
+				if (pos != std::string::npos)
+				{
+					SIZE resolution = {};
+					resolution.cx = parseUnsigned(value.substr(0, pos));
+					resolution.cy = parseUnsigned(value.substr(pos + 1));
+					if (0 != resolution.cx && resolution.cx <= 65535 &&
+						0 != resolution.cy && resolution.cy <= 65535)
+					{
+						return resolution;
+					}
+				}
+			}
+			catch (ParsingError&)
+			{
+			}
+
+			throw ParsingError("invalid resolution: '" + value + "'");
+		}
+
 		unsigned parseUnsigned(const std::string& value)
 		{
 			if (value.empty() || std::string::npos != value.find_first_not_of("0123456789"))

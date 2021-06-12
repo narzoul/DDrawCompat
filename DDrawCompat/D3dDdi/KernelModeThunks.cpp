@@ -23,7 +23,7 @@ namespace
 	D3dDdi::KernelModeThunks::AdapterInfo g_gdiAdapterInfo = {};
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
-	std::string g_lastDDrawCreateDcDevice;
+	std::string g_lastDDrawDeviceName;
 
 	std::atomic<long long> g_qpcLastVsync = 0;
 	UINT g_vsyncCounter = 0;
@@ -104,49 +104,39 @@ namespace
 		LOG_FUNC("ddrawCreateDCA", pwszDriver, pwszDevice, pszPort, pdm);
 		if (pwszDevice)
 		{
-			g_lastDDrawCreateDcDevice = pwszDevice;
+			g_lastDDrawDeviceName = pwszDevice;
 		}
 		else
 		{
 			MONITORINFOEXA mi = {};
 			mi.cbSize = sizeof(mi);
 			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
-			g_lastDDrawCreateDcDevice = mi.szDevice;
+			g_lastDDrawDeviceName = mi.szDevice;
 		}
 		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
 
-	BOOL CALLBACK findDDrawMonitorRect(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
+	BOOL CALLBACK findMonitorInfo(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
 	{
-		MONITORINFOEX mi = {};
+		MONITORINFOEXW mi = {};
 		mi.cbSize = sizeof(mi);
-		GetMonitorInfo(hMonitor, &mi);
-		if (g_lastDDrawCreateDcDevice == mi.szDevice)
+		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
+		if (0 == wcscmp(reinterpret_cast<MONITORINFOEXW*>(dwData)->szDevice, mi.szDevice))
 		{
-			*reinterpret_cast<RECT*>(dwData) = mi.rcMonitor;
+			*reinterpret_cast<MONITORINFOEXW*>(dwData) = mi;
 			return FALSE;
 		}
 		return TRUE;
 	}
 
-	D3dDdi::KernelModeThunks::AdapterInfo getAdapterInfo(const D3DKMT_OPENADAPTERFROMHDC& data)
+	D3dDdi::KernelModeThunks::AdapterInfo getAdapterInfo(const std::string& deviceName, const D3DKMT_OPENADAPTERFROMHDC& data)
 	{
 		D3dDdi::KernelModeThunks::AdapterInfo adapterInfo = {};
 		adapterInfo.adapter = data.hAdapter;
 		adapterInfo.vidPnSourceId = data.VidPnSourceId;
 		adapterInfo.luid = data.AdapterLuid;
-
-		EnumDisplayMonitors(nullptr, nullptr, findDDrawMonitorRect,
-			reinterpret_cast<LPARAM>(&adapterInfo.monitorRect));
-
-		if (IsRectEmpty(&adapterInfo.monitorRect))
-		{
-			MONITORINFO mi = {};
-			mi.cbSize = sizeof(mi);
-			GetMonitorInfo(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
-			adapterInfo.monitorRect = mi.rcMonitor;
-		}
-
+		wcscpy_s(adapterInfo.monitorInfo.szDevice, std::wstring(deviceName.begin(), deviceName.end()).c_str());
+		EnumDisplayMonitors(nullptr, nullptr, findMonitorInfo, reinterpret_cast<LPARAM>(&adapterInfo.monitorInfo));
 		return adapterInfo;
 	}
 
@@ -157,7 +147,7 @@ namespace
 		if (SUCCEEDED(result))
 		{
 			Compat::ScopedSrwLockExclusive lock(g_lastOpenAdapterInfoSrwLock);
-			g_lastOpenAdapterInfo = getAdapterInfo(*pData);
+			g_lastOpenAdapterInfo = getAdapterInfo(g_lastDDrawDeviceName, *pData);
 		}
 		return LOG_RESULT(result);
 	}
@@ -228,7 +218,7 @@ namespace
 			data.hDc = CreateDC(mi.szDevice, mi.szDevice, nullptr, nullptr);
 			if (SUCCEEDED(D3DKMTOpenAdapterFromHdc(&data)))
 			{
-				g_gdiAdapterInfo = getAdapterInfo(data);
+				g_gdiAdapterInfo = getAdapterInfo(mi.szDevice, data);
 			}
 			DeleteDC(data.hDc);
 
@@ -293,30 +283,6 @@ namespace D3dDdi
 		{
 			Compat::ScopedSrwLockShared srwLock(g_lastOpenAdapterInfoSrwLock);
 			return g_lastOpenAdapterInfo;
-		}
-
-		RECT getMonitorRect()
-		{
-			auto primary(DDraw::PrimarySurface::getPrimary());
-			if (!primary)
-			{
-				return {};
-			}
-
-			static auto lastDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
-			const auto currentDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
-			if (currentDisplaySettingsUniqueness != lastDisplaySettingsUniqueness)
-			{
-				lastDisplaySettingsUniqueness = currentDisplaySettingsUniqueness;
-				CompatPtr<IUnknown> ddUnk;
-				primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
-				CompatPtr<IDirectDraw7> dd7(ddUnk);
-
-				DDDEVICEIDENTIFIER2 di = {};
-				dd7.get()->lpVtbl->GetDeviceIdentifier(dd7, &di, 0);
-			}
-
-			return getLastOpenAdapterInfo().monitorRect;
 		}
 
 		long long getQpcLastVsync()

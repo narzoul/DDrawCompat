@@ -210,9 +210,11 @@
     <ClInclude Include="Config\Config.h" />
     <ClInclude Include="Config\EnumSetting.h" />
     <ClInclude Include="Config\ListSetting.h" />
+    <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
+    <ClInclude Include="Config\Settings\DisplayResolution.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
@@ -234,6 +236,7 @@
     <ClInclude Include="D3dDdi\Resource.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
     <ClInclude Include="D3dDdi\ShaderBlitter.h" />
+    <ClInclude Include="D3dDdi\SurfaceRepository.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterFuncsVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
@@ -314,6 +317,7 @@
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
+    <ClCompile Include="Config\Settings\DisplayResolution.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
     <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />
@@ -334,6 +338,7 @@
     <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
     <ClCompile Include="D3dDdi\ShaderBlitter.cpp" />
+    <ClCompile Include="D3dDdi\SurfaceRepository.cpp" />
     <ClCompile Include="DDraw\Blitter.cpp" />
     <ClCompile Include="DDraw\DirectDraw.cpp" />
     <ClCompile Include="DDraw\DirectDrawClipper.cpp" />

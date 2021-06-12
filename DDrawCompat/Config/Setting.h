@@ -21,11 +21,12 @@ namespace Config
 		void reset();
 		void set(const std::string& value, const std::string& source);
 
-	private:
+	protected:
 		virtual std::string getValueStr() const = 0;
 		virtual void resetValue() = 0;
 		virtual void setValue(const std::string& value) = 0;
 
+	private:
 		std::string m_name;
 		std::string m_source;
 	};

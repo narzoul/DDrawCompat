@@ -27,6 +27,7 @@ namespace
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawClipper> g_clipper;
+	RECT g_monitorRect = {};
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
 
@@ -121,6 +122,7 @@ namespace
 		g_isFullScreen = false;
 		g_waitingForPrimaryUnlock = false;
 		g_surfaceDesc = {};
+		g_monitorRect = {};
 	}
 
 	void onRestore()
@@ -164,8 +166,7 @@ namespace
 			return;
 		}
 
-		RECT monitorRect = D3dDdi::KernelModeThunks::getMonitorRect();
-		Gdi::Region excludeRegion(monitorRect);
+		Gdi::Region excludeRegion(DDraw::PrimarySurface::getMonitorRect());
 		Gdi::Window::present(excludeRegion);
 
 		D3dDdi::KernelModeThunks::setDcPaletteOverride(true);
@@ -177,7 +178,7 @@ namespace
 			auto backBuffer(getBackBuffer());
 			if (backBuffer)
 			{
-				POINT offset = { -monitorRect.left, -monitorRect.top };
+				POINT offset = { -g_monitorRect.left, -g_monitorRect.top };
 				Gdi::Window::presentLayered(*backBuffer, offset);
 			}
 		}
@@ -251,6 +252,7 @@ namespace DDraw
 	HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
 	{
 		DDraw::ScopedThreadLock lock;
+		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
 
 		typename Types<DirectDraw>::TSurfaceDesc desc = {};
 		desc.dwSize = sizeof(desc);
@@ -272,6 +274,7 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			Compat::Log() << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
+			g_monitorRect = {};
 			return result;
 		}
 
@@ -347,6 +350,11 @@ namespace DDraw
 		}
 
 		return gammaControl->GetGammaRamp(gammaControl, 0, rampData);
+	}
+
+	RECT RealPrimarySurface::getMonitorRect()
+	{
+		return g_monitorRect;
 	}
 
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
