@@ -13,6 +13,7 @@
 #include <DDraw/Blitter.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 
@@ -113,6 +114,14 @@ namespace D3dDdi
 		if (m_origData.Flags.Primary)
 		{
 			g_presentationRect = calculatePresentationRect();
+			auto& si = m_origData.pSurfList[0];
+			RECT rect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+
+			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
+			if (!EqualRect(&g_presentationRect, &rect))
+			{
+				Gdi::Cursor::setEmulated(true);
+			}
 		}
 
 		fixResourceData();
@@ -139,6 +148,15 @@ namespace D3dDdi
 
 		createLockResource();
 		data.hResource = m_fixedData.hResource;
+	}
+
+	Resource::~Resource()
+	{
+		if (m_origData.Flags.Primary)
+		{
+			Gdi::Cursor::setEmulated(false);
+			Gdi::Cursor::setMonitorClipRect({});
+		}
 	}
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
@@ -177,7 +195,7 @@ namespace D3dDdi
 			}
 			else if (m_fixedData.Flags.Primary)
 			{
-				return presentationBlt(data, *srcResource);
+				return presentationBlt(data, srcResource);
 			}
 			else
 			{
@@ -511,36 +529,59 @@ namespace D3dDdi
 		}
 	}
 
-	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource& srcResource)
+	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource* srcResource)
 	{
-		if (srcResource.m_lockResource &&
-			srcResource.m_lockData[0].isSysMemUpToDate)
+		if (srcResource->m_lockResource &&
+			srcResource->m_lockData[0].isSysMemUpToDate)
 		{
-			srcResource.copyToVidMem(0);
+			srcResource->copyToVidMem(0);
 		}
 
-		if (D3DDDIFMT_P8 == srcResource.m_origData.Format)
+		const auto& si = srcResource->m_fixedData.pSurfList[0];
+		const bool isPalettized = D3DDDIFMT_P8 == srcResource->m_origData.Format;
+		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
+		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
+
+		if (isPalettized || isCursorEmulated)
 		{
-			const auto& si = srcResource.m_fixedData.pSurfList[0];
-			auto palettizedBltRenderTarget(SurfaceRepository::get(m_device.getAdapter()).getPaletteBltRenderTarget(
-				si.Width, si.Height));
-			if (!palettizedBltRenderTarget)
+			auto dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
+			if (!dst)
 			{
 				return E_OUTOFMEMORY;
 			}
 
-			auto entries(Gdi::Palette::getHardwarePalette());
-			RGBQUAD pal[256] = {};
-			for (UINT i = 0; i < 256; ++i)
+			if (isPalettized)
 			{
-				pal[i].rgbRed = entries[i].peRed;
-				pal[i].rgbGreen = entries[i].peGreen;
-				pal[i].rgbBlue = entries[i].peBlue;
+				auto entries(Gdi::Palette::getHardwarePalette());
+				RGBQUAD pal[256] = {};
+				for (UINT i = 0; i < 256; ++i)
+				{
+					pal[i].rgbRed = entries[i].peRed;
+					pal[i].rgbGreen = entries[i].peGreen;
+					pal[i].rgbBlue = entries[i].peBlue;
+				}
+				m_device.getShaderBlitter().palettizedBlt(*dst, 0, *srcResource, pal);
+			}
+			else
+			{
+				D3DDDIARG_BLT blt = {};
+				blt.hSrcResource = data.hSrcResource;
+				blt.SrcRect = data.SrcRect;
+				blt.hDstResource = *dst;
+				blt.DstRect = data.SrcRect;
+				blt.Flags.Point = 1;
+				m_device.getOrigVtable().pfnBlt(m_device, &blt);
 			}
 
-			m_device.getShaderBlitter().palettizedBlt(*palettizedBltRenderTarget, 0, srcResource, pal);
-			data.hSrcResource = *palettizedBltRenderTarget;
-			data.SrcSubResourceIndex = 0;
+			srcResource = dst;
+			data.hSrcResource = *dst;
+		}
+
+		if (isCursorEmulated)
+		{
+			RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
+			POINT pos = { cursorInfo.ptScreenPos.x - monitorRect.left, cursorInfo.ptScreenPos.y - monitorRect.top };
+			m_device.getShaderBlitter().cursorBlt(*srcResource, 0, cursorInfo.hCursor, pos);
 		}
 
 		data.DstRect = g_presentationRect;

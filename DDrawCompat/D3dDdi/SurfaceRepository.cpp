@@ -1,8 +1,15 @@
+#undef WIN32_LEAN_AND_MEAN
+
 #include <map>
+
+#include <Windows.h>
+#include <d3dkmthk.h>
 
 #include <Common/Comparison.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/Resource.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawSurface.h>
 
@@ -15,6 +22,9 @@ namespace D3dDdi
 {
 	SurfaceRepository::SurfaceRepository(const Adapter& adapter)
 		: m_adapter(adapter)
+		, m_cursor(nullptr)
+		, m_cursorSize{}
+		, m_cursorHotspot{}
 	{
 	}
 
@@ -57,10 +67,136 @@ namespace D3dDdi
 		return g_repositories.emplace(adapter.getLuid(), SurfaceRepository(adapter)).first->second;
 	}
 
-	Resource* SurfaceRepository::getPaletteBltRenderTarget(DWORD width, DWORD height)
+	Resource* SurfaceRepository::getBitmapResource(
+		Surface& surface, HBITMAP bitmap, const RECT& rect, const DDPIXELFORMAT& pf, DWORD caps)
 	{
-		return getResource(m_paletteBltRenderTarget, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
-			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		DWORD width = rect.right - rect.left;
+		DWORD height = rect.bottom - rect.top;
+		auto resource = getResource(surface, width, height, pf, caps);
+		if (!resource)
+		{
+			return nullptr;
+		}
+
+		HDC srcDc = CreateCompatibleDC(nullptr);
+		HGDIOBJ prevBitmap = SelectObject(srcDc, bitmap);
+		HDC dstDc = nullptr;
+		PALETTEENTRY palette[256] = {};
+		palette[255] = { 0xFF, 0xFF, 0xFF };
+		KernelModeThunks::setDcPaletteOverride(palette);
+		surface.surface->GetDC(surface.surface, &dstDc);
+		KernelModeThunks::setDcPaletteOverride(nullptr);
+
+		CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, width, height, srcDc, rect.left, rect.top, SRCCOPY);
+
+		surface.surface->ReleaseDC(surface.surface, dstDc);
+		SelectObject(srcDc, prevBitmap);
+		DeleteDC(srcDc);
+		return resource;
+	}
+
+	SurfaceRepository::Cursor SurfaceRepository::getCursor(HCURSOR cursor)
+	{
+		if (isLost(m_cursorMaskTexture) || isLost(m_cursorColorTexture))
+		{
+			m_cursor = nullptr;
+			release(m_cursorMaskTexture);
+			release(m_cursorColorTexture);
+		}
+
+		if (cursor != m_cursor)
+		{
+			m_cursor = cursor;
+			ICONINFO iconInfo = {};
+			if (!GetIconInfo(cursor, &iconInfo))
+			{
+				return {};
+			}
+
+			BITMAP bm = {};
+			GetObject(iconInfo.hbmMask, sizeof(bm), &bm);
+
+			RECT rect = {};
+			SetRect(&rect, 0, 0, bm.bmWidth, bm.bmHeight);
+			if (!iconInfo.hbmColor)
+			{
+				rect.bottom /= 2;
+			}
+
+			getBitmapResource(m_cursorMaskTexture, iconInfo.hbmMask, rect,
+				DDraw::DirectDraw::getRgbPixelFormat(8), DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY);
+
+			if (iconInfo.hbmColor)
+			{
+				getBitmapResource(m_cursorColorTexture, iconInfo.hbmColor, rect,
+					DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+				DeleteObject(iconInfo.hbmColor);
+			}
+			else
+			{
+				OffsetRect(&rect, 0, rect.bottom);
+				getBitmapResource(m_cursorColorTexture, iconInfo.hbmMask, rect,
+					DDraw::DirectDraw::getRgbPixelFormat(8), DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY);
+			}
+			DeleteObject(iconInfo.hbmMask);
+
+			m_cursorMaskTexture.resource->prepareForRendering(0, true);
+			m_cursorColorTexture.resource->prepareForRendering(0, true);
+
+			m_cursorSize.cx = rect.right - rect.left;
+			m_cursorSize.cy = rect.bottom - rect.top;
+			m_cursorHotspot.x = iconInfo.xHotspot;
+			m_cursorHotspot.y = iconInfo.yHotspot;
+		}
+
+		Cursor result = {};
+		result.cursor = m_cursor;
+		result.size = m_cursorSize;
+		result.hotspot = m_cursorHotspot;
+		result.maskTexture = m_cursorMaskTexture.resource;
+		result.colorTexture = m_cursorColorTexture.resource;
+		result.tempTexture = getResource(m_cursorTempTexture, m_cursorSize.cx, m_cursorSize.cy,
+			DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		return result;
+	}
+
+	Resource* SurfaceRepository::getLogicalXorTexture()
+	{
+		return getInitializedResource(m_logicalXorTexture, 256, 256, DDraw::DirectDraw::getRgbPixelFormat(8),
+			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY,
+			[](const DDSURFACEDESC2& desc) {
+				BYTE* p = static_cast<BYTE*>(desc.lpSurface);
+				for (UINT y = 0; y < 256; ++y)
+				{
+					for (UINT x = 0; x < 256; ++x)
+					{
+						p[x] = static_cast<BYTE>(x ^ y);
+					}
+					p += desc.lPitch;
+				}
+			});
+	}
+
+	Resource* SurfaceRepository::getInitializedResource(Surface& surface, DWORD width, DWORD height,
+		const DDPIXELFORMAT& pf, DWORD caps, std::function<void(const DDSURFACEDESC2&)> initFunc)
+	{
+		if (!isLost(surface) || !getResource(surface, width, height, pf, caps))
+		{
+			return surface.resource;
+		}
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		surface.surface->Lock(surface.surface, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
+		if (!desc.lpSurface)
+		{
+			return nullptr;
+		}
+
+		initFunc(desc);
+		surface.surface->Unlock(surface.surface, nullptr);
+		surface.resource->prepareForRendering(0, true);
+		return surface.resource;
 	}
 
 	Resource* SurfaceRepository::getPaletteTexture()
@@ -69,18 +205,18 @@ namespace D3dDdi
 			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
+	Resource* SurfaceRepository::getRenderTarget(DWORD width, DWORD height)
+	{
+		return getResource(m_renderTarget, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
+			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+	}
+
 	Resource* SurfaceRepository::getResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
 	{
-		if (surface.surface)
+		if (surface.surface && (surface.width != width || surface.height != height ||
+			0 != memcmp(&surface.pixelFormat, &pf, sizeof(pf)) || isLost(surface)))
 		{
-			DDSURFACEDESC2 desc = {};
-			desc.dwSize = sizeof(desc);
-			surface.surface->GetSurfaceDesc(surface.surface, &desc);
-			if (desc.dwWidth != width || desc.dwHeight != height || FAILED(surface.surface->IsLost(surface.surface)))
-			{
-				surface.surface->Release(surface.surface);
-				surface = {};
-			}
+			release(surface);
 		}
 
 		if (!surface.surface)
@@ -90,9 +226,26 @@ namespace D3dDdi
 			{
 				surface.resource = D3dDdi::Device::findResource(
 					DDraw::DirectDrawSurface::getDriverResourceHandle(*surface.surface));
+				surface.width = width;
+				surface.height = height;
+				surface.pixelFormat = pf;
 			}
 		}
 
 		return surface.resource;
+	}
+
+	bool SurfaceRepository::isLost(Surface& surface)
+	{
+		return !surface.surface || FAILED(surface.surface->IsLost(surface.surface));
+	}
+
+	void SurfaceRepository::release(Surface& surface)
+	{
+		if (surface.surface)
+		{
+			surface.surface->Release(surface.surface);
+			surface = {};
+		}
 	}
 }

@@ -1,5 +1,7 @@
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/CompatDc.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
@@ -193,6 +195,57 @@ namespace
 				return origDefWindowProc(hwnd, msg, wParam, lParam);
 			}
 			return origDefWindowProc(hwnd, msg, wParam, lParam);
+		}
+
+		case WM_SETCURSOR:
+		{
+			if (!Gdi::Cursor::isEmulated())
+			{
+				return origDefWindowProc(hwnd, msg, wParam, lParam);
+			}
+
+			switch (LOWORD(lParam))
+			{
+			case HTLEFT:
+			case HTRIGHT:
+				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZEWE));
+				return TRUE;
+
+			case HTTOP:
+			case HTBOTTOM:
+				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENS));
+				return TRUE;
+
+			case HTTOPLEFT:
+			case HTBOTTOMRIGHT:
+				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENWSE));
+				return TRUE;
+
+			case HTBOTTOMLEFT:
+			case HTTOPRIGHT:
+				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENESW));
+				return TRUE;
+			}
+
+			HWND parent = GetAncestor(hwnd, GA_PARENT);
+			if (parent && SendMessage(parent, msg, wParam, lParam))
+			{
+				return TRUE;
+			}
+
+			if (HTCLIENT == LOWORD(lParam))
+			{
+				auto cursor = GetClassLong(hwnd, GCL_HCURSOR);
+				if (cursor)
+				{
+					Gdi::Cursor::setCursor(reinterpret_cast<HCURSOR>(cursor));
+				}
+			}
+			else
+			{
+				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_ARROW));
+			}
+			return FALSE;
 		}
 		}
 

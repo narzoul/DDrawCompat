@@ -82,7 +82,7 @@ namespace D3dDdi
 	Resource* Device::getResource(HANDLE resource)
 	{
 		auto it = m_resources.find(resource);
-		return it != m_resources.end() ? &it->second : nullptr;
+		return it != m_resources.end() ? it->second.get() : nullptr;
 	}
 
 	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
@@ -90,7 +90,7 @@ namespace D3dDdi
 		auto it = m_resources.find(resource);
 		if (it != m_resources.end())
 		{
-			it->second.prepareForRendering(subResourceIndex, isReadOnly);
+			it->second->prepareForRendering(subResourceIndex, isReadOnly);
 		}
 	}
 
@@ -140,7 +140,7 @@ namespace D3dDdi
 		auto it = m_resources.find(data->hDstResource);
 		if (it != m_resources.end())
 		{
-			return it->second.blt(*data);
+			return it->second->blt(*data);
 		}
 		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnBlt(m_device, data);
@@ -162,7 +162,7 @@ namespace D3dDdi
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.colorFill(*data);
+			return it->second->colorFill(*data);
 		}
 		return m_origVtable.pfnColorFill(m_device, data);
 	}
@@ -180,8 +180,8 @@ namespace D3dDdi
 	{
 		try
 		{
-			Resource resource(*this, *data);
-			m_resources.emplace(resource, std::move(resource));
+			auto resource(std::make_unique<Resource>(*this, *data));
+			m_resources.emplace(*resource, std::move(resource));
 			if (data->Flags.VertexBuffer &&
 				D3DDDIPOOL_SYSTEMMEM == data->Pool &&
 				data->pSurfList[0].pSysMem)
@@ -283,7 +283,7 @@ namespace D3dDdi
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.lock(*data);
+			return it->second->lock(*data);
 		}
 		return m_origVtable.pfnLock(m_device, data);
 	}
@@ -321,7 +321,7 @@ namespace D3dDdi
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-			return it->second.unlock(*data);
+			return it->second->unlock(*data);
 		}
 		return m_origVtable.pfnUnlock(m_device, data);
 	}

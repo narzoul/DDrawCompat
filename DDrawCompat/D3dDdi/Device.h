@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include <unordered_map>
+#include <memory>
 
 #include <d3d.h>
 #include <d3dnthal.h>
@@ -71,7 +71,7 @@ namespace D3dDdi
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
-		std::unordered_map<HANDLE, Resource> m_resources;
+		std::map<HANDLE, std::unique_ptr<Resource>> m_resources;
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;

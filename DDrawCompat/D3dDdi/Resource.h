@@ -18,10 +18,10 @@ namespace D3dDdi
 		Resource(Device& device, D3DDDIARG_CREATERESOURCE2& data);
 
 		Resource(const Resource&) = delete;
+		Resource(Resource&&) = delete;
 		Resource& operator=(const Resource&) = delete;
-
-		Resource(Resource&&) = default;
-		Resource& operator=(Resource&&) = default;
+		Resource& operator=(Resource&&) = delete;
+		~Resource();
 
 		operator HANDLE() const { return m_handle; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
@@ -43,10 +43,9 @@ namespace D3dDdi
 			Data(const D3DDDIARG_CREATERESOURCE2& data);
 
 			Data(const Data&) = delete;
+			Data(Data&&) = delete;
 			Data& operator=(const Data&) = delete;
-
-			Data(Data&&) = default;
-			Data& operator=(Data&&) = default;
+			Data& operator=(Data&&) = delete;
 
 			std::vector<D3DDDI_SURFACEINFO> surfaceData;
 		};
@@ -83,7 +82,7 @@ namespace D3dDdi
 		void fixResourceData();
 		bool isOversized() const;
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
-		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource& srcResource);
+		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
 		template <typename Arg>

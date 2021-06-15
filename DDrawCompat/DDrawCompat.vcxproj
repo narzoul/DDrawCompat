@@ -282,6 +282,7 @@
     <ClInclude Include="Direct3d\Visitors\Direct3dVtblVisitor.h" />
     <ClInclude Include="Dll\Dll.h" />
     <ClInclude Include="Gdi\CompatDc.h" />
+    <ClInclude Include="Gdi\Cursor.h" />
     <ClInclude Include="Gdi\Font.h" />
     <ClInclude Include="Gdi\Gdi.h" />
     <ClInclude Include="Gdi\Caret.h" />
@@ -366,6 +367,7 @@
     <ClCompile Include="Dll\DllMain.cpp" />
     <ClCompile Include="Dll\Dll.cpp" />
     <ClCompile Include="Gdi\CompatDc.cpp" />
+    <ClCompile Include="Gdi\Cursor.cpp" />
     <ClCompile Include="Gdi\Font.cpp" />
     <ClCompile Include="Gdi\Gdi.cpp" />
     <ClCompile Include="Gdi\Caret.cpp" />
@@ -397,6 +399,7 @@
     <None Include="genversion.ps1" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

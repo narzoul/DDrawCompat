@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 
+#include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
 #include <Common/Time.h>
@@ -16,7 +17,9 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Types.h>
 #include <Gdi/Caret.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
@@ -142,7 +145,7 @@ namespace
 
 		g_surfaceDesc = desc;
 		g_isFullScreen = isFlippable;
-		g_isUpdatePending = false;
+		g_isUpdatePending = true;
 		g_qpcLastUpdate = Time::queryPerformanceCounter() - Time::msToQpc(Config::delayedFlipModeTimeout);
 
 		if (isFlippable)
@@ -169,9 +172,10 @@ namespace
 		Gdi::Region excludeRegion(DDraw::PrimarySurface::getMonitorRect());
 		Gdi::Window::present(excludeRegion);
 
-		D3dDdi::KernelModeThunks::setDcPaletteOverride(true);
+		auto palette(Gdi::Palette::getHardwarePalette());
+		D3dDdi::KernelModeThunks::setDcPaletteOverride(palette.data());
 		bltToPrimaryChain(*src);
-		D3dDdi::KernelModeThunks::setDcPaletteOverride(false);
+		D3dDdi::KernelModeThunks::setDcPaletteOverride(nullptr);
 
 		if (g_isFullScreen && src == DDraw::PrimarySurface::getGdiSurface())
 		{
@@ -222,10 +226,15 @@ namespace
 				D3dDdi::KernelModeThunks::waitForVsync();
 			}
 			skipWaitForVsync = false;
-			Gdi::Caret::blink();
 			Sleep(1);
 
 			DDraw::ScopedThreadLock lock;
+			Gdi::Caret::blink();
+			if (Gdi::Cursor::update())
+			{
+				g_isUpdatePending = true;
+			}
+
 			if (g_isUpdatePending && !isPresentPending())
 			{
 				auto qpcNow = Time::queryPerformanceCounter();

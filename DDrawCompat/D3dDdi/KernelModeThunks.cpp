@@ -19,7 +19,7 @@
 namespace
 {
 	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
-	bool g_dcPaletteOverride = false;
+	PALETTEENTRY* g_dcPaletteOverride = nullptr;
 	D3dDdi::KernelModeThunks::AdapterInfo g_gdiAdapterInfo = {};
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
@@ -59,8 +59,7 @@ namespace
 		{
 			if (g_dcPaletteOverride)
 			{
-				palette = Gdi::Palette::getHardwarePalette();
-				pData->pColorTable = palette.data();
+				pData->pColorTable = g_dcPaletteOverride;
 			}
 			else
 			{
@@ -313,9 +312,9 @@ namespace D3dDdi
 			g_dcFormatOverride = static_cast<D3DDDIFORMAT>(format);
 		}
 
-		void setDcPaletteOverride(bool enable)
+		void setDcPaletteOverride(PALETTEENTRY* palette)
 		{
-			g_dcPaletteOverride = enable;
+			g_dcPaletteOverride = palette;
 		}
 
 		void waitForVsync()

@@ -16,6 +16,7 @@ namespace D3dDdi
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
+		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, HCURSOR cursor, POINT pt);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, RGBQUAD palette[256]);
 
@@ -23,10 +24,17 @@ namespace D3dDdi
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect, HANDLE pixelShader, UINT filter);
 
+		template <int N>
+		HANDLE createPixelShader(const BYTE(&code)[N])
+		{
+			return createPixelShader(code, N);
+		}
+
 		HANDLE createPixelShader(const BYTE* code, UINT size);
 		HANDLE createVertexShaderDecl();
 
 		Device& m_device;
+		HANDLE m_psDrawCursor;
 		HANDLE m_psPaletteLookup;
 		HANDLE m_vertexShaderDecl;
 	};

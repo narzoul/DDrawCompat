@@ -8,6 +8,7 @@
 #include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
 #include <Gdi/CompatDc.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
@@ -170,65 +171,6 @@ namespace
 
 		return GetModuleHandle("comctl32") != Compat::getModuleHandleFromAddress(
 			IsWindowUnicode(hwnd) ? it->second.wndProcW : it->second.wndProcA);
-	}
-
-	void CALLBACK objectCreateEvent(
-		HWINEVENTHOOK /*hWinEventHook*/,
-		DWORD /*event*/,
-		HWND hwnd,
-		LONG idObject,
-		LONG /*idChild*/,
-		DWORD /*dwEventThread*/,
-		DWORD /*dwmsEventTime*/)
-	{
-		if (OBJID_WINDOW == idObject && !Gdi::PresentationWindow::isPresentationWindow(hwnd))
-		{
-			onCreateWindow(hwnd);
-		}
-	}
-
-	void CALLBACK objectStateChangeEvent(
-		HWINEVENTHOOK /*hWinEventHook*/,
-		DWORD /*event*/,
-		HWND hwnd,
-		LONG idObject,
-		LONG /*idChild*/,
-		DWORD /*dwEventThread*/,
-		DWORD /*dwmsEventTime*/)
-	{
-		switch (idObject)
-		{
-		case OBJID_TITLEBAR:
-		{
-			HDC dc = GetWindowDC(hwnd);
-			Gdi::TitleBar(hwnd).drawButtons(dc);
-			ReleaseDC(hwnd, dc);
-			break;
-		}
-
-		case OBJID_CLIENT:
-			if (!isUser32ScrollBar(hwnd))
-			{
-				break;
-			}
-		case OBJID_HSCROLL:
-		case OBJID_VSCROLL:
-		{
-			HDC dc = GetWindowDC(hwnd);
-			if (OBJID_CLIENT == idObject)
-			{
-				SendMessage(GetParent(hwnd), WM_CTLCOLORSCROLLBAR,
-					reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
-			}
-			else
-			{
-				DefWindowProc(hwnd, WM_CTLCOLORSCROLLBAR,
-					reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
-			}
-			ReleaseDC(hwnd, dc);
-			break;
-		}
-		}
 	}
 
 	void onCreateWindow(HWND hwnd)
@@ -425,6 +367,72 @@ namespace
 		}
 		return LOG_RESULT(result);
 	}
+
+	void CALLBACK winEventProc(
+		HWINEVENTHOOK /*hWinEventHook*/,
+		DWORD event,
+		HWND hwnd,
+		LONG idObject,
+		LONG /*idChild*/,
+		DWORD /*dwEventThread*/,
+		DWORD /*dwmsEventTime*/)
+	{
+		LOG_FUNC("winEventProc", Compat::hex(event), hwnd, idObject);
+
+		switch (event)
+		{
+		case EVENT_OBJECT_CREATE:
+			if (OBJID_WINDOW == idObject && !Gdi::PresentationWindow::isPresentationWindow(hwnd))
+			{
+				onCreateWindow(hwnd);
+			}
+			break;
+
+		case EVENT_OBJECT_NAMECHANGE:
+		case EVENT_OBJECT_SHOW:
+		case EVENT_OBJECT_HIDE:
+			if (OBJID_CURSOR == idObject && Gdi::Cursor::isEmulated())
+			{
+				Gdi::Cursor::setCursor(GetCursor());
+			}
+			break;
+
+		case EVENT_OBJECT_STATECHANGE:
+			switch (idObject)
+			{
+			case OBJID_TITLEBAR:
+			{
+				HDC dc = GetWindowDC(hwnd);
+				Gdi::TitleBar(hwnd).drawButtons(dc);
+				ReleaseDC(hwnd, dc);
+				break;
+			}
+
+			case OBJID_CLIENT:
+				if (!isUser32ScrollBar(hwnd))
+				{
+					break;
+				}
+			case OBJID_HSCROLL:
+			case OBJID_VSCROLL:
+			{
+				HDC dc = GetWindowDC(hwnd);
+				if (OBJID_CLIENT == idObject)
+				{
+					SendMessage(GetParent(hwnd), WM_CTLCOLORSCROLLBAR,
+						reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+				}
+				else
+				{
+					DefWindowProc(hwnd, WM_CTLCOLORSCROLLBAR,
+						reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+				}
+				ReleaseDC(hwnd, dc);
+				break;
+			}
+			}
+		}
+	}
 }
 
 namespace Gdi
@@ -461,9 +469,13 @@ namespace Gdi
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
 			SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
-				Dll::g_currentModule, &objectCreateEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+			SetWinEventHook(EVENT_OBJECT_NAMECHANGE, EVENT_OBJECT_NAMECHANGE,
+				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+			SetWinEventHook(EVENT_OBJECT_SHOW, EVENT_OBJECT_HIDE,
+				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 			SetWinEventHook(EVENT_OBJECT_STATECHANGE, EVENT_OBJECT_STATECHANGE,
-				Dll::g_currentModule, &objectStateChangeEvent, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
+				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
 		}
 
 		void onCreateWindow(HWND hwnd)

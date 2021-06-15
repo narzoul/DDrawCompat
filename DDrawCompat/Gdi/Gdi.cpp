@@ -1,5 +1,6 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Caret.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
@@ -46,6 +47,7 @@ namespace Gdi
 		ScrollFunctions::installHooks();
 		User32WndProcs::installHooks();
 		Caret::installHooks();
+		Cursor::installHooks();
 		Font::installHooks();
 	}
 

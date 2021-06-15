@@ -22,7 +22,7 @@ namespace D3dDdi
 		UINT getVsyncCounter();
 		void installHooks();
 		void setDcFormatOverride(UINT format);
-		void setDcPaletteOverride(bool enable);
+		void setDcPaletteOverride(PALETTEENTRY* palette);
 		void waitForVsync();
 		bool waitForVsyncCounter(UINT counter);
 	}

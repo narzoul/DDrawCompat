@@ -4,6 +4,7 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
+#include <Shaders/DrawCursor.h>
 #include <Shaders/PaletteLookup.h>
 
 #define CONCAT_(a, b) a##b
@@ -14,7 +15,8 @@ namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
-		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup, sizeof(g_psPaletteLookup)))
+		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
+		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
 		, m_vertexShaderDecl(createVertexShaderDecl())
 	{
 	}
@@ -120,6 +122,46 @@ namespace D3dDdi
 			return nullptr;
 		}
 		return data.ShaderHandle;
+	}
+
+	void ShaderBlitter::cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, HCURSOR cursor, POINT pt)
+	{
+		LOG_FUNC("ShaderBlitter::cursorBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, cursor, pt);
+
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		auto cur = repo.getCursor(cursor);
+		auto xorTexture = repo.getLogicalXorTexture();
+
+		pt.x -= cur.hotspot.x;
+		pt.y -= cur.hotspot.y;
+		RECT dstRect = { pt.x, pt.y, pt.x + cur.size.cx, pt.y + cur.size.cy };
+
+		auto& dstDesc = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
+		RECT clippedDstRect = {};
+		clippedDstRect.right = dstDesc.Width;
+		clippedDstRect.bottom = dstDesc.Height;
+		IntersectRect(&clippedDstRect, &clippedDstRect, &dstRect);
+
+		if (!cur.maskTexture || !cur.colorTexture || !cur.tempTexture || !xorTexture || IsRectEmpty(&clippedDstRect))
+		{
+			return;
+		}
+
+		RECT clippedSrcRect = clippedDstRect;
+		OffsetRect(&clippedSrcRect, -dstRect.left, -dstRect.top);
+
+		D3DDDIARG_BLT data = {};
+		data.hSrcResource = dstResource;
+		data.SrcSubResourceIndex = dstSubResourceIndex;
+		data.SrcRect = clippedDstRect;
+		data.hDstResource = *cur.tempTexture;
+		data.DstRect = clippedSrcRect;
+		m_device.getOrigVtable().pfnBlt(m_device, &data);
+
+		SCOPED_STATE(Texture, 1, *cur.maskTexture, D3DTEXF_POINT);
+		SCOPED_STATE(Texture, 2, *cur.colorTexture, D3DTEXF_POINT);
+		SCOPED_STATE(Texture, 3, *xorTexture, D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, clippedSrcRect, m_psDrawCursor, D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,

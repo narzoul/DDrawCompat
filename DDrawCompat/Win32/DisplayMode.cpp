@@ -46,7 +46,6 @@ namespace
 	};
 
 	DWORD g_desktopBpp = 0;
-	RECT g_cursorRect = {};
 	ULONG g_displaySettingsUniquenessBias = 0;
 	EmulatedDisplayMode g_emulatedDisplayMode = {};
 	Compat::SrwLock g_srwLock;
@@ -148,12 +147,9 @@ namespace
 			return result;
 		}
 
-		RECT clipRect = {};
-
 		{
 			Compat::ScopedSrwLockExclusive srwLock(g_srwLock);
 			++g_displaySettingsUniquenessBias;
-			clipRect = g_cursorRect;
 			if (lpDevMode)
 			{
 				g_emulatedDisplayMode.width = lpDevMode->dmPelsWidth;
@@ -167,8 +163,6 @@ namespace
 				g_emulatedDisplayMode.rect.bottom = g_emulatedDisplayMode.rect.top + lpDevMode->dmPelsHeight;
 				g_emulatedDisplayMode.diff.cx = lpDevMode->dmPelsWidth - currDevMode.dmPelsWidth;
 				g_emulatedDisplayMode.diff.cy = lpDevMode->dmPelsHeight - currDevMode.dmPelsHeight;
-
-				IntersectRect(&clipRect, &clipRect, &g_emulatedDisplayMode.rect);
 			}
 			else
 			{
@@ -176,8 +170,6 @@ namespace
 				g_emulatedDisplayMode.bpp = g_desktopBpp;
 			}
 		}
-
-		CALL_ORIG_FUNC(ClipCursor)(&clipRect);
 
 		auto& dm = lpDevMode ? *lpDevMode : currDevMode;
 		LPARAM resolution = (dm.dmPelsHeight << 16) | dm.dmPelsWidth;
@@ -207,31 +199,6 @@ namespace
 			CALL_ORIG_FUNC(ChangeDisplaySettingsExW),
 			CALL_ORIG_FUNC(EnumDisplaySettingsExW),
 			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
-	}
-
-	BOOL WINAPI clipCursor(const RECT* lpRect)
-	{
-		LOG_FUNC("ClipCursor", lpRect);
-		BOOL result = CALL_ORIG_FUNC(ClipCursor)(lpRect);
-		if (!result)
-		{
-			return result;
-		}
-
-		RECT rect = {};
-		CALL_ORIG_FUNC(GetClipCursor)(&rect);
-
-		{
-			Compat::ScopedSrwLockExclusive srwLock(g_srwLock);
-			g_cursorRect = rect;
-			if (!g_emulatedDisplayMode.deviceName.empty())
-			{
-				IntersectRect(&rect, &rect, &g_emulatedDisplayMode.rect);
-				CALL_ORIG_FUNC(ClipCursor)(&rect);
-			}
-		}
-
-		return result;
 	}
 
 	void disableDwm8And16BitMitigation()
@@ -340,17 +307,6 @@ namespace
 	{
 		Compat::ScopedSrwLockShared lock(g_srwLock);
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
-	}
-
-	BOOL WINAPI getClipCursor(LPRECT lpRect)
-	{
-		LOG_FUNC("GetClipCursor", lpRect);
-		BOOL result = CALL_ORIG_FUNC(GetClipCursor)(lpRect);
-		if (result)
-		{
-			*lpRect = g_cursorRect;
-		}
-		return LOG_RESULT(result);
 	}
 
 	template <typename DevMode, typename EnumDisplaySettingsExFunc, typename Char>
@@ -671,16 +627,13 @@ namespace Win32
 			g_desktopBpp = dm.dmBitsPerPel;
 			g_emulatedDisplayMode.bpp = dm.dmBitsPerPel;
 
-			GetClipCursor(&g_cursorRect);
 			EnumDisplayMonitors(nullptr, nullptr, &initMonitor, 0);
 
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
-			HOOK_FUNCTION(user32, ClipCursor, clipCursor);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExA, enumDisplaySettingsExA);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExW, enumDisplaySettingsExW);
 			HOOK_FUNCTION(gdi32, GdiEntry13, gdiEntry13);
-			HOOK_FUNCTION(user32, GetClipCursor, getClipCursor);
 			HOOK_FUNCTION(gdi32, GetDeviceCaps, getDeviceCaps);
 			HOOK_FUNCTION(user32, GetMonitorInfoA, getMonitorInfoA);
 			HOOK_FUNCTION(user32, GetMonitorInfoW, getMonitorInfoW);
