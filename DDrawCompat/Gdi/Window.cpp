@@ -8,6 +8,7 @@
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <Gdi/Gdi.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
@@ -31,6 +32,7 @@ namespace
 		Gdi::Region windowRegion;
 		Gdi::Region visibleRegion;
 		Gdi::Region invalidatedRegion;
+		bool isMenu;
 		bool isLayered;
 		bool isVisibleRegionChanged;
 
@@ -40,6 +42,7 @@ namespace
 			, windowRect{}
 			, clientRect{}
 			, windowRegion(nullptr)
+			, isMenu(Gdi::MENU_ATOM == GetClassLong(hwnd, GCW_ATOM))
 			, isLayered(true)
 			, isVisibleRegionChanged(false)
 		{
@@ -196,7 +199,7 @@ namespace
 		g_windowZOrder.push_back(&it->second);
 
 		const LONG exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
-		const bool isLayered = exStyle & WS_EX_LAYERED;
+		const bool isLayered = it->second.isMenu || (exStyle & WS_EX_LAYERED);
 		const bool isVisible = IsWindowVisible(hwnd) && !IsIconic(hwnd);
 		bool setPresentationWindowRgn = false;
 
@@ -243,7 +246,10 @@ namespace
 					visibleRegion = wi.rcWindow;
 				}
 				visibleRegion &= context.virtualScreenRegion;
-				visibleRegion -= context.obscuredRegion;
+				if (!it->second.isMenu)
+				{
+					visibleRegion -= context.obscuredRegion;
+				}
 
 				if (!isLayered && !(exStyle & WS_EX_TRANSPARENT))
 				{
@@ -327,7 +333,7 @@ namespace Gdi
 			{
 				D3dDdi::ScopedCriticalSection lock;
 				auto it = g_windows.find(hwnd);
-				if (it != g_windows.end())
+				if (it != g_windows.end() && !it->second.isMenu)
 				{
 					const bool isLayered = GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
 					if (isLayered != it->second.isLayered)
@@ -356,16 +362,15 @@ namespace Gdi
 					it->second.isVisibleRegionChanged = false;
 					const LONG origWndProc = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC);
 					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(CALL_ORIG_FUNC(DefWindowProcA)));
-					if (it->second.isLayered)
+					Gdi::Region rgn(it->second.isLayered ? it->second.windowRegion : it->second.visibleRegion);
+					if (!it->second.isLayered)
 					{
-						SetWindowRgn(hwnd, Gdi::Region(it->second.windowRegion).release(), FALSE);
-					}
-					else
-					{
-						Gdi::Region rgn(it->second.visibleRegion);
 						rgn.offset(-it->second.windowRect.left, -it->second.windowRect.top);
 						rgn |= REGION_OVERRIDE_MARKER_RECT;
-						SetWindowRgn(hwnd, rgn, FALSE);
+					}
+					if (SetWindowRgn(hwnd, rgn, FALSE))
+					{
+						rgn.release();
 					}
 					CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_WNDPROC, origWndProc);
 				}
@@ -485,9 +490,9 @@ namespace Gdi
 				SelectClipRgn(dstDc, rgn);
 
 				COLORREF colorKey = 0;
-				BYTE alpha = 0;
-				DWORD flags = 0;
-				if (CALL_ORIG_FUNC(GetLayeredWindowAttributes)(window.hwnd, &colorKey, &alpha, &flags))
+				BYTE alpha = 255;
+				DWORD flags = ULW_ALPHA;
+				if (window.isMenu || CALL_ORIG_FUNC(GetLayeredWindowAttributes)(window.hwnd, &colorKey, &alpha, &flags))
 				{
 					if (flags & LWA_COLORKEY)
 					{

@@ -22,6 +22,7 @@
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
+#include <Gdi/WinProc.h>
 #include <Win32/DisplayMode.h>
 
 namespace

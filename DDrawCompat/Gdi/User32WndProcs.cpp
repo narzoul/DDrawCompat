@@ -1,7 +1,9 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
+#include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
@@ -297,6 +299,49 @@ namespace
 		return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
 	}
 
+	void fixPopupMenuPosition(WINDOWPOS& wp)
+	{
+		RECT mr = DDraw::PrimarySurface::getMonitorRect();
+		if (wp.flags & SWP_NOSIZE)
+		{
+			RECT r = {};
+			GetWindowRect(wp.hwnd, &r);
+			wp.cx = r.right - r.left;
+			wp.cy = r.bottom - r.top;
+		}
+
+		if (wp.cx > mr.right - mr.left)
+		{
+			wp.cx = mr.right - mr.left;
+			wp.flags &= ~SWP_NOSIZE;
+		}
+
+		if (wp.x + wp.cx > mr.right)
+		{
+			HWND parent = GetNextWindow(wp.hwnd, GW_HWNDNEXT);
+			while (Gdi::PresentationWindow::isPresentationWindow(parent))
+			{
+				parent = GetNextWindow(parent, GW_HWNDNEXT);
+			}
+			ATOM atom = parent ? static_cast<ATOM>(GetClassLong(parent, GCW_ATOM)) : 0;
+			if (Gdi::MENU_ATOM == atom)
+			{
+				RECT parentRect = {};
+				GetWindowRect(parent, &parentRect);
+				wp.x = max(parentRect.left + 3 - wp.cx, 0);
+			}
+			else
+			{
+				wp.x = mr.right - wp.cx;
+			}
+		}
+
+		if (wp.y + wp.cy > mr.bottom)
+		{
+			wp.y = mr.bottom - wp.cy;
+		}
+	}
+
 	void hookUser32WndProc(User32WndProc& user32WndProc, WNDPROC newWndProc,
 		const std::string& procName, const std::string& className, bool isUnicode)
 	{
@@ -367,31 +412,14 @@ namespace
 	{
 		switch (msg)
 		{
-		case WM_NCPAINT:
-			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			return onNcPaint(hwnd, origWndProc);
-
-		case WM_PAINT:
+		case WM_WINDOWPOSCHANGING:
 		{
-			D3dDdi::ScopedCriticalSection lock;
-			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME);
-			return onPaint(hwnd, origWndProc);
-		}
-
-		case WM_PRINTCLIENT:
-		{
-			RECT r = {};
-			GetClientRect(hwnd, &r);
-			HDC dc = CreateCompatibleDC(nullptr);
-			const bool useDefaultPalette = true;
-			HBITMAP dib = Gdi::VirtualScreen::createOffScreenDib(r.right, r.bottom, useDefaultPalette);
-			HGDIOBJ origBitmap = SelectObject(dc, dib);
-			CallWindowProc(origWndProc, hwnd, WM_ERASEBKGND, reinterpret_cast<WPARAM>(dc), 0);
-			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, reinterpret_cast<WPARAM>(dc), lParam);
-			CALL_ORIG_FUNC(BitBlt)(reinterpret_cast<HDC>(wParam), 0, 0, r.right, r.bottom, dc, 0, 0, SRCCOPY);
-			SelectObject(dc, origBitmap);
-			DeleteObject(dib);
-			DeleteDC(dc);
+			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			auto& wp = *reinterpret_cast<WINDOWPOS*>(lParam);
+			if (Gdi::Cursor::isEmulated() && !(wp.flags & SWP_NOMOVE))
+			{
+				fixPopupMenuPosition(wp);
+			}
 			return result;
 		}
 
@@ -402,21 +430,15 @@ namespace
 			if (exStyle & WS_EX_LAYERED)
 			{
 				CALL_ORIG_FUNC(SetWindowLongA)(hwnd, GWL_EXSTYLE, exStyle & ~WS_EX_LAYERED);
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_UPDATENOW);
 			}
+			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_UPDATENOW);
+			DDraw::RealPrimarySurface::scheduleUpdate();
 			return result;
 		}
 
-		case 0x1e5:
-			if (-1 == wParam)
-			{
-				D3dDdi::ScopedCriticalSection lock;
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
-			}
-			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-
 		default:
-			return defPaintProc(hwnd, msg, wParam, lParam, origWndProc);
+			DDraw::RealPrimarySurface::scheduleUpdate();
+			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
 	}
 

@@ -8,6 +8,7 @@
 #include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
@@ -27,6 +28,7 @@ namespace
 		WNDPROC wndProcW;
 	};
 
+	std::map<HMENU, UINT> g_menuMaxHeight;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	Compat::SrwLock g_windowProcSrwLock;
@@ -38,6 +40,8 @@ namespace
 	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onGetMinMaxInfo(MINMAXINFO& mmi);
+	void onInitMenuPopup(HMENU menu);
+	void onUninitMenuPopup(HMENU menu);
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp);
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
@@ -71,6 +75,10 @@ namespace
 			}
 			break;
 
+		case WM_UNINITMENUPOPUP:
+			onUninitMenuPopup(reinterpret_cast<HMENU>(wParam));
+			break;
+
 		case WM_WINDOWPOSCHANGED:
 			onWindowPosChanged(hwnd, *reinterpret_cast<WINDOWPOS*>(lParam));
 			break;
@@ -86,6 +94,10 @@ namespace
 			{
 				Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
 			}
+			break;
+
+		case WM_INITMENUPOPUP:
+			onInitMenuPopup(reinterpret_cast<HMENU>(wParam));
 			break;
 
 		case WM_NCDESTROY:
@@ -232,6 +244,40 @@ namespace
 		GetMonitorInfoA(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 		mmi.ptMaxSize.x = mi.rcMonitor.right - 2 * mmi.ptMaxPosition.x;
 		mmi.ptMaxSize.y = mi.rcMonitor.bottom - 2 * mmi.ptMaxPosition.y;
+	}
+
+	void onInitMenuPopup(HMENU menu)
+	{
+		if (Gdi::Cursor::isEmulated())
+		{
+			MENUINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			mi.fMask = MIM_MAXHEIGHT;
+			GetMenuInfo(menu, &mi);
+
+			RECT mr = DDraw::PrimarySurface::getMonitorRect();
+			UINT maxHeight = mr.bottom - mr.top;
+			if (0 == mi.cyMax || mi.cyMax > maxHeight)
+			{
+				g_menuMaxHeight[menu] = mi.cyMax;
+				mi.cyMax = maxHeight;
+				SetMenuInfo(menu, &mi);
+			}
+		}
+	}
+
+	void onUninitMenuPopup(HMENU menu)
+	{
+		auto it = g_menuMaxHeight.find(menu);
+		if (it != g_menuMaxHeight.end())
+		{
+			MENUINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			mi.fMask = MIM_MAXHEIGHT;
+			mi.cyMax = it->second;
+			SetMenuInfo(menu, &mi);
+			g_menuMaxHeight.erase(it);
+		}
 	}
 
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp)
