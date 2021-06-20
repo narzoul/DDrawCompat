@@ -176,16 +176,6 @@ namespace
 		D3dDdi::KernelModeThunks::setDcPaletteOverride(palette.data());
 		bltToPrimaryChain(*src);
 		D3dDdi::KernelModeThunks::setDcPaletteOverride(nullptr);
-
-		if (g_isFullScreen && src == DDraw::PrimarySurface::getGdiSurface())
-		{
-			auto backBuffer(getBackBuffer());
-			if (backBuffer)
-			{
-				POINT offset = { -g_monitorRect.left, -g_monitorRect.top };
-				Gdi::Window::presentLayered(*backBuffer, offset);
-			}
-		}
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, UINT flipInterval)

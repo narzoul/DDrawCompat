@@ -7,6 +7,7 @@
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
@@ -268,11 +269,9 @@ namespace
 	{
 		LOG_FUNC("SetLayeredWindowAttributes", hwnd, crKey, bAlpha, dwFlags);
 		BOOL result = CALL_ORIG_FUNC(SetLayeredWindowAttributes)(hwnd, crKey, bAlpha, dwFlags);
-		if (result)
+		if (result && DDraw::RealPrimarySurface::isFullScreen())
 		{
-			Gdi::Window::updateLayeredWindowInfo(hwnd,
-				(dwFlags & LWA_COLORKEY) ? crKey : CLR_INVALID,
-				(dwFlags & LWA_ALPHA) ? bAlpha : 255);
+			DDraw::RealPrimarySurface::scheduleUpdate();
 		}
 		return LOG_RESULT(result);
 	}
@@ -340,34 +339,6 @@ namespace
 		}
 	}
 
-	BOOL WINAPI updateLayeredWindow(HWND hWnd, HDC hdcDst, POINT* pptDst, SIZE* psize,
-		HDC hdcSrc, POINT* pptSrc, COLORREF crKey, BLENDFUNCTION* pblend, DWORD dwFlags)
-	{
-		LOG_FUNC("UpdateLayeredWindow", hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
-		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindow)(
-			hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
-		if (result && hdcSrc)
-		{
-			Gdi::Window::updateLayeredWindowInfo(hWnd,
-				(dwFlags & ULW_COLORKEY) ? crKey : CLR_INVALID,
-				((dwFlags & LWA_ALPHA) && pblend) ? pblend->SourceConstantAlpha : 255);
-		}
-		return LOG_RESULT(result);
-	}
-
-	BOOL WINAPI updateLayeredWindowIndirect(HWND hwnd, const UPDATELAYEREDWINDOWINFO* pULWInfo)
-	{
-		LOG_FUNC("UpdateLayeredWindowIndirect", hwnd, pULWInfo);
-		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindowIndirect)(hwnd, pULWInfo);
-		if (result && pULWInfo)
-		{
-			Gdi::Window::updateLayeredWindowInfo(hwnd,
-				(pULWInfo->dwFlags & ULW_COLORKEY) ? pULWInfo->crKey : CLR_INVALID,
-				((pULWInfo->dwFlags & LWA_ALPHA) && pULWInfo->pblend) ? pULWInfo->pblend->SourceConstantAlpha : 255);
-		}
-		return LOG_RESULT(result);
-	}
-
 	void CALLBACK winEventProc(
 		HWINEVENTHOOK /*hWinEventHook*/,
 		DWORD event,
@@ -393,7 +364,7 @@ namespace
 		case EVENT_OBJECT_HIDE:
 			if (OBJID_CURSOR == idObject && Gdi::Cursor::isEmulated())
 			{
-				Gdi::Cursor::setCursor(GetCursor());
+				Gdi::Cursor::setCursor(CALL_ORIG_FUNC(GetCursor)());
 			}
 			break;
 
@@ -465,8 +436,6 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
-			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
-			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
 			SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);

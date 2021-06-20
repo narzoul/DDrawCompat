@@ -24,14 +24,6 @@ namespace D3dDdi
 			Resource* tempTexture;
 		};
 
-		Cursor getCursor(HCURSOR cursor);
-		Resource* getLogicalXorTexture();
-		Resource* getPaletteTexture();
-		Resource* getRenderTarget(DWORD width, DWORD height);
-
-		static SurfaceRepository& get(const Adapter& adapter);
-
-	private:
 		struct Surface
 		{
 			CompatWeakPtr<IDirectDrawSurface7> surface;
@@ -41,6 +33,14 @@ namespace D3dDdi
 			DDPIXELFORMAT pixelFormat;
 		};
 
+		Cursor getCursor(HCURSOR cursor);
+		Resource* getLogicalXorTexture();
+		Resource* getPaletteTexture();
+		const Surface& getRenderTarget(DWORD width, DWORD height);
+
+		static SurfaceRepository& get(const Adapter& adapter);
+
+	private:
 		SurfaceRepository(const Adapter& adapter);
 
 		CompatWeakPtr<IDirectDrawSurface7> createSurface(DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
@@ -48,6 +48,7 @@ namespace D3dDdi
 		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps,
 			std::function<void(const DDSURFACEDESC2&)> initFunc);
 		Resource* getResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
+		Surface& getSurface(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps);
 		bool isLost(Surface& surface);
 		void release(Surface& surface);
 

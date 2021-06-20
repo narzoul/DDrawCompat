@@ -16,6 +16,7 @@
 #include <Gdi/Cursor.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
+#include <Gdi/Window.h>
 
 namespace
 {
@@ -537,15 +538,19 @@ namespace D3dDdi
 			srcResource->copyToVidMem(0);
 		}
 
-		const auto& si = srcResource->m_fixedData.pSurfList[0];
 		const bool isPalettized = D3DDDIFMT_P8 == srcResource->m_origData.Format;
+
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
 		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
 
-		if (isPalettized || isCursorEmulated)
+		const RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
+		const bool isLayeredPresentNeeded = Gdi::Window::presentLayered(nullptr, monitorRect);
+
+		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded)
 		{
-			auto dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
-			if (!dst)
+			const auto& si = srcResource->m_fixedData.pSurfList[0];
+			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
+			if (!dst.resource)
 			{
 				return E_OUTOFMEMORY;
 			}
@@ -560,28 +565,32 @@ namespace D3dDdi
 					pal[i].rgbGreen = entries[i].peGreen;
 					pal[i].rgbBlue = entries[i].peBlue;
 				}
-				m_device.getShaderBlitter().palettizedBlt(*dst, 0, *srcResource, pal);
+				m_device.getShaderBlitter().palettizedBlt(*dst.resource, 0, *srcResource, pal);
 			}
 			else
 			{
 				D3DDDIARG_BLT blt = {};
 				blt.hSrcResource = data.hSrcResource;
 				blt.SrcRect = data.SrcRect;
-				blt.hDstResource = *dst;
+				blt.hDstResource = *dst.resource;
 				blt.DstRect = data.SrcRect;
 				blt.Flags.Point = 1;
 				m_device.getOrigVtable().pfnBlt(m_device, &blt);
 			}
 
-			srcResource = dst;
-			data.hSrcResource = *dst;
-		}
+			srcResource = dst.resource;
+			data.hSrcResource = *dst.resource;
 
-		if (isCursorEmulated)
-		{
-			RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
-			POINT pos = { cursorInfo.ptScreenPos.x - monitorRect.left, cursorInfo.ptScreenPos.y - monitorRect.top };
-			m_device.getShaderBlitter().cursorBlt(*srcResource, 0, cursorInfo.hCursor, pos);
+			if (isLayeredPresentNeeded)
+			{
+				Gdi::Window::presentLayered(dst.surface, monitorRect);
+			}
+
+			if (isCursorEmulated)
+			{
+				POINT pos = { cursorInfo.ptScreenPos.x - monitorRect.left, cursorInfo.ptScreenPos.y - monitorRect.top };
+				m_device.getShaderBlitter().cursorBlt(*srcResource, 0, cursorInfo.hCursor, pos);
+			}
 		}
 
 		data.DstRect = g_presentationRect;

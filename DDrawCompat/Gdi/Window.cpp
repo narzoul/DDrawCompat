@@ -31,8 +31,6 @@ namespace
 		Gdi::Region windowRegion;
 		Gdi::Region visibleRegion;
 		Gdi::Region invalidatedRegion;
-		COLORREF colorKey;
-		BYTE alpha;
 		bool isLayered;
 		bool isVisibleRegionChanged;
 
@@ -42,8 +40,6 @@ namespace
 			, windowRect{}
 			, clientRect{}
 			, windowRegion(nullptr)
-			, colorKey(CLR_INVALID)
-			, alpha(255)
 			, isLayered(true)
 			, isVisibleRegionChanged(false)
 		{
@@ -447,56 +443,64 @@ namespace Gdi
 			}
 		}
 
-		void presentLayered(CompatRef<IDirectDrawSurface7> dst, POINT offset)
+		bool presentLayered(CompatWeakPtr<IDirectDrawSurface7> dst, const RECT& monitorRect)
 		{
-			D3dDdi::ScopedCriticalSection lock;
-
 			HDC dstDc = nullptr;
+			bool result = false;
 			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 			{
 				auto& window = **it;
-				if (!window.isLayered)
+				if (!window.isLayered || window.visibleRegion.isEmpty())
 				{
 					continue;
 				}
 
+				Gdi::Region rgn(window.visibleRegion);
+				rgn &= monitorRect;
+				if (rgn.isEmpty())
+				{
+					continue;
+				}
+
+				RECT wr = window.windowRect;
+				OffsetRect(&wr, -monitorRect.left, -monitorRect.top);
+				rgn.offset(-monitorRect.left, -monitorRect.top);
+
+				if (!dst)
+				{
+					return true;
+				}
+
 				if (!dstDc)
 				{
-					const UINT D3DDDIFMT_UNKNOWN = 0;
-					const UINT D3DDDIFMT_X8R8G8B8 = 22;
-					D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_X8R8G8B8);
-					dst->GetDC(&dst, &dstDc);
-					D3dDdi::KernelModeThunks::setDcFormatOverride(D3DDDIFMT_UNKNOWN);
+					dst->GetDC(dst, &dstDc);
 					if (!dstDc)
 					{
-						return;
+						return false;
 					}
 				}
 
+				result = true;
 				HDC windowDc = GetWindowDC(window.hwnd);
-				Gdi::Region rgn(window.visibleRegion);
-				RECT wr = window.windowRect;
-
-				if (0 != offset.x || 0 != offset.y)
-				{
-					OffsetRect(&wr, offset.x, offset.y);
-					rgn.offset(offset.x, offset.y);
-				}
-
 				SelectClipRgn(dstDc, rgn);
 
-				auto colorKey = window.colorKey;
-				if (CLR_INVALID != colorKey)
+				COLORREF colorKey = 0;
+				BYTE alpha = 0;
+				DWORD flags = 0;
+				if (CALL_ORIG_FUNC(GetLayeredWindowAttributes)(window.hwnd, &colorKey, &alpha, &flags))
 				{
-					CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-						windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
-				}
-				else
-				{
-					BLENDFUNCTION blend = {};
-					blend.SourceConstantAlpha = window.alpha;
-					CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-						windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
+					if (flags & LWA_COLORKEY)
+					{
+						CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+							windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
+					}
+					else
+					{
+						BLENDFUNCTION blend = {};
+						blend.SourceConstantAlpha = alpha;
+						CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+							windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
+					}
 				}
 
 				CALL_ORIG_FUNC(ReleaseDC)(window.hwnd, windowDc);
@@ -505,8 +509,9 @@ namespace Gdi
 			if (dstDc)
 			{
 				SelectClipRgn(dstDc, nullptr);
-				dst->ReleaseDC(&dst, dstDc);
+				dst->ReleaseDC(dst, dstDc);
 			}
+			return result;
 		}
 
 		void updateAll()
@@ -556,21 +561,6 @@ namespace Gdi
 			for (auto hwnd : invalidatedWindows)
 			{
 				SendNotifyMessage(hwnd, WM_SYNCPAINT, 0, 0);
-			}
-		}
-
-		void updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha)
-		{
-			D3dDdi::ScopedCriticalSection lock;
-			auto it = g_windows.find(hwnd);
-			if (it != g_windows.end())
-			{
-				it->second.colorKey = colorKey;
-				it->second.alpha = alpha;
-				if (!it->second.visibleRegion.isEmpty())
-				{
-					DDraw::RealPrimarySurface::scheduleUpdate();
-				}
 			}
 		}
 	}

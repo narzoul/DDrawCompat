@@ -2,6 +2,7 @@
 
 #include <ddraw.h>
 
+#include <Common/CompatWeakPtr.h>
 #include <Common/CompatRef.h>
 #include <Gdi/Region.h>
 
@@ -14,8 +15,7 @@ namespace Gdi
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);
-		void presentLayered(CompatRef<IDirectDrawSurface7> dst, POINT offset);
+		bool presentLayered(CompatWeakPtr<IDirectDrawSurface7> dst, const RECT& monitorRect);
 		void updateAll();
-		void updateLayeredWindowInfo(HWND hwnd, COLORREF colorKey, BYTE alpha);
 	}
 }
