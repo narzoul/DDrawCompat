@@ -123,6 +123,7 @@ namespace D3dDdi
 			{
 				Gdi::Cursor::setEmulated(true);
 			}
+			Gdi::VirtualScreen::setFullscreenMode(true);
 		}
 
 		fixResourceData();
@@ -155,6 +156,7 @@ namespace D3dDdi
 	{
 		if (m_origData.Flags.Primary)
 		{
+			Gdi::VirtualScreen::setFullscreenMode(false);
 			Gdi::Cursor::setEmulated(false);
 			Gdi::Cursor::setMonitorClipRect({});
 		}
@@ -328,7 +330,7 @@ namespace D3dDdi
 
 	void Resource::createGdiLockResource()
 	{
-		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::RealPrimarySurface::getMonitorRect()));
+		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorRect()));
 		if (!gdiSurfaceDesc.lpSurface)
 		{
 			return;

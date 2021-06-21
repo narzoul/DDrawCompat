@@ -196,12 +196,10 @@ namespace Gdi
 				if (GetDesktopWindow() == hwnd)
 				{
 					hwnd = nullptr;
+					origin = {};
 				}
-				else
-				{
-					origin.x -= virtualScreenBounds.left;
-					origin.y -= virtualScreenBounds.top;
-				}
+				origin.x -= virtualScreenBounds.left;
+				origin.y -= virtualScreenBounds.top;
 			}
 
 			compatDc.refCount = 1;

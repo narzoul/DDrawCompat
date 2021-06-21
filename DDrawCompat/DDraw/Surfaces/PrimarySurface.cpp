@@ -250,7 +250,7 @@ namespace DDraw
 		PALETTEENTRY entries[256] = {};
 		PrimarySurface::s_palette->GetEntries(s_palette, 0, 0, 256, entries);
 
-		if (RealPrimarySurface::isFullScreen())
+		if (RealPrimarySurface::isFullscreen())
 		{
 			Gdi::Palette::setHardwarePalette(entries);
 		}

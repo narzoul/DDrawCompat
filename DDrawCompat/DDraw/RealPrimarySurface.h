@@ -21,7 +21,7 @@ namespace DDraw
 		static RECT getMonitorRect();
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static void init();
-		static bool isFullScreen();
+		static bool isFullscreen();
 		static bool isLost();
 		static void release();
 		static HRESULT restore();

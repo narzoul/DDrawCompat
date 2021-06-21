@@ -30,6 +30,7 @@ namespace
 	DWORD g_pitch = 0;
 	HANDLE g_surfaceFileMapping = nullptr;
 	void* g_surfaceView = nullptr;
+	bool g_isFullscreen = false;
 
 	HGDIOBJ g_stockBitmap = nullptr;
 	RGBQUAD g_defaultPalette[256] = {};
@@ -226,11 +227,19 @@ namespace Gdi
 			update();
 		}
 
+		void setFullscreenMode(bool isFullscreen)
+		{
+			g_isFullscreen = isFullscreen;
+			update();
+		}
+
 		bool update()
 		{
 			LOG_FUNC("VirtualScreen::update");
 			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
+			static bool prevIsFullscreen = false;
 
+			if (prevIsFullscreen == g_isFullscreen)
 			{
 				Compat::ScopedCriticalSection lock(g_cs);
 				if (Win32::DisplayMode::queryDisplaySettingsUniqueness() == prevDisplaySettingsUniqueness &&
@@ -245,11 +254,20 @@ namespace Gdi
 				Compat::ScopedCriticalSection lock(g_cs);
 
 				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
+				prevIsFullscreen = g_isFullscreen;
 				D3dDdi::Device::setGdiResourceHandle(nullptr);
 
-				g_region = Region();
-				EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
-				GetRgnBox(g_region, &g_bounds);
+				if (g_isFullscreen)
+				{
+					g_bounds = DDraw::PrimarySurface::getMonitorRect();
+					g_region = g_bounds;
+				}
+				else
+				{
+					g_region = Region();
+					EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
+					GetRgnBox(g_region, &g_bounds);
+				}
 
 				g_bpp = Win32::DisplayMode::getBpp();
 				g_width = g_bounds.right - g_bounds.left;

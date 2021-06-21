@@ -18,7 +18,7 @@ namespace
 	void bltToGdi(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
-		if (!lpDestRect)
+		if (!lpDestRect || DDraw::RealPrimarySurface::isFullscreen())
 		{
 			return;
 		}

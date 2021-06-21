@@ -21,6 +21,7 @@ namespace Gdi
 		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect);
 
 		void init();
+		void setFullscreenMode(bool isFullscreen);
 		bool update();
 		void updatePalette(PALETTEENTRY(&palette)[256]);
 	}

@@ -35,7 +35,7 @@ namespace
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
 
-	bool g_isFullScreen = false;
+	bool g_isFullscreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
 
 	bool g_isUpdatePending = false;
@@ -49,7 +49,7 @@ namespace
 
 	void bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
 	{
-		if (!g_isFullScreen)
+		if (!g_isFullscreen)
 		{
 			Gdi::Window::present(*g_frontBuffer, src, *g_clipper);
 			return;
@@ -123,7 +123,7 @@ namespace
 
 		g_frontBuffer = nullptr;
 		g_clipper.release();
-		g_isFullScreen = false;
+		g_isFullscreen = false;
 		g_waitingForPrimaryUnlock = false;
 		g_surfaceDesc = {};
 		g_monitorRect = {};
@@ -145,7 +145,7 @@ namespace
 		}
 
 		g_surfaceDesc = desc;
-		g_isFullScreen = isFlippable;
+		g_isFullscreen = isFlippable;
 		g_isUpdatePending = true;
 		g_qpcLastUpdate = Time::queryPerformanceCounter() - Time::msToQpc(Config::delayedFlipModeTimeout);
 
@@ -185,7 +185,7 @@ namespace
 		g_isUpdatePending = false;
 		g_waitingForPrimaryUnlock = false;
 
-		if (g_isFullScreen)
+		if (g_isFullscreen)
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getBackBuffer(), DDFLIP_WAIT);
 		}
@@ -367,9 +367,9 @@ namespace DDraw
 		Dll::createThread(&updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
-	bool RealPrimarySurface::isFullScreen()
+	bool RealPrimarySurface::isFullscreen()
 	{
-		return g_isFullScreen;
+		return g_isFullscreen;
 	}
 
 	bool RealPrimarySurface::isLost()
