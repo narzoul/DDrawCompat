@@ -438,6 +438,9 @@
     <ClInclude Include="Gdi\Cursor.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\DesktopColorDepth.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

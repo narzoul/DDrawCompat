@@ -77,17 +77,24 @@ namespace
 			Gdi::VirtualScreen::init();
 
 			CompatPtr<IDirectDraw> dd;
-			CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
-			CompatPtr<IDirectDraw7> dd7;
-			CALL_ORIG_PROC(DirectDrawCreateEx)(nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
-			if (!dd || !dd7)
+			HRESULT result = CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
+			if (FAILED(result))
 			{
-				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking";
+				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
+				return;
+			}
+
+			CompatPtr<IDirectDraw7> dd7;
+			result = CALL_ORIG_PROC(DirectDrawCreateEx)(
+				nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
+			if (FAILED(result))
+			{
+				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
 				return;
 			}
 
 			CompatVtable<IDirectDrawVtbl>::s_origVtable = *dd.get()->lpVtbl;
-			HRESULT result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
+			result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
 			if (SUCCEEDED(result))
 			{
 				CompatVtable<IDirectDraw7Vtbl>::s_origVtable = *dd7.get()->lpVtbl;

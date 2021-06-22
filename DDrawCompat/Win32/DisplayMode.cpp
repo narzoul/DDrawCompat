@@ -624,8 +624,13 @@ namespace Win32
 			DEVMODEA dm = {};
 			dm.dmSize = sizeof(dm);
 			EnumDisplaySettingsEx(nullptr, ENUM_CURRENT_SETTINGS, &dm, 0);
-			g_desktopBpp = dm.dmBitsPerPel;
-			g_emulatedDisplayMode.bpp = dm.dmBitsPerPel;
+
+			g_desktopBpp = Config::desktopColorDepth.get();
+			if (Config::Settings::DesktopColorDepth::INITIAL == g_desktopBpp)
+			{
+				g_desktopBpp = dm.dmBitsPerPel;
+			}
+			g_emulatedDisplayMode.bpp = g_desktopBpp;
 
 			EnumDisplayMonitors(nullptr, nullptr, &initMonitor, 0);
 

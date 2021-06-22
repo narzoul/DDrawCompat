@@ -214,6 +214,7 @@
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
+    <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayResolution.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />

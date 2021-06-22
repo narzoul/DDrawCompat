@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Config/Settings/CpuAffinity.h>
+#include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
 
@@ -11,6 +12,7 @@ namespace Config
 	const unsigned maxPaletteUpdatesPerMs = 5;
 
 	extern Settings::CpuAffinity cpuAffinity;
+	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
 }
