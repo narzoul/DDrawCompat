@@ -5,7 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		DisplayResolution::DisplayResolution()
-			: MappedSetting("DisplayResolution", DESKTOP, { {"app", APP}, {"desktop", DESKTOP} })
+			: MappedSetting("DisplayResolution", "desktop", { {"app", APP}, {"desktop", DESKTOP} })
 		{
 		}
 

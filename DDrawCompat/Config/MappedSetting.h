@@ -14,10 +14,9 @@ namespace Config
 		Value get() const { return m_value; }
 
 	protected:
-		MappedSetting(const std::string& name, Value default, const std::map<std::string, Value>& valueMapping)
-			: Setting(name)
-			, m_default(default)
-			, m_value(default)
+		MappedSetting(const std::string& name, const std::string& default, const std::map<std::string, Value>& valueMapping)
+			: Setting(name, default)
+			, m_value{}
 			, m_valueMapping(valueMapping)
 		{
 		}
@@ -34,11 +33,6 @@ namespace Config
 			throw ParsingError("MappedSetting::getValueStr(): value not found in mapping");
 		}
 
-		void resetValue() override
-		{
-			m_value = m_default;
-		}
-
 		void setValue(const std::string& value) override
 		{
 			auto it = m_valueMapping.find(value);
@@ -49,7 +43,6 @@ namespace Config
 			m_value = it->second;
 		}
 
-		Value m_default;
 		Value m_value;
 		const std::map<std::string, Value> m_valueMapping;
 	};

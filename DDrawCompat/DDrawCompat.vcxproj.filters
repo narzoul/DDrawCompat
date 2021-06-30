@@ -441,6 +441,9 @@
     <ClInclude Include="Config\Settings\DesktopColorDepth.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SupportedResolutions.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -691,6 +694,9 @@
     </ClCompile>
     <ClCompile Include="Gdi\Cursor.cpp">
       <Filter>Source Files\Gdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\SupportedResolutions.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

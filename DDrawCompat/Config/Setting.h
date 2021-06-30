@@ -7,7 +7,7 @@ namespace Config
 	class Setting
 	{
 	public:
-		Setting(const std::string& name);
+		Setting(const std::string& name, const std::string& default);
 
 		Setting(const Setting&) = delete;
 		Setting(Setting&&) = delete;
@@ -23,11 +23,11 @@ namespace Config
 
 	protected:
 		virtual std::string getValueStr() const = 0;
-		virtual void resetValue() = 0;
 		virtual void setValue(const std::string& value) = 0;
 
 	private:
 		std::string m_name;
+		std::string m_default;
 		std::string m_source;
 	};
 }

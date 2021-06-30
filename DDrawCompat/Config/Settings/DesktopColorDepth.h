@@ -12,7 +12,7 @@ namespace Config
 			static const UINT INITIAL = 0;
 
 			DesktopColorDepth()
-				: MappedSetting("DesktopColorDepth", INITIAL, { {"initial", INITIAL}, {"8", 8}, {"16", 16}, {"32", 32} })
+				: MappedSetting("DesktopColorDepth", "initial", { {"initial", INITIAL}, {"8", 8}, {"16", 16}, {"32", 32} })
 			{
 			}
 		};

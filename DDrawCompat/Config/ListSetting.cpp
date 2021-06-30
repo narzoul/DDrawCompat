@@ -4,14 +4,8 @@
 namespace Config
 {
 	ListSetting::ListSetting(const std::string& name, const std::string& default)
-		: Setting(name)
-		, m_default(default)
+		: Setting(name, default)
 	{
-	}
-
-	void ListSetting::resetValue()
-	{
-		setValue(m_default);
 	}
 
 	void ListSetting::setValue(const std::string& value)

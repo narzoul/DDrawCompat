@@ -1,3 +1,4 @@
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -21,6 +22,11 @@ namespace
 {
 	using Win32::DisplayMode::DisplayMode;
 	using Win32::DisplayMode::EmulatedDisplayMode;
+
+	template <typename Char> struct DevModeType;
+	template <> struct DevModeType<CHAR> { typedef DEVMODEA Type; };
+	template <> struct DevModeType<WCHAR> { typedef DEVMODEW Type; };
+	template <typename Char> using DevMode = typename DevModeType<Char>::Type;
 
 	template <typename Char>
 	struct EnumParams
@@ -53,8 +59,8 @@ namespace
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut();
 	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2);
 
-	template <typename DevMode, typename EnumDisplaySettingsExFunc, typename Char>
-	SIZE getConfiguredResolution(EnumDisplaySettingsExFunc origEnumDisplaySettingsEx, const Char* deviceName);
+	template <typename Char>
+	SIZE getConfiguredResolution(const Char* deviceName);
 
 	template <typename Char>
 	std::wstring getDeviceName(const Char* deviceName);
@@ -62,9 +68,19 @@ namespace
 	HMONITOR getMonitorFromDc(HDC dc);
 	MONITORINFO getMonitorInfo(const std::wstring& deviceName);
 
-	template <typename DevMode, typename EnumDisplaySettingsExFunc, typename Char>
-	std::vector<DisplayMode> getSupportedDisplayModes(
-		EnumDisplaySettingsExFunc origEnumDisplaySettingsEx, const Char* deviceName, DWORD flags);
+	template <typename Char>
+	std::map<SIZE, std::set<DWORD>> getSupportedDisplayModeMap(const Char* deviceName, DWORD flags);
+	template <typename Char>
+	std::vector<DisplayMode> getSupportedDisplayModes(const Char* deviceName, DWORD flags);
+
+	SIZE makeSize(DWORD width, DWORD height);
+
+	LONG origChangeDisplaySettingsEx(LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam);
+	LONG origChangeDisplaySettingsEx(LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam);
+	BOOL origEnumDisplaySettingsEx(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags);
+	BOOL origEnumDisplaySettingsEx(LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags);
+
+	void setDwmDxFullscreenTransitionEvent();
 
 	void adjustMonitorInfo(MONITORINFO& mi)
 	{
@@ -80,27 +96,65 @@ namespace
 		}
 	}
 
-	template <typename CStr, typename DevMode, typename ChangeDisplaySettingsExFunc, typename EnumDisplaySettingsExFunc>
-	LONG changeDisplaySettingsEx(
-		ChangeDisplaySettingsExFunc origChangeDisplaySettingsEx,
-		EnumDisplaySettingsExFunc origEnumDisplaySettingsEx,
-		CStr lpszDeviceName, DevMode* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	template <typename Char>
+	LONG changeDisplaySettingsEx(const Char* lpszDeviceName, typename DevMode<Char>* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
 		DDraw::ScopedThreadLock lock;
-		DevMode targetDevMode = {};
+		DevMode<Char> targetDevMode = {};
+		SIZE emulatedResolution = {};
 		if (lpDevMode)
 		{
+			DevMode<Char> currDevMode = {};
+			currDevMode.dmSize = sizeof(currDevMode);
+			enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
+
 			targetDevMode = *lpDevMode;
+			targetDevMode.dmFields |= DM_BITSPERPEL;
 			targetDevMode.dmBitsPerPel = 32;
-			SIZE resolutionOverride = getConfiguredResolution<DevMode>(origEnumDisplaySettingsEx, lpszDeviceName);
+			if (!(targetDevMode.dmFields & DM_PELSWIDTH))
+			{
+				targetDevMode.dmFields |= DM_PELSWIDTH;
+				targetDevMode.dmPelsWidth = currDevMode.dmPelsWidth;
+			}
+			if (!(targetDevMode.dmFields & DM_PELSHEIGHT))
+			{
+				targetDevMode.dmFields |= DM_PELSHEIGHT;
+				targetDevMode.dmPelsHeight = currDevMode.dmPelsHeight;
+			}
+
+			emulatedResolution = makeSize(targetDevMode.dmPelsWidth, targetDevMode.dmPelsHeight);
+			auto supportedDisplayModeMap(getSupportedDisplayModeMap(lpszDeviceName, 0));
+			if (supportedDisplayModeMap.find(emulatedResolution) == supportedDisplayModeMap.end())
+			{
+				if (!(dwflags & CDS_TEST))
+				{
+					setDwmDxFullscreenTransitionEvent();
+				}
+				return DISP_CHANGE_BADMODE;
+			}
+
+			SIZE resolutionOverride = getConfiguredResolution(lpszDeviceName);
 			if (0 != resolutionOverride.cx)
 			{
-				targetDevMode.dmPelsWidth = resolutionOverride.cx;
-				targetDevMode.dmPelsHeight = resolutionOverride.cy;
+				DevMode<Char> dm = {};
+				dm.dmSize = sizeof(dm);
+				dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
+				dm.dmPelsWidth = resolutionOverride.cx;
+				dm.dmPelsHeight = resolutionOverride.cy;
+				LONG result = origChangeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, CDS_TEST, nullptr);
+				if (DISP_CHANGE_SUCCESSFUL == result)
+				{
+					targetDevMode.dmPelsWidth = resolutionOverride.cx;
+					targetDevMode.dmPelsHeight = resolutionOverride.cy;
+				}
+				else
+				{
+					LOG_ONCE("Failed to apply setting: DisplayResolution = " << dm.dmPelsWidth << 'x' << dm.dmPelsHeight);
+				}
 			}
 		}
 
-		DevMode prevDevMode = {};
+		DevMode<Char> prevDevMode = {};
 		if (!(dwflags & CDS_TEST))
 		{
 			prevDevMode.dmSize = sizeof(prevDevMode);
@@ -111,14 +165,6 @@ namespace
 		if (lpDevMode)
 		{
 			result = origChangeDisplaySettingsEx(lpszDeviceName, &targetDevMode, hwnd, dwflags, lParam);
-			if (DISP_CHANGE_SUCCESSFUL != result &&
-				(lpDevMode->dmPelsWidth != targetDevMode.dmPelsWidth || lpDevMode->dmPelsHeight != targetDevMode.dmPelsHeight))
-			{
-				LOG_ONCE("Failed to apply setting: DisplayResolution = " << targetDevMode.dmPelsWidth << 'x' << targetDevMode.dmPelsHeight);
-				targetDevMode.dmPelsWidth = lpDevMode->dmPelsWidth;
-				targetDevMode.dmPelsHeight = lpDevMode->dmPelsHeight;
-				result = origChangeDisplaySettingsEx(lpszDeviceName, &targetDevMode, hwnd, dwflags, lParam);
-			}
 		}
 		else
 		{
@@ -130,16 +176,13 @@ namespace
 			return result;
 		}
 
-		DevMode currDevMode = {};
+		DevMode<Char> currDevMode = {};
 		currDevMode.dmSize = sizeof(currDevMode);
 		origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
 
 		if (0 == memcmp(&currDevMode, &prevDevMode, sizeof(currDevMode)))
 		{
-			HANDLE dwmDxFullScreenTransitionEvent = OpenEventW(
-				EVENT_MODIFY_STATE, FALSE, L"DWM_DX_FULLSCREEN_TRANSITION_EVENT");
-			SetEvent(dwmDxFullScreenTransitionEvent);
-			CloseHandle(dwmDxFullScreenTransitionEvent);
+			setDwmDxFullscreenTransitionEvent();
 		}
 
 		if (DISP_CHANGE_SUCCESSFUL != result)
@@ -152,9 +195,12 @@ namespace
 			++g_displaySettingsUniquenessBias;
 			if (lpDevMode)
 			{
-				g_emulatedDisplayMode.width = lpDevMode->dmPelsWidth;
-				g_emulatedDisplayMode.height = lpDevMode->dmPelsHeight;
-				g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
+				g_emulatedDisplayMode.width = emulatedResolution.cx;
+				g_emulatedDisplayMode.height = emulatedResolution.cy;
+				if (lpDevMode->dmFields & DM_BITSPERPEL)
+				{
+					g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
+				}
 				g_emulatedDisplayMode.refreshRate = currDevMode.dmDisplayFrequency;
 
 				g_emulatedDisplayMode.deviceName = getDeviceName(lpszDeviceName);
@@ -171,11 +217,10 @@ namespace
 			}
 		}
 
-		auto& dm = lpDevMode ? *lpDevMode : currDevMode;
-		LPARAM resolution = (dm.dmPelsHeight << 16) | dm.dmPelsWidth;
-		EnumWindows(sendDisplayChange, resolution);
+		SIZE res = lpDevMode ? emulatedResolution : makeSize(currDevMode.dmPelsWidth, currDevMode.dmPelsHeight);
+		EnumWindows(sendDisplayChange, (res.cy << 16) | res.cx);
 
-		SetCursorPos(currDevMode.dmPosition.x + dm.dmPelsWidth / 2, currDevMode.dmPosition.y + dm.dmPelsHeight / 2);
+		SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
 		Gdi::VirtualScreen::update();
 
 		return result;
@@ -185,20 +230,14 @@ namespace
 		LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
 		LOG_FUNC("ChangeDisplaySettingsExA", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		return LOG_RESULT(changeDisplaySettingsEx(
-			CALL_ORIG_FUNC(ChangeDisplaySettingsExA),
-			CALL_ORIG_FUNC(EnumDisplaySettingsExA),
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
+		return LOG_RESULT(changeDisplaySettingsEx(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
 	}
 
 	LONG WINAPI changeDisplaySettingsExW(
 		LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
 		LOG_FUNC("ChangeDisplaySettingsExW", lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
-		return LOG_RESULT(changeDisplaySettingsEx(
-			CALL_ORIG_FUNC(ChangeDisplaySettingsExW),
-			CALL_ORIG_FUNC(EnumDisplaySettingsExW),
-			lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
+		return LOG_RESULT(changeDisplaySettingsEx(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam));
 	}
 
 	void disableDwm8And16BitMitigation()
@@ -223,9 +262,8 @@ namespace
 		return LOG_RESULT(FALSE);
 	}
 
-	template <typename Char, typename DevMode, typename EnumDisplaySettingsExFunc>
-	BOOL enumDisplaySettingsEx(EnumDisplaySettingsExFunc origEnumDisplaySettingsEx,
-		const Char* lpszDeviceName, DWORD iModeNum, DevMode* lpDevMode, DWORD dwFlags)
+	template <typename Char>
+	BOOL enumDisplaySettingsEx(const Char* lpszDeviceName, DWORD iModeNum, DevMode<Char>* lpDevMode, DWORD dwFlags)
 	{
 		if (ENUM_REGISTRY_SETTINGS == iModeNum || !lpDevMode)
 		{
@@ -259,7 +297,7 @@ namespace
 
 		if (0 == iModeNum || displayModes.empty() || currentEnumParams != lastEnumParams)
 		{
-			displayModes = getSupportedDisplayModes<DevMode>(origEnumDisplaySettingsEx, lpszDeviceName, dwFlags);
+			displayModes = getSupportedDisplayModes(lpszDeviceName, dwFlags);
 			lastEnumParams = currentEnumParams;
 		}
 
@@ -291,16 +329,14 @@ namespace
 		LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags)
 	{
 		LOG_FUNC("EnumDisplaySettingsExA", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		return LOG_RESULT(enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExA),
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags));
+		return LOG_RESULT(enumDisplaySettingsEx(lpszDeviceName, iModeNum, lpDevMode, dwFlags));
 	}
 
 	BOOL WINAPI enumDisplaySettingsExW(
 		LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags)
 	{
 		LOG_FUNC("EnumDisplaySettingsExW", lpszDeviceName, iModeNum, lpDevMode, dwFlags);
-		return LOG_RESULT(enumDisplaySettingsEx(CALL_ORIG_FUNC(EnumDisplaySettingsExW),
-			lpszDeviceName, iModeNum, lpDevMode, dwFlags));
+		return LOG_RESULT(enumDisplaySettingsEx(lpszDeviceName, iModeNum, lpDevMode, dwFlags));
 	}
 
 	ULONG WINAPI gdiEntry13()
@@ -309,13 +345,13 @@ namespace
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
 	}
 
-	template <typename DevMode, typename EnumDisplaySettingsExFunc, typename Char>
-	SIZE getConfiguredResolution(EnumDisplaySettingsExFunc origEnumDisplaySettingsEx, const Char* deviceName)
+	template <typename Char>
+	SIZE getConfiguredResolution(const Char* deviceName)
 	{
 		auto resolution = Config::displayResolution.get();
 		if (Config::Settings::DisplayResolution::DESKTOP == resolution)
 		{
-			DevMode dm = {};
+			DevMode<Char> dm = {};
 			dm.dmSize = sizeof(dm);
 			if (origEnumDisplaySettingsEx(deviceName, ENUM_REGISTRY_SETTINGS, &dm, 0))
 			{
@@ -497,61 +533,75 @@ namespace
 		return LOG_RESULT(result);
 	}
 
-	template <typename DevMode, typename EnumDisplaySettingsExFunc, typename Char>
-	std::vector<DisplayMode> getSupportedDisplayModes(
-		EnumDisplaySettingsExFunc origEnumDisplaySettingsEx, const Char* deviceName, DWORD flags)
+	template <typename Char>
+	std::map<SIZE, std::set<DWORD>> getSupportedDisplayModeMap(const Char* deviceName, DWORD flags)
 	{
-		std::set<DisplayMode> displayModes;
-		DWORD modeNum = 0;
-		DevMode dm = {};
-		dm.dmSize = sizeof(dm);
+		std::map<SIZE, std::set<DWORD>> nativeDisplayModeMap;
 
+		DWORD modeNum = 0;
+		DevMode<Char> dm = {};
+		dm.dmSize = sizeof(dm);
 		while (origEnumDisplaySettingsEx(deviceName, modeNum, &dm, flags))
 		{
 			if (32 == dm.dmBitsPerPel)
 			{
-				displayModes.insert({ dm.dmPelsWidth, dm.dmPelsHeight, dm.dmBitsPerPel, dm.dmDisplayFrequency });
+				nativeDisplayModeMap[makeSize(dm.dmPelsWidth, dm.dmPelsHeight)].insert(dm.dmDisplayFrequency);
 			}
 			++modeNum;
 		}
 
-		auto resolutionOverride = getConfiguredResolution<DevMode>(origEnumDisplaySettingsEx, deviceName);
-		if (0 == resolutionOverride.cx)
+		const auto& supportedResolutions = Config::supportedResolutions.get();
+		std::map<SIZE, std::set<DWORD>> displayModeMap;
+		if (supportedResolutions.find(Config::Settings::SupportedResolutions::NATIVE) != supportedResolutions.end())
 		{
-			return { displayModes.begin(), displayModes.end() };
+			displayModeMap = nativeDisplayModeMap;
 		}
 
-		std::set<DWORD> supportedRefreshRates;
-		for (const auto& mode : displayModes)
+		const auto resolutionOverride = getConfiguredResolution(deviceName);
+		const auto it = nativeDisplayModeMap.find({ resolutionOverride.cx, resolutionOverride.cy });
+		if (it != nativeDisplayModeMap.end())
 		{
-			if (static_cast<LONG>(mode.width) == resolutionOverride.cx &&
-				static_cast<LONG>(mode.height) == resolutionOverride.cy)
+			for (auto& v : displayModeMap)
 			{
-				supportedRefreshRates.insert(mode.refreshRate);
+				v.second = it->second;
 			}
 		}
 
-		if (supportedRefreshRates.empty())
+		for (auto& v : supportedResolutions)
 		{
-			return { displayModes.begin(), displayModes.end() };
-		}
-
-		std::vector<DisplayMode> customDisplayModes;
-		DWORD prevWidth = 0;
-		DWORD prevHeight = 0;
-		for (const auto& mode : displayModes)
-		{
-			if (mode.width != prevWidth || mode.height != prevHeight)
+			if (v != Config::Settings::SupportedResolutions::NATIVE)
 			{
-				for (auto refreshRate : supportedRefreshRates)
+				if (it != nativeDisplayModeMap.end())
 				{
-					customDisplayModes.push_back({ mode.width, mode.height, mode.bpp, refreshRate });
+					displayModeMap[{ v.cx, v.cy }] = it->second;
 				}
-				prevWidth = mode.width;
-				prevHeight = mode.height;
+				else
+				{
+					auto iter = nativeDisplayModeMap.find({ v.cx, v.cy });
+					if (iter != nativeDisplayModeMap.end())
+					{
+						displayModeMap.insert(*iter);
+					}
+				}
 			}
 		}
-		return customDisplayModes;
+
+		return displayModeMap;
+	}
+
+	template <typename Char>
+	std::vector<DisplayMode> getSupportedDisplayModes(const Char* deviceName, DWORD flags)
+	{
+		auto displayModeMap(getSupportedDisplayModeMap(deviceName, flags));
+		std::vector<DisplayMode> displayModeVector;
+		for (const auto& v : displayModeMap)
+		{
+			for (const auto& r : v.second)
+			{
+				displayModeVector.push_back({ static_cast<DWORD>(v.first.cx), static_cast<DWORD>(v.first.cy), 32, r });
+			}
+		}
+		return displayModeVector;
 	}
 
 	BOOL CALLBACK initMonitor(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM /*dwData*/)
@@ -577,6 +627,31 @@ namespace
 		return TRUE;
 	}
 
+	SIZE makeSize(DWORD width, DWORD height)
+	{
+		return { static_cast<LONG>(width), static_cast<LONG>(height) };
+	}
+
+	LONG origChangeDisplaySettingsEx(LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	{
+		return CALL_ORIG_FUNC(ChangeDisplaySettingsExA)(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+	}
+
+	LONG origChangeDisplaySettingsEx(LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
+	{
+		return CALL_ORIG_FUNC(ChangeDisplaySettingsExW)(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
+	}
+
+	BOOL origEnumDisplaySettingsEx(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags)
+	{
+		return CALL_ORIG_FUNC(EnumDisplaySettingsExA)(lpszDeviceName, iModeNum, lpDevMode, dwFlags);
+	}
+
+	BOOL origEnumDisplaySettingsEx(LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags)
+	{
+		return CALL_ORIG_FUNC(EnumDisplaySettingsExW)(lpszDeviceName, iModeNum, lpDevMode, dwFlags);
+	}
+
 	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2)
 	{
 		LOG_FUNC("SE_COM_HookInterface", clsid, iid, unk1, unk2);
@@ -596,6 +671,17 @@ namespace
 			SendNotifyMessage(hwnd, WM_DISPLAYCHANGE, 0, lParam);
 		}
 		return TRUE;
+	}
+
+	void setDwmDxFullscreenTransitionEvent()
+	{
+		HANDLE dwmDxFullscreenTransitionEvent = OpenEventW(
+			EVENT_MODIFY_STATE, FALSE, L"DWM_DX_FULLSCREEN_TRANSITION_EVENT");
+		if (dwmDxFullscreenTransitionEvent)
+		{
+			SetEvent(dwmDxFullscreenTransitionEvent);
+			CloseHandle(dwmDxFullscreenTransitionEvent);
+		}
 	}
 }
 

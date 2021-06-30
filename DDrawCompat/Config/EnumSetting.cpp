@@ -21,7 +21,7 @@ namespace
 
 namespace Config
 {
-	EnumSetting::EnumSetting(const std::string& name, unsigned default, const std::vector<std::string>& enumNames)
+	EnumSetting::EnumSetting(const std::string& name, const std::string& default, const std::vector<std::string>& enumNames)
 		: MappedSetting(name, default, createMapping(enumNames))
 	{
 	}

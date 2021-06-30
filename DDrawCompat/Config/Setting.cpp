@@ -3,28 +3,21 @@
 
 namespace Config
 {
-	Setting::Setting(const std::string& name)
+	Setting::Setting(const std::string& name, const std::string& default)
 		: m_name(name)
+		, m_default(default)
 	{
 		Parser::registerSetting(*this);
 	}
 
 	void Setting::reset()
 	{
-		resetValue();
-		m_source = "default";
+		set("default", "default");
 	}
 
 	void Setting::set(const std::string& value, const std::string& source)
 	{
-		if ("default" == value)
-		{
-			resetValue();
-		}
-		else
-		{
-			setValue(value);
-		}
+		setValue("default" == value ? m_default : value);
 		m_source = source;
 	}
 }

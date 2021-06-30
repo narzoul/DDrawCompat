@@ -12,7 +12,7 @@ namespace Config
 			enum Value { OFF, ON, MAIN, APP };
 
 			ThreadPriorityBoost()
-				: EnumSetting("ThreadPriorityBoost", OFF, { "off", "on", "main", "app" })
+				: EnumSetting("ThreadPriorityBoost", "off", { "off", "on", "main", "app" })
 			{
 			}
 		};
