@@ -91,6 +91,7 @@ namespace D3dDdi
 		m_renderState[D3DDDIRS_PATCHSEGMENTS] = 0x3F800000;
 		m_renderState[D3DDDIRS_COLORWRITEENABLE] = 0xF;
 		m_renderState[D3DDDIRS_BLENDOP] = D3DBLENDOP_ADD;
+		m_renderState[D3DDDIRS_SRGBWRITEENABLE] = FALSE;
 
 		for (UINT i = 0; i < m_renderState.size(); i++)
 		{
@@ -122,6 +123,7 @@ namespace D3dDdi
 			m_textureStageState[i][D3DDDITSS_MAXMIPLEVEL] = 0;
 			m_textureStageState[i][D3DDDITSS_MAXANISOTROPY] = 1;
 			m_textureStageState[i][D3DDDITSS_TEXTURETRANSFORMFLAGS] = D3DTTFF_DISABLE;
+			m_textureStageState[i][D3DDDITSS_SRGBTEXTURE] = FALSE;
 			m_textureStageState[i][D3DDDITSS_ADDRESSW] = D3DTADDRESS_WRAP;
 			m_textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY] = TRUE;
 

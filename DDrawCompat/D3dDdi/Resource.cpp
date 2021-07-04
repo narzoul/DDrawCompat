@@ -24,6 +24,8 @@ namespace
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 	RECT g_presentationRect = {};
+	UINT g_presentationFilter = Config::Settings::DisplayFilter::POINT;
+	UINT g_presentationFilterParam = 0;
 
 	RECT calculatePresentationRect()
 	{
@@ -124,6 +126,25 @@ namespace D3dDdi
 				Gdi::Cursor::setEmulated(true);
 			}
 			Gdi::VirtualScreen::setFullscreenMode(true);
+
+			if (g_presentationRect.right - g_presentationRect.left != rect.right ||
+				g_presentationRect.bottom - g_presentationRect.top != rect.bottom)
+			{
+				g_presentationFilter = Config::displayFilter.get();
+				g_presentationFilterParam = Config::displayFilter.getParam();
+
+				if (Config::Settings::DisplayFilter::BILINEAR == g_presentationFilter &&
+					0 == g_presentationFilterParam &&
+					0 == (g_presentationRect.right - g_presentationRect.left) % rect.right &&
+					0 == (g_presentationRect.bottom - g_presentationRect.top) % rect.bottom)
+				{
+					g_presentationFilter = Config::Settings::DisplayFilter::POINT;
+				}
+			}
+			else
+			{
+				g_presentationFilter = Config::Settings::DisplayFilter::POINT;
+			}
 		}
 
 		fixResourceData();
@@ -548,7 +569,8 @@ namespace D3dDdi
 		const RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
 		const bool isLayeredPresentNeeded = Gdi::Window::presentLayered(nullptr, monitorRect);
 
-		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded)
+		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded ||
+			Config::Settings::DisplayFilter::POINT != g_presentationFilter)
 		{
 			const auto& si = srcResource->m_fixedData.pSurfList[0];
 			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
@@ -580,9 +602,6 @@ namespace D3dDdi
 				m_device.getOrigVtable().pfnBlt(m_device, &blt);
 			}
 
-			srcResource = dst.resource;
-			data.hSrcResource = *dst.resource;
-
 			if (isLayeredPresentNeeded)
 			{
 				Gdi::Window::presentLayered(dst.surface, monitorRect);
@@ -591,13 +610,22 @@ namespace D3dDdi
 			if (isCursorEmulated)
 			{
 				POINT pos = { cursorInfo.ptScreenPos.x - monitorRect.left, cursorInfo.ptScreenPos.y - monitorRect.top };
-				m_device.getShaderBlitter().cursorBlt(*srcResource, 0, cursorInfo.hCursor, pos);
+				m_device.getShaderBlitter().cursorBlt(*dst.resource, 0, cursorInfo.hCursor, pos);
 			}
+
+			if (Config::Settings::DisplayFilter::BILINEAR == g_presentationFilter)
+			{
+				m_device.getShaderBlitter().genBilinearBlt(*this, data.DstSubResourceIndex, g_presentationRect,
+					*dst.resource, data.SrcRect, g_presentationFilterParam);
+				return S_OK;
+			}
+
+			data.hSrcResource = *dst.resource;
 		}
 
 		data.DstRect = g_presentationRect;
-		data.Flags.Linear = 1;
-		data.Flags.Point = 0;
+		data.Flags.Linear = 0;
+		data.Flags.Point = 1;
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
 	}
 

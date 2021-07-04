@@ -15,6 +15,9 @@ namespace D3dDdi
 	class DeviceState
 	{
 	public:
+		typedef std::array<FLOAT, 4> ShaderConstF;
+		typedef std::array<INT, 4> ShaderConstI;
+
 		DeviceState(Device& device);
 		
 		HRESULT pfnCreateVertexShaderDecl(D3DDDIARG_CREATEVERTEXSHADERDECL* data, const D3DDDIVERTEXELEMENT* vertexElements);
@@ -44,9 +47,6 @@ namespace D3dDdi
 		void onDestroyResource(HANDLE resource);
 
 	private:
-		typedef std::tuple<FLOAT, FLOAT, FLOAT, FLOAT> ShaderConstF;
-		typedef std::tuple<INT, INT, INT, INT> ShaderConstI;
-
 		HRESULT deleteShader(HANDLE shader, HANDLE& currentShader,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 		HRESULT setShader(HANDLE shader, HANDLE& currentShader,
@@ -148,6 +148,38 @@ namespace D3dDdi
 			using ScopedHandle::ScopedHandle;
 		};
 
+		class ScopedPixelShaderConst
+		{
+		public:
+			ScopedPixelShaderConst(
+				DeviceState& deviceState, const D3DDDIARG_SETPIXELSHADERCONST& data, const ShaderConstF* registers)
+				: m_deviceState(deviceState)
+				, m_register(data.Register)
+			{
+				if (data.Register + data.Count > m_deviceState.m_pixelShaderConst.size())
+				{
+					m_deviceState.m_pixelShaderConst.resize(data.Register + data.Count);
+				}
+
+				auto it = deviceState.m_pixelShaderConst.begin() + data.Register;
+				m_prevRegisters.assign(it, it + data.Count);
+				m_deviceState.pfnSetPixelShaderConst(&data, reinterpret_cast<const FLOAT*>(registers));
+			}
+
+			~ScopedPixelShaderConst()
+			{
+				D3DDDIARG_SETPIXELSHADERCONST data = {};
+				data.Register = m_register;
+				data.Count = m_prevRegisters.size();
+				m_deviceState.pfnSetPixelShaderConst(&data, reinterpret_cast<const FLOAT*>(m_prevRegisters.data()));
+			}
+
+		private:
+			DeviceState& m_deviceState;
+			UINT m_register;
+			std::vector<ShaderConstF> m_prevRegisters;
+		};
+
 		class ScopedRenderState
 		{
 		public:
@@ -244,6 +276,7 @@ namespace D3dDdi
 				, m_scopedMagFilter(deviceState, { stage, D3DDDITSS_MAGFILTER, filter })
 				, m_scopedMinFilter(deviceState, { stage, D3DDDITSS_MINFILTER, filter })
 				, m_scopedMipFilter(deviceState, { stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE })
+				, m_scopedSrgbTexture(deviceState, { stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter })
 				, m_scopedWrap(deviceState, { static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 })
 				, m_prevTextureColorKeyVal(deviceState.m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
 				, m_prevDisableTextureColorKey(deviceState.m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
@@ -285,6 +318,7 @@ namespace D3dDdi
 			ScopedTextureStageState m_scopedMagFilter;
 			ScopedTextureStageState m_scopedMinFilter;
 			ScopedTextureStageState m_scopedMipFilter;
+			ScopedTextureStageState m_scopedSrgbTexture;
 			ScopedRenderState m_scopedWrap;
 			UINT m_prevTextureColorKeyVal;
 			UINT m_prevDisableTextureColorKey;

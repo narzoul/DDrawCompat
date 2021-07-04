@@ -17,6 +17,8 @@ namespace D3dDdi
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, HCURSOR cursor, POINT pt);
+		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, const RECT& srcRect, UINT blurPercent);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, RGBQUAD palette[256]);
 
@@ -35,7 +37,9 @@ namespace D3dDdi
 
 		Device& m_device;
 		HANDLE m_psDrawCursor;
+		HANDLE m_psGenBilinear;
 		HANDLE m_psPaletteLookup;
+		HANDLE m_psTextureSampler;
 		HANDLE m_vertexShaderDecl;
 	};
 }

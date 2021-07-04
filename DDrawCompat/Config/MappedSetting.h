@@ -21,26 +21,68 @@ namespace Config
 		{
 		}
 
-		std::string getValueStr() const override
+		virtual std::string getParamStr() const
+		{
+			return {};
+		}
+
+		virtual std::string getValueStr() const override
 		{
 			for (const auto& pair : m_valueMapping)
 			{
 				if (pair.second == m_value)
 				{
-					return pair.first;
+					std::string param(getParamStr());
+					if (!param.empty())
+					{
+						param = '(' + param + ')';
+					}
+					return pair.first + param;
 				}
 			}
 			throw ParsingError("MappedSetting::getValueStr(): value not found in mapping");
 		}
 
-		void setValue(const std::string& value) override
+		virtual void setDefaultParam(const Value& /*value*/)
 		{
-			auto it = m_valueMapping.find(value);
+		}
+
+		virtual void setValue(const std::string& value) override
+		{
+			std::string val(value);
+			std::string param;
+			auto parenPos = value.find('(');
+			if (std::string::npos != parenPos)
+			{
+				val = value.substr(0, parenPos);
+				param = value.substr(parenPos + 1);
+				if (param.length() < 2 || param.back() != ')')
+				{
+					throw ParsingError("invalid value: '" + value + "'");
+				}
+				param = param.substr(0, param.length() - 1);
+			}
+
+			auto it = m_valueMapping.find(val);
 			if (it == m_valueMapping.end())
 			{
 				throw ParsingError("invalid value: '" + value + "'");
 			}
-			m_value = it->second;
+
+			if (param.empty())
+			{
+				m_value = it->second;
+				setDefaultParam(it->second);
+			}
+			else
+			{
+				setValue(it->second, param);
+			}
+		}
+
+		virtual void setValue(const Value& /*value*/, const std::string& param)
+		{
+			throw ParsingError("invalid parameter: '" + param + "'");
 		}
 
 		Value m_value;

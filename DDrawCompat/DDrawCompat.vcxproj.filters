@@ -444,6 +444,9 @@
     <ClInclude Include="Config\Settings\SupportedResolutions.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\DisplayFilter.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -698,6 +701,9 @@
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
+    <ClCompile Include="Config\Settings\DisplayFilter.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc">
@@ -714,6 +720,12 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\DrawCursor.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\GenBilinear.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\TextureSampler.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

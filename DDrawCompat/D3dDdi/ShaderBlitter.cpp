@@ -5,7 +5,9 @@
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <Shaders/DrawCursor.h>
+#include <Shaders/GenBilinear.h>
 #include <Shaders/PaletteLookup.h>
+#include <Shaders/TextureSampler.h>
 
 #define CONCAT_(a, b) a##b
 #define CONCAT(a, b) CONCAT_(a, b)
@@ -16,7 +18,9 @@ namespace D3dDdi
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
+		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
+		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
 		, m_vertexShaderDecl(createVertexShaderDecl())
 	{
 	}
@@ -55,6 +59,7 @@ namespace D3dDdi
 		SCOPED_STATE(RenderState, { D3DDDIRS_CLIPPLANEENABLE, 0 });
 		SCOPED_STATE(RenderState, { D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		SCOPED_STATE(RenderState, { D3DDDIRS_COLORWRITEENABLE, 0xF });
+		SCOPED_STATE(RenderState, { D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
 
 		SCOPED_STATE(Texture, 0, srcResource, filter);
 
@@ -162,6 +167,33 @@ namespace D3dDdi
 		SCOPED_STATE(Texture, 2, *cur.colorTexture, D3DTEXF_POINT);
 		SCOPED_STATE(Texture, 3, *xorTexture, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, clippedSrcRect, m_psDrawCursor, D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, const RECT& srcRect, UINT blurPercent)
+	{
+		if (100 == blurPercent)
+		{
+			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psTextureSampler, D3DTEXF_LINEAR);
+			return;
+		}
+
+		const auto& srcDesc = srcResource.getFixedDesc().pSurfList[0];
+		float scaleX = static_cast<float>(dstRect.right - dstRect.left) / (srcRect.right - srcRect.left);
+		float scaleY = static_cast<float>(dstRect.bottom - dstRect.top) / (srcRect.bottom - srcRect.top);
+
+		const float blur = blurPercent / 100.0f;
+		scaleX = 1 / ((1 - blur) / scaleX + blur);
+		scaleY = 1 / ((1 - blur) / scaleY + blur);
+
+		const DeviceState::ShaderConstF registers[] = {
+			{ static_cast<float>(srcDesc.Width), static_cast<float>(srcDesc.Height), 0.0f, 0.0f },
+			{ scaleX, scaleY, 0.0f, 0.0f }
+		};
+
+		SCOPED_STATE(PixelShaderConst, { 0, sizeof(registers) / sizeof(registers[0]) }, registers);
+
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psGenBilinear, D3DTEXF_LINEAR);
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
