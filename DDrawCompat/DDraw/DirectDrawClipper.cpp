@@ -166,6 +166,7 @@ namespace DDraw
 					}
 					g_clipperData.erase(it->second);
 				}
+				getOrigVtable(prevClipper).Release(prevClipper);
 				g_surfaceToClipperData.erase(it);
 			}
 
@@ -183,6 +184,7 @@ namespace DDraw
 				}
 				++clipperDataIter->second.refCount;
 				g_surfaceToClipperData[&surface] = clipperDataIter;
+				getOrigVtable(clipper).AddRef(clipper);
 			}
 		}
 
