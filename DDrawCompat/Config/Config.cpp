@@ -8,5 +8,6 @@ namespace Config
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayResolution displayResolution;
 	Settings::SupportedResolutions supportedResolutions;
+	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
 }

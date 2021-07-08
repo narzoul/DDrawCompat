@@ -1,3 +1,4 @@
+#include <Config/Config.h>
 #include <Common/Log.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceState.h>
@@ -116,12 +117,21 @@ namespace D3dDdi
 			m_textureStageState[i][D3DDDITSS_ADDRESSU] = D3DTADDRESS_WRAP;
 			m_textureStageState[i][D3DDDITSS_ADDRESSV] = D3DTADDRESS_WRAP;
 			m_textureStageState[i][D3DDDITSS_BORDERCOLOR] = 0;
-			m_textureStageState[i][D3DDDITSS_MAGFILTER] = D3DTEXF_POINT;
-			m_textureStageState[i][D3DDDITSS_MINFILTER] = D3DTEXF_POINT;
-			m_textureStageState[i][D3DDDITSS_MIPFILTER] = D3DTEXF_NONE;
+			if (D3DTEXF_NONE == Config::textureFilter.getFilter())
+			{
+				m_textureStageState[i][D3DDDITSS_MAGFILTER] = D3DTEXF_POINT;
+				m_textureStageState[i][D3DDDITSS_MINFILTER] = D3DTEXF_POINT;
+				m_textureStageState[i][D3DDDITSS_MIPFILTER] = D3DTEXF_NONE;
+			}
+			else
+			{
+				m_textureStageState[i][D3DDDITSS_MAGFILTER] = Config::textureFilter.getFilter();
+				m_textureStageState[i][D3DDDITSS_MINFILTER] = Config::textureFilter.getFilter();
+				m_textureStageState[i][D3DDDITSS_MIPFILTER] = Config::textureFilter.getMipFilter();
+			}
 			m_textureStageState[i][D3DDDITSS_MIPMAPLODBIAS] = 0;
 			m_textureStageState[i][D3DDDITSS_MAXMIPLEVEL] = 0;
-			m_textureStageState[i][D3DDDITSS_MAXANISOTROPY] = 1;
+			m_textureStageState[i][D3DDDITSS_MAXANISOTROPY] = Config::textureFilter.getMaxAnisotropy();
 			m_textureStageState[i][D3DDDITSS_TEXTURETRANSFORMFLAGS] = D3DTTFF_DISABLE;
 			m_textureStageState[i][D3DDDITSS_SRGBTEXTURE] = FALSE;
 			m_textureStageState[i][D3DDDITSS_ADDRESSW] = D3DTADDRESS_WRAP;
@@ -280,9 +290,20 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
-		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
+		switch (data->State)
 		{
+		case D3DDDITSS_MINFILTER:
+		case D3DDDITSS_MAGFILTER:
+		case D3DDDITSS_MIPFILTER:
+		case D3DDDITSS_MAXANISOTROPY:
+			if (D3DTEXF_NONE != Config::textureFilter.getFilter())
+			{
+				return S_OK;
+			}
+			break;
+		case D3DDDITSS_TEXTURECOLORKEYVAL:
 			m_textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
+			break;
 		}
 		return setStateArray(data, m_textureStageState[data->Stage], m_device.getOrigVtable().pfnSetTextureStageState);
 	}
@@ -459,5 +480,60 @@ namespace D3dDdi
 			currentState[data->State] = data->Value;
 		}
 		return result;
+	}
+
+	DeviceState::ScopedTexture::ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter)
+		: m_deviceState(deviceState)
+		, m_stage(stage)
+		, m_prevTexture(deviceState.m_textures[stage])
+		, m_scopedAddressU(deviceState, { stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP })
+		, m_scopedAddressV(deviceState, { stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP })
+		, m_scopedMagFilter(deviceState, { stage, D3DDDITSS_MAGFILTER, filter })
+		, m_scopedMinFilter(deviceState, { stage, D3DDDITSS_MINFILTER, filter })
+		, m_scopedMipFilter(deviceState, { stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE })
+		, m_scopedSrgbTexture(deviceState, { stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter })
+		, m_scopedWrap(deviceState, { static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 })
+		, m_prevTextureColorKeyVal(deviceState.m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
+		, m_prevDisableTextureColorKey(deviceState.m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
+	{
+		m_deviceState.pfnSetTexture(stage, texture);
+
+		D3DDDIARG_TEXTURESTAGESTATE data = {};
+		data.Stage = stage;
+		data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
+		data.Value = TRUE;
+		m_deviceState.m_device.getOrigVtable().pfnSetTextureStageState(m_deviceState.m_device, &data);
+	}
+
+	DeviceState::ScopedTexture::~ScopedTexture()
+	{
+		m_deviceState.pfnSetTexture(m_stage, m_prevTexture);
+
+		D3DDDIARG_TEXTURESTAGESTATE data = {};
+		data.Stage = m_stage;
+		if (m_prevDisableTextureColorKey)
+		{
+			data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
+			data.Value = TRUE;
+		}
+		else
+		{
+			data.State = D3DDDITSS_TEXTURECOLORKEYVAL;
+			data.Value = m_prevTextureColorKeyVal;
+		}
+		m_deviceState.m_device.getOrigVtable().pfnSetTextureStageState(m_deviceState.m_device, &data);
+	}
+
+	DeviceState::ScopedTextureStageState::ScopedTextureStageState(
+		DeviceState& deviceState, const D3DDDIARG_TEXTURESTAGESTATE& data)
+		: m_deviceState(deviceState)
+		, m_prevData{ data.Stage, data.State, deviceState.m_textureStageState[data.Stage][data.State] }
+	{
+		m_deviceState.m_device.getOrigVtable().pfnSetTextureStageState(m_deviceState.m_device, &data);
+	}
+
+	DeviceState::ScopedTextureStageState::~ScopedTextureStageState()
+	{
+		m_deviceState.m_device.getOrigVtable().pfnSetTextureStageState(m_deviceState.m_device, &m_prevData);
 	}
 }

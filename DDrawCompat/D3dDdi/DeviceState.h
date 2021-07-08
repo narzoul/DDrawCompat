@@ -1,5 +1,8 @@
 #pragma once
 
+#include <d3dtypes.h>
+#include <d3dumddi.h>
+
 #include <array>
 #include <map>
 #include <vector>
@@ -7,6 +10,7 @@
 const UINT D3DTEXF_NONE = 0;
 const UINT D3DTEXF_POINT = 1;
 const UINT D3DTEXF_LINEAR = 2;
+const UINT D3DTEXF_ANISOTROPIC = 3;
 
 namespace D3dDdi
 {
@@ -247,17 +251,8 @@ namespace D3dDdi
 		class ScopedTextureStageState
 		{
 		public:
-			ScopedTextureStageState(DeviceState& deviceState, const D3DDDIARG_TEXTURESTAGESTATE& data)
-				: m_deviceState(deviceState)
-				, m_prevData{ data.Stage, data.State, deviceState.m_textureStageState[data.Stage][data.State] }
-			{
-				m_deviceState.pfnSetTextureStageState(&data);
-			}
-
-			~ScopedTextureStageState()
-			{
-				m_deviceState.pfnSetTextureStageState(&m_prevData);
-			}
+			ScopedTextureStageState(DeviceState& deviceState, const D3DDDIARG_TEXTURESTAGESTATE& data);
+			~ScopedTextureStageState();
 
 		private:
 			DeviceState& m_deviceState;
@@ -267,47 +262,8 @@ namespace D3dDdi
 		class ScopedTexture
 		{
 		public:
-			ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter)
-				: m_deviceState(deviceState)
-				, m_stage(stage)
-				, m_prevTexture(deviceState.m_textures[stage])
-				, m_scopedAddressU(deviceState, { stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP })
-				, m_scopedAddressV(deviceState, { stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP })
-				, m_scopedMagFilter(deviceState, { stage, D3DDDITSS_MAGFILTER, filter })
-				, m_scopedMinFilter(deviceState, { stage, D3DDDITSS_MINFILTER, filter })
-				, m_scopedMipFilter(deviceState, { stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE })
-				, m_scopedSrgbTexture(deviceState, { stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter })
-				, m_scopedWrap(deviceState, { static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 })
-				, m_prevTextureColorKeyVal(deviceState.m_textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
-				, m_prevDisableTextureColorKey(deviceState.m_textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
-			{
-				m_deviceState.pfnSetTexture(stage, texture);
-
-				D3DDDIARG_TEXTURESTAGESTATE data = {};
-				data.Stage = stage;
-				data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
-				data.Value = TRUE;
-				m_deviceState.pfnSetTextureStageState(&data);
-			}
-
-			~ScopedTexture()
-			{
-				m_deviceState.pfnSetTexture(m_stage, m_prevTexture);
-
-				D3DDDIARG_TEXTURESTAGESTATE data = {};
-				data.Stage = m_stage;
-				if (m_prevDisableTextureColorKey)
-				{
-					data.State = D3DDDITSS_DISABLETEXTURECOLORKEY;
-					data.Value = TRUE;
-				}
-				else
-				{
-					data.State = D3DDDITSS_TEXTURECOLORKEYVAL;
-					data.Value = m_prevTextureColorKeyVal;
-				}
-				m_deviceState.pfnSetTextureStageState(&data);
-			}
+			ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter);
+			~ScopedTexture();
 
 		private:
 			DeviceState& m_deviceState;

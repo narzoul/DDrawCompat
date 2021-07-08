@@ -6,6 +6,7 @@
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/SupportedResolutions.h>
+#include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
 
 namespace Config
@@ -20,5 +21,6 @@ namespace Config
 	extern Settings::DisplayFilter displayFilter;
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::SupportedResolutions supportedResolutions;
+	extern Settings::TextureFilter textureFilter;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
 }
