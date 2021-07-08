@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include <Common/Log.h>
+#include <Config/Config.h>
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
@@ -618,6 +619,7 @@ namespace D3dDdi
 		auto vertices = m_batched.vertices.data();
 		if (!m_isHwVertexProcessingUsed)
 		{
+			const float pixelOffset = Config::alternatePixelCenter.get();
 			UINT offset = 0;
 			for (UINT i = 0; i < count; ++i)
 			{
@@ -626,6 +628,8 @@ namespace D3dDdi
 				{
 					v->rhw = 1;
 				}
+				v->sx += pixelOffset;
+				v->sy += pixelOffset;
 				offset += m_streamSource.stride;
 			}
 		}

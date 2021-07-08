@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
@@ -13,6 +14,7 @@ namespace Config
 	const unsigned evictionTimeout = 200;
 	const unsigned maxPaletteUpdatesPerMs = 5;
 
+	extern Settings::AlternatePixelCenter alternatePixelCenter;
 	extern Settings::CpuAffinity cpuAffinity;
 	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayFilter displayFilter;

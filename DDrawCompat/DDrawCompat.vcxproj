@@ -213,6 +213,7 @@
     <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
+    <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
