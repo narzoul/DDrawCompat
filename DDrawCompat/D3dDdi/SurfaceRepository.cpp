@@ -29,7 +29,7 @@ namespace D3dDdi
 	}
 
 	CompatWeakPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
-		DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
+		DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
 		auto dd(m_adapter.getRepository());
 		if (!dd)
@@ -47,8 +47,16 @@ namespace D3dDdi
 		desc.dwHeight = height;
 		desc.ddpfPixelFormat = pf;
 		desc.ddsCaps.dwCaps = caps;
+		if (surfaceCount > 1)
+		{
+			desc.dwFlags |= DDSD_BACKBUFFERCOUNT;
+			desc.ddsCaps.dwCaps |= DDSCAPS_COMPLEX | DDSCAPS_FLIP;
+			desc.dwBackBufferCount = surfaceCount - 1;
+		}
 
+		s_inCreateSurface = true;
 		HRESULT result = dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		s_inCreateSurface = false;
 		if (FAILED(result))
 		{
 			LOG_ONCE("ERROR: Failed to create repository surface: " << Compat::hex(result) << " " << desc);
@@ -72,7 +80,7 @@ namespace D3dDdi
 	{
 		DWORD width = rect.right - rect.left;
 		DWORD height = rect.bottom - rect.top;
-		auto resource = getResource(surface, width, height, pf, caps);
+		auto resource = getSurface(surface, width, height, pf, caps).resource;
 		if (!resource)
 		{
 			return nullptr;
@@ -140,8 +148,8 @@ namespace D3dDdi
 			}
 			DeleteObject(iconInfo.hbmMask);
 
-			m_cursorMaskTexture.resource->prepareForRendering(0, true);
-			m_cursorColorTexture.resource->prepareForRendering(0, true);
+			m_cursorMaskTexture.resource->prepareForBlt(0, true);
+			m_cursorColorTexture.resource->prepareForBlt(0, true);
 
 			m_cursorSize.cx = rect.right - rect.left;
 			m_cursorSize.cy = rect.bottom - rect.top;
@@ -155,8 +163,8 @@ namespace D3dDdi
 		result.hotspot = m_cursorHotspot;
 		result.maskTexture = m_cursorMaskTexture.resource;
 		result.colorTexture = m_cursorColorTexture.resource;
-		result.tempTexture = getResource(m_cursorTempTexture, m_cursorSize.cx, m_cursorSize.cy,
-			DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		result.tempTexture = getSurface(m_cursorTempTexture, m_cursorSize.cx, m_cursorSize.cy,
+			DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 		return result;
 	}
 
@@ -180,7 +188,7 @@ namespace D3dDdi
 	Resource* SurfaceRepository::getInitializedResource(Surface& surface, DWORD width, DWORD height,
 		const DDPIXELFORMAT& pf, DWORD caps, std::function<void(const DDSURFACEDESC2&)> initFunc)
 	{
-		if (!isLost(surface) || !getResource(surface, width, height, pf, caps))
+		if (!isLost(surface) || !getSurface(surface, width, height, pf, caps).resource)
 		{
 			return surface.resource;
 		}
@@ -195,14 +203,14 @@ namespace D3dDdi
 
 		initFunc(desc);
 		surface.surface->Unlock(surface.surface, nullptr);
-		surface.resource->prepareForRendering(0, true);
+		surface.resource->prepareForBlt(0, true);
 		return surface.resource;
 	}
 
 	Resource* SurfaceRepository::getPaletteTexture()
 	{
-		return getResource(m_paletteTexture, 256, 1, DDraw::DirectDraw::getRgbPixelFormat(32),
-			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		return getSurface(m_paletteTexture, 256, 1, DDraw::DirectDraw::getRgbPixelFormat(32),
+			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 	}
 
 	const SurfaceRepository::Surface& SurfaceRepository::getRenderTarget(DWORD width, DWORD height)
@@ -211,13 +219,8 @@ namespace D3dDdi
 			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
-	Resource* SurfaceRepository::getResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps)
-	{
-		return getSurface(surface, width, height, pf, caps).resource;
-	}
-
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
-		const DDPIXELFORMAT& pf, DWORD caps)
+		const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
 		if (surface.surface && (surface.width != width || surface.height != height ||
 			0 != memcmp(&surface.pixelFormat, &pf, sizeof(pf)) || isLost(surface)))
@@ -227,7 +230,7 @@ namespace D3dDdi
 
 		if (!surface.surface)
 		{
-			surface.surface = createSurface(width, height, pf, caps);
+			surface.surface = createSurface(width, height, pf, caps, surfaceCount);
 			if (surface.surface)
 			{
 				surface.resource = D3dDdi::Device::findResource(
@@ -254,4 +257,6 @@ namespace D3dDdi
 			surface = {};
 		}
 	}
+
+	bool SurfaceRepository::s_inCreateSurface = false;
 }

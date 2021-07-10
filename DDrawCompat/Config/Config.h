@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Config/Settings/AlternatePixelCenter.h>
+#include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
@@ -16,6 +17,7 @@ namespace Config
 	const unsigned maxPaletteUpdatesPerMs = 5;
 
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
+	extern Settings::Antialiasing antialiasing;
 	extern Settings::CpuAffinity cpuAffinity;
 	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayFilter displayFilter;

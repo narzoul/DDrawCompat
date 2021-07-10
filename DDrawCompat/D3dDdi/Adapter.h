@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 
 #include <d3d.h>
 #include <d3dnthal.h>
@@ -14,6 +15,13 @@ namespace D3dDdi
 	class Adapter
 	{
 	public:
+		struct AdapterInfo
+		{
+			D3DNTHAL_D3DEXTENDEDCAPS d3dExtendedCaps;
+			std::map<D3DDDIFORMAT, FORMATOP> formatOps;
+			DWORD supportedZBufferBitDepths;
+		};
+
 		Adapter(const D3DDDIARG_OPENADAPTER& data);
 		Adapter(const Adapter&) = delete;
 		Adapter(Adapter&&) = delete;
@@ -22,9 +30,9 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_adapter; }
 
-		const D3DNTHAL_D3DEXTENDEDCAPS& getD3dExtendedCaps() const { return m_d3dExtendedCaps; }
-		const DDRAW_CAPS& getDDrawCaps() const { return m_ddrawCaps; }
+		const AdapterInfo& getInfo() const;
 		LUID getLuid() const { return m_luid; }
+		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository.repo; }
 		bool isSrcColorKeySupported() const { return m_repository.isSrcColorKeySupported; }
@@ -38,7 +46,12 @@ namespace D3dDdi
 		static void setRepository(LUID luid, const DDraw::DirectDraw::Repository& repository);
 
 	private:
-		DWORD getSupportedZBufferBitDepths();
+		template <typename Data>
+		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
+
+		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
+		std::string getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
+		DWORD getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 
 		HANDLE m_adapter;
 		D3DDDI_ADAPTERFUNCS m_origVtable;
@@ -47,9 +60,7 @@ namespace D3dDdi
 		LUID m_luid;
 		DDraw::DirectDraw::Repository m_repository;
 
-		D3DNTHAL_D3DEXTENDEDCAPS m_d3dExtendedCaps;
-		DDRAW_CAPS m_ddrawCaps;
-
 		static std::map<HANDLE, Adapter> s_adapters;
+		static std::map<LUID, AdapterInfo> s_adapterInfos;
 	};
 }

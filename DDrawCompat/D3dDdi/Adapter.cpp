@@ -1,5 +1,9 @@
+#include <map>
+#include <sstream>
+
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
+#include <Config/Config.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/AdapterFuncs.h>
 #include <D3dDdi/Device.h>
@@ -34,61 +38,124 @@ namespace D3dDdi
 		, m_driverVersion(data.DriverVersion)
 		, m_luid(KernelModeThunks::getLastOpenAdapterInfo().luid)
 		, m_repository{}
-		, m_d3dExtendedCaps{}
-		, m_ddrawCaps{}
 	{
-		if (m_adapter)
-		{
-			D3DDDIARG_GETCAPS getCaps = {};
-			getCaps.Type = D3DDDICAPS_GETD3D7CAPS;
-			getCaps.pData = &m_d3dExtendedCaps;
-			getCaps.DataSize = sizeof(m_d3dExtendedCaps);
-			m_origVtable.pfnGetCaps(m_adapter, &getCaps);
-
-			getCaps.Type = D3DDDICAPS_DDRAW;
-			getCaps.pData = &m_ddrawCaps;
-			getCaps.DataSize = sizeof(m_ddrawCaps);
-			m_origVtable.pfnGetCaps(m_adapter, &getCaps);
-		}
 	}
 
-	DWORD Adapter::getSupportedZBufferBitDepths()
+	const Adapter::AdapterInfo& Adapter::getInfo() const
 	{
-		UINT formatCount = 0;
-		D3DDDIARG_GETCAPS caps = {};
-		caps.Type = D3DDDICAPS_GETFORMATCOUNT;
-		caps.pData = &formatCount;
-		caps.DataSize = sizeof(formatCount);
-		m_origVtable.pfnGetCaps(m_adapter, &caps);
-
-		std::vector<FORMATOP> formatOp(formatCount);
-		caps.Type = D3DDDICAPS_GETFORMATDATA;
-		caps.pData = formatOp.data();
-		caps.DataSize = formatCount * sizeof(FORMATOP);
-		m_origVtable.pfnGetCaps(m_adapter, &caps);
-
-		DWORD supportedZBufferBitDepths = 0;
-		for (UINT i = 0; i < formatCount; ++i)
+		auto it = s_adapterInfos.find(m_luid);
+		if (it != s_adapterInfos.end())
 		{
-			if (formatOp[i].Operations & (FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH))
-			{
-				switch (formatOp[i].Format)
-				{
-				case D3DDDIFMT_D16:
-					supportedZBufferBitDepths |= DDBD_16;
-					break;
-
-				case D3DDDIFMT_X8D24:
-					supportedZBufferBitDepths |= DDBD_24;
-					break;
-
-				case D3DDDIFMT_D32:
-					supportedZBufferBitDepths |= DDBD_32;
-					break;
-				}
-			}
+			return it->second;
 		}
 
+		AdapterInfo& info = s_adapterInfos.insert({ m_luid, {} }).first->second;
+		getCaps(D3DDDICAPS_GETD3D7CAPS, info.d3dExtendedCaps);
+		info.formatOps = getFormatOps();
+		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.formatOps);
+
+		Compat::Log() << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
+		Compat::Log() << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
+
+		return info;
+	}
+
+	template <typename Data>
+	HRESULT Adapter::getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size) const
+	{
+		D3DDDIARG_GETCAPS caps = {};
+		caps.Type = type;
+		caps.pData = &data;
+		caps.DataSize = size;
+		return m_origVtable.pfnGetCaps(m_adapter, &caps);
+	}
+
+	std::map<D3DDDIFORMAT, FORMATOP> Adapter::getFormatOps() const
+	{
+		UINT formatCount = 0;
+		getCaps(D3DDDICAPS_GETFORMATCOUNT, formatCount);
+
+		std::vector<FORMATOP> formatOps(formatCount);
+		getCaps(D3DDDICAPS_GETFORMATDATA, formatOps[0], formatCount * sizeof(FORMATOP));
+
+		std::map<D3DDDIFORMAT, FORMATOP> result;
+		for (UINT i = 0; i < formatCount; ++i)
+		{
+			result[formatOps[i].Format] = formatOps[i];
+		}
+		return result;
+	}
+
+	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Adapter::getMultisampleConfig(D3DDDIFORMAT format) const
+	{
+		UINT samples = Config::antialiasing.get();
+		if (D3DDDIMULTISAMPLE_NONE == samples)
+		{
+			return { D3DDDIMULTISAMPLE_NONE, 0 };
+		}
+
+		const auto& info(getInfo());
+		auto it = info.formatOps.find(format);
+		if (it == info.formatOps.end() || 0 == it->second.BltMsTypes)
+		{
+			return { D3DDDIMULTISAMPLE_NONE, 0 };
+		}
+
+		while (samples > D3DDDIMULTISAMPLE_NONMASKABLE && !(it->second.BltMsTypes & (1 << (samples - 1))))
+		{
+			--samples;
+		}
+
+		DDIMULTISAMPLEQUALITYLEVELSDATA levels = {};
+		levels.Format = D3DDDIFMT_X8R8G8B8;
+		levels.MsType = static_cast<D3DDDIMULTISAMPLE_TYPE>(samples);
+		getCaps(D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS, levels);
+		return { levels.MsType, min(Config::antialiasing.getParam(), levels.QualityLevels - 1) };
+	}
+
+	std::string Adapter::getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const
+	{
+		auto it = formatOps.find(D3DDDIFMT_X8R8G8B8);
+		if (it != formatOps.end() && 0 != it->second.BltMsTypes)
+		{
+			DDIMULTISAMPLEQUALITYLEVELSDATA levels = {};
+			levels.Format = D3DDDIFMT_X8R8G8B8;
+			levels.MsType = D3DDDIMULTISAMPLE_NONMASKABLE;
+			getCaps(D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS, levels);
+
+			std::ostringstream oss;
+			oss << "msaa(" << levels.QualityLevels - 1 << ')';
+
+			for (UINT i = D3DDDIMULTISAMPLE_2_SAMPLES; i <= D3DDDIMULTISAMPLE_16_SAMPLES; ++i)
+			{
+				if (it->second.BltMsTypes & (1 << (i - 1)))
+				{
+					levels.MsType = static_cast<D3DDDIMULTISAMPLE_TYPE>(i);
+					levels.QualityLevels = 0;
+					getCaps(D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS, levels);
+					oss << ", msaa" << i << "x(" << levels.QualityLevels - 1 << ')';
+				}
+			}
+			return oss.str();
+		}
+		return "none";
+	}
+
+	DWORD Adapter::getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const
+	{
+		DWORD supportedZBufferBitDepths = 0;
+		if (formatOps.find(D3DDDIFMT_D16) != formatOps.end())
+		{
+			supportedZBufferBitDepths |= DDBD_16;
+		}
+		if (formatOps.find(D3DDDIFMT_X8D24) != formatOps.end())
+		{
+			supportedZBufferBitDepths |= DDBD_24;
+		}
+		if (formatOps.find(D3DDDIFMT_D32) != formatOps.end())
+		{
+			supportedZBufferBitDepths |= DDBD_32;
+		}
 		return supportedZBufferBitDepths;
 	}
 
@@ -132,14 +199,7 @@ namespace D3dDdi
 			auto& caps = static_cast<D3DNTHAL_GLOBALDRIVERDATA*>(pData->pData)->hwCaps;
 			if (caps.dwFlags & D3DDD_DEVICEZBUFFERBITDEPTH)
 			{
-				const DWORD supportedZBufferBitDepths = getSupportedZBufferBitDepths();
-				if (supportedZBufferBitDepths != caps.dwDeviceZBufferBitDepth)
-				{
-					LOG_ONCE("Incorrect z-buffer bit depth capabilities detected; changed from "
-						<< bitDepthsToString(caps.dwDeviceZBufferBitDepth) << " to "
-						<< bitDepthsToString(supportedZBufferBitDepths));
-					caps.dwDeviceZBufferBitDepth = supportedZBufferBitDepths;
-				}
+				caps.dwDeviceZBufferBitDepth = getInfo().supportedZBufferBitDepths;
 			}
 			break;
 		}
@@ -160,4 +220,5 @@ namespace D3dDdi
 	}
 
 	std::map<HANDLE, Adapter> Adapter::s_adapters;
+	std::map<LUID, Adapter::AdapterInfo> Adapter::s_adapterInfos;
 }

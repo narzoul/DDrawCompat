@@ -187,18 +187,9 @@ namespace D3dDdi
 		class ScopedRenderState
 		{
 		public:
-			ScopedRenderState(DeviceState& deviceState, const D3DDDIARG_RENDERSTATE& data)
-				: m_deviceState(deviceState)
-				, m_prevData{ data.State, deviceState.m_renderState[data.State] }
-			{
-				m_deviceState.pfnSetRenderState(&data);
-			}
-
-			~ScopedRenderState()
-			{
-				m_deviceState.pfnSetRenderState(&m_prevData);
-			}
-
+			ScopedRenderState(DeviceState& deviceState, const D3DDDIARG_RENDERSTATE& data);
+			~ScopedRenderState();
+				
 		private:
 			DeviceState& m_deviceState;
 			D3DDDIARG_RENDERSTATE m_prevData;

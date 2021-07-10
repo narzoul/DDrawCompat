@@ -4,6 +4,7 @@
 #include <D3dDdi/DeviceState.h>
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
+#include <D3dDdi/Resource.h>
 
 namespace D3dDdi
 {
@@ -191,7 +192,25 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL* data)
 	{
-		return setState(data, m_depthStencil, m_device.getOrigVtable().pfnSetDepthStencil);
+		if (0 == memcmp(data, &m_depthStencil, sizeof(m_depthStencil)))
+		{
+			return S_OK;
+		}
+
+		D3DDDIARG_SETDEPTHSTENCIL d = *data;
+		Resource* resource = m_device.getResource(d.hZBuffer);
+		if (resource && resource->getCustomResource())
+		{
+			d.hZBuffer = *resource->getCustomResource();
+		}
+
+		m_device.flushPrimitives();
+		HRESULT result = m_device.getOrigVtable().pfnSetDepthStencil(m_device, &d);
+		if (SUCCEEDED(result))
+		{
+			m_depthStencil = *data;
+		}
+		return result;
 	}
 
 	HRESULT DeviceState::pfnSetPixelShader(HANDLE shader)
@@ -216,6 +235,10 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetRenderState(const D3DDDIARG_RENDERSTATE* data)
 	{
+		if (D3DDDIRS_MULTISAMPLEANTIALIAS == data->State)
+		{
+			return S_OK;
+		}
 		if (data->State >= D3DDDIRS_WRAP0 && data->State <= D3DDDIRS_WRAP7)
 		{
 			auto d = *data;
@@ -227,9 +250,23 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetRenderTarget(const D3DDDIARG_SETRENDERTARGET* data)
 	{
-		HRESULT result = setState(data, m_renderTarget, m_device.getOrigVtable().pfnSetRenderTarget);
+		if (0 == memcmp(data, &m_renderTarget, sizeof(m_renderTarget)))
+		{
+			return S_OK;
+		}
+
+		D3DDDIARG_SETRENDERTARGET d = *data;
+		Resource* resource = m_device.getResource(d.hRenderTarget);
+		if (resource && resource->getCustomResource())
+		{
+			d.hRenderTarget = *resource->getCustomResource();
+		}
+
+		m_device.flushPrimitives();
+		HRESULT result = m_device.getOrigVtable().pfnSetRenderTarget(m_device, &d);
 		if (SUCCEEDED(result))
 		{
+			m_renderTarget = *data;
 			m_device.setRenderTarget(*data);
 		}
 		return result;
@@ -480,6 +517,18 @@ namespace D3dDdi
 			currentState[data->State] = data->Value;
 		}
 		return result;
+	}
+
+	DeviceState::ScopedRenderState::ScopedRenderState(DeviceState& deviceState, const D3DDDIARG_RENDERSTATE& data)
+		: m_deviceState(deviceState)
+		, m_prevData{ data.State, deviceState.m_renderState[data.State] }
+	{
+		m_deviceState.m_device.getOrigVtable().pfnSetRenderState(m_deviceState.m_device, &data);
+	}
+
+	DeviceState::ScopedRenderState::~ScopedRenderState()
+	{
+		m_deviceState.m_device.getOrigVtable().pfnSetRenderState(m_deviceState.m_device, &m_prevData);
 	}
 
 	DeviceState::ScopedTexture::ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter)

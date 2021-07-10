@@ -52,7 +52,7 @@ namespace
 		desc.ddpfPixelFormat.dwRBitMask = 0x00FF0000;
 		desc.ddpfPixelFormat.dwGBitMask = 0x0000FF00;
 		desc.ddpfPixelFormat.dwBBitMask = 0x000000FF;
-		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE;
+		desc.ddsCaps.dwCaps = DDSCAPS_3DDEVICE | DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
 		CompatPtr<IDirectDrawSurface7> renderTarget;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &renderTarget.getRef(), nullptr);

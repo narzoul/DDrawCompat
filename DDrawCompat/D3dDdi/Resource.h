@@ -7,6 +7,7 @@
 #include <d3dumddi.h>
 
 #include <D3dDdi/FormatInfo.h>
+#include <D3dDdi/SurfaceRepository.h>
 
 namespace D3dDdi
 {
@@ -24,15 +25,17 @@ namespace D3dDdi
 		~Resource();
 
 		operator HANDLE() const { return m_handle; }
-		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
+		const Resource* getCustomResource() { return m_customSurface.resource; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
+		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
+		void prepareForBlt(UINT subResourceIndex, bool isReadOnly);
 		void prepareForGdiRendering(bool isReadOnly);
-		void prepareForRendering(UINT subResourceIndex, bool isReadOnly);
+		void prepareForRendering(UINT subResourceIndex);
 		void setAsGdiResource(bool isGdiResource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 
@@ -58,6 +61,7 @@ namespace D3dDdi
 			long long qpcLastForcedLock;
 			bool isSysMemUpToDate;
 			bool isVidMemUpToDate;
+			bool isCustomUpToDate;
 		};
 
 		class ResourceDeleter
@@ -80,8 +84,10 @@ namespace D3dDdi
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		void fixResourceData();
+		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
 		bool isOversized() const;
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
+		void notifyLock(UINT subResourceIndex);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
@@ -99,5 +105,6 @@ namespace D3dDdi
 		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
 		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, ResourceDeleter> m_lockResource;
+		SurfaceRepository::Surface m_customSurface;
 	};
 }

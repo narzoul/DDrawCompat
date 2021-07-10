@@ -214,6 +214,7 @@
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
+    <ClInclude Include="Config\Settings\Antialiasing.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
@@ -322,6 +323,7 @@
     <ClCompile Include="Config\ListSetting.cpp" />
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
+    <ClCompile Include="Config\Settings\Antialiasing.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="Config\Settings\DisplayFilter.cpp" />
     <ClCompile Include="Config\Settings\DisplayResolution.cpp" />

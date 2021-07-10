@@ -85,12 +85,21 @@ namespace D3dDdi
 		return it != m_resources.end() ? it->second.get() : nullptr;
 	}
 
-	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
+	void Device::prepareForBlt(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
 	{
 		auto it = m_resources.find(resource);
 		if (it != m_resources.end())
 		{
-			it->second->prepareForRendering(subResourceIndex, isReadOnly);
+			it->second->prepareForBlt(subResourceIndex, isReadOnly);
+		}
+	}
+
+	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex)
+	{
+		auto it = m_resources.find(resource);
+		if (it != m_resources.end())
+		{
+			it->second->prepareForRendering(subResourceIndex);
 		}
 	}
 
@@ -98,7 +107,7 @@ namespace D3dDdi
 	{
 		if (m_renderTarget)
 		{
-			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex, false);
+			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex);
 		}
 	}
 
@@ -142,7 +151,7 @@ namespace D3dDdi
 		{
 			return it->second->blt(*data);
 		}
-		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
+		prepareForBlt(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnBlt(m_device, data);
 	}
 
@@ -301,7 +310,7 @@ namespace D3dDdi
 	HRESULT Device::pfnPresent(const D3DDDIARG_PRESENT* data)
 	{
 		flushPrimitives();
-		prepareForRendering(data->hSrcResource, data->SrcSubResourceIndex, true);
+		prepareForBlt(data->hSrcResource, data->SrcSubResourceIndex, true);
 		return m_origVtable.pfnPresent(m_device, data);
 	}
 
@@ -310,7 +319,7 @@ namespace D3dDdi
 		flushPrimitives();
 		for (UINT i = 0; i < data->SrcResources; ++i)
 		{
-			prepareForRendering(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
+			prepareForBlt(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
 		}
 		return m_origVtable.pfnPresent1(m_device, data);
 	}
