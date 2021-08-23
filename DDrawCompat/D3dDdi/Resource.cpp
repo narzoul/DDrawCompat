@@ -24,8 +24,7 @@ namespace
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 	RECT g_presentationRect = {};
-	UINT g_presentationFilter = Config::Settings::DisplayFilter::POINT;
-	UINT g_presentationFilterParam = 0;
+	RECT g_primaryRect = {};
 	D3DDDIFORMAT g_formatOverride = D3DDDIFMT_UNKNOWN;
 
 	RECT calculatePresentationRect()
@@ -108,6 +107,8 @@ namespace D3dDdi
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device))
 		, m_customSurface{}
+		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
+		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -120,33 +121,14 @@ namespace D3dDdi
 		{
 			g_presentationRect = calculatePresentationRect();
 			auto& si = m_origData.pSurfList[0];
-			RECT rect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+			g_primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
 
 			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
-			if (!EqualRect(&g_presentationRect, &rect))
+			if (!EqualRect(&g_presentationRect, &g_primaryRect))
 			{
 				Gdi::Cursor::setEmulated(true);
 			}
 			Gdi::VirtualScreen::setFullscreenMode(true);
-
-			if (g_presentationRect.right - g_presentationRect.left != rect.right ||
-				g_presentationRect.bottom - g_presentationRect.top != rect.bottom)
-			{
-				g_presentationFilter = Config::displayFilter.get();
-				g_presentationFilterParam = Config::displayFilter.getParam();
-
-				if (Config::Settings::DisplayFilter::BILINEAR == g_presentationFilter &&
-					0 == g_presentationFilterParam &&
-					0 == (g_presentationRect.right - g_presentationRect.left) % rect.right &&
-					0 == (g_presentationRect.bottom - g_presentationRect.top) % rect.bottom)
-				{
-					g_presentationFilter = Config::Settings::DisplayFilter::POINT;
-				}
-			}
-			else
-			{
-				g_presentationFilter = Config::Settings::DisplayFilter::POINT;
-			}
 		}
 
 		fixResourceData();
@@ -159,34 +141,7 @@ namespace D3dDdi
 		}
 		m_handle = m_fixedData.hResource;
 
-		if (!SurfaceRepository::inCreateSurface())
-		{
-			const auto msaa = getMultisampleConfig();
-			if (D3DDDIMULTISAMPLE_NONE != msaa.first)
-			{
-				g_formatOverride = m_fixedData.Format;
-				if (m_fixedData.Flags.ZBuffer)
-				{
-					DDPIXELFORMAT pf = {};
-					pf.dwSize = sizeof(pf);
-					pf.dwFlags = DDPF_ZBUFFER;
-					pf.dwZBufferBitDepth = 16;
-					pf.dwZBitMask = 0xFFFF;
-
-					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_customSurface,
-						m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height, pf,
-						DDSCAPS_ZBUFFER | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
-				}
-				else
-				{
-					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_customSurface,
-						m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height,
-						DDraw::DirectDraw::getRgbPixelFormat(32),
-						DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
-				}
-				g_formatOverride = D3DDDIFMT_UNKNOWN;
-			}
-		}
+		updateConfig();
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
 			0 != m_formatInfo.bytesPerPixel)
@@ -675,8 +630,20 @@ namespace D3dDdi
 		const RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
 		const bool isLayeredPresentNeeded = Gdi::Window::presentLayered(nullptr, monitorRect);
 
+		UINT presentationFilter = Config::displayFilter.get();
+		UINT presentationFilterParam = Config::displayFilter.getParam();
+		if (Config::Settings::DisplayFilter::BILINEAR == presentationFilter &&
+			(g_presentationRect.right - g_presentationRect.left == g_primaryRect.right &&
+				g_presentationRect.bottom - g_presentationRect.top == g_primaryRect.bottom) ||
+			(0 == presentationFilterParam &&
+				0 == (g_presentationRect.right - g_presentationRect.left) % g_primaryRect.right &&
+				0 == (g_presentationRect.bottom - g_presentationRect.top) % g_primaryRect.bottom))
+		{
+			presentationFilter = Config::Settings::DisplayFilter::POINT;
+		}
+
 		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded ||
-			Config::Settings::DisplayFilter::POINT != g_presentationFilter)
+			Config::Settings::DisplayFilter::POINT != presentationFilter)
 		{
 			const auto& si = srcResource->m_fixedData.pSurfList[0];
 			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
@@ -719,10 +686,10 @@ namespace D3dDdi
 				m_device.getShaderBlitter().cursorBlt(*dst.resource, 0, cursorInfo.hCursor, pos);
 			}
 
-			if (Config::Settings::DisplayFilter::BILINEAR == g_presentationFilter)
+			if (Config::Settings::DisplayFilter::BILINEAR == presentationFilter)
 			{
 				m_device.getShaderBlitter().genBilinearBlt(*this, data.DstSubResourceIndex, g_presentationRect,
-					*dst.resource, data.SrcRect, g_presentationFilterParam);
+					*dst.resource, data.SrcRect, presentationFilterParam);
 				return S_OK;
 			}
 
@@ -947,5 +914,60 @@ namespace D3dDdi
 		}
 
 		return m_device.getOrigVtable().pfnUnlock(m_device, &data);
+	}
+
+	void Resource::updateConfig()
+	{
+		if (m_isSurfaceRepoResource)
+		{
+			return;
+		}
+
+		const auto msaa = getMultisampleConfig();
+		if (m_multiSampleConfig == msaa)
+		{
+			return;
+		}
+		m_multiSampleConfig = msaa;
+
+		if (m_customSurface.resource && m_fixedData.Flags.RenderTarget)
+		{
+			for (UINT i = 0; i < m_lockData.size(); ++i)
+			{
+				if (m_lockData[i].isCustomUpToDate && !m_lockData[i].isVidMemUpToDate)
+				{
+					copyToVidMem(i);
+				}
+				m_lockData[i].isCustomUpToDate = false;
+			}
+		}
+
+		auto& surfaceRepo(SurfaceRepository::get(m_device.getAdapter()));
+		surfaceRepo.release(m_customSurface);
+
+		if (D3DDDIMULTISAMPLE_NONE != msaa.first)
+		{
+			g_formatOverride = m_fixedData.Format;
+			if (m_fixedData.Flags.ZBuffer)
+			{
+				DDPIXELFORMAT pf = {};
+				pf.dwSize = sizeof(pf);
+				pf.dwFlags = DDPF_ZBUFFER;
+				pf.dwZBufferBitDepth = 16;
+				pf.dwZBitMask = 0xFFFF;
+
+				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_customSurface,
+					m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height, pf,
+					DDSCAPS_ZBUFFER | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+			}
+			else
+			{
+				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_customSurface,
+					m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height,
+					DDraw::DirectDraw::getRgbPixelFormat(32),
+					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+			}
+			g_formatOverride = D3DDDIFMT_UNKNOWN;
+		}
 	}
 }

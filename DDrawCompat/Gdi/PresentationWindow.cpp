@@ -4,6 +4,7 @@
 #include <Dll/Dll.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/WinProc.h>
+#include <Overlay/ConfigWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -14,6 +15,7 @@ namespace
 
 	HANDLE g_presentationWindowThread = nullptr;
 	unsigned g_presentationWindowThreadId = 0;
+	Overlay::ConfigWindow* g_configWindow = nullptr;
 	HWND g_messageWindow = nullptr;
 	bool g_isThreadReady = false;
 
@@ -65,6 +67,10 @@ namespace
 
 			if (presentationWindow)
 			{
+				if (lParam)
+				{
+					CALL_ORIG_FUNC(SetWindowLongA)(presentationWindow, GWL_WNDPROC, lParam);
+				}
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
 			}
 
@@ -131,6 +137,9 @@ namespace
 
 		Compat::closeDbgEng();
 
+		Overlay::ConfigWindow configWindow;
+		g_configWindow = &configWindow;
+
 		MSG msg = {};
 		while (GetMessage(&msg, nullptr, 0, 0))
 		{
@@ -153,15 +162,20 @@ namespace Gdi
 {
 	namespace PresentationWindow
 	{
-		HWND create(HWND owner)
+		HWND create(HWND owner, WNDPROC wndProc)
 		{
-			return reinterpret_cast<HWND>(sendMessageBlocking(
-				g_messageWindow, WM_CREATEPRESENTATIONWINDOW, reinterpret_cast<WPARAM>(owner), 0));
+			return reinterpret_cast<HWND>(sendMessageBlocking(g_messageWindow, WM_CREATEPRESENTATIONWINDOW,
+				reinterpret_cast<WPARAM>(owner), reinterpret_cast<LPARAM>(wndProc)));
 		}
 
 		void destroy(HWND hwnd)
 		{
 			PostMessage(hwnd, WM_CLOSE, 0, 0);
+		}
+
+		Overlay::ConfigWindow* getConfigWindow()
+		{
+			return g_configWindow;
 		}
 
 		void installHooks()

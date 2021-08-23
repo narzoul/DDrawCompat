@@ -12,6 +12,7 @@
 #include <D3dDdi/DeviceFuncs.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/ScopedThreadLock.h>
 
 namespace
 {
@@ -333,6 +334,25 @@ namespace D3dDdi
 			return it->second->unlock(*data);
 		}
 		return m_origVtable.pfnUnlock(m_device, data);
+	}
+
+	void Device::updateAllConfig()
+	{
+		DDraw::ScopedThreadLock ddLock;
+		D3dDdi::ScopedCriticalSection lock;
+		for (auto& device : s_devices)
+		{
+			device.second.updateConfig();
+		}
+	}
+
+	void Device::updateConfig()
+	{
+		for (auto& resource : m_resources)
+		{
+			resource.second->updateConfig();
+		}
+		m_state.updateConfig();
 	}
 
 	std::map<HANDLE, Device> Device::s_devices;

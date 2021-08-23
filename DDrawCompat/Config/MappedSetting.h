@@ -1,6 +1,7 @@
 #pragma once
 
-#include <map>
+#include <algorithm>
+#include <vector>
 
 #include <Config/Parser.h>
 #include <Config/Setting.h>
@@ -13,17 +14,23 @@ namespace Config
 	public:
 		Value get() const { return m_value; }
 
-	protected:
-		MappedSetting(const std::string& name, const std::string& default, const std::map<std::string, Value>& valueMapping)
-			: Setting(name, default)
-			, m_value{}
-			, m_valueMapping(valueMapping)
+		virtual std::vector<std::string> getDefaultValueStrings() override
 		{
-		}
+			if (m_defaultValueStrings.empty())
+			{
+				auto prevValue = m_value;
+				auto prevParam = m_param;
+				for (const auto& pair : m_valueMapping)
+				{
+					m_value = pair.second;
+					m_param = getParamInfo().default;
+					m_defaultValueStrings.push_back(getValueStr());
+				}
+				m_value = prevValue;
+				m_param = prevParam;
 
-		virtual std::string getParamStr() const
-		{
-			return {};
+			}
+			return m_defaultValueStrings;
 		}
 
 		virtual std::string getValueStr() const override
@@ -32,60 +39,39 @@ namespace Config
 			{
 				if (pair.second == m_value)
 				{
-					std::string param(getParamStr());
-					if (!param.empty())
+					const auto paramInfo = getParamInfo();
+					if (!paramInfo.name.empty())
 					{
-						param = '(' + param + ')';
+						return pair.first + '(' + std::to_string(paramInfo.current) + ')';
 					}
-					return pair.first + param;
+					return pair.first;
 				}
 			}
 			throw ParsingError("MappedSetting::getValueStr(): value not found in mapping");
 		}
 
-		virtual void setDefaultParam(const Value& /*value*/)
+	protected:
+		MappedSetting(const std::string& name, const std::string& default,
+			const std::vector<std::pair<std::string, Value>>& valueMapping)
+			: Setting(name, default)
+			, m_value{}
+			, m_valueMapping(valueMapping)
 		{
 		}
 
 		virtual void setValue(const std::string& value) override
 		{
-			std::string val(value);
-			std::string param;
-			auto parenPos = value.find('(');
-			if (std::string::npos != parenPos)
-			{
-				val = value.substr(0, parenPos);
-				param = value.substr(parenPos + 1);
-				if (param.length() < 2 || param.back() != ')')
-				{
-					throw ParsingError("invalid value: '" + value + "'");
-				}
-				param = param.substr(0, param.length() - 1);
-			}
-
-			auto it = m_valueMapping.find(val);
+			auto it = std::find_if(m_valueMapping.begin(), m_valueMapping.end(),
+				[&](const auto& v) { return v.first == value; });
 			if (it == m_valueMapping.end())
 			{
 				throw ParsingError("invalid value: '" + value + "'");
 			}
-
-			if (param.empty())
-			{
-				m_value = it->second;
-				setDefaultParam(it->second);
-			}
-			else
-			{
-				setValue(it->second, param);
-			}
-		}
-
-		virtual void setValue(const Value& /*value*/, const std::string& param)
-		{
-			throw ParsingError("invalid parameter: '" + param + "'");
+			m_value = it->second;
 		}
 
 		Value m_value;
-		const std::map<std::string, Value> m_valueMapping;
+		const std::vector<std::pair<std::string, Value>> m_valueMapping;
+		std::vector<std::string> m_defaultValueStrings;
 	};
 }

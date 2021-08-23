@@ -49,6 +49,7 @@ namespace D3dDdi
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
 		void onDestroyResource(HANDLE resource);
+		void updateConfig();
 
 	private:
 		HRESULT deleteShader(HANDLE shader, HANDLE& currentShader,
@@ -68,6 +69,8 @@ namespace D3dDdi
 		template <typename StateData, UINT size>
 		HRESULT setStateArray(const StateData* data, std::array<UINT, size>& currentState,
 			HRESULT(APIENTRY* origSetState)(HANDLE, const StateData*));
+
+		void updateTextureStageState(UINT stage, D3DDDITEXTURESTAGESTATETYPE state);
 
 		Device& m_device;
 		D3DDDIARG_SETDEPTHSTENCIL m_depthStencil;

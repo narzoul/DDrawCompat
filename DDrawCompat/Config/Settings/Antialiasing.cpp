@@ -15,33 +15,16 @@ namespace Config
 				{"msaa4x", D3DDDIMULTISAMPLE_4_SAMPLES},
 				{"msaa8x", D3DDDIMULTISAMPLE_8_SAMPLES}
 				})
-			, m_param(0)
 		{
 		}
 
-		std::string Antialiasing::getParamStr() const
+		Setting::ParamInfo Antialiasing::getParamInfo() const
 		{
-			return D3DDDIMULTISAMPLE_NONE != m_value ? std::to_string(m_param) : std::string();
-		}
-
-		void Antialiasing::setDefaultParam(const UINT& value)
-		{
-			m_param = D3DDDIMULTISAMPLE_NONE != value ? 7 : 0;
-		}
-
-		void Antialiasing::setValue(const UINT& value, const std::string& param)
-		{
-			if (D3DDDIMULTISAMPLE_NONE != value)
+			if (D3DDDIMULTISAMPLE_NONE != m_value)
 			{
-				const UINT p = Config::Parser::parseUnsigned(param);
-				if (p <= 7)
-				{
-					m_value = value;
-					m_param = p;
-					return;
-				}
+				return { "Quality", 0, 7, 7, m_param };
 			}
-			throw ParsingError("invalid parameter: '" + param + "'");
+			return {};
 		}
 	}
 }

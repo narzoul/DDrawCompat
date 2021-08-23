@@ -5,14 +5,13 @@
 
 namespace
 {
-	std::map<std::string, unsigned> createMapping(const std::vector<std::string>& enumNames)
+	std::vector<std::pair<std::string, unsigned>> createMapping(const std::vector<std::string>& enumNames)
 	{
-		std::map<std::string, unsigned> mapping;
+		std::vector<std::pair<std::string, unsigned>> mapping;
 		unsigned i = 0;
 		for (const auto& name : enumNames)
 		{
-
-			mapping[name] = i;
+			mapping.push_back({ name, i });
 			++i;
 		}
 		return mapping;

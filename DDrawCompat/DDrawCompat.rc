@@ -36,3 +36,5 @@ FILESUBTYPE       VFT2_UNKNOWN
         VALUE "Translation", 0x409, 0
     }
 }
+
+BMP_ARROW BITMAP "arrow.bmp"

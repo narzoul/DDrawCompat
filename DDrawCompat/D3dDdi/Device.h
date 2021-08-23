@@ -59,6 +59,7 @@ namespace D3dDdi
 		void prepareForRendering(HANDLE resource, UINT subResourceIndex);
 		void prepareForRendering();
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
+		void updateConfig();
 
 		static void add(Adapter& adapter, HANDLE device);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
@@ -67,6 +68,7 @@ namespace D3dDdi
 		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
 		static void setGdiResourceHandle(HANDLE resource);
+		static void updateAllConfig();
 
 	private:
 		D3DDDI_DEVICEFUNCS m_origVtable;

@@ -18,6 +18,7 @@
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
+#include <Overlay/ConfigWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -53,6 +54,17 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_ACTIVATEAPP:
+			if (!wParam)
+			{
+				auto configWindow = Gdi::PresentationWindow::getConfigWindow();
+				if (configWindow)
+				{
+					configWindow->setVisible(false);
+				}
+			}
+			break;
+
 		case WM_DISPLAYCHANGE:
 		{
 			if (0 != wParam)

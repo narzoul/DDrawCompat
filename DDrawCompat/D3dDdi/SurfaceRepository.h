@@ -39,6 +39,7 @@ namespace D3dDdi
 		const Surface& getRenderTarget(DWORD width, DWORD height);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
+		void release(Surface& surface);
 
 		static SurfaceRepository& get(const Adapter& adapter);
 		static bool inCreateSurface() { return s_inCreateSurface; }
@@ -52,7 +53,6 @@ namespace D3dDdi
 		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps,
 			std::function<void(const DDSURFACEDESC2&)> initFunc);
 		bool isLost(Surface& surface);
-		void release(Surface& surface);
 
 		const Adapter& m_adapter;
 		HCURSOR m_cursor;

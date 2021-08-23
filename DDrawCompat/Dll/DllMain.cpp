@@ -19,9 +19,9 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
+#include <Input/Input.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/MemoryManagement.h>
-#include <Win32/MsgHooks.h>
 #include <Win32/Registry.h>
 #include <Win32/Thread.h>
 
@@ -227,8 +227,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);
 
+		Input::installHooks();
 		Win32::MemoryManagement::installHooks();
-		Win32::MsgHooks::installHooks();
 		Win32::Thread::installHooks();
 		Compat::closeDbgEng();
 

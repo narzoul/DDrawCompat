@@ -59,11 +59,7 @@ namespace Config
 			unsigned result = 0;
 			for (const auto& value : values)
 			{
-				auto num = Parser::parseUnsigned(value);
-				if (num < 1 || num > 32)
-				{
-					throw ParsingError("'" + value + "' is not an integer between 1 and 32");
-				}
+				auto num = Parser::parseInt(value, 1, 32);
 				result |= 1U << (num - 1);
 			}
 

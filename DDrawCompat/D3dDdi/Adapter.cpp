@@ -110,7 +110,7 @@ namespace D3dDdi
 		levels.Format = D3DDDIFMT_X8R8G8B8;
 		levels.MsType = static_cast<D3DDDIMULTISAMPLE_TYPE>(samples);
 		getCaps(D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS, levels);
-		return { levels.MsType, min(Config::antialiasing.getParam(), levels.QualityLevels - 1) };
+		return { levels.MsType, min(static_cast<UINT>(Config::antialiasing.getParam()), levels.QualityLevels - 1) };
 	}
 
 	std::string Adapter::getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const

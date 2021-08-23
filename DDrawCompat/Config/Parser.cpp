@@ -138,8 +138,24 @@ namespace Config
 				name.insert(name.end(), maxNameLength - name.length(), ' ');
 				std::string source(setting.second.getSource());
 				source.insert(source.end(), maxSourceLength - source.length(), ' ');
-				Compat::Log() << "  [" << source << "] " << name << " = " << setting.second.getValueAsString();
+				Compat::Log() << "  [" << source << "] " << name << " = " << setting.second.getValueStr();
 			}
+		}
+
+		int parseInt(const std::string& value, int min, int max)
+		{
+			if (value.empty() || std::string::npos != value.find_first_not_of("+-0123456789") ||
+				std::string::npos != value.substr(1).find_first_of("+-"))
+			{
+				throw ParsingError("not a valid integer: '" + value + "'");
+			}
+
+			int result = std::strtol(value.c_str(), nullptr, 10);
+			if (result < min || result > max)
+			{
+				throw ParsingError("integer out of range: '" + value + "'");
+			}
+			return result;
 		}
 
 		SIZE parseResolution(const std::string& value)
@@ -149,14 +165,7 @@ namespace Config
 				auto pos = value.find('x');
 				if (pos != std::string::npos)
 				{
-					SIZE resolution = {};
-					resolution.cx = parseUnsigned(value.substr(0, pos));
-					resolution.cy = parseUnsigned(value.substr(pos + 1));
-					if (0 != resolution.cx && resolution.cx <= 65535 &&
-						0 != resolution.cy && resolution.cy <= 65535)
-					{
-						return resolution;
-					}
+					return { parseInt(value.substr(0, pos), 1, MAXUINT16), parseInt(value.substr(pos + 1), 1, MAXUINT16) };
 				}
 			}
 			catch (ParsingError&)
@@ -166,19 +175,20 @@ namespace Config
 			throw ParsingError("invalid resolution: '" + value + "'");
 		}
 
-		unsigned parseUnsigned(const std::string& value)
-		{
-			if (value.empty() || std::string::npos != value.find_first_not_of("0123456789"))
-			{
-				throw ParsingError("not an unsigned integer: '" + value + "'");
-			}
-			return std::strtoul(value.c_str(), nullptr, 10);
-		}
-
 		void registerSetting(Setting& setting)
 		{
 			const auto& name = setting.getName();
 			getSettings().emplace(name, setting);
+		}
+
+		std::string removeParam(const std::string& value)
+		{
+			auto paramPos = value.find('(');
+			if (paramPos != std::string::npos)
+			{
+				return value.substr(0, paramPos);
+			}
+			return value;
 		}
 
 		std::string trim(const std::string& str)

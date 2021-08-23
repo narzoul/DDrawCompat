@@ -38,6 +38,7 @@ namespace D3dDdi
 		void prepareForRendering(UINT subResourceIndex);
 		void setAsGdiResource(bool isGdiResource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
+		void updateConfig();
 
 	private:
 		class Data : public D3DDDIARG_CREATERESOURCE2
@@ -106,5 +107,7 @@ namespace D3dDdi
 		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, ResourceDeleter> m_lockResource;
 		SurfaceRepository::Surface m_customSurface;
+		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
+		bool m_isSurfaceRepoResource;
 	};
 }

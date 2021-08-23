@@ -20,8 +20,9 @@ namespace Config
 	{
 		void loadAllConfigFiles(const std::filesystem::path& processPath);
 		SIZE parseResolution(const std::string& value);
-		unsigned parseUnsigned(const std::string& value);
+		int parseInt(const std::string& value, int min, int max);
 		void registerSetting(Setting& setting);
+		std::string removeParam(const std::string& value);
 		std::string trim(const std::string& str);
 	}
 }

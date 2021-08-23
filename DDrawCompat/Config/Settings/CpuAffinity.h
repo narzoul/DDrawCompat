@@ -11,10 +11,11 @@ namespace Config
 		public:
 			CpuAffinity();
 
+			virtual std::string getValueStr() const override;
+
 			unsigned get() const { return m_value; }
 
 		private:
-			std::string getValueStr() const override;
 			void setValues(const std::vector<std::string>& values) override;
 
 			unsigned m_value;

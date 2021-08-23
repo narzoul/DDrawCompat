@@ -12,6 +12,8 @@
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
+#include <Input/Input.h>
+#include <Overlay/ConfigWindow.h>
 
 namespace
 {
@@ -94,6 +96,64 @@ namespace
 			return nullptr;
 		}
 		return rgn;
+	}
+
+	void presentLayeredWindow(CompatWeakPtr<IDirectDrawSurface7> dst,
+		HWND hwnd, RECT wr, const RECT& monitorRect, HDC& dstDc, Gdi::Region* rgn = nullptr, bool isMenu = false)
+	{
+		if (!dst)
+		{
+			throw true;
+		}
+
+		if (!dstDc)
+		{
+			dst->GetDC(dst, &dstDc);
+			if (!dstDc)
+			{
+				throw false;
+			}
+		}
+
+		OffsetRect(&wr, -monitorRect.left, -monitorRect.top);
+		if (rgn)
+		{
+			rgn->offset(-monitorRect.left, -monitorRect.top);
+		}
+
+		HDC windowDc = GetWindowDC(hwnd);
+		if (rgn)
+		{
+			SelectClipRgn(dstDc, *rgn);
+		}
+
+		COLORREF colorKey = 0;
+		BYTE alpha = 255;
+		DWORD flags = ULW_ALPHA;
+		if (isMenu || CALL_ORIG_FUNC(GetLayeredWindowAttributes)(hwnd, &colorKey, &alpha, &flags))
+		{
+			if (flags & LWA_COLORKEY)
+			{
+				CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
+			}
+			else
+			{
+				BLENDFUNCTION blend = {};
+				blend.SourceConstantAlpha = alpha;
+				CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
+					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
+			}
+		}
+
+		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
+	}
+
+	void presentOverlayWindow(CompatWeakPtr<IDirectDrawSurface7> dst, HWND hwnd, const RECT& monitorRect, HDC& dstDc)
+	{
+		RECT wr = {};
+		GetWindowRect(hwnd, &wr);
+		presentLayeredWindow(dst, hwnd, wr, monitorRect, dstDc);
 	}
 
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
@@ -451,64 +511,47 @@ namespace Gdi
 		bool presentLayered(CompatWeakPtr<IDirectDrawSurface7> dst, const RECT& monitorRect)
 		{
 			HDC dstDc = nullptr;
-			bool result = false;
-			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
+
+			try
 			{
-				auto& window = **it;
-				if (!window.isLayered || window.visibleRegion.isEmpty())
+				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 				{
-					continue;
-				}
-
-				Gdi::Region rgn(window.visibleRegion);
-				rgn &= monitorRect;
-				if (rgn.isEmpty())
-				{
-					continue;
-				}
-
-				RECT wr = window.windowRect;
-				OffsetRect(&wr, -monitorRect.left, -monitorRect.top);
-				rgn.offset(-monitorRect.left, -monitorRect.top);
-
-				if (!dst)
-				{
-					return true;
-				}
-
-				if (!dstDc)
-				{
-					dst->GetDC(dst, &dstDc);
-					if (!dstDc)
+					auto& window = **it;
+					if (!window.isLayered || window.visibleRegion.isEmpty())
 					{
-						return false;
+						continue;
+					}
+
+					Gdi::Region rgn(window.visibleRegion);
+					rgn &= monitorRect;
+					if (rgn.isEmpty())
+					{
+						continue;
+					}
+
+					presentLayeredWindow(dst, window.hwnd, window.windowRect, monitorRect, dstDc, &rgn, window.isMenu);
+				}
+
+				auto configWindow = PresentationWindow::getConfigWindow();
+				if (configWindow && configWindow->isVisible())
+				{
+					presentOverlayWindow(dst, configWindow->getWindow(), monitorRect, dstDc);
+					auto capture = Input::getCapture();
+					if (capture && capture != configWindow)
+					{
+						presentOverlayWindow(dst, capture->getWindow(), monitorRect, dstDc);
 					}
 				}
 
-				result = true;
-				HDC windowDc = GetWindowDC(window.hwnd);
-				SelectClipRgn(dstDc, rgn);
-
-				COLORREF colorKey = 0;
-				BYTE alpha = 255;
-				DWORD flags = ULW_ALPHA;
-				if (window.isMenu || CALL_ORIG_FUNC(GetLayeredWindowAttributes)(window.hwnd, &colorKey, &alpha, &flags))
+				HWND cursorWindow = Input::getCursorWindow();
+				if (cursorWindow)
 				{
-					if (flags & LWA_COLORKEY)
-					{
-						CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-							windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
-					}
-					else
-					{
-						BLENDFUNCTION blend = {};
-						blend.SourceConstantAlpha = alpha;
-						CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-							windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
-					}
+					presentOverlayWindow(dst, cursorWindow, monitorRect, dstDc);
 				}
-
-				CALL_ORIG_FUNC(ReleaseDC)(window.hwnd, windowDc);
+			}
+			catch (bool result)
+			{
+				return result;
 			}
 
 			if (dstDc)
@@ -516,7 +559,8 @@ namespace Gdi
 				SelectClipRgn(dstDc, nullptr);
 				dst->ReleaseDC(dst, dstDc);
 			}
-			return result;
+
+			return false;
 		}
 
 		void updateAll()

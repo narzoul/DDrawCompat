@@ -306,10 +306,18 @@
     <ClInclude Include="Gdi\VirtualScreen.h" />
     <ClInclude Include="Gdi\Window.h" />
     <ClInclude Include="Gdi\WinProc.h" />
+    <ClInclude Include="Input\Input.h" />
+    <ClInclude Include="Overlay\ComboBoxControl.h" />
+    <ClInclude Include="Overlay\ComboBoxDropDown.h" />
+    <ClInclude Include="Overlay\ConfigWindow.h" />
+    <ClInclude Include="Overlay\Control.h" />
+    <ClInclude Include="Overlay\LabelControl.h" />
+    <ClInclude Include="Overlay\ScrollBarControl.h" />
+    <ClInclude Include="Overlay\SettingControl.h" />
+    <ClInclude Include="Overlay\Window.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\Log.h" />
     <ClInclude Include="Win32\MemoryManagement.h" />
-    <ClInclude Include="Win32\MsgHooks.h" />
     <ClInclude Include="Win32\Registry.h" />
     <ClInclude Include="Win32\Thread.h" />
   </ItemGroup>
@@ -395,10 +403,18 @@
     <ClCompile Include="Gdi\VirtualScreen.cpp" />
     <ClCompile Include="Gdi\Window.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
+    <ClCompile Include="Input\Input.cpp" />
+    <ClCompile Include="Overlay\ComboBoxControl.cpp" />
+    <ClCompile Include="Overlay\ComboBoxDropDown.cpp" />
+    <ClCompile Include="Overlay\ConfigWindow.cpp" />
+    <ClCompile Include="Overlay\Control.cpp" />
+    <ClCompile Include="Overlay\LabelControl.cpp" />
+    <ClCompile Include="Overlay\ScrollBarControl.cpp" />
+    <ClCompile Include="Overlay\SettingControl.cpp" />
+    <ClCompile Include="Overlay\Window.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\Log.cpp" />
     <ClCompile Include="Win32\MemoryManagement.cpp" />
-    <ClCompile Include="Win32\MsgHooks.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
     <ClCompile Include="Win32\Thread.cpp" />
   </ItemGroup>
@@ -413,6 +429,9 @@
     <FxCompile Include="Shaders\GenBilinear.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
     <FxCompile Include="Shaders\TextureSampler.hlsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="arrow.bmp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

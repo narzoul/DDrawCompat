@@ -2,37 +2,20 @@
 
 namespace Config
 {
-    namespace Settings
-    {
-        DisplayFilter::DisplayFilter()
-            : MappedSetting("DisplayFilter", "bilinear(0)", { {"point", POINT}, {"bilinear", BILINEAR} })
-            , m_param(0)
-        {
-        }
+	namespace Settings
+	{
+		DisplayFilter::DisplayFilter()
+			: MappedSetting("DisplayFilter", "bilinear", { {"point", POINT}, {"bilinear", BILINEAR} })
+		{
+		}
 
-        std::string DisplayFilter::getParamStr() const
-        {
-            return BILINEAR == m_value ? std::to_string(m_param) : std::string();
-        }
-
-        void DisplayFilter::setDefaultParam(const UINT& value)
-        {
-            m_param = BILINEAR == value ? 100 : 0;
-        }
-
-        void DisplayFilter::setValue(const UINT& value, const std::string& param)
-        {
-            if (BILINEAR == value)
-            {
-                const UINT p = Config::Parser::parseUnsigned(param);
-                if (p <= 100)
-                {
-                    m_value = BILINEAR;
-                    m_param = p;
-                    return;
-                }
-            }
-            throw ParsingError("invalid parameter: '" + param + "'");
-        }
-    }
+		Setting::ParamInfo DisplayFilter::getParamInfo() const
+		{
+			if (BILINEAR == m_value)
+			{
+				return { "Blur", 0, 100, 0, m_param };
+			}
+			return {};
+		}
+	}
 }
