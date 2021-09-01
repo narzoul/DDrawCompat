@@ -232,10 +232,29 @@ namespace
 		}
 		g_isDbgEngInitialized = true;
 
-		Compat::hookIatFunction(GetModuleHandle("dbgeng"), "GetProcAddress", dbgEngGetProcAddress);
+		if (!GetModuleHandle("dbghelp.dll"))
+		{
+			LoadLibraryW((Compat::getSystemPath() / "dbghelp.dll").c_str());
+		}
+
+		auto dbgEng = LoadLibraryW((Compat::getSystemPath() / "dbgeng.dll").c_str());
+		if (!dbgEng)
+		{
+			Compat::Log() << "ERROR: DbgEng: failed to load library";
+			return false;
+		}
+
+		Compat::hookIatFunction(dbgEng, "GetProcAddress", dbgEngGetProcAddress);
+
+		auto debugCreate = reinterpret_cast<decltype(&DebugCreate)>(Compat::getProcAddress(dbgEng, "DebugCreate"));
+		if (!debugCreate)
+		{
+			Compat::Log() << "ERROR: DbgEng: DebugCreate not found";
+			return false;
+		}
 
 		HRESULT result = S_OK;
-		if (FAILED(result = DebugCreate(IID_IDebugClient4, reinterpret_cast<void**>(&g_debugClient))) ||
+		if (FAILED(result = debugCreate(IID_IDebugClient4, reinterpret_cast<void**>(&g_debugClient))) ||
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugControl, reinterpret_cast<void**>(&g_debugControl))) ||
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugSymbols, reinterpret_cast<void**>(&g_debugSymbols))) ||
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugDataSpaces4, reinterpret_cast<void**>(&g_debugDataSpaces))))
