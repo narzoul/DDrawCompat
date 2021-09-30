@@ -450,6 +450,10 @@ namespace D3dDdi
 		{
 			m_depthStencil = {};
 		}
+		else if (m_streamSource.hVertexBuffer == resource)
+		{
+			m_streamSource = {};
+		}
 	}
 
 	HRESULT DeviceState::setShader(HANDLE shader, HANDLE& currentShader,
