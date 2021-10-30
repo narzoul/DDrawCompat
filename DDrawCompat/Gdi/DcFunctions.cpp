@@ -11,6 +11,109 @@
 
 namespace
 {
+	template <typename Char>
+	void logString(Compat::Log& log, const Char* str, int length)
+	{
+		log << '"';
+		if (length < 0)
+		{
+			log << str;
+		}
+		else
+		{
+			for (int i = 0; i < length; ++i)
+			{
+				log << static_cast<char>(str[i]);
+			}
+		}
+		log << '"';
+	}
+
+	template <typename Char>
+	void logExtTextOutString(Compat::Log& log, UINT options, const Char* lpString, UINT c)
+	{
+		if (options & ETO_GLYPH_INDEX)
+		{
+			log << static_cast<const void*>(lpString);
+		}
+		else
+		{
+			logString(log, lpString, c);
+		}
+	}
+}
+
+namespace Compat
+{
+	template <>
+	void LogParam<&DrawEscape, 3>::log(Log& log, HDC, int, int, LPCSTR lpIn)
+	{
+		log << static_cast<const void*>(lpIn);
+	}
+
+	template <>
+	void LogParam<&DrawTextA, 1>::log(Log& log, HDC, LPCSTR lpchText, int cchText, LPRECT, UINT)
+	{
+		logString(log, lpchText, cchText);
+	}
+
+	template <>
+	void LogParam<&DrawTextW, 1>::log(Log& log, HDC, LPCWSTR lpchText, int cchText, LPRECT, UINT)
+	{
+		logString(log, lpchText, cchText);
+	}
+
+	template <>
+	void LogParam<&DrawTextExA, 1>::log(Log& log, HDC, LPSTR lpchText, int cchText, LPRECT, UINT, LPDRAWTEXTPARAMS)
+	{
+		logString(log, lpchText, cchText);
+	}
+
+	template <>
+	void LogParam<&DrawTextExW, 1>::log(Log& log, HDC, LPWSTR lpchText, int cchText, LPRECT, UINT, LPDRAWTEXTPARAMS)
+	{
+		logString(log, lpchText, cchText);
+	}
+
+	template <>
+	void LogParam<&ExtTextOutA, 5>::log(Log& log, HDC, int, int, UINT options, const RECT*, LPCSTR lpString, UINT c, const INT*)
+	{
+		logExtTextOutString(log, options, lpString, c);
+	}
+
+	template <>
+	void LogParam<&ExtTextOutW, 5>::log(Log& log, HDC, int, int, UINT options, const RECT*, LPCWSTR lpString, UINT c, const INT*)
+	{
+		logExtTextOutString(log, options, lpString, c);
+	}
+
+	template <>
+	void LogParam<&TabbedTextOutA, 3>::log(Log& log, HDC, int, int, LPCSTR lpString, int chCount, int, const INT*, int)
+	{
+		logString(log, lpString, chCount);
+	}
+
+	template <>
+	void LogParam<&TabbedTextOutW, 3>::log(Log& log, HDC, int, int, LPCWSTR lpString, int chCount, int, const INT*, int)
+	{
+		logString(log, lpString, chCount);
+	}
+
+	template <>
+	void LogParam<&TextOutA, 3>::log(Log& log, HDC, int, int, LPCSTR lpString, int c)
+	{
+		logString(log, lpString, c);
+	}
+
+	template <>
+	void LogParam<&TextOutW, 3>::log(Log& log, HDC, int, int, LPCWSTR lpString, int c)
+	{
+		logString(log, lpString, c);
+	}
+}
+
+namespace
+{
 	template <auto func>
 	const char* g_funcName = nullptr;
 
@@ -94,7 +197,7 @@ namespace
 	template <auto origFunc, typename Result, typename... Params>
 	Result WINAPI compatGdiDcFunc(HDC hdc, Params... params)
 	{
-		LOG_FUNC(g_funcName<origFunc>, hdc, params...);
+		LOG_FUNC_CUSTOM(origFunc, g_funcName<origFunc>, hdc, params...);
 
 		if (hasDisplayDcArg(hdc, params...))
 		{
@@ -116,7 +219,7 @@ namespace
 	BOOL WINAPI compatGdiDcFunc<&ExtTextOutW>(
 		HDC hdc, int x, int y, UINT options, const RECT* lprect, LPCWSTR lpString, UINT c, const INT* lpDx)
 	{
-		LOG_FUNC("ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
+		LOG_FUNC_CUSTOM(&ExtTextOutW, "ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
 
 		if (hasDisplayDcArg(hdc))
 		{

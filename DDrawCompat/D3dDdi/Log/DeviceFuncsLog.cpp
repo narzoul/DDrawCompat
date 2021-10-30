@@ -15,6 +15,14 @@ std::ostream& operator<<(std::ostream& os, D3DDDI_POOL val)
 	return os << "D3DDDIPOOL_" << static_cast<DWORD>(val);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDI_OPENALLOCATIONINFO& val)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(val.hAllocation)
+		<< val.pPrivateDriverData
+		<< val.PrivateDriverDataSize;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val)
 {
 	return Compat::LogStruct(os)

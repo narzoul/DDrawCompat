@@ -8,6 +8,7 @@
 #include <D3dDdi/Log/CommonLog.h>
 
 std::ostream& operator<<(std::ostream& os, D3DDDI_POOL val);
+std::ostream& operator<<(std::ostream& os, const D3DDDI_OPENALLOCATIONINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDI_SURFACEINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_BLT& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CLEAR& val);

@@ -6,6 +6,28 @@
 
 namespace
 {
+	template <typename T>
+	class ParamConverter
+	{
+	public:
+		template <typename Param>
+		static T& convert(Param& param)
+		{
+			return *reinterpret_cast<T*>(&param);
+		}
+	};
+
+	template <typename T>
+	class ParamConverter<Compat::Out<T>>
+	{
+	public:
+		template <typename Param>
+		static Compat::Out<T> convert(Param& param)
+		{
+			return Compat::out(ParamConverter<T>::convert(param));
+		}
+	};
+
 	template <typename CreateStruct>
 	std::ostream& logCreateStruct(std::ostream& os, const CreateStruct& cs)
 	{
@@ -139,16 +161,13 @@ std::ostream& operator<<(std::ostream& os, const GESTURENOTIFYSTRUCT& gns)
 		<< gns.dwInstanceID;
 }
 
-std::ostream& operator<<(std::ostream& os, HDC dc)
+std::ostream& operator<<(std::ostream& os, const HDC__& dc)
 {
 	os << "DC";
-	if (!dc)
-	{
-		return os << "(null)";
-	}
+	HDC hdc = const_cast<HDC>(&dc);
 	return Compat::LogStruct(os)
-		<< static_cast<void*>(dc)
-		<< CALL_ORIG_FUNC(WindowFromDC)(dc);
+		<< static_cast<void*>(hdc)
+		<< CALL_ORIG_FUNC(WindowFromDC)(hdc);
 }
 
 std::ostream& operator<<(std::ostream& os, const HELPINFO& hi)
@@ -172,27 +191,21 @@ std::ostream& operator<<(std::ostream& os, const HELPINFO& hi)
 		<< hi.MousePos;
 }
 
-std::ostream& operator<<(std::ostream& os, HFONT font)
+std::ostream& operator<<(std::ostream& os, const HFONT__& font)
 {
+	HFONT hfont = const_cast<HFONT>(&font);
 	LOGFONT lf = {};
-	if (font)
-	{
-		GetObject(font, sizeof(lf), &lf);
-	}
+	GetObject(hfont, sizeof(lf), &lf);
 	return Compat::LogStruct(os)
-		<< static_cast<void*>(font)
-		<< (font ? &lf : nullptr);
+		<< static_cast<void*>(hfont)
+		<< lf;
 }
 
-std::ostream& operator<<(std::ostream& os, HRGN rgn)
+std::ostream& operator<<(std::ostream& os, const HRGN__& rgn)
 {
 	os << "RGN";
-	if (!rgn)
-	{
-		return os << "(null)";
-	}
-
-	DWORD size = GetRegionData(rgn, 0, nullptr);
+	HRGN hrgn = const_cast<HRGN>(&rgn);
+	DWORD size = GetRegionData(hrgn, 0, nullptr);
 	if (0 == size)
 	{
 		return os << "[]";
@@ -200,19 +213,16 @@ std::ostream& operator<<(std::ostream& os, HRGN rgn)
 
 	std::vector<unsigned char> rgnDataBuf(size);
 	auto& rgnData = *reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
-	GetRegionData(rgn, size, &rgnData);
+	GetRegionData(hrgn, size, &rgnData);
 
-	return os << Compat::array(reinterpret_cast<RECT*>(rgnData.Buffer), rgnData.rdh.nCount);
+	Compat::LogStream(os) << Compat::array(reinterpret_cast<RECT*>(rgnData.Buffer), rgnData.rdh.nCount);
+	return os;
 }
 
-std::ostream& operator<<(std::ostream& os, HWND hwnd)
+std::ostream& operator<<(std::ostream& os, const HWND__& wnd)
 {
 	os << "WND";
-	if (!hwnd)
-	{
-		return os << "(null)";
-	}
-
+	HWND hwnd = const_cast<HWND>(&wnd);
 	if (!IsWindow(hwnd))
 	{
 		return Compat::LogStruct(os)
@@ -409,7 +419,7 @@ std::ostream& operator<<(std::ostream& os, const WINDOWPOS& wp)
 
 namespace Compat
 {
-	std::ostream& operator<<(std::ostream& os, WindowMessage msg)
+	LogStream operator<<(LogStream os, WindowMessage msg)
 	{
 #define LOG_WM_CASE(msg) case msg: return os << #msg;
 		switch (msg.msg)
@@ -659,33 +669,31 @@ namespace Compat
 		};
 #undef LOG_WM_CASE
 
-		os.width(4);
-		os.fill('0');
-		os << "WM_" << std::hex << msg.msg << std::dec;
-		return os;
+		return os << "WM_" << std::hex << msg.msg << std::dec;
 	}
 
-	std::ostream& operator<<(std::ostream& os, WindowMessage16 msg)
+	LogStream operator<<(LogStream os, WindowMessage16 msg)
 	{
 		return os << WindowMessage(msg.msg);
 	}
 
-	std::ostream& operator<<(std::ostream& os, WindowMessageStruct wm)
+	LogStream operator<<(LogStream os, WindowMessageStruct wm)
 	{
-		os << '{' << wm.hwnd << ',' << wm.msg << ',';
+		Compat::LogStruct log(os);
+		log << wm.hwnd << wm.msg;
 
 #define LOG_PARAM_CASE_1(param, msg, ...) \
 	case msg: \
 		static_assert(sizeof(__VA_ARGS__) == sizeof(param)); \
-		os << *reinterpret_cast<const __VA_ARGS__*>(&param); \
+		log << ParamConverter<__VA_ARGS__>::convert(param); \
 		break
 
 #define LOG_PARAM_CASE_2(param, msg, TypeA, TypeW) \
 	case msg: \
 		if (IsWindowUnicode(wm.hwnd)) \
-			os << *reinterpret_cast<const TypeW*>(&param); \
+			log << ParamConverter<TypeW>::convert(param); \
 		else \
-			os << *reinterpret_cast<const TypeA*>(&param); \
+			log << ParamConverter<TypeA>::convert(param); \
 		break;
 
 #define LOG_WPARAM_CASE_1(msg, ...) LOG_PARAM_CASE_1(wm.wParam, msg, __VA_ARGS__)
@@ -697,7 +705,7 @@ namespace Compat
 			LOG_WPARAM_CASE_1(WM_APPCOMMAND, HWND);
 			LOG_WPARAM_CASE_1(WM_ASKCBFORMATNAME, DWORD);
 			LOG_WPARAM_CASE_1(WM_CHANGECBCHAIN, HWND);
-			LOG_WPARAM_CASE_1(WM_CHANGEUISTATE, std::pair<WORD, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_CHANGEUISTATE, std::pair<WORD, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_CHARTOITEM, std::pair<WORD, WORD>);
 			LOG_WPARAM_CASE_1(WM_CTLCOLORMSGBOX, HDC);
 			LOG_WPARAM_CASE_1(WM_CTLCOLOREDIT, HDC);
@@ -706,7 +714,7 @@ namespace Compat
 			LOG_WPARAM_CASE_1(WM_CTLCOLORDLG, HDC);
 			LOG_WPARAM_CASE_1(WM_CTLCOLORSCROLLBAR, HDC);
 			LOG_WPARAM_CASE_1(WM_CTLCOLORSTATIC, HDC);
-			LOG_WPARAM_CASE_1(WM_COMMAND, std::pair<Compat::detail::Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_COMMAND, std::pair<Hex<WORD>, WORD>);
 			LOG_WPARAM_CASE_1(WM_CONTEXTMENU, HWND);
 			LOG_WPARAM_CASE_1(WM_COPYDATA, HWND);
 			LOG_WPARAM_CASE_1(WM_DISPLAYCHANGE, INT);
@@ -726,14 +734,14 @@ namespace Compat
 			LOG_WPARAM_CASE_1(WM_MDIMAXIMIZE, HWND);
 			LOG_WPARAM_CASE_1(WM_MDINEXT, HWND);
 			LOG_WPARAM_CASE_1(WM_MDIRESTORE, HWND);
-			LOG_WPARAM_CASE_1(WM_MENUCHAR, std::pair<Compat::detail::Hex<WORD>, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_MENUCHAR, std::pair<Hex<WORD>, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_MENUCOMMAND, DWORD);
 			LOG_WPARAM_CASE_1(WM_MENUDRAG, DWORD);
 			LOG_WPARAM_CASE_1(WM_MENURBUTTONUP, DWORD);
-			LOG_WPARAM_CASE_1(WM_MENUSELECT, std::pair<WORD, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_MENUSELECT, std::pair<WORD, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_MOUSEACTIVATE, HWND);
-			LOG_WPARAM_CASE_1(WM_MOUSEHWHEEL, std::pair<Compat::detail::Hex<WORD>, SHORT>);
-			LOG_WPARAM_CASE_1(WM_MOUSEWHEEL, std::pair<Compat::detail::Hex<WORD>, SHORT>);
+			LOG_WPARAM_CASE_1(WM_MOUSEHWHEEL, std::pair<Hex<WORD>, SHORT>);
+			LOG_WPARAM_CASE_1(WM_MOUSEWHEEL, std::pair<Hex<WORD>, SHORT>);
 			LOG_WPARAM_CASE_1(WM_NCLBUTTONDBLCLK, INT);
 			LOG_WPARAM_CASE_1(WM_NCLBUTTONDOWN, INT);
 			LOG_WPARAM_CASE_1(WM_NCLBUTTONUP, INT);
@@ -746,51 +754,51 @@ namespace Compat
 			LOG_WPARAM_CASE_1(WM_NCPOINTERDOWN, std::pair<WORD, SHORT>);
 			LOG_WPARAM_CASE_1(WM_NCPOINTERUP, std::pair<WORD, SHORT>);
 			LOG_WPARAM_CASE_1(WM_NCPOINTERUPDATE, std::pair<WORD, SHORT>);
-			LOG_WPARAM_CASE_1(WM_NCXBUTTONDBLCLK, std::pair<Compat::detail::Hex<WORD>, WORD>);
-			LOG_WPARAM_CASE_1(WM_NCXBUTTONDOWN, std::pair<Compat::detail::Hex<WORD>, WORD>);
-			LOG_WPARAM_CASE_1(WM_NCXBUTTONUP, std::pair<Compat::detail::Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_NCXBUTTONDBLCLK, std::pair<Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_NCXBUTTONDOWN, std::pair<Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_NCXBUTTONUP, std::pair<Hex<WORD>, WORD>);
 			LOG_WPARAM_CASE_1(WM_NOTIFYFORMAT, HWND);
 			LOG_WPARAM_CASE_1(WM_PALETTECHANGED, HWND);
 			LOG_WPARAM_CASE_1(WM_PALETTEISCHANGING, HWND);
-			LOG_WPARAM_CASE_1(WM_PARENTNOTIFY, std::pair<WindowMessage16, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_PARENTNOTIFY, std::pair<WindowMessage16, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_POINTERACTIVATE, std::pair<WORD, SHORT>);
-			LOG_WPARAM_CASE_1(WM_POINTERDOWN, std::pair<WORD, Compat::detail::Hex<WORD>>);
-			LOG_WPARAM_CASE_1(WM_POINTERENTER, std::pair<WORD, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_POINTERDOWN, std::pair<WORD, Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_POINTERENTER, std::pair<WORD, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_POINTERHWHEEL, std::pair<WORD, SHORT>);
-			LOG_WPARAM_CASE_1(WM_POINTERLEAVE, std::pair<WORD, Compat::detail::Hex<WORD>>);
-			LOG_WPARAM_CASE_1(WM_POINTERUP, std::pair<WORD, Compat::detail::Hex<WORD>>);
-			LOG_WPARAM_CASE_1(WM_POINTERUPDATE, std::pair<WORD, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_POINTERLEAVE, std::pair<WORD, Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_POINTERUP, std::pair<WORD, Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_POINTERUPDATE, std::pair<WORD, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_POINTERWHEEL, std::pair<WORD, SHORT>);
 			LOG_WPARAM_CASE_1(WM_PRINT, HDC);
 			LOG_WPARAM_CASE_1(WM_PRINTCLIENT, HDC);
 			LOG_WPARAM_CASE_1(WM_SETFOCUS, HWND);
 			LOG_WPARAM_CASE_1(WM_SETFONT, HFONT);
-			LOG_WPARAM_CASE_1(WM_SETHOTKEY, std::pair<Compat::detail::Hex<WORD>, Compat::detail::Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_SETHOTKEY, std::pair<Hex<WORD>, Hex<WORD>>);
 			LOG_WPARAM_CASE_1(WM_SETTEXT, DWORD);
 			LOG_WPARAM_CASE_1(WM_SIZECLIPBOARD, HWND);
 			LOG_WPARAM_CASE_1(WM_STYLECHANGED, INT);
 			LOG_WPARAM_CASE_1(WM_STYLECHANGING, INT);
-			LOG_WPARAM_CASE_1(WM_UPDATEUISTATE, std::pair<WORD, Compat::detail::Hex<WORD>>);
-			LOG_WPARAM_CASE_1(WM_VKEYTOITEM, std::pair<Compat::detail::Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_UPDATEUISTATE, std::pair<WORD, Hex<WORD>>);
+			LOG_WPARAM_CASE_1(WM_VKEYTOITEM, std::pair<Hex<WORD>, WORD>);
 			LOG_WPARAM_CASE_1(WM_VSCROLL, std::pair<WORD, WORD>);
 			LOG_WPARAM_CASE_1(WM_VSCROLLCLIPBOARD, HWND);
-			LOG_WPARAM_CASE_1(WM_XBUTTONDBLCLK, std::pair<Compat::detail::Hex<WORD>, WORD>);
-			LOG_WPARAM_CASE_1(WM_XBUTTONDOWN, std::pair<Compat::detail::Hex<WORD>, WORD>);
-			LOG_WPARAM_CASE_1(WM_XBUTTONUP, std::pair<Compat::detail::Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_XBUTTONDBLCLK, std::pair<Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_XBUTTONDOWN, std::pair<Hex<WORD>, WORD>);
+			LOG_WPARAM_CASE_1(WM_XBUTTONUP, std::pair<Hex<WORD>, WORD>);
 
 		case WM_NEXTDLGCTL:
 			if (wm.lParam)
 			{
-				os << reinterpret_cast<HWND>(wm.wParam);
+				log << reinterpret_cast<HWND>(wm.wParam);
 			}
 			else
 			{
-				os << wm.wParam;
+				log << wm.wParam;
 			}
 			break;
 
 		default:
-			os << Compat::hex(wm.wParam);
+			log << hex(wm.wParam);
 			break;
 		}
 
@@ -800,12 +808,10 @@ namespace Compat
 #define LOG_LPARAM_CASE_1(msg, ...) LOG_PARAM_CASE_1(wm.lParam, msg, __VA_ARGS__)
 #define LOG_LPARAM_CASE_2(msg, TypeA, TypeW) LOG_PARAM_CASE_2(wm.lParam, msg, TypeA, TypeW)
 
-		os << ',';
-
 		switch (wm.msg.msg)
 		{
 			LOG_LPARAM_CASE_1(WM_ACTIVATE, HWND);
-			LOG_LPARAM_CASE_2(WM_ASKCBFORMATNAME, Compat::detail::Out<LPCSTR>, Compat::detail::Out<LPCWSTR>);
+			LOG_LPARAM_CASE_2(WM_ASKCBFORMATNAME, Out<LPCSTR>, Out<LPCWSTR>);
 			LOG_LPARAM_CASE_1(WM_CAPTURECHANGED, HWND);
 			LOG_LPARAM_CASE_1(WM_CHANGECBCHAIN, HWND);
 			LOG_LPARAM_CASE_1(WM_CHARTOITEM, HWND);
@@ -833,9 +839,9 @@ namespace Compat
 			LOG_LPARAM_CASE_1(WM_GETDPISCALEDSIZE, SIZE*);
 			LOG_LPARAM_CASE_1(WM_GETICON, DWORD);
 			LOG_LPARAM_CASE_1(WM_GETMINMAXINFO, MINMAXINFO*);
-			LOG_LPARAM_CASE_2(WM_GETTEXT, Compat::detail::Out<LPCSTR>, Compat::detail::Out<LPCWSTR>);
+			LOG_LPARAM_CASE_2(WM_GETTEXT, Out<LPCSTR>, Out<LPCWSTR>);
 			LOG_LPARAM_CASE_1(WM_HELP, HELPINFO*);
-			LOG_LPARAM_CASE_1(WM_HOTKEY, std::pair<Compat::detail::Hex<WORD>, Compat::detail::Hex<WORD>>);
+			LOG_LPARAM_CASE_1(WM_HOTKEY, std::pair<Hex<WORD>, Hex<WORD>>);
 			LOG_LPARAM_CASE_1(WM_HSCROLL, HWND);
 			LOG_LPARAM_CASE_1(WM_HSCROLLCLIPBOARD, std::pair<WORD, WORD>);
 			LOG_LPARAM_CASE_1(WM_INITMENUPOPUP, std::pair<WORD, WORD>);
@@ -849,7 +855,7 @@ namespace Compat
 			LOG_LPARAM_CASE_1(WM_MDIGETACTIVE, BOOL*);
 			LOG_LPARAM_CASE_1(WM_MEASUREITEM, MEASUREITEMSTRUCT*);
 			LOG_LPARAM_CASE_1(WM_MENUGETOBJECT, MENUGETOBJECTINFO*);
-			LOG_LPARAM_CASE_1(WM_MOUSEACTIVATE, std::pair<SHORT, Compat::detail::Hex<WORD>>);
+			LOG_LPARAM_CASE_1(WM_MOUSEACTIVATE, std::pair<SHORT, Hex<WORD>>);
 			LOG_LPARAM_CASE_1(WM_MOUSEHOVER, POINTS);
 			LOG_LPARAM_CASE_1(WM_MOUSEHWHEEL, POINTS);
 			LOG_LPARAM_CASE_1(WM_MOUSEMOVE, POINTS);
@@ -890,7 +896,7 @@ namespace Compat
 			LOG_LPARAM_CASE_1(WM_RBUTTONDBLCLK, POINTS);
 			LOG_LPARAM_CASE_1(WM_RBUTTONDOWN, POINTS);
 			LOG_LPARAM_CASE_1(WM_RBUTTONUP, POINTS);
-			LOG_LPARAM_CASE_1(WM_SETCURSOR, std::pair<SHORT, Compat::detail::Hex<WORD>>);
+			LOG_LPARAM_CASE_1(WM_SETCURSOR, std::pair<SHORT, Hex<WORD>>);
 			LOG_LPARAM_CASE_2(WM_SETTEXT, LPCSTR, LPCWSTR);
 			LOG_LPARAM_CASE_2(WM_SETTINGCHANGE, LPCSTR, LPCWSTR);
 			LOG_LPARAM_CASE_1(WM_SIZE, POINTS);
@@ -912,27 +918,27 @@ namespace Compat
 		case WM_NCACTIVATE:
 			if (-1 == wm.lParam)
 			{
-				os << "-1";
+				log << "-1";
 			}
 			else
 			{
-				os << reinterpret_cast<HRGN>(wm.lParam);
+				log << reinterpret_cast<HRGN>(wm.lParam);
 			}
 			break;
 
 		case WM_NCCALCSIZE:
 			if (wm.wParam)
 			{
-				os << reinterpret_cast<NCCALCSIZE_PARAMS*>(wm.lParam);
+				log << reinterpret_cast<NCCALCSIZE_PARAMS*>(wm.lParam);
 			}
 			else
 			{
-				os << reinterpret_cast<RECT*>(wm.lParam);
+				log << reinterpret_cast<RECT*>(wm.lParam);
 			}
 			break;
 
 		default:
-			os << Compat::hex(wm.lParam);
+			log << hex(wm.lParam);
 			break;
 		}
 
@@ -941,7 +947,6 @@ namespace Compat
 #undef LOG_PARAM_CASE_1
 #undef LOG_PARAM_CASE_2
 
-		os << '}';
 		return os;
 	}
 }

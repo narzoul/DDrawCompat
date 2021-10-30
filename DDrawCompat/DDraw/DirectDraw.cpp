@@ -105,15 +105,13 @@ namespace
 
 	void logSrcColorKeySupportFailure(const char* reason, UINT32 resultCode)
 	{
-		std::ostringstream oss;
-		oss << "Source color key support: no (" << reason;
+		Compat::Log log;
+		log << "Source color key support: no (" << reason;
 		if (resultCode)
 		{
-			oss << ": " << Compat::hex(resultCode);
+			log << ": " << Compat::hex(resultCode);
 		}
-		oss << ')';
-
-		Compat::Log() << oss.str();
+		log << ')';
 	}
 
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>

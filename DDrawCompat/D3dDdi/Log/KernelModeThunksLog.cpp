@@ -129,6 +129,16 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_QUERYADAPTERINFO& data)
 		<< data.PrivateDriverDataSize;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DKMT_SETGAMMARAMP& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.hDevice)
+		<< data.VidPnSourceId
+		<< data.Type
+		<< static_cast<const void*>(data.pGammaRampRgb256x3x16)
+		<< data.Size;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETQUEUEDLIMIT& data)
 {
 	return Compat::LogStruct(os)

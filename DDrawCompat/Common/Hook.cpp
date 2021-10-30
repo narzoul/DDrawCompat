@@ -171,7 +171,8 @@ namespace
 				break;
 			}
 #ifdef DEBUGLOGS
-			oss << Compat::hexDump(prevTargetFunc, instructionSize) << " -> " << Compat::funcPtrToStr(targetFunc) << ' ';
+			Compat::LogStream(oss) << Compat::hexDump(prevTargetFunc, instructionSize) << " -> "
+				<< Compat::funcPtrToStr(targetFunc) << ' ';
 #endif
 			prevTargetFunc = targetFunc;
 		}

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <ostream>
-#include <string>
 
 #include <Windows.h>
 
@@ -16,11 +15,11 @@ std::ostream& operator<<(std::ostream& os, const DEVMODEA& dm);
 std::ostream& operator<<(std::ostream& os, const DEVMODEW& dm);
 std::ostream& operator<<(std::ostream& os, const DRAWITEMSTRUCT& dis);
 std::ostream& operator<<(std::ostream& os, const GESTURENOTIFYSTRUCT& gns);
-std::ostream& operator<<(std::ostream& os, HDC dc);
+std::ostream& operator<<(std::ostream& os, const HDC__& dc);
 std::ostream& operator<<(std::ostream& os, const HELPINFO& hi);
-std::ostream& operator<<(std::ostream& os, HFONT font);
-std::ostream& operator<<(std::ostream& os, HRGN rgn);
-std::ostream& operator<<(std::ostream& os, HWND hwnd);
+std::ostream& operator<<(std::ostream& os, const HFONT__& font);
+std::ostream& operator<<(std::ostream& os, const HRGN__& rgn);
+std::ostream& operator<<(std::ostream& os, const HWND__& wnd);
 std::ostream& operator<<(std::ostream& os, const LOGFONT& lf);
 std::ostream& operator<<(std::ostream& os, const MDICREATESTRUCTA& mcs);
 std::ostream& operator<<(std::ostream& os, const MDICREATESTRUCTW& mcs);
@@ -43,6 +42,8 @@ std::ostream& operator<<(std::ostream& os, const WINDOWPOS& wp);
 
 namespace Compat
 {
+	class LogStream;
+
 	struct WindowMessage
 	{
 		UINT msg;
@@ -70,7 +71,7 @@ namespace Compat
 		}
 	};
 
-	std::ostream& operator<<(std::ostream& os, WindowMessage msg);
-	std::ostream& operator<<(std::ostream& os, WindowMessage16 msg);
-	std::ostream& operator<<(std::ostream& os, WindowMessageStruct wm);
+	LogStream operator<<(LogStream os, WindowMessage msg);
+	LogStream operator<<(LogStream os, WindowMessage16 msg);
+	LogStream operator<<(LogStream os, WindowMessageStruct wm);
 }

@@ -492,6 +492,9 @@
     <ClInclude Include="Overlay\ComboBoxDropDown.h">
       <Filter>Header Files\Overlay</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\Log\AdapterCallbacksLog.h">
+      <Filter>Header Files\D3dDdi\Log</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -778,6 +781,9 @@
     </ClCompile>
     <ClCompile Include="Overlay\ComboBoxDropDown.cpp">
       <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\Log\AdapterCallbacksLog.cpp">
+      <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -3,6 +3,24 @@
 #include <Common/Log.h>
 #include <D3dDdi/Log/CommonLog.h>
 
+std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONLIST& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.hAllocation)
+		<< Compat::hex(data.Value);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDI_PATCHLOCATIONLIST& data)
+{
+	return Compat::LogStruct(os)
+		<< data.AllocationIndex
+		<< Compat::hex(data.Value)
+		<< Compat::hex(data.DriverId)
+		<< Compat::hex(data.AllocationOffset)
+		<< Compat::hex(data.PatchOffset)
+		<< Compat::hex(data.SplitOffset);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val)
 {
 	return Compat::LogStruct(os)
