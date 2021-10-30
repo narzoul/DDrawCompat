@@ -162,19 +162,19 @@ namespace
 			case KMTQAITYPE_GETSEGMENTSIZE:
 			{
 				auto info = static_cast<D3DKMT_SEGMENTSIZEINFO*>(pData->pPrivateDriverData);
+				info->DedicatedVideoMemorySize += info->DedicatedSystemMemorySize;
+				info->DedicatedSystemMemorySize = 0;
+
 				const ULONGLONG maxMem = 0x3FFF0000;
-				if (info->DedicatedVideoMemorySize > maxMem)
+				if (info->DedicatedVideoMemorySize < maxMem)
 				{
-					info->DedicatedVideoMemorySize = maxMem;
+					auto addedMem = min(maxMem - info->DedicatedVideoMemorySize, info->SharedSystemMemorySize);
+					info->DedicatedVideoMemorySize += addedMem;
+					info->SharedSystemMemorySize -= addedMem;
 				}
-				if (info->DedicatedVideoMemorySize + info->DedicatedSystemMemorySize > maxMem)
-				{
-					info->DedicatedSystemMemorySize = maxMem - info->DedicatedVideoMemorySize;
-				}
-				if (info->SharedSystemMemorySize > maxMem)
-				{
-					info->SharedSystemMemorySize = maxMem;
-				}
+
+				info->DedicatedVideoMemorySize = min(info->DedicatedVideoMemorySize, maxMem);
+				info->SharedSystemMemorySize = min(info->SharedSystemMemorySize, maxMem);
 			}
 			break;
 			}
