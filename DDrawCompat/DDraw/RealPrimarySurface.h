@@ -28,6 +28,6 @@ namespace DDraw
 		static void scheduleUpdate();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void update();
-		static bool waitForFlip(Surface* surface, bool wait = true);
+		static bool waitForFlip(Surface* surface);
 	};
 }

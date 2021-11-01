@@ -120,11 +120,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
-		if (!waitForFlip(This, dwFlags, DDFLIP_WAIT, DDFLIP_DONOTWAIT))
-		{
-			return DDERR_WASSTILLDRAWING;
-		}
-
+		DDraw::RealPrimarySurface::waitForFlip(m_data);
 		auto surfaceTargetOverride(CompatPtr<TSurface>::from(lpDDSurfaceTargetOverride));
 		const bool isFlipEmulated = 0 != (PrimarySurface::getOrigCaps() & DDSCAPS_SYSTEMMEMORY);
 		if (isFlipEmulated)

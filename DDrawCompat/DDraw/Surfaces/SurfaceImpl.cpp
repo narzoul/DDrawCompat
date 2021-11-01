@@ -9,15 +9,6 @@
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Dll/Dll.h>
 
-namespace
-{
-	void* getSurface7VtablePtr(IUnknown* surface)
-	{
-		static void* vtable = CompatPtr<IDirectDrawSurface7>::from(surface).get()->lpVtbl;
-		return vtable;
-	}
-}
-
 namespace DDraw
 {
 	template <typename TSurface>
@@ -36,10 +27,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
-		if (!waitForFlip(This, dwFlags, DDBLT_WAIT, DDBLT_DONOTWAIT))
-		{
-			return DDERR_WASSTILLDRAWING;
-		}
+		RealPrimarySurface::waitForFlip(m_data);
 		DirectDrawClipper::update();
 		return getOrigVtable(This).Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 	}
@@ -48,10 +36,7 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
-		if (!waitForFlip(This, dwTrans, DDBLTFAST_WAIT, DDBLTFAST_DONOTWAIT))
-		{
-			return DDERR_WASSTILLDRAWING;
-		}
+		RealPrimarySurface::waitForFlip(m_data);
 		return getOrigVtable(This).BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 	}
 
@@ -59,21 +44,6 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
 		return getOrigVtable(This).Flip(This, lpDDSurfaceTargetOverride, dwFlags);
-	}
-
-	template <typename TSurface>
-	HRESULT SurfaceImpl<TSurface>::GetBltStatus(TSurface* This, DWORD dwFlags)
-	{
-		HRESULT result = getOrigVtable(This).GetBltStatus(This, dwFlags);
-		if (SUCCEEDED(result) && (dwFlags & DDGBS_CANBLT))
-		{
-			const bool wait = false;
-			if (!RealPrimarySurface::waitForFlip(m_data, wait))
-			{
-				return DDERR_WASSTILLDRAWING;
-			}
-		}
-		return result;
 	}
 
 	template <typename TSurface>
@@ -90,26 +60,11 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
+		RealPrimarySurface::waitForFlip(m_data);
 		HRESULT result = getOrigVtable(This).GetDC(This, lphDC);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::waitForFlip(m_data);
 			Dll::g_origProcs.ReleaseDDThreadLock();
-		}
-		return result;
-	}
-
-	template <typename TSurface>
-	HRESULT SurfaceImpl<TSurface>::GetFlipStatus(TSurface* This, DWORD dwFlags)
-	{
-		HRESULT result = getOrigVtable(This).GetFlipStatus(This, dwFlags);
-		if (SUCCEEDED(result))
-		{
-			const bool wait = false;
-			if (!RealPrimarySurface::waitForFlip(m_data, wait))
-			{
-				return DDERR_WASSTILLDRAWING;
-			}
 		}
 		return result;
 	}
@@ -142,11 +97,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 		DWORD dwFlags, HANDLE hEvent)
 	{
-		if (!waitForFlip(This, dwFlags, DDLOCK_WAIT, DDLOCK_DONOTWAIT))
-		{
-			return DDERR_WASSTILLDRAWING;
-		}
-
+		RealPrimarySurface::waitForFlip(m_data);
 		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{
@@ -233,14 +184,6 @@ namespace DDraw
 		{
 			caps |= DDSCAPS_3DDEVICE;
 		}
-	}
-
-	template <typename TSurface>
-	bool SurfaceImpl<TSurface>::waitForFlip(TSurface* This, DWORD flags, DWORD waitFlag, DWORD doNotWaitFlag)
-	{
-		const bool wait = (flags & waitFlag) || !(flags & doNotWaitFlag) &&
-			getSurface7VtablePtr(reinterpret_cast<IUnknown*>(This)) == This->lpVtbl;
-		return DDraw::RealPrimarySurface::waitForFlip(m_data, wait);
 	}
 
 	template SurfaceImpl<IDirectDrawSurface>;

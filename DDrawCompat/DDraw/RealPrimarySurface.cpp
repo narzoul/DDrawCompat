@@ -317,7 +317,6 @@ namespace DDraw
 			updateNow(PrimarySurface::getPrimary(), flipInterval);
 		}
 		g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + flipInterval;
-		g_presentEndVsyncCount = g_flipEndVsyncCount;
 
 		if (0 != flipInterval)
 		{
@@ -424,7 +423,7 @@ namespace DDraw
 		}
 	}
 
-	bool RealPrimarySurface::waitForFlip(Surface* surface, bool wait)
+	bool RealPrimarySurface::waitForFlip(Surface* surface)
 	{
 		auto primary(DDraw::PrimarySurface::getPrimary());
 		if (!surface || !primary ||
@@ -432,11 +431,6 @@ namespace DDraw
 			surface != Surface::getSurface(*DDraw::PrimarySurface::getPrimary()))
 		{
 			return true;
-		}
-
-		if (!wait)
-		{
-			return !isFlipPending();
 		}
 
 		D3dDdi::KernelModeThunks::waitForVsyncCounter(g_flipEndVsyncCount);
