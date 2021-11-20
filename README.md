@@ -25,7 +25,7 @@ Delete DDrawCompat's ddraw.dll file from the game's directory. You can also dele
 There are currently no configuration options available, but this is expected to change in an upcoming release.
 
 ### Development
-DDrawCompat is developed in C++ using Microsoft Visual Studio Community 2019.
+DDrawCompat is developed in C++ using Microsoft Visual Studio Community 2022.
 
 Additional dependencies:
 - Windows 10 SDK & DDK (see WindowsTargetPlatformVersion in [DDrawCompat.vcxproj](DDrawCompat/DDrawCompat.vcxproj) for the exact version)
