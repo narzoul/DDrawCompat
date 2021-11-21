@@ -1,6 +1,9 @@
 #include <atomic>
 #include <string>
 
+#include <Windows.h>
+#include <VersionHelpers.h>
+
 #include <Common/Log.h>
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
@@ -22,19 +25,21 @@ namespace
 	PALETTEENTRY* g_dcPaletteOverride = nullptr;
 	D3dDdi::KernelModeThunks::AdapterInfo g_gdiAdapterInfo = {};
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
-	Compat::SrwLock g_lastOpenAdapterInfoSrwLock;
+	Compat::SrwLock g_adapterInfoSrwLock;
 	std::string g_lastDDrawDeviceName;
 
-	std::atomic<long long> g_qpcLastVsync = 0;
+	long long g_qpcLastVsync = 0;
 	UINT g_vsyncCounter = 0;
 	CONDITION_VARIABLE g_vsyncCounterCv = CONDITION_VARIABLE_INIT;
 	Compat::SrwLock g_vsyncCounterSrwLock;
 
+	void getVidPnSource(D3DKMT_HANDLE& adapter, UINT& vidPnSourceId);
+	void updateGdiAdapterInfo();
 	void waitForVerticalBlank();
 
 	NTSTATUS APIENTRY closeAdapter(const D3DKMT_CLOSEADAPTER* pData)
 	{
-		Compat::ScopedSrwLockExclusive lock(g_lastOpenAdapterInfoSrwLock);
+		Compat::ScopedSrwLockExclusive lock(g_adapterInfoSrwLock);
 		if (pData && pData->hAdapter == g_lastOpenAdapterInfo.adapter)
 		{
 			g_lastOpenAdapterInfo = {};
@@ -139,16 +144,58 @@ namespace
 		return adapterInfo;
 	}
 
+	int getScanLine()
+	{
+		D3DKMT_GETSCANLINE data = {};
+		getVidPnSource(data.hAdapter, data.VidPnSourceId);
+		if (!data.hAdapter || FAILED(D3DKMTGetScanLine(&data)) || data.InVerticalBlank)
+		{
+			return -1;
+		}
+		return data.ScanLine;
+	}
+
+	void getVidPnSource(D3DKMT_HANDLE& adapter, UINT& vidPnSourceId)
+	{
+		{
+			Compat::ScopedSrwLockShared lock(g_adapterInfoSrwLock);
+			if (g_lastOpenAdapterInfo.adapter)
+			{
+				adapter = g_lastOpenAdapterInfo.adapter;
+				vidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
+				return;
+			}
+		}
+
+		Compat::ScopedSrwLockExclusive lock(g_adapterInfoSrwLock);
+		updateGdiAdapterInfo();
+		adapter = g_gdiAdapterInfo.adapter;
+		vidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
+	}
+
 	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
 	{
 		LOG_FUNC("D3DKMTOpenAdapterFromHdc", pData);
 		NTSTATUS result = D3DKMTOpenAdapterFromHdc(pData);
 		if (SUCCEEDED(result))
 		{
-			Compat::ScopedSrwLockExclusive lock(g_lastOpenAdapterInfoSrwLock);
+			Compat::ScopedSrwLockExclusive lock(g_adapterInfoSrwLock);
 			g_lastOpenAdapterInfo = getAdapterInfo(g_lastDDrawDeviceName, *pData);
 		}
 		return LOG_RESULT(result);
+	}
+
+	void pollForVerticalBlank()
+	{
+		int scanLine = getScanLine();
+		int prevScanLine = scanLine;
+		auto qpcStart = Time::queryPerformanceCounter();
+		while (scanLine >= prevScanLine && Time::queryPerformanceCounter() - qpcStart < Time::g_qpcFrequency / 60)
+		{
+			Sleep(1);
+			prevScanLine = scanLine;
+			scanLine = getScanLine();
+		}
 	}
 
 	NTSTATUS APIENTRY queryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
@@ -230,10 +277,10 @@ namespace
 		while (true)
 		{
 			waitForVerticalBlank();
-			g_qpcLastVsync = Time::queryPerformanceCounter();
 
 			{
 				Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+				g_qpcLastVsync = Time::queryPerformanceCounter();
 				++g_vsyncCounter;
 			}
 
@@ -244,25 +291,30 @@ namespace
 
 	void waitForVerticalBlank()
 	{
-		D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
-
+		if (IsWindows8OrGreater())
 		{
-			Compat::ScopedSrwLockShared lock(g_lastOpenAdapterInfoSrwLock);
-			data.hAdapter = g_lastOpenAdapterInfo.adapter;
-			data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
+			D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
+
+			{
+				Compat::ScopedSrwLockShared lock(g_adapterInfoSrwLock);
+				data.hAdapter = g_lastOpenAdapterInfo.adapter;
+				data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
+			}
+
+			if (!data.hAdapter)
+			{
+				updateGdiAdapterInfo();
+				data.hAdapter = g_gdiAdapterInfo.adapter;
+				data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
+			}
+
+			if (data.hAdapter && SUCCEEDED(D3DKMTWaitForVerticalBlankEvent(&data)))
+			{
+				return;
+			}
 		}
 
-		if (!data.hAdapter)
-		{
-			updateGdiAdapterInfo();
-			data.hAdapter = g_gdiAdapterInfo.adapter;
-			data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
-		}
-
-		if (!data.hAdapter || FAILED(D3DKMTWaitForVerticalBlankEvent(&data)))
-		{
-			Sleep(16);
-		}
+		pollForVerticalBlank();
 	}
 }
 
@@ -280,12 +332,13 @@ namespace D3dDdi
 
 		AdapterInfo getLastOpenAdapterInfo()
 		{
-			Compat::ScopedSrwLockShared srwLock(g_lastOpenAdapterInfoSrwLock);
+			Compat::ScopedSrwLockShared srwLock(g_adapterInfoSrwLock);
 			return g_lastOpenAdapterInfo;
 		}
 
 		long long getQpcLastVsync()
 		{
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
 			return g_qpcLastVsync;
 		}
 
@@ -315,11 +368,6 @@ namespace D3dDdi
 		void setDcPaletteOverride(PALETTEENTRY* palette)
 		{
 			g_dcPaletteOverride = palette;
-		}
-
-		void waitForVsync()
-		{
-			waitForVsyncCounter(getVsyncCounter() + 1);
 		}
 
 		bool waitForVsyncCounter(UINT counter)

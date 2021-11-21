@@ -214,7 +214,7 @@ namespace
 		{
 			if (!skipWaitForVsync)
 			{
-				D3dDdi::KernelModeThunks::waitForVsync();
+				D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
 			}
 			skipWaitForVsync = false;
 			Sleep(1);

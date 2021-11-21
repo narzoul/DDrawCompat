@@ -172,23 +172,8 @@ namespace
 	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent)
 	{
-		if (!This || (DDWAITVB_BLOCKBEGIN != dwFlags && DDWAITVB_BLOCKEND != dwFlags))
-		{
-			return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
-		}
-
-		DWORD scanLine = 0;
-		if (DDERR_VERTICALBLANKINPROGRESS != getOrigVtable(This).GetScanLine(This, &scanLine))
-		{
-			D3dDdi::KernelModeThunks::waitForVsync();
-		}
-
-		if (DDWAITVB_BLOCKEND == dwFlags)
-		{
-			while (DDERR_VERTICALBLANKINPROGRESS == getOrigVtable(This).GetScanLine(This, &scanLine));
-		}
-
-		return DD_OK;
+		DDraw::RealPrimarySurface::flush();
+		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
 	}
 
 	template <typename Vtable>
