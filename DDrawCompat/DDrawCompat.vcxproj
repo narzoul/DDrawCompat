@@ -191,6 +191,7 @@
     </FxCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="Common\BitSet.h" />
     <ClInclude Include="Common\Comparison.h" />
     <ClInclude Include="Common\CompatPtr.h" />
     <ClInclude Include="Common\CompatQueryInterface.h" />
@@ -241,6 +242,7 @@
     <ClInclude Include="D3dDdi\Log\DeviceFuncsLog.h" />
     <ClInclude Include="D3dDdi\Log\KernelModeThunksLog.h" />
     <ClInclude Include="D3dDdi\Resource.h" />
+    <ClInclude Include="D3dDdi\ResourceDeleter.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
     <ClInclude Include="D3dDdi\ShaderBlitter.h" />
     <ClInclude Include="D3dDdi\SurfaceRepository.h" />

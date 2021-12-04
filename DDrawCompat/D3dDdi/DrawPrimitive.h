@@ -79,7 +79,7 @@ namespace D3dDdi
 
 		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride);
 
-		HANDLE m_device;
+		Device& m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
 		DynamicVertexBuffer m_vertexBuffer;
 		DynamicIndexBuffer m_indexBuffer;

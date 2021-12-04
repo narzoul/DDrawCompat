@@ -1,6 +1,10 @@
 #pragma once
 
+#include <memory>
+
 #include <Windows.h>
+
+#include <D3dDdi/ResourceDeleter.h>
 
 namespace D3dDdi
 {
@@ -27,19 +31,20 @@ namespace D3dDdi
 			const Resource& srcResource, const RECT& srcRect, HANDLE pixelShader, UINT filter);
 
 		template <int N>
-		HANDLE createPixelShader(const BYTE(&code)[N])
+		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
 		{
 			return createPixelShader(code, N);
 		}
 
-		HANDLE createPixelShader(const BYTE* code, UINT size);
-		HANDLE createVertexShaderDecl();
+		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
+		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
+		void setTempTextureStage(UINT stage, HANDLE texture, UINT filter);
 
 		Device& m_device;
-		HANDLE m_psDrawCursor;
-		HANDLE m_psGenBilinear;
-		HANDLE m_psPaletteLookup;
-		HANDLE m_psTextureSampler;
-		HANDLE m_vertexShaderDecl;
+		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
+		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
+		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
+		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
+		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
 	};
 }

@@ -454,6 +454,8 @@ namespace D3dDdi
 
 	HRESULT DrawPrimitive::draw(D3DDDIARG_DRAWPRIMITIVE data, const UINT* flagBuffer)
 	{
+		m_device.getState().flush();
+
 		if (0 == m_batched.primitiveCount || flagBuffer ||
 			!appendPrimitives(data.PrimitiveType, data.VStart, data.PrimitiveCount, nullptr, 0, 0))
 		{
@@ -485,6 +487,8 @@ namespace D3dDdi
 	HRESULT DrawPrimitive::drawIndexed(
 		D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer)
 	{
+		m_device.getState().flush();
+
 		auto indexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		auto [min, max] = std::minmax_element(indices, indices + indexCount);
 		data.MinIndex = *min;

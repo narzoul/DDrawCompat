@@ -7,6 +7,7 @@
 #include <d3dumddi.h>
 
 #include <D3dDdi/FormatInfo.h>
+#include <D3dDdi/ResourceDeleter.h>
 #include <D3dDdi/SurfaceRepository.h>
 
 namespace D3dDdi
@@ -63,16 +64,6 @@ namespace D3dDdi
 			bool isSysMemUpToDate;
 			bool isVidMemUpToDate;
 			bool isCustomUpToDate;
-		};
-
-		class ResourceDeleter
-		{
-		public:
-			ResourceDeleter(Device& device) : m_device(device) {}
-			void operator()(HANDLE resource) { m_device.getOrigVtable().pfnDestroyResource(m_device, resource); }
-
-		private:
-			Device& m_device;
 		};
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);

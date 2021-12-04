@@ -495,6 +495,12 @@
     <ClInclude Include="D3dDdi\Log\AdapterCallbacksLog.h">
       <Filter>Header Files\D3dDdi\Log</Filter>
     </ClInclude>
+    <ClInclude Include="Common\BitSet.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\ResourceDeleter.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

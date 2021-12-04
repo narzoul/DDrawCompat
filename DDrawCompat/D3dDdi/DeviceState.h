@@ -7,6 +7,8 @@
 #include <map>
 #include <vector>
 
+#include <Common/BitSet.h>
+
 const UINT D3DTEXF_NONE = 0;
 const UINT D3DTEXF_POINT = 1;
 const UINT D3DTEXF_LINEAR = 2;
@@ -19,8 +21,40 @@ namespace D3dDdi
 	class DeviceState
 	{
 	public:
+		typedef std::array<BOOL, 1> ShaderConstB;
 		typedef std::array<FLOAT, 4> ShaderConstF;
 		typedef std::array<INT, 4> ShaderConstI;
+
+		class TempPixelShaderConst
+		{
+		public:
+			TempPixelShaderConst(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONST& data, const ShaderConstF* registers);
+			~TempPixelShaderConst();
+
+		private:
+			DeviceState& m_state;
+			D3DDDIARG_SETPIXELSHADERCONST m_data;
+		};
+
+		class TempStateLock
+		{
+		public:
+			TempStateLock(DeviceState& state)
+				: m_state(state)
+				, m_prevChangedStates(state.m_changedStates)
+			{
+				state.m_changedStates = 0;
+			}
+
+			~TempStateLock()
+			{
+				m_state.m_changedStates = m_prevChangedStates;
+			}
+
+		private:
+			DeviceState& m_state;
+			UINT m_prevChangedStates;
+		};
 
 		DeviceState(Device& device);
 		
@@ -48,248 +82,106 @@ namespace D3dDdi
 		HRESULT pfnSetZRange(const D3DDDIARG_ZRANGE* data);
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
+		void setTempDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
+		void setTempPixelShader(HANDLE shader);
+		void setTempRenderState(const D3DDDIARG_RENDERSTATE& renderState);
+		void setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
+		void setTempStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
+		void setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
+		void setTempTexture(UINT stage, HANDLE texture);
+		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
+		void setTempVertexShaderDecl(HANDLE decl);
+		void setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
+		void setTempWInfo(const D3DDDIARG_WINFO& wInfo);
+		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
+
+		void flush();
 		void onDestroyResource(HANDLE resource);
 		void updateConfig();
 
 	private:
-		HRESULT deleteShader(HANDLE shader, HANDLE& currentShader,
+		friend class ScopedDeviceState;
+
+		enum ChangedState
+		{
+			CS_MISC          = 1 << 0,
+			CS_RENDER_STATE  = 1 << 1,
+			CS_RENDER_TARGET = 1 << 2,
+			CS_SHADER        = 1 << 3,
+			CS_STREAM_SOURCE = 1 << 4,
+			CS_TEXTURE_STAGE = 1 << 5
+		};
+
+		struct State
+		{
+			D3DDDIARG_SETDEPTHSTENCIL depthStencil;
+			HANDLE pixelShader;
+			std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> renderState;
+			D3DDDIARG_SETRENDERTARGET renderTarget;
+			D3DDDIARG_SETSTREAMSOURCE streamSource;
+			D3DDDIARG_SETSTREAMSOURCEUM streamSourceUm;
+			const void* streamSourceUmBuffer;
+			std::array<HANDLE, 8> textures;
+			std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> textureStageState;
+			HANDLE vertexShaderDecl;
+			HANDLE vertexShaderFunc;
+			D3DDDIARG_VIEWPORTINFO viewport;
+			D3DDDIARG_WINFO wInfo;
+			D3DDDIARG_ZRANGE zRange;
+		};
+
+		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
-		HRESULT setShader(HANDLE shader, HANDLE& currentShader,
-			HRESULT(APIENTRY* origSetShaderFunc)(HANDLE, HANDLE));
 
-		template <typename SetShaderConstData, typename ShaderConst, typename Registers>
-		HRESULT setShaderConst(const SetShaderConstData* data, const Registers* registers,
-			std::vector<ShaderConst>& shaderConst,
-			HRESULT(APIENTRY* origSetShaderConstFunc)(HANDLE, const SetShaderConstData*, const Registers*));
+		template <typename Data>
+		void removeResource(HANDLE resource, Data State::* data, HANDLE Data::* resourceMember,
+			HRESULT(DeviceState::* pfnSetResourceFunc)(const Data*));
 
-		template <typename StateData>
-		HRESULT setState(const StateData* data, StateData& currentState,
-			HRESULT(APIENTRY* origSetState)(HANDLE, const StateData*));
+		template <typename Data>
+		bool setData(const Data& data, Data& currentData, HRESULT(APIENTRY* origSetData)(HANDLE, const Data*));
 
-		template <typename StateData, UINT size>
-		HRESULT setStateArray(const StateData* data, std::array<UINT, size>& currentState,
-			HRESULT(APIENTRY* origSetState)(HANDLE, const StateData*));
+		bool setShader(HANDLE shader, HANDLE& currentShader, HRESULT(APIENTRY* origSetShaderFunc)(HANDLE, HANDLE));
 
-		void updateTextureStageState(UINT stage, D3DDDITEXTURESTAGESTATETYPE state);
+		template <typename SetShaderConstData, typename ShaderConstArray, typename Register>
+		HRESULT setShaderConst(const SetShaderConstData* data, const Register* registers,
+			ShaderConstArray& shaderConstArray,
+			HRESULT(APIENTRY* origSetShaderConstFunc)(HANDLE, const SetShaderConstData*, const Register*));
+
+		void setDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
+		void setPixelShader(HANDLE shader);
+		void setRenderState(const D3DDDIARG_RENDERSTATE& renderState);
+		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
+		void setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
+		void setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
+		bool setTexture(UINT stage, HANDLE texture);
+		void setTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
+		void setVertexShaderDecl(HANDLE decl);
+		void setVertexShaderFunc(HANDLE shader);
+		void setViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
+		void setWInfo(const D3DDDIARG_WINFO& wInfo);
+		void setZRange(const D3DDDIARG_ZRANGE& zRange);
+
+		void updateMisc();
+		void updateRenderStates();
+		void updateRenderTargets();
+		void updateShaders();
+		void updateStreamSource();
+		void updateTextureColorKey(UINT stage);
+		void updateTextureStages();
 
 		Device& m_device;
-		D3DDDIARG_SETDEPTHSTENCIL m_depthStencil;
-		HANDLE m_pixelShader;
-		std::vector<ShaderConstF> m_pixelShaderConst;
-		std::vector<BOOL> m_pixelShaderConstB;
-		std::vector<ShaderConstI> m_pixelShaderConstI;
-		std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> m_renderState;
-		D3DDDIARG_SETRENDERTARGET m_renderTarget;
-		D3DDDIARG_SETSTREAMSOURCE m_streamSource;
-		D3DDDIARG_SETSTREAMSOURCEUM m_streamSourceUm;
-		const void* m_streamSourceUmBuffer;
-		std::array<HANDLE, 8> m_textures;
-		std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> m_textureStageState;
-		std::vector<ShaderConstF> m_vertexShaderConst;
-		std::vector<BOOL> m_vertexShaderConstB;
-		std::vector<ShaderConstI> m_vertexShaderConstI;
+		State m_app;
+		State m_current;
+		std::array<ShaderConstF, 32> m_pixelShaderConst;
+		std::array<ShaderConstB, 16> m_pixelShaderConstB;
+		std::array<ShaderConstI, 16> m_pixelShaderConstI;
+		std::array<ShaderConstF, 256> m_vertexShaderConst;
+		std::array<ShaderConstB, 16> m_vertexShaderConstB;
+		std::array<ShaderConstI, 16> m_vertexShaderConstI;
 		std::map<HANDLE, std::vector<D3DDDIVERTEXELEMENT>> m_vertexShaderDecls;
-		HANDLE m_vertexShaderDecl;
-		HANDLE m_vertexShaderFunc;
-		D3DDDIARG_VIEWPORTINFO m_viewport;
-		D3DDDIARG_WINFO m_wInfo;
-		D3DDDIARG_ZRANGE m_zRange;
-
-	public:
-		template <auto setterMethod, auto dataMemberPtr>
-		class ScopedData
-		{
-		public:
-			typedef std::remove_reference_t<decltype(std::declval<DeviceState>().*dataMemberPtr)> Data;
-
-			ScopedData(DeviceState& deviceState, const Data& data)
-				: m_deviceState(deviceState)
-				, m_prevData(deviceState.*dataMemberPtr)
-			{
-				(m_deviceState.*setterMethod)(&data);
-			}
-
-			~ScopedData()
-			{
-				(m_deviceState.*setterMethod)(&m_prevData);
-			}
-
-		protected:
-			DeviceState& m_deviceState;
-			Data m_prevData;
-		};
-
-		class ScopedDepthStencil : public ScopedData<&DeviceState::pfnSetDepthStencil, &DeviceState::m_depthStencil>
-		{
-		public:
-			using ScopedData::ScopedData;
-		};
-
-		template <HRESULT(DeviceState::* setHandle)(HANDLE), HANDLE DeviceState::* storedHandle>
-		class ScopedHandle
-		{
-		public:
-			ScopedHandle(DeviceState& deviceState, HANDLE handle)
-				: m_deviceState(deviceState)
-				, m_prevHandle(deviceState.*storedHandle)
-			{
-				(m_deviceState.*setHandle)(handle);
-			}
-
-			~ScopedHandle()
-			{
-				if (m_prevHandle)
-				{
-					(m_deviceState.*setHandle)(m_prevHandle);
-				}
-			}
-
-		private:
-			DeviceState& m_deviceState;
-			HANDLE m_prevHandle;
-		};
-
-		class ScopedPixelShader : public ScopedHandle<&DeviceState::pfnSetPixelShader, &DeviceState::m_pixelShader>
-		{
-		public:
-			using ScopedHandle::ScopedHandle;
-		};
-
-		class ScopedPixelShaderConst
-		{
-		public:
-			ScopedPixelShaderConst(
-				DeviceState& deviceState, const D3DDDIARG_SETPIXELSHADERCONST& data, const ShaderConstF* registers)
-				: m_deviceState(deviceState)
-				, m_register(data.Register)
-			{
-				if (data.Register + data.Count > m_deviceState.m_pixelShaderConst.size())
-				{
-					m_deviceState.m_pixelShaderConst.resize(data.Register + data.Count);
-				}
-
-				auto it = deviceState.m_pixelShaderConst.begin() + data.Register;
-				m_prevRegisters.assign(it, it + data.Count);
-				m_deviceState.pfnSetPixelShaderConst(&data, reinterpret_cast<const FLOAT*>(registers));
-			}
-
-			~ScopedPixelShaderConst()
-			{
-				D3DDDIARG_SETPIXELSHADERCONST data = {};
-				data.Register = m_register;
-				data.Count = m_prevRegisters.size();
-				m_deviceState.pfnSetPixelShaderConst(&data, reinterpret_cast<const FLOAT*>(m_prevRegisters.data()));
-			}
-
-		private:
-			DeviceState& m_deviceState;
-			UINT m_register;
-			std::vector<ShaderConstF> m_prevRegisters;
-		};
-
-		class ScopedRenderState
-		{
-		public:
-			ScopedRenderState(DeviceState& deviceState, const D3DDDIARG_RENDERSTATE& data);
-			~ScopedRenderState();
-				
-		private:
-			DeviceState& m_deviceState;
-			D3DDDIARG_RENDERSTATE m_prevData;
-		};
-
-		class ScopedRenderTarget : public ScopedData<&DeviceState::pfnSetRenderTarget, &DeviceState::m_renderTarget>
-		{
-		public:
-			ScopedRenderTarget(DeviceState& deviceState, const D3DDDIARG_SETRENDERTARGET& data)
-				: ScopedData(deviceState, data)
-			{
-				if (!m_prevData.hRenderTarget)
-				{
-					m_prevData = data;
-				}
-			}
-		};
-
-		class ScopedStreamSourceUm
-		{
-		public:
-			ScopedStreamSourceUm(DeviceState& deviceState, const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer)
-				: m_deviceState(deviceState)
-				, m_prevStreamSource(deviceState.m_streamSource)
-				, m_prevStreamSourceUm(deviceState.m_streamSourceUm)
-				, m_prevStreamSourceUmBuffer(deviceState.m_streamSourceUmBuffer)
-			{
-				m_deviceState.pfnSetStreamSourceUm(&data, umBuffer);
-			}
-
-			~ScopedStreamSourceUm()
-			{
-				if (m_prevStreamSourceUmBuffer)
-				{
-					m_deviceState.pfnSetStreamSourceUm(&m_prevStreamSourceUm, m_prevStreamSourceUmBuffer);
-				}
-				else if (m_prevStreamSource.hVertexBuffer)
-				{
-					m_deviceState.pfnSetStreamSource(&m_prevStreamSource);
-				}
-			}
-
-		private:
-			DeviceState& m_deviceState;
-			D3DDDIARG_SETSTREAMSOURCE m_prevStreamSource;
-			D3DDDIARG_SETSTREAMSOURCEUM m_prevStreamSourceUm;
-			const void* m_prevStreamSourceUmBuffer;
-		};
-
-		class ScopedTextureStageState
-		{
-		public:
-			ScopedTextureStageState(DeviceState& deviceState, const D3DDDIARG_TEXTURESTAGESTATE& data);
-			~ScopedTextureStageState();
-
-		private:
-			DeviceState& m_deviceState;
-			D3DDDIARG_TEXTURESTAGESTATE m_prevData;
-		};
-
-		class ScopedTexture
-		{
-		public:
-			ScopedTexture(DeviceState& deviceState, UINT stage, HANDLE texture, UINT filter);
-			~ScopedTexture();
-
-		private:
-			DeviceState& m_deviceState;
-			UINT m_stage;
-			HANDLE m_prevTexture;
-			ScopedTextureStageState m_scopedAddressU;
-			ScopedTextureStageState m_scopedAddressV;
-			ScopedTextureStageState m_scopedMagFilter;
-			ScopedTextureStageState m_scopedMinFilter;
-			ScopedTextureStageState m_scopedMipFilter;
-			ScopedTextureStageState m_scopedSrgbTexture;
-			ScopedRenderState m_scopedWrap;
-			UINT m_prevTextureColorKeyVal;
-			UINT m_prevDisableTextureColorKey;
-		};
-
-		class ScopedVertexShaderDecl : public ScopedHandle<&DeviceState::pfnSetVertexShaderDecl, &DeviceState::m_vertexShaderDecl>
-		{
-		public:
-			using ScopedHandle::ScopedHandle;
-		};
-
-		class ScopedViewport : public ScopedData<&DeviceState::pfnSetViewport, &DeviceState::m_viewport>
-		{
-		public:
-			using ScopedData::ScopedData;
-		};
-
-		class ScopedZRange : public ScopedData<&DeviceState::pfnSetZRange, &DeviceState::m_zRange>
-		{
-		public:
-			using ScopedData::ScopedData;
-		};
+		UINT m_changedStates;
+		UINT m_maxChangedTextureStage;
+		BitSet<D3DDDIRS_ZENABLE, D3DDDIRS_BLENDOPALPHA> m_changedRenderStates;
+		std::array<BitSet<D3DDDITSS_TEXTUREMAP, D3DDDITSS_TEXTURECOLORKEYVAL>, 8> m_changedTextureStageStates;
 	};
 }

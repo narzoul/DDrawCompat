@@ -105,7 +105,7 @@ namespace D3dDdi
 		, m_origData(data)
 		, m_fixedData(data)
 		, m_lockBuffer(nullptr, &heapFree)
-		, m_lockResource(nullptr, ResourceDeleter(device))
+		, m_lockResource(nullptr, ResourceDeleter(device, device.getOrigVtable().pfnDestroyResource))
 		, m_customSurface{}
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())

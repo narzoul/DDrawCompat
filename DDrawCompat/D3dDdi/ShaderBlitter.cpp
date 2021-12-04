@@ -39,29 +39,32 @@ namespace D3dDdi
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
 
-		SCOPED_STATE(RenderState, { D3DDDIRS_SCENECAPTURE, TRUE });
-		SCOPED_STATE(VertexShaderDecl, m_vertexShaderDecl);
-		SCOPED_STATE(PixelShader, pixelShader);
-		SCOPED_STATE(DepthStencil, { nullptr });
-		SCOPED_STATE(RenderTarget, { 0, dstResource, dstSubResourceIndex });
-		SCOPED_STATE(Viewport, { 0, 0, dstSurface.Width, dstSurface.Height });
-		SCOPED_STATE(ZRange, { 0, 1 });
+		auto& state = m_device.getState();
+		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
+		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
+		state.setTempPixelShader(pixelShader);
+		state.setTempRenderTarget({ 0, dstResource, dstSubResourceIndex });
+		state.setTempDepthStencil({ nullptr });
+		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
+		state.setTempZRange({ 0, 1 });
 
-		SCOPED_STATE(RenderState, { D3DDDIRS_ZENABLE, D3DZB_FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_FILLMODE, D3DFILL_SOLID });
-		SCOPED_STATE(RenderState, { D3DDDIRS_ALPHATESTENABLE, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_CULLMODE, D3DCULL_NONE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_DITHERENABLE, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_ALPHABLENDENABLE, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_FOGENABLE, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_STENCILENABLE, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_CLIPPING, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_CLIPPLANEENABLE, 0 });
-		SCOPED_STATE(RenderState, { D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
-		SCOPED_STATE(RenderState, { D3DDDIRS_COLORWRITEENABLE, 0xF });
-		SCOPED_STATE(RenderState, { D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
+		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_FALSE });
+		state.setTempRenderState({ D3DDDIRS_FILLMODE, D3DFILL_SOLID });
+		state.setTempRenderState({ D3DDDIRS_ZWRITEENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_ALPHATESTENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CULLMODE, D3DCULL_NONE });
+		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CLIPPING, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
+		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
+		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0xF });
+		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
 
-		SCOPED_STATE(Texture, 0, srcResource, filter);
+		setTempTextureStage(0, srcResource, filter);
 
 		struct Vertex
 		{
@@ -83,9 +86,9 @@ namespace D3dDdi
 			{ dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight }
 		};
 
-		D3DDDIARG_SETSTREAMSOURCEUM um = {};
-		um.Stride = sizeof(Vertex);
-		SCOPED_STATE(StreamSourceUm, um, vertices);
+		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, vertices);
+		
+		DeviceState::TempStateLock lock(state);
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
 		dp.PrimitiveType = D3DPT_TRIANGLEFAN;
@@ -95,7 +98,7 @@ namespace D3dDdi
 		m_device.flushPrimitives();
 	}
 
-	HANDLE ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
+	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
 	{
 		D3DDDIARG_CREATEPIXELSHADER data = {};
 		data.CodeSize = size;
@@ -103,10 +106,10 @@ namespace D3dDdi
 		{
 			return nullptr;
 		}
-		return data.ShaderHandle;
+		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader) };
 	}
 
-	HANDLE ShaderBlitter::createVertexShaderDecl()
+	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createVertexShaderDecl()
 	{
 		const UINT D3DDECLTYPE_FLOAT2 = 1;
 		const UINT D3DDECLTYPE_FLOAT4 = 3;
@@ -126,7 +129,7 @@ namespace D3dDdi
 		{
 			return nullptr;
 		}
-		return data.ShaderHandle;
+		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderDecl) };
 	}
 
 	void ShaderBlitter::cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, HCURSOR cursor, POINT pt)
@@ -163,10 +166,10 @@ namespace D3dDdi
 		data.DstRect = clippedSrcRect;
 		m_device.getOrigVtable().pfnBlt(m_device, &data);
 
-		SCOPED_STATE(Texture, 1, *cur.maskTexture, D3DTEXF_POINT);
-		SCOPED_STATE(Texture, 2, *cur.colorTexture, D3DTEXF_POINT);
-		SCOPED_STATE(Texture, 3, *xorTexture, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, clippedSrcRect, m_psDrawCursor, D3DTEXF_POINT);
+		setTempTextureStage(1, *cur.maskTexture, D3DTEXF_POINT);
+		setTempTextureStage(2, *cur.colorTexture, D3DTEXF_POINT);
+		setTempTextureStage(3, *xorTexture, D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, clippedSrcRect, m_psDrawCursor.get(), D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -174,7 +177,7 @@ namespace D3dDdi
 	{
 		if (100 == blurPercent)
 		{
-			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psTextureSampler, D3DTEXF_LINEAR);
+			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psTextureSampler.get(), D3DTEXF_LINEAR);
 			return;
 		}
 
@@ -186,14 +189,13 @@ namespace D3dDdi
 		scaleX = 1 / ((1 - blur) / scaleX + blur);
 		scaleY = 1 / ((1 - blur) / scaleY + blur);
 
-		const DeviceState::ShaderConstF registers[] = {
+		const std::array<DeviceState::ShaderConstF, 2> registers{ {
 			{ static_cast<float>(srcDesc.Width), static_cast<float>(srcDesc.Height), 0.0f, 0.0f },
 			{ scaleX, scaleY, 0.0f, 0.0f }
-		};
+		} };
 
-		SCOPED_STATE(PixelShaderConst, { 0, sizeof(registers) / sizeof(registers[0]) }, registers);
-
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psGenBilinear, D3DTEXF_LINEAR);
+		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, registers.size() }, registers.data());
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
@@ -228,7 +230,20 @@ namespace D3dDdi
 		const RECT dstRect = { 0, 0, static_cast<LONG>(dstSurface.Width), static_cast<LONG>(dstSurface.Height) };
 		const RECT srcRect = { 0, 0, static_cast<LONG>(srcSurface.Width), static_cast<LONG>(srcSurface.Height) };
 
-		SCOPED_STATE(Texture, 1, *paletteTexture, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psPaletteLookup, D3DTEXF_POINT);
+		setTempTextureStage(1, *paletteTexture, D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter)
+	{
+		auto& state = m_device.getState();
+		state.setTempTexture(stage, texture);
+		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP });
+		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP });
+		state.setTempTextureStageState({ stage, D3DDDITSS_MAGFILTER, filter });
+		state.setTempTextureStageState({ stage, D3DDDITSS_MINFILTER, filter });
+		state.setTempTextureStageState({ stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE });
+		state.setTempTextureStageState({ stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter });
+		state.setTempRenderState({ static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 });
 	}
 }
