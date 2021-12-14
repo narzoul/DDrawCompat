@@ -354,7 +354,6 @@ namespace D3dDdi
 	{
 		m_app.renderTarget = *data;
 		m_changedStates |= CS_RENDER_TARGET;
-		m_device.setRenderTarget(*data);
 		return S_OK;
 	}
 
@@ -509,6 +508,7 @@ namespace D3dDdi
 	{
 		if (setData(renderTarget, m_current.renderTarget, m_device.getOrigVtable().pfnSetRenderTarget))
 		{
+			m_device.setRenderTarget(m_app.renderTarget);
 			LOG_DS << renderTarget;
 		}
 	}

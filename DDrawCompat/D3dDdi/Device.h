@@ -55,9 +55,7 @@ namespace D3dDdi
 
 		HRESULT createPrivateResource(D3DDDIARG_CREATERESOURCE2& data);
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
-		void prepareForBlt(HANDLE resource, UINT subResourceIndex, bool isReadOnly);
-		void prepareForRendering(HANDLE resource, UINT subResourceIndex);
-		void prepareForRendering();
+		void prepareForGpuWrite();
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
 

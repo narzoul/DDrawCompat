@@ -39,6 +39,7 @@ namespace Overlay
 		}
 
 		if (&Config::antialiasing  == &m_setting ||
+			&Config::renderColorDepth == &m_setting ||
 			&Config::textureFilter == &m_setting)
 		{
 			D3dDdi::Device::updateAllConfig();

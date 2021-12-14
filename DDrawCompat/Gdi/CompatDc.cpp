@@ -19,7 +19,14 @@ namespace Gdi
 			auto gdiResource = D3dDdi::Device::getGdiResource();
 			if (gdiResource)
 			{
-				gdiResource->prepareForGdiRendering(isReadOnly);
+				if (isReadOnly)
+				{
+					gdiResource->prepareForCpuRead(0);
+				}
+				else
+				{
+					gdiResource->prepareForCpuWrite(0);
+				}
 			}
 		}
 		else

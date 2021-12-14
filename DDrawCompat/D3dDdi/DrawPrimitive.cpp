@@ -597,6 +597,7 @@ namespace D3dDdi
 		}
 
 		LOG_DEBUG << "Flushing " << m_batched.primitiveCount << " primitives of type " << m_batched.primitiveType;
+		m_device.prepareForGpuWrite();
 		return m_batched.indices.empty() ? flush(flagBuffer) : flushIndexed(flagBuffer);
 	}
 

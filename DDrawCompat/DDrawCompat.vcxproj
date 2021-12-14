@@ -220,6 +220,7 @@
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
     <ClInclude Include="Config\Settings\DisplayResolution.h" />
+    <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\TextureFilter.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />

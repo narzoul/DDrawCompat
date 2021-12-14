@@ -11,6 +11,7 @@ namespace Overlay
 		addControl(Config::alternatePixelCenter);
 		addControl(Config::antialiasing);
 		addControl(Config::displayFilter);
+		addControl(Config::renderColorDepth);
 		addControl(Config::textureFilter);
 	}
 

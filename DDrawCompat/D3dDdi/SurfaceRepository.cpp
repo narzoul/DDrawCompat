@@ -148,8 +148,8 @@ namespace D3dDdi
 			}
 			DeleteObject(iconInfo.hbmMask);
 
-			m_cursorMaskTexture.resource->prepareForBlt(0, true);
-			m_cursorColorTexture.resource->prepareForBlt(0, true);
+			m_cursorMaskTexture.resource->prepareForGpuRead(0);
+			m_cursorColorTexture.resource->prepareForGpuRead(0);
 
 			m_cursorSize.cx = rect.right - rect.left;
 			m_cursorSize.cy = rect.bottom - rect.top;
@@ -203,7 +203,7 @@ namespace D3dDdi
 
 		initFunc(desc);
 		surface.surface->Unlock(surface.surface, nullptr);
-		surface.resource->prepareForBlt(0, true);
+		surface.resource->prepareForGpuRead(0);
 		return surface.resource;
 	}
 

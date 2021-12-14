@@ -86,29 +86,11 @@ namespace D3dDdi
 		return it != m_resources.end() ? it->second.get() : nullptr;
 	}
 
-	void Device::prepareForBlt(HANDLE resource, UINT subResourceIndex, bool isReadOnly)
-	{
-		auto it = m_resources.find(resource);
-		if (it != m_resources.end())
-		{
-			it->second->prepareForBlt(subResourceIndex, isReadOnly);
-		}
-	}
-
-	void Device::prepareForRendering(HANDLE resource, UINT subResourceIndex)
-	{
-		auto it = m_resources.find(resource);
-		if (it != m_resources.end())
-		{
-			it->second->prepareForRendering(subResourceIndex);
-		}
-	}
-
-	void Device::prepareForRendering()
+	void Device::prepareForGpuWrite()
 	{
 		if (m_renderTarget)
 		{
-			m_renderTarget->prepareForRendering(m_renderTargetSubResourceIndex);
+			m_renderTarget->prepareForGpuWrite(m_renderTargetSubResourceIndex);
 		}
 	}
 
@@ -152,7 +134,12 @@ namespace D3dDdi
 		{
 			return it->second->blt(*data);
 		}
-		prepareForBlt(data->hSrcResource, data->SrcSubResourceIndex, true);
+
+		it = m_resources.find(data->hSrcResource);
+		if (it != m_resources.end())
+		{
+			it->second->prepareForBltSrc(*data);
+		}
 		return m_origVtable.pfnBlt(m_device, data);
 	}
 
@@ -162,7 +149,7 @@ namespace D3dDdi
 		m_state.flush();
 		if (data->Flags & D3DCLEAR_TARGET)
 		{
-			prepareForRendering();
+			prepareForGpuWrite();
 		}
 		return m_origVtable.pfnClear(m_device, data, numRect, rect);
 	}
@@ -258,13 +245,11 @@ namespace D3dDdi
 	HRESULT Device::pfnDrawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
 		UINT /*indicesSize*/, const void* indexBuffer, const UINT* flagBuffer)
 	{
-		prepareForRendering();
 		return m_drawPrimitive.drawIndexed(*data, static_cast<const UINT16*>(indexBuffer), flagBuffer);
 	}
 
 	HRESULT Device::pfnDrawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
 	{
-		prepareForRendering();
 		return m_drawPrimitive.draw(*data, flagBuffer);
 	}
 
@@ -312,16 +297,27 @@ namespace D3dDdi
 	HRESULT Device::pfnPresent(const D3DDDIARG_PRESENT* data)
 	{
 		flushPrimitives();
-		prepareForBlt(data->hSrcResource, data->SrcSubResourceIndex, true);
-		return m_origVtable.pfnPresent(m_device, data);
+		auto d = *data;
+		auto resource = getResource(data->hSrcResource);
+		if (resource)
+		{
+			d.hSrcResource = resource->prepareForGpuRead(data->SrcSubResourceIndex);
+		}
+		return m_origVtable.pfnPresent(m_device, &d);
 	}
 
 	HRESULT Device::pfnPresent1(D3DDDIARG_PRESENT1* data)
 	{
 		flushPrimitives();
+		std::vector<D3DDDIARG_PRESENTSURFACE> srcResources(data->phSrcResources, data->phSrcResources + data->SrcResources);
+		data->phSrcResources = srcResources.data();
 		for (UINT i = 0; i < data->SrcResources; ++i)
 		{
-			prepareForBlt(data->phSrcResources[i].hResource, data->phSrcResources[i].SubResourceIndex, true);
+			auto resource = getResource(srcResources[i].hResource);
+			if (resource)
+			{
+				srcResources[i].hResource = resource->prepareForGpuRead(srcResources[i].SubResourceIndex);
+			}
 		}
 		return m_origVtable.pfnPresent1(m_device, data);
 	}
