@@ -7,6 +7,8 @@
 #include <Common/CompatVtable.h>
 #include <DDraw/Types.h>
 
+struct _D3DDDIARG_BLT;
+
 namespace DDraw
 {
 	class Surface;
@@ -46,4 +48,6 @@ namespace DDraw
 	private:
 		void restoreOrigCaps(DWORD& caps);
 	};
+
+	void setBltSrc(_D3DDDIARG_BLT& data);
 }

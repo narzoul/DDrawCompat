@@ -13,6 +13,7 @@
 #include <DDraw/Blitter.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
@@ -188,6 +189,7 @@ namespace D3dDdi
 			return S_OK;
 		}
 
+		DDraw::setBltSrc(data);
 		auto srcResource = m_device.getResource(data.hSrcResource);
 		if (srcResource)
 		{
@@ -623,6 +625,13 @@ namespace D3dDdi
 
 	HRESULT Resource::lock(D3DDDIARG_LOCK& data)
 	{
+		D3DDDIARG_BLT blt = {};
+		DDraw::setBltSrc(blt);
+		if (blt.hSrcResource)
+		{
+			return E_ABORT;
+		}
+
 		if (isOversized())
 		{
 			if (0 != data.SubResourceIndex ||
@@ -655,6 +664,16 @@ namespace D3dDdi
 		unlock.SubResourceIndex = lock.SubResourceIndex;
 		unlock.Flags.NotifyOnly = 1;
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+	}
+
+	void Resource::onDestroyResource(HANDLE resource)
+	{
+		if (resource == m_handle ||
+			m_msaaSurface.resource && *m_msaaSurface.resource == resource ||
+			m_msaaResolvedSurface.resource && *m_msaaResolvedSurface.resource == resource)
+		{
+			loadSysMemResource(0);
+		}
 	}
 
 	Resource& Resource::prepareForBltSrc(const D3DDDIARG_BLT& data)
@@ -868,7 +887,7 @@ namespace D3dDdi
 		UINT dstIndex = data.DstSubResourceIndex;
 		RECT dstRect = data.DstRect;
 
-		if (!srcResource.m_fixedData.Flags.Texture)
+		if (!srcResource.m_fixedData.Flags.Texture || D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
 		{
 			DWORD width = data.SrcRect.right - data.SrcRect.left;
 			DWORD height = data.SrcRect.bottom - data.SrcRect.top;

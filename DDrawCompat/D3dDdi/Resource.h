@@ -34,6 +34,7 @@ namespace D3dDdi
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
+		void onDestroyResource(HANDLE resource);
 		Resource& prepareForBltSrc(const D3DDDIARG_BLT& data);
 		Resource& prepareForBltDst(D3DDDIARG_BLT& data);
 		void prepareForCpuRead(UINT subResourceIndex);

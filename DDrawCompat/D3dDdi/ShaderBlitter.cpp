@@ -65,11 +65,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0xF });
 		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
 
-		setTempTextureStage(0, srcResource, filter);
-		if (srcColorKey)
-		{
-			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, *srcColorKey });
-		}
+		setTempTextureStage(0, srcResource, filter, srcColorKey);
 
 		struct Vertex
 		{
@@ -241,10 +237,10 @@ namespace D3dDdi
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
 
-	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter)
+	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter, const UINT* srcColorKey)
 	{
 		auto& state = m_device.getState();
-		state.setTempTexture(stage, texture);
+		state.setTempTexture(stage, texture, srcColorKey);
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP });
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MAGFILTER, filter });

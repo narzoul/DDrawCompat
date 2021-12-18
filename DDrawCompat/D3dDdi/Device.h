@@ -63,6 +63,7 @@ namespace D3dDdi
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
+		static Device* findDeviceByResource(HANDLE resource);
 		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
 		static void setGdiResourceHandle(HANDLE resource);

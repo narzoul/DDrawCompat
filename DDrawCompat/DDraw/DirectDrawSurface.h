@@ -22,7 +22,13 @@ namespace DDraw
 		template <typename TSurface>
 		HANDLE getDriverResourceHandle(TSurface& surface)
 		{
-			return *reinterpret_cast<HANDLE*>(getRuntimeResourceHandle(surface));
+			return reinterpret_cast<HANDLE*>(getRuntimeResourceHandle(surface))[0];
+		}
+
+		template <typename TSurface>
+		UINT getSubResourceIndex(TSurface& surface)
+		{
+			return reinterpret_cast<UINT*>(getRuntimeResourceHandle(surface))[1];
 		}
 
 		template <typename Vtable>

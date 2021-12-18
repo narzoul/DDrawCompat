@@ -593,9 +593,21 @@ namespace D3dDdi
 		m_changedStates |= CS_STREAM_SOURCE;
 	}
 
-	void DeviceState::setTempTexture(UINT stage, HANDLE texture)
+	void DeviceState::setTempTexture(UINT stage, HANDLE texture, const UINT* srcColorKey)
 	{
-		setTexture(stage, texture);
+		if (srcColorKey)
+		{
+			m_current.textures[stage] = nullptr;
+			m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0;
+			m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = *srcColorKey + 1;
+			setTexture(stage, texture);
+			setTextureStageState({ stage, D3DDDITSS_TEXTURECOLORKEYVAL, *srcColorKey });
+		}
+		else
+		{
+			setTexture(stage, texture);
+		}
+
 		m_changedStates |= CS_TEXTURE_STAGE;
 		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
 	}
@@ -820,6 +832,7 @@ namespace D3dDdi
 		m_device.getOrigVtable().pfnSetTextureStageState(m_device, &tss);
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
+		LOG_DS << tss;
 	}
 
 	void DeviceState::updateTextureStages()

@@ -42,7 +42,7 @@ namespace D3dDdi
 
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
 		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
-		void setTempTextureStage(UINT stage, HANDLE texture, UINT filter);
+		void setTempTextureStage(UINT stage, HANDLE texture, UINT filter, const UINT* srcColorKey = nullptr);
 
 		Device& m_device;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;

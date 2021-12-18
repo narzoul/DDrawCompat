@@ -1,8 +1,6 @@
 #include <initguid.h>
 
 #include <Common/CompatPtr.h>
-#include <D3dDdi/Device.h>
-#include <D3dDdi/Resource.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>

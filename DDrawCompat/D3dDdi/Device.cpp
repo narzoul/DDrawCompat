@@ -62,6 +62,18 @@ namespace D3dDdi
 		return result;
 	}
 
+	Device* Device::findDeviceByResource(HANDLE resource)
+	{
+		for (auto& device : s_devices)
+		{
+			if (device.second.m_resources.find(resource) != device.second.m_resources.end())
+			{
+				return &device.second;
+			}
+		}
+		return nullptr;
+	}
+
 	Resource* Device::findResource(HANDLE resource)
 	{
 		for (auto& device : s_devices)
@@ -206,15 +218,9 @@ namespace D3dDdi
 	HRESULT Device::pfnDestroyResource(HANDLE resource)
 	{
 		flushPrimitives();
-		if (g_gdiResource && resource == *g_gdiResource)
+		if (g_gdiResource)
 		{
-			D3DDDIARG_LOCK lock = {};
-			lock.hResource = *g_gdiResource;
-			g_gdiResource->lock(lock);
-
-			D3DDDIARG_UNLOCK unlock = {};
-			unlock.hResource = *g_gdiResource;
-			g_gdiResource->unlock(unlock);
+			g_gdiResource->onDestroyResource(resource);
 		}
 
 		if (resource == m_sharedPrimary)
