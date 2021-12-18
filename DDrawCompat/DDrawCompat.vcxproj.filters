@@ -504,6 +504,9 @@
     <ClInclude Include="Config\Settings\RenderColorDepth.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Comparison.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

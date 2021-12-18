@@ -25,10 +25,14 @@ namespace D3dDdi
 			const Resource& srcResource, const RECT& srcRect, UINT blurPercent);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, RGBQUAD palette[256]);
+		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			UINT filter, const UINT* srcColorKey = nullptr);
 
 	private:
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect, HANDLE pixelShader, UINT filter);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			HANDLE pixelShader, UINT filter, const UINT* srcColorKey = nullptr);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])

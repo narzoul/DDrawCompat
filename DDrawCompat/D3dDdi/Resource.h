@@ -34,8 +34,8 @@ namespace D3dDdi
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
-		void prepareForBltSrc(const D3DDDIARG_BLT& data);
-		void prepareForBltDst(D3DDDIARG_BLT& data);
+		Resource& prepareForBltSrc(const D3DDDIARG_BLT& data);
+		Resource& prepareForBltDst(D3DDDIARG_BLT& data);
 		void prepareForCpuRead(UINT subResourceIndex);
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
@@ -74,6 +74,8 @@ namespace D3dDdi
 		void clearUpToDateFlags(UINT subResourceIndex);
 		void clipRect(UINT subResourceIndex, RECT& rect);
 		HRESULT copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex);
+		HRESULT copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
+			HANDLE src, UINT srcIndex, const RECT& srcRect);
 		void createGdiLockResource();
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
@@ -88,6 +90,7 @@ namespace D3dDdi
 		void loadVidMemResource(UINT subResourceIndex);
 		void notifyLock(UINT subResourceIndex);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
+		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource);
 		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
 
 		template <typename Arg>

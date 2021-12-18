@@ -252,6 +252,7 @@
     <ClInclude Include="D3dDdi\Visitors\DeviceCallbacksVisitor.h" />
     <ClInclude Include="D3dDdi\Visitors\DeviceFuncsVisitor.h" />
     <ClInclude Include="DDraw\Blitter.h" />
+    <ClInclude Include="DDraw\Comparison.h" />
     <ClInclude Include="DDraw\DirectDraw.h" />
     <ClInclude Include="DDraw\DirectDrawClipper.h" />
     <ClInclude Include="DDraw\DirectDrawGammaControl.h" />

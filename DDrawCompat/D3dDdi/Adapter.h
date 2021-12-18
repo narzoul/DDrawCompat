@@ -34,8 +34,7 @@ namespace D3dDdi
 		LUID getLuid() const { return m_luid; }
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
-		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository.repo; }
-		bool isSrcColorKeySupported() const { return m_repository.isSrcColorKeySupported; }
+		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
@@ -43,7 +42,7 @@ namespace D3dDdi
 
 		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
 		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
-		static void setRepository(LUID luid, const DDraw::DirectDraw::Repository& repository);
+		static void setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository);
 
 	private:
 		template <typename Data>
@@ -58,7 +57,7 @@ namespace D3dDdi
 		UINT m_runtimeVersion;
 		UINT m_driverVersion;
 		LUID m_luid;
-		DDraw::DirectDraw::Repository m_repository;
+		CompatWeakPtr<IDirectDraw7> m_repository;
 
 		static std::map<HANDLE, Adapter> s_adapters;
 		static std::map<LUID, AdapterInfo> s_adapterInfos;

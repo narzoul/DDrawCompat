@@ -3,6 +3,28 @@
 #include <Common/Log.h>
 #include <DDraw/Log.h>
 
+std::ostream& operator<<(std::ostream& os, const DDBLTFX& fx)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(fx.dwDDFX)
+		<< Compat::hex(fx.dwROP)
+		<< Compat::hex(fx.dwDDROP)
+		<< fx.dwRotationAngle
+		<< Compat::hex(fx.dwFillColor)
+		<< fx.dwFillDepth
+		<< Compat::hex(fx.dwFillPixel)
+		<< fx.lpDDSPattern
+		<< fx.ddckDestColorkey
+		<< fx.ddckSrcColorkey;
+}
+
+std::ostream& operator<<(std::ostream& os, const DDCOLORKEY& ck)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(ck.dwColorSpaceLowValue)
+		<< Compat::hex(ck.dwColorSpaceHighValue);
+}
+
 std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps)
 {
 	return Compat::LogStruct(os)

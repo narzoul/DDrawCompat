@@ -172,6 +172,13 @@ namespace D3dDdi
 			Gdi::Cursor::setEmulated(false);
 			Gdi::Cursor::setMonitorClipRect({});
 		}
+
+		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface)
+		{
+			auto& repo = SurfaceRepository::get(m_device.getAdapter());
+			repo.release(m_msaaSurface);
+			repo.release(m_msaaResolvedSurface);
+		}
 	}
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
@@ -319,25 +326,32 @@ namespace D3dDdi
 
 	HRESULT Resource::copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex)
 	{
-		LOG_FUNC("Resource::copySubResource", dstResource, srcResource, subResourceIndex);
 		RECT rect = {};
 		rect.right = m_fixedData.pSurfList[subResourceIndex].Width;
 		rect.bottom = m_fixedData.pSurfList[subResourceIndex].Height;
 
-		D3DDDIARG_BLT data = {};
-		data.hSrcResource = srcResource;
-		data.SrcSubResourceIndex = subResourceIndex;
-		data.SrcRect = rect;
-		data.hDstResource = dstResource;
-		data.DstSubResourceIndex = subResourceIndex;
-		data.DstRect = rect;
+		return copySubResourceRegion(dstResource, subResourceIndex, rect, srcResource, subResourceIndex, rect);
+	}
 
-		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
+	HRESULT Resource::copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
+		HANDLE src, UINT srcIndex, const RECT& srcRect)
+	{
+		LOG_FUNC("Resource::copySubResourceRegion", dst, dstIndex, dstRect, src, srcIndex, srcRect);
+		D3DDDIARG_BLT data = {};
+		data.hDstResource = dst;
+		data.DstSubResourceIndex = dstIndex;
+		data.DstRect = dstRect;
+		data.hSrcResource = src;
+		data.SrcSubResourceIndex = srcIndex;
+		data.SrcRect = srcRect;
+		data.Flags.Point = 1;
+
+		HRESULT result = LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
 		if (FAILED(result))
 		{
-			LOG_ONCE("ERROR: Resource::copySubResource failed: " << Compat::hex(result));
+			LOG_ONCE("ERROR: Resource::copySubResourceRegion failed: " << Compat::hex(result));
 		}
-		return LOG_RESULT(result);
+		return result;
 	}
 
 	void Resource::createGdiLockResource()
@@ -373,6 +387,7 @@ namespace D3dDdi
 		flags.Value = g_resourceTypeFlags;
 		flags.RenderTarget = 0;
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
+			m_isSurfaceRepoResource ||
 			0 == m_formatInfo.bytesPerPixel ||
 			0 != (m_fixedData.Flags.Value & flags.Value))
 		{
@@ -642,15 +657,16 @@ namespace D3dDdi
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 	}
 
-	void Resource::prepareForBltSrc(const D3DDDIARG_BLT& data)
+	Resource& Resource::prepareForBltSrc(const D3DDDIARG_BLT& data)
 	{
 		if (m_lockResource)
 		{
 			loadVidMemResource(data.SrcSubResourceIndex);
 		}
+		return *this;
 	}
 
-	void Resource::prepareForBltDst(D3DDDIARG_BLT& data)
+	Resource& Resource::prepareForBltDst(D3DDDIARG_BLT& data)
 	{
 		if (m_lockResource)
 		{
@@ -659,12 +675,14 @@ namespace D3dDdi
 				data.hDstResource = *m_msaaSurface.resource;
 				clearUpToDateFlags(data.DstSubResourceIndex);
 				m_lockData[data.DstSubResourceIndex].isMsaaUpToDate = true;
+				return *m_msaaSurface.resource;
 			}
 			else if (m_lockData[data.DstSubResourceIndex].isMsaaResolvedUpToDate)
 			{
 				data.hDstResource = *m_msaaResolvedSurface.resource;
 				clearUpToDateFlags(data.DstSubResourceIndex);
 				m_lockData[data.DstSubResourceIndex].isMsaaResolvedUpToDate = true;
+				return *m_msaaResolvedSurface.resource;
 			}
 			else
 			{
@@ -673,6 +691,7 @@ namespace D3dDdi
 				m_lockData[data.DstSubResourceIndex].isVidMemUpToDate = true;
 			}
 		}
+		return *this;
 	}
 
 	void Resource::prepareForCpuRead(UINT subResourceIndex)
@@ -771,7 +790,7 @@ namespace D3dDdi
 			Config::Settings::DisplayFilter::POINT != presentationFilter)
 		{
 			const auto& si = srcResource->m_fixedData.pSurfList[0];
-			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getRenderTarget(si.Width, si.Height));
+			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getTempRenderTarget(si.Width, si.Height));
 			if (!dst.resource)
 			{
 				return E_OUTOFMEMORY;
@@ -791,13 +810,7 @@ namespace D3dDdi
 			}
 			else
 			{
-				D3DDDIARG_BLT blt = {};
-				blt.hSrcResource = data.hSrcResource;
-				blt.SrcRect = data.SrcRect;
-				blt.hDstResource = *dst.resource;
-				blt.DstRect = data.SrcRect;
-				blt.Flags.Point = 1;
-				m_device.getOrigVtable().pfnBlt(m_device, &blt);
+				copySubResourceRegion(*dst.resource, 0, data.SrcRect, data.hSrcResource, 0, data.SrcRect);
 			}
 
 			if (isLayeredPresentNeeded)
@@ -840,6 +853,97 @@ namespace D3dDdi
 		{
 			createLockResource();
 		}
+	}
+
+	HRESULT Resource::shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource)
+	{
+		LOG_FUNC("Resource::shaderBlt", data, srcResource);
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+
+		Resource* srcRes = &srcResource.prepareForBltSrc(data);
+		UINT srcIndex = data.SrcSubResourceIndex;
+		RECT srcRect = data.SrcRect;
+
+		Resource* dstRes = &prepareForBltDst(data);
+		UINT dstIndex = data.DstSubResourceIndex;
+		RECT dstRect = data.DstRect;
+
+		if (!srcResource.m_fixedData.Flags.Texture)
+		{
+			DWORD width = data.SrcRect.right - data.SrcRect.left;
+			DWORD height = data.SrcRect.bottom - data.SrcRect.top;
+			auto& texture = repo.getTempTexture(width, height, getPixelFormat(srcResource.m_fixedData.Format));
+			if (!texture.resource)
+			{
+				return LOG_RESULT(E_OUTOFMEMORY);
+			}
+
+			srcRes = texture.resource;
+			srcIndex = 0;
+			srcRect = { 0, 0, static_cast<LONG>(width), static_cast<LONG>(height) };
+
+			HRESULT result = copySubResourceRegion(*srcRes, srcIndex, srcRect,
+				data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
+			if (FAILED(result))
+			{
+				return LOG_RESULT(result);
+			}
+
+			if (D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
+			{
+				srcResource.notifyLock(data.SrcSubResourceIndex);
+			}
+		}
+
+		if (!m_fixedData.Flags.RenderTarget)
+		{
+			LONG width = data.DstRect.right - data.DstRect.left;
+			LONG height = data.DstRect.bottom - data.DstRect.top;
+			auto& rt = repo.getTempRenderTarget(width, height);
+			if (!rt.resource)
+			{
+				return LOG_RESULT(E_OUTOFMEMORY);
+			}
+
+			dstRes = rt.resource;
+			dstIndex = 0;
+			dstRect = { 0, 0, width, height };
+
+			if (data.Flags.SrcColorKey)
+			{
+				HRESULT result = copySubResourceRegion(*dstRes, dstIndex, dstRect,
+					data.hDstResource, data.DstSubResourceIndex, data.DstRect);
+				if (FAILED(result))
+				{
+					return LOG_RESULT(result);
+				}
+			}
+		}
+
+		if (data.Flags.MirrorLeftRight)
+		{
+			std::swap(srcRect.left, srcRect.right);
+		}
+
+		if (data.Flags.MirrorUpDown)
+		{
+			std::swap(srcRect.top, srcRect.bottom);
+		}
+
+		m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
+			D3DTEXF_POINT, data.Flags.SrcColorKey ? &data.ColorKey : nullptr);
+
+		if (!m_fixedData.Flags.RenderTarget)
+		{
+			HRESULT result = copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
+				*dstRes, dstIndex, dstRect);
+			if (FAILED(result))
+			{
+				return LOG_RESULT(result);
+			}
+		}
+
+		return LOG_RESULT(S_OK);
 	}
 
 	HRESULT Resource::splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect)
@@ -942,17 +1046,8 @@ namespace D3dDdi
 			auto now = Time::queryPerformanceCounter();
 			if (D3DDDIFMT_P8 != m_fixedData.Format)
 			{
-				if (data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-					(data.Flags.SrcColorKey && !m_device.getAdapter().isSrcColorKeySupported()))
-				{
-					dstLockData.qpcLastForcedLock = now;
-					srcLockData.qpcLastForcedLock = now;
-				}
-				else
-				{
-					isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
-						Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
-				}
+				isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
+					Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
 			}
 
 			if (isSysMemBltPreferred)
@@ -983,8 +1078,18 @@ namespace D3dDdi
 			}
 		}
 
-		srcResource.prepareForBltSrc(data);
-		prepareForBltDst(data);
+		if (m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
+		{
+			if (SUCCEEDED(shaderBlt(data, srcResource)))
+			{
+				return S_OK;
+			}
+		}
+		else
+		{
+			srcResource.prepareForBltSrc(data);
+			prepareForBltDst(data);
+		}
 
 		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
@@ -1060,9 +1165,8 @@ namespace D3dDdi
 			}
 		}
 
-		auto& surfaceRepo(SurfaceRepository::get(m_device.getAdapter()));
-		surfaceRepo.release(m_msaaSurface);
-		surfaceRepo.release(m_msaaResolvedSurface);
+		m_msaaSurface = {};
+		m_msaaResolvedSurface = {};
 
 		if (D3DDDIMULTISAMPLE_NONE != msaa.first || m_fixedData.Format != formatConfig)
 		{

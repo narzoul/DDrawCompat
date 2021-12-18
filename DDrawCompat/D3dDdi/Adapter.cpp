@@ -190,9 +190,13 @@ namespace D3dDdi
 		switch (pData->Type)
 		{
 		case D3DDDICAPS_DDRAW:
-			static_cast<DDRAW_CAPS*>(pData->pData)->FxCaps =
-				DDRAW_FXCAPS_BLTMIRRORLEFTRIGHT | DDRAW_FXCAPS_BLTMIRRORUPDOWN;
+		{
+			auto& caps = *static_cast<DDRAW_CAPS*>(pData->pData);
+			caps.Caps |= DDRAW_CAPS_COLORKEY;
+			caps.CKeyCaps = DDRAW_CKEYCAPS_SRCBLT;
+			caps.FxCaps = DDRAW_FXCAPS_BLTMIRRORLEFTRIGHT | DDRAW_FXCAPS_BLTMIRRORUPDOWN;
 			break;
+		}
 
 		case D3DDDICAPS_GETD3D3CAPS:
 		{
@@ -208,7 +212,7 @@ namespace D3dDdi
 		return result;
 	}
 
-	void Adapter::setRepository(LUID luid, const DDraw::DirectDraw::Repository& repository)
+	void Adapter::setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository)
 	{
 		for (auto& adapter : s_adapters)
 		{

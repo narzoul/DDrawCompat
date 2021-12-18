@@ -28,7 +28,7 @@ namespace D3dDdi
 	{
 	}
 
-	CompatWeakPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
+	CompatPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
 		DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
 		auto dd(m_adapter.getRepository());
@@ -38,6 +38,7 @@ namespace D3dDdi
 			return nullptr;
 		}
 
+		m_releasedSurfaces.clear();
 		CompatPtr<IDirectDrawSurface7> surface;
 
 		DDSURFACEDESC2 desc = {};
@@ -62,7 +63,7 @@ namespace D3dDdi
 			LOG_ONCE("ERROR: Failed to create repository surface: " << Compat::hex(result) << " " << desc);
 			return nullptr;
 		}
-		return surface.detach();
+		return surface;
 	}
 
 	SurfaceRepository& SurfaceRepository::get(const Adapter& adapter)
@@ -108,8 +109,8 @@ namespace D3dDdi
 		if (isLost(m_cursorMaskTexture) || isLost(m_cursorColorTexture))
 		{
 			m_cursor = nullptr;
-			release(m_cursorMaskTexture);
-			release(m_cursorColorTexture);
+			m_cursorMaskTexture = {};
+			m_cursorColorTexture = {};
 		}
 
 		if (cursor != m_cursor)
@@ -213,19 +214,13 @@ namespace D3dDdi
 			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 	}
 
-	const SurfaceRepository::Surface& SurfaceRepository::getRenderTarget(DWORD width, DWORD height)
-	{
-		return getSurface(m_renderTarget, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
-			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
-	}
-
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
 		const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
 		if (surface.surface && (surface.width != width || surface.height != height ||
 			0 != memcmp(&surface.pixelFormat, &pf, sizeof(pf)) || isLost(surface)))
 		{
-			release(surface);
+			surface = {};
 		}
 
 		if (!surface.surface)
@@ -244,6 +239,23 @@ namespace D3dDdi
 		return surface;
 	}
 
+	const SurfaceRepository::Surface& SurfaceRepository::getTempRenderTarget(DWORD width, DWORD height)
+	{
+		return getTempSurface(m_renderTarget, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
+			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+	}
+
+	SurfaceRepository::Surface& SurfaceRepository::getTempSurface(Surface& surface, DWORD width, DWORD height,
+		const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
+	{
+		return getSurface(surface, max(width, surface.width), max(height, surface.height), pf, caps, surfaceCount);
+	}
+
+	const SurfaceRepository::Surface& SurfaceRepository::getTempTexture(DWORD width, DWORD height, const DDPIXELFORMAT& pf)
+	{
+		return getTempSurface(m_textures[pf], width, height, pf, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+	}
+
 	bool SurfaceRepository::isLost(Surface& surface)
 	{
 		return !surface.surface || FAILED(surface.surface->IsLost(surface.surface));
@@ -253,7 +265,7 @@ namespace D3dDdi
 	{
 		if (surface.surface)
 		{
-			surface.surface->Release(surface.surface);
+			m_releasedSurfaces.push_back(surface);
 			surface = {};
 		}
 	}

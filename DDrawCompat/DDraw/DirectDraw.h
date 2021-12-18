@@ -9,12 +9,6 @@ namespace DDraw
 {
 	namespace DirectDraw
 	{
-		struct Repository
-		{
-			CompatWeakPtr<IDirectDraw7> repo;
-			bool isSrcColorKeySupported;
-		};
-
 		DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
 		DDPIXELFORMAT getRgbPixelFormat(DWORD bpp);
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd);

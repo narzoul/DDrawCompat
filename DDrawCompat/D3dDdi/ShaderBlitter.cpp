@@ -26,18 +26,18 @@ namespace D3dDdi
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-		const Resource& srcResource, const RECT& srcRect, HANDLE pixelShader, UINT filter)
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+		HANDLE pixelShader, UINT filter, const UINT* srcColorKey)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, pixelShader, filter);
+			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter, srcColorKey);
 
 		if (!m_vertexShaderDecl || !pixelShader)
 		{
 			return;
 		}
 
-		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
-		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
+		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[srcSubResourceIndex];
 
 		auto& state = m_device.getState();
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -45,7 +45,8 @@ namespace D3dDdi
 		state.setTempPixelShader(pixelShader);
 		state.setTempRenderTarget({ 0, dstResource, dstSubResourceIndex });
 		state.setTempDepthStencil({ nullptr });
-		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
+		state.setTempViewport({ static_cast<DWORD>(dstRect.left), static_cast<DWORD>(dstRect.top),
+			static_cast<DWORD>(dstRect.right - dstRect.left), static_cast<DWORD>(dstRect.bottom - dstRect.top) });
 		state.setTempZRange({ 0, 1 });
 
 		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_FALSE });
@@ -56,7 +57,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, nullptr != srcColorKey });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPING, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
@@ -65,6 +66,10 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
 
 		setTempTextureStage(0, srcResource, filter);
+		if (srcColorKey)
+		{
+			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, *srcColorKey });
+		}
 
 		struct Vertex
 		{
@@ -82,8 +87,8 @@ namespace D3dDdi
 		Vertex vertices[4] = {
 			{ dstRect.left - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.top / srcHeight },
 			{ dstRect.right - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.top / srcHeight },
-			{ dstRect.right - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.bottom / srcHeight },
-			{ dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight }
+			{ dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight },
+			{ dstRect.right - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.bottom / srcHeight }
 		};
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, vertices);
@@ -91,7 +96,7 @@ namespace D3dDdi
 		DeviceState::TempStateLock lock(state);
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
-		dp.PrimitiveType = D3DPT_TRIANGLEFAN;
+		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
 		dp.VStart = 0;
 		dp.PrimitiveCount = 2;
 		m_device.pfnDrawPrimitive(&dp, nullptr);
@@ -169,7 +174,8 @@ namespace D3dDdi
 		setTempTextureStage(1, *cur.maskTexture, D3DTEXF_POINT);
 		setTempTextureStage(2, *cur.colorTexture, D3DTEXF_POINT);
 		setTempTextureStage(3, *xorTexture, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, clippedSrcRect, m_psDrawCursor.get(), D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
+			m_psDrawCursor.get(), D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -177,7 +183,8 @@ namespace D3dDdi
 	{
 		if (100 == blurPercent)
 		{
-			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psTextureSampler.get(), D3DTEXF_LINEAR);
+			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect,
+				m_psTextureSampler.get(), D3DTEXF_LINEAR);
 			return;
 		}
 
@@ -195,7 +202,7 @@ namespace D3dDdi
 		} };
 
 		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, registers.size() }, registers.data());
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
@@ -231,7 +238,7 @@ namespace D3dDdi
 		const RECT srcRect = { 0, 0, static_cast<LONG>(srcSurface.Width), static_cast<LONG>(srcSurface.Height) };
 
 		setTempTextureStage(1, *paletteTexture, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter)
@@ -245,5 +252,13 @@ namespace D3dDdi
 		state.setTempTextureStageState({ stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE });
 		state.setTempTextureStageState({ stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter });
 		state.setTempRenderState({ static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 });
+	}
+
+	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+		UINT filter, const UINT* srcColorKey)
+	{
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			m_psTextureSampler.get(), filter, srcColorKey);
 	}
 }
