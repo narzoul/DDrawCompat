@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include <Config/Config.h>
 #include <Common/Log.h>
 #include <D3dDdi/Device.h>
@@ -5,6 +7,7 @@
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
+#include <Shaders/VertexFixup.h>
 
 #define LOG_DS LOG_DEBUG << "DeviceState::" << __func__ << ": "
 
@@ -70,6 +73,7 @@ namespace D3dDdi
 		, m_changedStates(0)
 		, m_maxChangedTextureStage(0)
 		, m_changedTextureStageStates{}
+		, m_vsVertexFixup(createVertexShader(g_vsVertexFixup))
 	{
 		const UINT D3DBLENDOP_ADD = 1;
 		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
@@ -194,6 +198,17 @@ namespace D3dDdi
 		updateConfig();
 	}
 
+	std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const BYTE* code, UINT size)
+	{
+		D3DDDIARG_CREATEVERTEXSHADERFUNC data = {};
+		data.Size = size;
+		if (FAILED(m_device.getOrigVtable().pfnCreateVertexShaderFunc(m_device, &data, reinterpret_cast<const UINT*>(code))))
+		{
+			return nullptr;
+		}
+		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc) };
+	}
+
 	HRESULT DeviceState::deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 		HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE))
 	{
@@ -280,12 +295,24 @@ namespace D3dDdi
 		const D3DDDIVERTEXELEMENT* vertexElements)
 	{
 		LOG_DEBUG << Compat::array(vertexElements, data->NumVertexElements);
-		HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, vertexElements);
-		if (SUCCEEDED(result))
+
+		const UINT D3DDECLUSAGE_POSITION = 0;
+		const UINT D3DDECLUSAGE_POSITIONT = 9;
+		for (UINT i = 0; i < data->NumVertexElements; ++i)
 		{
-			m_vertexShaderDecls[data->ShaderHandle].assign(vertexElements, vertexElements + data->NumVertexElements);
+			if (D3DDECLUSAGE_POSITIONT == vertexElements[i].Usage)
+			{
+				std::vector<D3DDDIVERTEXELEMENT> ve(vertexElements, vertexElements + data->NumVertexElements);
+				ve[i].Usage = D3DDECLUSAGE_POSITION;
+				HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, ve.data());
+				if (SUCCEEDED(result))
+				{
+					m_swVertexShaderDecls.insert(data->ShaderHandle);
+				}
+				return result;
+			}
 		}
-		return result;
+		return m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, vertexElements);
 	}
 
 	HRESULT DeviceState::pfnDeletePixelShader(HANDLE shader)
@@ -295,15 +322,10 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnDeleteVertexShaderDecl(HANDLE shader)
 	{
-		const bool isCurrentShader = shader == m_current.vertexShaderDecl;
 		HRESULT result = deleteShader(shader, &State::vertexShaderDecl, m_device.getOrigVtable().pfnDeleteVertexShaderDecl);
 		if (SUCCEEDED(result))
 		{
-			m_vertexShaderDecls.erase(shader);
-			if (isCurrentShader)
-			{
-				m_device.getDrawPrimitive().setVertexShaderDecl({});
-			}
+			m_swVertexShaderDecls.erase(shader);
 		}
 		return result;
 	}
@@ -675,15 +697,6 @@ namespace D3dDdi
 	{
 		if (setShader(decl, m_current.vertexShaderDecl, m_device.getOrigVtable().pfnSetVertexShaderDecl))
 		{
-			auto it = m_vertexShaderDecls.find(decl);
-			if (it != m_vertexShaderDecls.end())
-			{
-				m_device.getDrawPrimitive().setVertexShaderDecl(it->second);
-			}
-			else
-			{
-				m_device.getDrawPrimitive().setVertexShaderDecl({});
-			}
 			LOG_DS << decl;
 		}
 	}
@@ -696,12 +709,14 @@ namespace D3dDdi
 		}
 	}
 
-	void DeviceState::setViewport(const D3DDDIARG_VIEWPORTINFO& viewport)
+	bool DeviceState::setViewport(const D3DDDIARG_VIEWPORTINFO& viewport)
 	{
 		if (setData(viewport, m_current.viewport, m_device.getOrigVtable().pfnSetViewport))
 		{
 			LOG_DS << viewport;
+			return true;
 		}
+		return false;
 	}
 
 	void DeviceState::setWInfo(const D3DDDIARG_WINFO& wInfo)
@@ -712,12 +727,14 @@ namespace D3dDdi
 		}
 	}
 
-	void DeviceState::setZRange(const D3DDDIARG_ZRANGE& zRange)
+	bool DeviceState::setZRange(const D3DDDIARG_ZRANGE& zRange)
 	{
 		if (setData(zRange, m_current.zRange, m_device.getOrigVtable().pfnSetZRange))
 		{
 			LOG_DS << zRange;
+			return true;
 		}
+		return false;
 	}
 
 	template <typename SetShaderConstData, typename ShaderConstArray, typename Register>
@@ -745,11 +762,12 @@ namespace D3dDdi
 			m_changedTextureStageStates[i].set(D3DDDITSS_MAXANISOTROPY);
 		}
 		m_maxChangedTextureStage = m_changedTextureStageStates.size() - 1;
+		updateVertexFixupConstants();
 	}
 
 	void DeviceState::updateMisc()
 	{
-		setViewport(m_app.viewport);
+		bool updateConstants = setViewport(m_app.viewport);
 
 		auto wInfo = m_app.wInfo;
 		if (1.0f == wInfo.WNear && 1.0f == wInfo.WFar)
@@ -758,7 +776,12 @@ namespace D3dDdi
 		}
 		setWInfo(wInfo);
 
-		setZRange(m_app.zRange);
+		updateConstants |= setZRange(m_app.zRange);
+
+		if (updateConstants)
+		{
+			updateVertexFixupConstants();
+		}
 	}
 
 	void DeviceState::updateRenderStates()
@@ -794,7 +817,14 @@ namespace D3dDdi
 	{
 		setPixelShader(m_app.pixelShader);
 		setVertexShaderDecl(m_app.vertexShaderDecl);
-		setVertexShaderFunc(m_app.vertexShaderFunc);
+		if (m_swVertexShaderDecls.find(m_current.vertexShaderDecl) != m_swVertexShaderDecls.end())
+		{
+			setVertexShaderFunc(m_vsVertexFixup.get());
+		}
+		else
+		{
+			setVertexShaderFunc(m_app.vertexShaderFunc);
+		}
 	}
 
 	void DeviceState::updateStreamSource()
@@ -863,5 +893,23 @@ namespace D3dDdi
 				});
 			m_changedTextureStageStates[stage].reset();
 		}
+	}
+
+	void DeviceState::updateVertexFixupConstants()
+	{
+		D3DDDIARG_SETVERTEXSHADERCONST data = {};
+		data.Register = 254;
+		data.Count = 2;
+
+		const float apc = Config::alternatePixelCenter.get();
+		const auto& vp = m_current.viewport;
+		const auto& zr = m_current.zRange;
+
+		ShaderConstF registers[2] = {
+			{ apc - vp.X - vp.Width / 2, apc - vp.Y - vp.Height / 2, -zr.MinZ, 0.0f },
+			{ 2.0f / vp.Width, -2.0f / vp.Height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
+		};
+
+		m_device.getOrigVtable().pfnSetVertexShaderConst(m_device, &data, registers);
 	}
 }

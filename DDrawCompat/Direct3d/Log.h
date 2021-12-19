@@ -17,3 +17,6 @@ std::ostream& operator<<(std::ostream& os, const D3DMATERIAL7& data);
 std::ostream& operator<<(std::ostream& os, const D3DRECT& data);
 std::ostream& operator<<(std::ostream& os, const D3DSTATUS& data);
 std::ostream& operator<<(std::ostream& os, const D3DVERTEXBUFFERDESC& data);
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT& data);
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT2& data);
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT7& data);

@@ -4,10 +4,12 @@
 #include <d3dumddi.h>
 
 #include <array>
-#include <map>
+#include <set>
+#include <memory>
 #include <vector>
 
 #include <Common/BitSet.h>
+#include <D3dDdi/ResourceDeleter.h>
 
 const UINT D3DTEXF_NONE = 0;
 const UINT D3DTEXF_POINT = 1;
@@ -130,6 +132,13 @@ namespace D3dDdi
 			D3DDDIARG_ZRANGE zRange;
 		};
 
+		template <int N>
+		std::unique_ptr<void, ResourceDeleter> createVertexShader(const BYTE(&code)[N])
+		{
+			return createVertexShader(code, N);
+		}
+
+		std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const BYTE* code, UINT size);
 		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 
@@ -157,9 +166,9 @@ namespace D3dDdi
 		void setTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setVertexShaderDecl(HANDLE decl);
 		void setVertexShaderFunc(HANDLE shader);
-		void setViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
+		bool setViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
 		void setWInfo(const D3DDDIARG_WINFO& wInfo);
-		void setZRange(const D3DDDIARG_ZRANGE& zRange);
+		bool setZRange(const D3DDDIARG_ZRANGE& zRange);
 
 		void updateMisc();
 		void updateRenderStates();
@@ -168,6 +177,7 @@ namespace D3dDdi
 		void updateStreamSource();
 		void updateTextureColorKey(UINT stage);
 		void updateTextureStages();
+		void updateVertexFixupConstants();
 
 		Device& m_device;
 		State m_app;
@@ -178,10 +188,11 @@ namespace D3dDdi
 		std::array<ShaderConstF, 256> m_vertexShaderConst;
 		std::array<ShaderConstB, 16> m_vertexShaderConstB;
 		std::array<ShaderConstI, 16> m_vertexShaderConstI;
-		std::map<HANDLE, std::vector<D3DDDIVERTEXELEMENT>> m_vertexShaderDecls;
+		std::set<HANDLE> m_swVertexShaderDecls;
 		UINT m_changedStates;
 		UINT m_maxChangedTextureStage;
 		BitSet<D3DDDIRS_ZENABLE, D3DDDIRS_BLENDOPALPHA> m_changedRenderStates;
 		std::array<BitSet<D3DDDITSS_TEXTUREMAP, D3DDDITSS_TEXTURECOLORKEYVAL>, 8> m_changedTextureStageStates;
+		std::unique_ptr<void, ResourceDeleter> m_vsVertexFixup;
 	};
 }

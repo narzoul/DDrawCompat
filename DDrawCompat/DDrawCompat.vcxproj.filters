@@ -821,6 +821,9 @@
     <FxCompile Include="Shaders\TextureSampler.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\VertexFixup.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="arrow.bmp">

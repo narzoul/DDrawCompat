@@ -26,7 +26,6 @@ namespace D3dDdi
 		HRESULT drawIndexed(D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer);
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
-		void setVertexShaderDecl(const std::vector<D3DDDIVERTEXELEMENT>& decl);
 
 	private:
 		struct BatchedPrimitives
@@ -86,6 +85,5 @@ namespace D3dDdi
 		StreamSource m_streamSource;
 		std::map<HANDLE, BYTE*> m_sysMemVertexBuffers;
 		BatchedPrimitives m_batched;
-		bool m_isHwVertexProcessingUsed;
 	};
 }

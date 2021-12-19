@@ -272,6 +272,15 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val)
 		<< Compat::hex(val.Flags.Value);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VIEWPORTINFO& val)
+{
+	return Compat::LogStruct(os)
+		<< val.X
+		<< val.Y
+		<< val.Width
+		<< val.Height;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_WINFO& val)
 {
 	return Compat::LogStruct(os)

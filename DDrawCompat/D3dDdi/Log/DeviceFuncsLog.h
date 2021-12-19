@@ -34,6 +34,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCEUM& va
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETVERTEXSHADERCONST& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VIEWPORTINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_WINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_ZRANGE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIBOX& val);

@@ -435,6 +435,14 @@
     <FxCompile Include="Shaders\GenBilinear.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
     <FxCompile Include="Shaders\TextureSampler.hlsl" />
+    <FxCompile Include="Shaders\VertexFixup.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">Vertex</ShaderType>
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">g_vs%(Filename)</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">g_vs%(Filename)</VariableName>
+      <VariableName Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">g_vs%(Filename)</VariableName>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="arrow.bmp" />

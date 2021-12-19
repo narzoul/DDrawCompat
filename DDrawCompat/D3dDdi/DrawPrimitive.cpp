@@ -56,7 +56,6 @@ namespace D3dDdi
 		, m_indexBuffer(device, m_vertexBuffer ? INDEX_BUFFER_SIZE : 0)
 		, m_streamSource{}
 		, m_batched{}
-		, m_isHwVertexProcessingUsed(false)
 	{
 		LOG_ONCE("Dynamic vertex buffers are " << (m_vertexBuffer ? "" : "not ") << "available");
 		LOG_ONCE("Dynamic index buffers are " << (m_indexBuffer ? "" : "not ") << "available");
@@ -622,23 +621,6 @@ namespace D3dDdi
 	INT DrawPrimitive::loadVertices(UINT count)
 	{
 		auto vertices = m_batched.vertices.data();
-		if (!m_isHwVertexProcessingUsed)
-		{
-			const float pixelOffset = Config::alternatePixelCenter.get();
-			UINT offset = 0;
-			for (UINT i = 0; i < count; ++i)
-			{
-				auto v = reinterpret_cast<D3DTLVERTEX*>(vertices + offset);
-				if (0 == v->rhw || INFINITY == v->rhw)
-				{
-					v->rhw = 1;
-				}
-				v->sx += pixelOffset;
-				v->sy += pixelOffset;
-				offset += m_streamSource.stride;
-			}
-		}
-
 		if (m_vertexBuffer)
 		{
 			UINT size = count * m_streamSource.stride;
@@ -765,19 +747,5 @@ namespace D3dDdi
 			m_streamSource = { vertices, stride };
 		}
 		return result;
-	}
-
-	void DrawPrimitive::setVertexShaderDecl(const std::vector<D3DDDIVERTEXELEMENT>& decl)
-	{
-		m_isHwVertexProcessingUsed = true;
-		const UINT D3DDECLUSAGE_POSITIONT = 9;
-		for (auto& vertexElement : decl)
-		{
-			if (D3DDECLUSAGE_POSITIONT == vertexElement.Usage)
-			{
-				m_isHwVertexProcessingUsed = false;
-				return;
-			}
-		}
 	}
 }

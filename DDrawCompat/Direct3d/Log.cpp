@@ -131,3 +131,44 @@ std::ostream& operator<<(std::ostream& os, const D3DVERTEXBUFFERDESC& data)
 		<< Compat::hex(data.dwFVF)
 		<< data.dwNumVertices;
 }
+
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT& data)
+{
+	return Compat::LogStruct(os)
+		<< data.dwX
+		<< data.dwY
+		<< data.dwWidth
+		<< data.dwHeight
+		<< data.dvScaleX
+		<< data.dvScaleY
+		<< data.dvMaxX
+		<< data.dvMaxY
+		<< data.dvMinZ
+		<< data.dvMaxZ;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT2& data)
+{
+	return Compat::LogStruct(os)
+		<< data.dwX
+		<< data.dwY
+		<< data.dwWidth
+		<< data.dwHeight
+		<< data.dvClipX
+		<< data.dvClipY
+		<< data.dvClipWidth
+		<< data.dvClipHeight
+		<< data.dvMinZ
+		<< data.dvMaxZ;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DVIEWPORT7& data)
+{
+	return Compat::LogStruct(os)
+		<< data.dwX
+		<< data.dwY
+		<< data.dwWidth
+		<< data.dwHeight
+		<< data.dvMinZ
+		<< data.dvMaxZ;
+}
