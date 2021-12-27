@@ -37,10 +37,12 @@ namespace D3dDdi
 		void onDestroyResource(HANDLE resource);
 		Resource& prepareForBltSrc(const D3DDDIARG_BLT& data);
 		Resource& prepareForBltDst(D3DDDIARG_BLT& data);
+		Resource& prepareForBltDst(HANDLE& resource, UINT& subResourceIndex, RECT& rect);
 		void prepareForCpuRead(UINT subResourceIndex);
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
 		void prepareForGpuWrite(UINT subResourceIndex);
+		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
@@ -74,6 +76,7 @@ namespace D3dDdi
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		void clearUpToDateFlags(UINT subResourceIndex);
 		void clipRect(UINT subResourceIndex, RECT& rect);
+		HRESULT copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex);
 		HRESULT copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex);
 		HRESULT copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
 			HANDLE src, UINT srcIndex, const RECT& srcRect);
@@ -83,6 +86,8 @@ namespace D3dDdi
 		void fixResourceData();
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
+		RECT getRect(UINT subResourceIndex);
+		SIZE getScaledSize();
 		bool isOversized() const;
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		void loadMsaaResource(UINT subResourceIndex);
@@ -112,6 +117,7 @@ namespace D3dDdi
 		SurfaceRepository::Surface m_msaaResolvedSurface;
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
+		SIZE m_scaledSize;
 		bool m_isSurfaceRepoResource;
 	};
 }

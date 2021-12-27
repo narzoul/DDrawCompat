@@ -507,6 +507,9 @@
     <ClInclude Include="DDraw\Comparison.h">
       <Filter>Header Files\DDraw</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\ResolutionScale.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -796,6 +799,9 @@
     </ClCompile>
     <ClCompile Include="D3dDdi\Log\AdapterCallbacksLog.cpp">
       <Filter>Source Files\D3dDdi\Log</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\ResolutionScale.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -98,6 +98,7 @@ namespace D3dDdi
 		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
 
 		void flush();
+		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }
 		void onDestroyResource(HANDLE resource);
 		void updateConfig();
 
@@ -106,12 +107,11 @@ namespace D3dDdi
 
 		enum ChangedState
 		{
-			CS_MISC          = 1 << 0,
-			CS_RENDER_STATE  = 1 << 1,
-			CS_RENDER_TARGET = 1 << 2,
-			CS_SHADER        = 1 << 3,
-			CS_STREAM_SOURCE = 1 << 4,
-			CS_TEXTURE_STAGE = 1 << 5
+			CS_RENDER_STATE  = 1 << 0,
+			CS_RENDER_TARGET = 1 << 1,
+			CS_SHADER        = 1 << 2,
+			CS_STREAM_SOURCE = 1 << 3,
+			CS_TEXTURE_STAGE = 1 << 4
 		};
 
 		struct State
@@ -170,9 +170,8 @@ namespace D3dDdi
 		void setWInfo(const D3DDDIARG_WINFO& wInfo);
 		bool setZRange(const D3DDDIARG_ZRANGE& zRange);
 
-		void updateMisc();
 		void updateRenderStates();
-		void updateRenderTargets();
+		void updateRenderTarget();
 		void updateShaders();
 		void updateStreamSource();
 		void updateTextureColorKey(UINT stage);

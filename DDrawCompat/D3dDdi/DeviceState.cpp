@@ -239,17 +239,13 @@ namespace D3dDdi
 			return;
 		}
 
-		if (m_changedStates & CS_MISC)
-		{
-			updateMisc();
-		}
 		if (m_changedStates & CS_RENDER_STATE)
 		{
 			updateRenderStates();
 		}
 		if (m_changedStates & CS_RENDER_TARGET)
 		{
-			updateRenderTargets();
+			updateRenderTarget();
 		}
 		if (m_changedStates & CS_SHADER)
 		{
@@ -449,21 +445,21 @@ namespace D3dDdi
 	HRESULT DeviceState::pfnSetViewport(const D3DDDIARG_VIEWPORTINFO* data)
 	{
 		m_app.viewport = *data;
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 		return S_OK;
 	}
 
 	HRESULT DeviceState::pfnSetZRange(const D3DDDIARG_ZRANGE* data)
 	{
 		m_app.zRange = *data;
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 		return S_OK;
 	}
 
 	HRESULT DeviceState::pfnUpdateWInfo(const D3DDDIARG_WINFO* data)
 	{
 		m_app.wInfo = *data;
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 		return S_OK;
 	}
 
@@ -528,11 +524,10 @@ namespace D3dDdi
 
 	void DeviceState::setRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget)
 	{
-		if (setData(renderTarget, m_current.renderTarget, m_device.getOrigVtable().pfnSetRenderTarget))
-		{
-			m_device.setRenderTarget(m_app.renderTarget);
-			LOG_DS << renderTarget;
-		}
+		m_device.flushPrimitives();
+		m_device.getOrigVtable().pfnSetRenderTarget(m_device, &renderTarget);
+		m_current.renderTarget = renderTarget;
+		LOG_DS << renderTarget;
 	}
 
 	bool DeviceState::setShader(HANDLE shader, HANDLE& currentShader,
@@ -600,6 +595,7 @@ namespace D3dDdi
 	void DeviceState::setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget)
 	{
 		setRenderTarget(renderTarget);
+		m_device.setRenderTarget({});
 		m_changedStates |= CS_RENDER_TARGET;
 	}
 
@@ -644,6 +640,7 @@ namespace D3dDdi
 
 	void DeviceState::setTempVertexShaderDecl(HANDLE decl)
 	{
+		m_current.vertexShaderDecl = DELETED_RESOURCE;
 		setVertexShaderDecl(decl);
 		m_changedStates |= CS_SHADER;
 	}
@@ -651,19 +648,19 @@ namespace D3dDdi
 	void DeviceState::setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport)
 	{
 		setViewport(viewport);
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 	}
 
 	void DeviceState::setTempWInfo(const D3DDDIARG_WINFO& wInfo)
 	{
 		setWInfo(wInfo);
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 	}
 
 	void DeviceState::setTempZRange(const D3DDDIARG_ZRANGE& zRange)
 	{
 		setZRange(zRange);
-		m_changedStates |= CS_MISC;
+		m_changedStates |= CS_RENDER_TARGET;
 	}
 
 	bool DeviceState::setTexture(UINT stage, HANDLE texture)
@@ -762,26 +759,6 @@ namespace D3dDdi
 			m_changedTextureStageStates[i].set(D3DDDITSS_MAXANISOTROPY);
 		}
 		m_maxChangedTextureStage = m_changedTextureStageStates.size() - 1;
-		updateVertexFixupConstants();
-	}
-
-	void DeviceState::updateMisc()
-	{
-		bool updateConstants = setViewport(m_app.viewport);
-
-		auto wInfo = m_app.wInfo;
-		if (1.0f == wInfo.WNear && 1.0f == wInfo.WFar)
-		{
-			wInfo.WNear = 0.0f;
-		}
-		setWInfo(wInfo);
-
-		updateConstants |= setZRange(m_app.zRange);
-
-		if (updateConstants)
-		{
-			updateVertexFixupConstants();
-		}
 	}
 
 	void DeviceState::updateRenderStates()
@@ -794,23 +771,42 @@ namespace D3dDdi
 		m_changedRenderStates.reset();
 	}
 
-	void DeviceState::updateRenderTargets()
+	void DeviceState::updateRenderTarget()
 	{
+		auto vp = m_app.viewport;
 		auto renderTarget = m_app.renderTarget;
+		auto depthStencil = m_app.depthStencil;
+
 		Resource* resource = m_device.getResource(renderTarget.hRenderTarget);
 		if (resource && resource->getCustomResource())
 		{
+			resource->scaleRect(reinterpret_cast<RECT&>(vp));
 			renderTarget.hRenderTarget = *resource->getCustomResource();
+			
+			resource = m_device.getResource(depthStencil.hZBuffer);
+			if (resource && resource->getCustomResource())
+			{
+				depthStencil.hZBuffer = *resource->getCustomResource();
+			}
 		}
-		setRenderTarget(renderTarget);
 
-		auto depthStencil = m_app.depthStencil;
-		resource = m_device.getResource(depthStencil.hZBuffer);
-		if (resource && resource->getCustomResource())
-		{
-			depthStencil.hZBuffer = *resource->getCustomResource();
-		}
+		setRenderTarget(renderTarget);
+		m_current.vertexShaderFunc = DELETED_RESOURCE;
+		m_changedStates |= CS_SHADER;
+		m_device.setRenderTarget(m_app.renderTarget);
 		setDepthStencil(depthStencil);
+		setViewport(vp);
+
+		auto wInfo = m_app.wInfo;
+		if (1.0f == wInfo.WNear && 1.0f == wInfo.WFar)
+		{
+			wInfo.WNear = 0.0f;
+		}
+		setWInfo(wInfo);
+
+		setZRange(m_app.zRange);
+
+		updateVertexFixupConstants();
 	}
 
 	void DeviceState::updateShaders()
@@ -902,14 +898,19 @@ namespace D3dDdi
 		data.Count = 2;
 
 		const float apc = Config::alternatePixelCenter.get();
-		const auto& vp = m_current.viewport;
+		const auto& vp = m_app.viewport;
 		const auto& zr = m_current.zRange;
+		const float sx = static_cast<float>(m_current.viewport.Width) / m_app.viewport.Width;
+		const float sy = static_cast<float>(m_current.viewport.Height) / m_app.viewport.Height;
 
 		ShaderConstF registers[2] = {
-			{ apc - vp.X - vp.Width / 2, apc - vp.Y - vp.Height / 2, -zr.MinZ, 0.0f },
+			{ 0.5f + apc - 0.5f / sx - vp.X - vp.Width / 2, 0.5f + apc - 0.5f / sy - vp.Y - vp.Height / 2, -zr.MinZ, 0.0f },
 			{ 2.0f / vp.Width, -2.0f / vp.Height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
 		};
 
-		m_device.getOrigVtable().pfnSetVertexShaderConst(m_device, &data, registers);
+		if (0 != memcmp(registers, &m_vertexShaderConst[data.Register], sizeof(registers)))
+		{
+			pfnSetVertexShaderConst(&data, registers);
+		}
 	}
 }

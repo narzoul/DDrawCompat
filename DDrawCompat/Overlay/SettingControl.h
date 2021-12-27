@@ -18,7 +18,7 @@ namespace Overlay
 	class SettingControl : public Control
 	{
 	public:
-		static const int PARAM_LABEL_WIDTH = 50;
+		static const int PARAM_LABEL_WIDTH = 70;
 		static const int PARAM_CONTROL_WIDTH = 151;
 		static const int SETTING_LABEL_WIDTH = 120;
 		static const int SETTING_CONTROL_WIDTH = 151;

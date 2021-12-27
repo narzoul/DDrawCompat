@@ -221,6 +221,7 @@
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
     <ClInclude Include="Config\Settings\DisplayResolution.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
+    <ClInclude Include="Config\Settings\ResolutionScale.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\TextureFilter.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
@@ -340,6 +341,7 @@
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="Config\Settings\DisplayFilter.cpp" />
     <ClCompile Include="Config\Settings\DisplayResolution.cpp" />
+    <ClCompile Include="Config\Settings\ResolutionScale.cpp" />
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp" />
     <ClCompile Include="Config\Settings\TextureFilter.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />

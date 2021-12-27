@@ -38,6 +38,7 @@ namespace D3dDdi
 		}
 
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[srcSubResourceIndex];
+		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 
 		auto& state = m_device.getState();
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -45,8 +46,7 @@ namespace D3dDdi
 		state.setTempPixelShader(pixelShader);
 		state.setTempRenderTarget({ 0, dstResource, dstSubResourceIndex });
 		state.setTempDepthStencil({ nullptr });
-		state.setTempViewport({ static_cast<DWORD>(dstRect.left), static_cast<DWORD>(dstRect.top),
-			static_cast<DWORD>(dstRect.right - dstRect.left), static_cast<DWORD>(dstRect.bottom - dstRect.top) });
+		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
 
 		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_FALSE });

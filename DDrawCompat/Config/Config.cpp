@@ -9,6 +9,7 @@ namespace Config
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayResolution displayResolution;
 	Settings::RenderColorDepth renderColorDepth;
+	Settings::ResolutionScale resolutionScale;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;

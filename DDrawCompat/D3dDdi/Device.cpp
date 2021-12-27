@@ -18,6 +18,7 @@ namespace
 {
 	HANDLE g_gdiResourceHandle = nullptr;
 	D3dDdi::Resource* g_gdiResource = nullptr;
+	bool g_isConfigUpdatePending = false;
 }
 
 namespace D3dDdi
@@ -163,12 +164,22 @@ namespace D3dDdi
 		{
 			prepareForGpuWrite();
 		}
+
+		if (m_renderTarget && rect)
+		{
+			std::vector<RECT> scaledRect(rect, rect + numRect);
+			for (UINT i = 0; i < numRect; ++i)
+			{
+				m_renderTarget->scaleRect(scaledRect[i]);
+			}
+			return m_origVtable.pfnClear(m_device, data, numRect, scaledRect.data());
+		}
+
 		return m_origVtable.pfnClear(m_device, data, numRect, rect);
 	}
 
 	HRESULT Device::pfnColorFill(const D3DDDIARG_COLORFILL* data)
 	{
-		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
@@ -309,7 +320,10 @@ namespace D3dDdi
 		{
 			d.hSrcResource = resource->prepareForGpuRead(data->SrcSubResourceIndex);
 		}
-		return m_origVtable.pfnPresent(m_device, &d);
+
+		HRESULT result = m_origVtable.pfnPresent(m_device, &d);
+		updateAllConfigNow();
+		return result;
 	}
 
 	HRESULT Device::pfnPresent1(D3DDDIARG_PRESENT1* data)
@@ -325,7 +339,10 @@ namespace D3dDdi
 				srcResources[i].hResource = resource->prepareForGpuRead(srcResources[i].SubResourceIndex);
 			}
 		}
-		return m_origVtable.pfnPresent1(m_device, data);
+
+		HRESULT result = m_origVtable.pfnPresent1(m_device, data);
+		updateAllConfigNow();
+		return result;
 	}
 
 	HRESULT Device::pfnUnlock(const D3DDDIARG_UNLOCK* data)
@@ -341,11 +358,18 @@ namespace D3dDdi
 
 	void Device::updateAllConfig()
 	{
-		DDraw::ScopedThreadLock ddLock;
-		D3dDdi::ScopedCriticalSection lock;
-		for (auto& device : s_devices)
+		g_isConfigUpdatePending = true;
+	}
+
+	void Device::updateAllConfigNow()
+	{
+		if (g_isConfigUpdatePending)
 		{
-			device.second.updateConfig();
+			g_isConfigUpdatePending = false;
+			for (auto& device : s_devices)
+			{
+				device.second.updateConfig();
+			}
 		}
 	}
 

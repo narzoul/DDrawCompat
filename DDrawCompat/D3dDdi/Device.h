@@ -70,6 +70,8 @@ namespace D3dDdi
 		static void updateAllConfig();
 
 	private:
+		static void updateAllConfigNow();
+
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;

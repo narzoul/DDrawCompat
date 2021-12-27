@@ -1,5 +1,6 @@
 #include <type_traits>
 
+#include <Common/Comparison.h>
 #include <Common/HResultException.h>
 #include <Common/Log.h>
 #include <Common/Time.h>
@@ -18,6 +19,7 @@
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -25,16 +27,12 @@ namespace
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 	RECT g_presentationRect = {};
-	RECT g_primaryRect = {};
 	
 	D3DDDIFORMAT g_formatOverride = D3DDDIFMT_UNKNOWN;
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> g_msaaOverride = {};
 
-	RECT calculatePresentationRect()
+	RECT calculateScaledRect(const RECT& srcRect, const RECT& dstRect)
 	{
-		const RECT srcRect = DDraw::PrimarySurface::getMonitorRect();
-		const RECT dstRect = DDraw::RealPrimarySurface::getMonitorRect();
-
 		const int srcWidth = srcRect.right - srcRect.left;
 		const int srcHeight = srcRect.bottom - srcRect.top;
 		const int dstWidth = dstRect.right - dstRect.left;
@@ -52,6 +50,11 @@ namespace
 
 		OffsetRect(&rect, (dstWidth - rect.right) / 2, (dstHeight - rect.bottom) / 2);
 		return rect;
+	}
+
+	RECT calculatePresentationRect()
+	{
+		return calculateScaledRect(DDraw::PrimarySurface::getMonitorRect(), DDraw::RealPrimarySurface::getMonitorRect());
 	}
 
 	LONG divCeil(LONG n, LONG d)
@@ -113,6 +116,7 @@ namespace D3dDdi
 		, m_msaaResolvedSurface{}
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
+		, m_scaledSize{}
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
 	{
 		if (m_origData.Flags.VertexBuffer &&
@@ -126,10 +130,10 @@ namespace D3dDdi
 		{
 			g_presentationRect = calculatePresentationRect();
 			auto& si = m_origData.pSurfList[0];
-			g_primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+			RECT primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
 
 			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
-			if (!EqualRect(&g_presentationRect, &g_primaryRect))
+			if (!EqualRect(&g_presentationRect, &primaryRect))
 			{
 				Gdi::Cursor::setEmulated(true);
 			}
@@ -139,6 +143,7 @@ namespace D3dDdi
 		fixResourceData();
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 		m_formatConfig = m_fixedData.Format;
+		m_scaledSize = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
 
 		HRESULT result = m_device.createPrivateResource(m_fixedData);
 		if (FAILED(result))
@@ -243,15 +248,17 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Resource::bltLock", data);
 
-		loadSysMemResource(data.SubResourceIndex);
+		if (data.Flags.ReadOnly)
+		{
+			prepareForCpuRead(data.SubResourceIndex);
+		}
+		else
+		{
+			prepareForCpuWrite(data.SubResourceIndex);
+		}
 
 		auto& lockData = m_lockData[data.SubResourceIndex];
 		lockData.qpcLastForcedLock = Time::queryPerformanceCounter();
-		if (!data.Flags.ReadOnly)
-		{
-			clearUpToDateFlags(data.SubResourceIndex);
-			lockData.isSysMemUpToDate = true;
-		}
 
 		unsigned char* ptr = static_cast<unsigned char*>(lockData.data);
 		if (data.Flags.AreaValid)
@@ -292,25 +299,7 @@ namespace D3dDdi
 		if (m_lockResource)
 		{
 			auto& lockData = m_lockData[data.SubResourceIndex];
-
-			if (lockData.isVidMemUpToDate)
-			{
-				m_device.getOrigVtable().pfnColorFill(m_device, &data);
-			}
-
-			if (lockData.isMsaaUpToDate)
-			{
-				data.hResource = *m_msaaSurface.resource;
-				m_device.getOrigVtable().pfnColorFill(m_device, &data);
-			}
-
-			if (lockData.isMsaaResolvedUpToDate)
-			{
-				data.hResource = *m_msaaResolvedSurface.resource;
-				m_device.getOrigVtable().pfnColorFill(m_device, &data);
-			}
-
-			if (lockData.isSysMemUpToDate)
+			if (lockData.isSysMemUpToDate && !lockData.isVidMemUpToDate)
 			{
 				auto dstBuf = static_cast<BYTE*>(lockData.data) +
 					data.DstRect.top * lockData.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
@@ -318,21 +307,25 @@ namespace D3dDdi
 				DDraw::Blitter::colorFill(dstBuf, lockData.pitch,
 					data.DstRect.right - data.DstRect.left, data.DstRect.bottom - data.DstRect.top,
 					m_formatInfo.bytesPerPixel, colorConvert(m_formatInfo, data.Color));
-			}
 
-			return LOG_RESULT(S_OK);
+				return LOG_RESULT(S_OK);
+			}
 		}
 
+		prepareForBltDst(data.hResource, data.SubResourceIndex, data.DstRect);
 		return LOG_RESULT(m_device.getOrigVtable().pfnColorFill(m_device, &data));
+	}
+
+	HRESULT Resource::copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex)
+	{
+		return copySubResourceRegion(dstResource, subResourceIndex, dstResource.getRect(subResourceIndex),
+			srcResource, subResourceIndex, srcResource.getRect(subResourceIndex));
 	}
 
 	HRESULT Resource::copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex)
 	{
-		RECT rect = {};
-		rect.right = m_fixedData.pSurfList[subResourceIndex].Width;
-		rect.bottom = m_fixedData.pSurfList[subResourceIndex].Height;
-
-		return copySubResourceRegion(dstResource, subResourceIndex, rect, srcResource, subResourceIndex, rect);
+		return copySubResourceRegion(dstResource, subResourceIndex, getRect(subResourceIndex),
+			srcResource, subResourceIndex, getRect(subResourceIndex));
 	}
 
 	HRESULT Resource::copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
@@ -540,6 +533,24 @@ namespace D3dDdi
 		return { D3DDDIMULTISAMPLE_NONE, 0 };
 	}
 
+	RECT Resource::getRect(UINT subResourceIndex)
+	{
+		const auto& si = m_fixedData.pSurfList[subResourceIndex];
+		return { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+	}
+
+	SIZE Resource::getScaledSize()
+	{
+		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
+		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.Primary ||
+			m_fixedData.Flags.ZBuffer) &&
+			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool)
+		{
+			return m_device.getAdapter().getScaledSize(size);
+		}
+		return size;
+	}
+
 	bool Resource::isOversized() const
 	{
 		return m_fixedData.SurfCount != m_origData.SurfCount;
@@ -564,7 +575,7 @@ namespace D3dDdi
 			else
 			{
 				loadVidMemResource(subResourceIndex);
-				copySubResource(*m_msaaSurface.resource, m_handle, subResourceIndex);
+				copySubResource(*m_msaaSurface.resource, *this, subResourceIndex);
 			}
 			m_lockData[subResourceIndex].isMsaaUpToDate = true;
 		}
@@ -581,7 +592,7 @@ namespace D3dDdi
 			else
 			{
 				loadVidMemResource(subResourceIndex);
-				copySubResource(*m_msaaResolvedSurface.resource, m_handle, subResourceIndex);
+				copySubResource(*m_msaaResolvedSurface.resource, *this, subResourceIndex);
 			}
 			m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
 		}
@@ -592,7 +603,7 @@ namespace D3dDdi
 		if (!m_lockData[subResourceIndex].isSysMemUpToDate)
 		{
 			loadVidMemResource(subResourceIndex);
-			copySubResource(m_lockResource.get(), m_handle, subResourceIndex);
+			copySubResource(m_lockResource.get(), *this, subResourceIndex);
 			notifyLock(subResourceIndex);
 			m_lockData[subResourceIndex].isSysMemUpToDate = true;
 		}
@@ -607,16 +618,16 @@ namespace D3dDdi
 				if (m_msaaResolvedSurface.resource)
 				{
 					loadMsaaResolvedResource(subResourceIndex);
-					copySubResource(m_handle, *m_msaaResolvedSurface.resource, subResourceIndex);
+					copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
 				}
 				else
 				{
-					copySubResource(m_handle, *m_msaaSurface.resource, subResourceIndex);
+					copySubResource(*this, *m_msaaSurface.resource, subResourceIndex);
 				}
 			}
 			else
 			{
-				copySubResource(m_handle, m_lockResource.get(), subResourceIndex);
+				copySubResource(*this, m_lockResource.get(), subResourceIndex);
 				notifyLock(subResourceIndex);
 			}
 			m_lockData[subResourceIndex].isVidMemUpToDate = true;
@@ -687,27 +698,34 @@ namespace D3dDdi
 
 	Resource& Resource::prepareForBltDst(D3DDDIARG_BLT& data)
 	{
+		return prepareForBltDst(data.hDstResource, data.DstSubResourceIndex, data.DstRect);
+	}
+
+	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT& subResourceIndex, RECT& rect)
+	{
 		if (m_lockResource)
 		{
-			if (m_lockData[data.DstSubResourceIndex].isMsaaUpToDate)
+			if (m_lockData[subResourceIndex].isMsaaUpToDate)
 			{
-				data.hDstResource = *m_msaaSurface.resource;
-				clearUpToDateFlags(data.DstSubResourceIndex);
-				m_lockData[data.DstSubResourceIndex].isMsaaUpToDate = true;
+				resource = *m_msaaSurface.resource;
+				clearUpToDateFlags(subResourceIndex);
+				m_lockData[subResourceIndex].isMsaaUpToDate = true;
+				scaleRect(rect);
 				return *m_msaaSurface.resource;
 			}
-			else if (m_lockData[data.DstSubResourceIndex].isMsaaResolvedUpToDate)
+			else if (m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 			{
-				data.hDstResource = *m_msaaResolvedSurface.resource;
-				clearUpToDateFlags(data.DstSubResourceIndex);
-				m_lockData[data.DstSubResourceIndex].isMsaaResolvedUpToDate = true;
+				resource = *m_msaaResolvedSurface.resource;
+				clearUpToDateFlags(subResourceIndex);
+				m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
+				scaleRect(rect);
 				return *m_msaaResolvedSurface.resource;
 			}
 			else
 			{
-				loadVidMemResource(data.DstSubResourceIndex);
-				clearUpToDateFlags(data.DstSubResourceIndex);
-				m_lockData[data.DstSubResourceIndex].isVidMemUpToDate = true;
+				loadVidMemResource(subResourceIndex);
+				clearUpToDateFlags(subResourceIndex);
+				m_lockData[subResourceIndex].isVidMemUpToDate = true;
 			}
 		}
 		return *this;
@@ -782,7 +800,9 @@ namespace D3dDdi
 			{
 				srcResource->m_lockData[0].isVidMemUpToDate = false;
 			}
-			data.hSrcResource = srcResource->prepareForGpuRead(0);
+
+			srcResource = &srcResource->prepareForGpuRead(0);
+			data.hSrcResource = *srcResource;
 		}
 
 		const bool isPalettized = D3DDDIFMT_P8 == srcResource->m_origData.Format;
@@ -793,14 +813,18 @@ namespace D3dDdi
 		const RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
 		const bool isLayeredPresentNeeded = Gdi::Window::presentLayered(nullptr, monitorRect);
 
+		const LONG srcWidth = srcResource->m_fixedData.pSurfList[0].Width;
+		const LONG srcHeight = srcResource->m_fixedData.pSurfList[0].Height;
+		data.SrcRect = { 0, 0, srcWidth, srcHeight };
+
 		UINT presentationFilter = Config::displayFilter.get();
 		UINT presentationFilterParam = Config::displayFilter.getParam();
 		if (Config::Settings::DisplayFilter::BILINEAR == presentationFilter &&
-			(g_presentationRect.right - g_presentationRect.left == g_primaryRect.right &&
-				g_presentationRect.bottom - g_presentationRect.top == g_primaryRect.bottom) ||
+			(g_presentationRect.right - g_presentationRect.left == srcWidth &&
+				g_presentationRect.bottom - g_presentationRect.top == srcHeight) ||
 			(0 == presentationFilterParam &&
-				0 == (g_presentationRect.right - g_presentationRect.left) % g_primaryRect.right &&
-				0 == (g_presentationRect.bottom - g_presentationRect.top) % g_primaryRect.bottom))
+				0 == (g_presentationRect.right - g_presentationRect.left) % srcWidth &&
+				0 == (g_presentationRect.bottom - g_presentationRect.top) % srcHeight))
 		{
 			presentationFilter = Config::Settings::DisplayFilter::POINT;
 		}
@@ -808,8 +832,7 @@ namespace D3dDdi
 		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded ||
 			Config::Settings::DisplayFilter::POINT != presentationFilter)
 		{
-			const auto& si = srcResource->m_fixedData.pSurfList[0];
-			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getTempRenderTarget(si.Width, si.Height));
+			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getTempRenderTarget(srcWidth, srcHeight));
 			if (!dst.resource)
 			{
 				return E_OUTOFMEMORY;
@@ -857,6 +880,17 @@ namespace D3dDdi
 		data.Flags.Linear = 0;
 		data.Flags.Point = 1;
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
+	}
+
+	void Resource::scaleRect(RECT& rect)
+	{
+		const LONG origWidth = m_fixedData.pSurfList[0].Width;
+		const LONG origHeight = m_fixedData.pSurfList[0].Height;
+
+		rect.left = rect.left * m_scaledSize.cx / origWidth;
+		rect.top = rect.top * m_scaledSize.cy / origHeight;
+		rect.right = rect.right * m_scaledSize.cx / origWidth;
+		rect.bottom = rect.bottom * m_scaledSize.cy / origHeight;
 	}
 
 	void Resource::setAsGdiResource(bool isGdiResource)
@@ -1097,7 +1131,8 @@ namespace D3dDdi
 			}
 		}
 
-		if (m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown)
+		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
+			(m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown))
 		{
 			if (SUCCEEDED(shaderBlt(data, srcResource)))
 			{
@@ -1163,12 +1198,14 @@ namespace D3dDdi
 
 		const auto msaa = getMultisampleConfig();
 		const auto formatConfig = getFormatConfig();
-		if (m_multiSampleConfig == msaa && m_formatConfig == formatConfig)
+		const auto scaledSize = getScaledSize();
+		if (m_multiSampleConfig == msaa && m_formatConfig == formatConfig && m_scaledSize == scaledSize)
 		{
 			return;
 		}
 		m_multiSampleConfig = msaa;
 		m_formatConfig = formatConfig;
+		m_scaledSize = scaledSize;
 
 		if (m_fixedData.Flags.RenderTarget &&
 			(m_msaaSurface.resource || m_msaaResolvedSurface.resource))
@@ -1187,9 +1224,10 @@ namespace D3dDdi
 		m_msaaSurface = {};
 		m_msaaResolvedSurface = {};
 
-		if (D3DDDIMULTISAMPLE_NONE != msaa.first || m_fixedData.Format != formatConfig)
+		if (D3DDDIMULTISAMPLE_NONE != msaa.first || m_fixedData.Format != formatConfig ||
+			static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
+			static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy)
 		{
-			g_formatOverride = formatConfig;
 			if (m_fixedData.Flags.ZBuffer)
 			{
 				DDPIXELFORMAT pf = {};
@@ -1198,10 +1236,12 @@ namespace D3dDdi
 				pf.dwZBufferBitDepth = 16;
 				pf.dwZBitMask = 0xFFFF;
 
+				g_formatOverride = formatConfig;
 				g_msaaOverride = msaa;
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaSurface,
-					m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height, pf,
+					scaledSize.cx, scaledSize.cy, pf,
 					DDSCAPS_ZBUFFER | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+				g_formatOverride = D3DDDIFMT_UNKNOWN;
 				g_msaaOverride = {};
 			}
 			else
@@ -1210,18 +1250,15 @@ namespace D3dDdi
 				{
 					g_msaaOverride = msaa;
 					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaSurface,
-						m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height,
-						DDraw::DirectDraw::getRgbPixelFormat(32),
-						DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+						scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig),
+						DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 					g_msaaOverride = {};
 				}
 
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
-					m_fixedData.surfaceData[0].Width, m_fixedData.surfaceData[0].Height,
-					DDraw::DirectDraw::getRgbPixelFormat(32),
-					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+					scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig),
+					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 			}
-			g_formatOverride = D3DDDIFMT_UNKNOWN;
 		}
 	}
 }

@@ -54,17 +54,6 @@ namespace
 
 		switch (uMsg)
 		{
-		case WM_ACTIVATEAPP:
-			if (!wParam)
-			{
-				auto configWindow = Gdi::PresentationWindow::getConfigWindow();
-				if (configWindow)
-				{
-					configWindow->setVisible(false);
-				}
-			}
-			break;
-
 		case WM_DISPLAYCHANGE:
 		{
 			if (0 != wParam)
@@ -100,6 +89,18 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_ACTIVATEAPP:
+			if (!wParam)
+			{
+				auto configWindow = Gdi::PresentationWindow::getConfigWindow();
+				if (configWindow)
+				{
+					configWindow->setVisible(false);
+				}
+				CALL_ORIG_FUNC(ClipCursor)(nullptr);
+			}
+			break;
+
 		case WM_CTLCOLORSCROLLBAR:
 			if (reinterpret_cast<HWND>(lParam) != hwnd &&
 				isUser32ScrollBar(reinterpret_cast<HWND>(lParam)))

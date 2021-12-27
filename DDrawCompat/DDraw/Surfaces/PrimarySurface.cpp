@@ -92,6 +92,7 @@ namespace DDraw
 		}
 
 		data->restore();
+		D3dDdi::Device::updateAllConfig();
 		return DD_OK;
 	}
 

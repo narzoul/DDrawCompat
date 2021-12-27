@@ -241,7 +241,7 @@ namespace D3dDdi
 
 	const SurfaceRepository::Surface& SurfaceRepository::getTempRenderTarget(DWORD width, DWORD height)
 	{
-		return getTempSurface(m_renderTarget, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
+		return getTempSurface(m_renderTarget, width, height, getPixelFormat(D3DDDIFMT_A8R8G8B8),
 			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 

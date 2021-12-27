@@ -6,6 +6,24 @@
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/SettingControl.h>
 
+namespace
+{
+	std::vector<std::string> getValueStrings(Config::Setting& setting)
+	{
+		auto values(setting.getDefaultValueStrings());
+		const auto currentValue = setting.getValueStr();
+		for (const auto& value : values)
+		{
+			if (Config::Parser::removeParam(value) == Config::Parser::removeParam(currentValue))
+			{
+				return values;
+			}
+		}
+		values.push_back(currentValue);
+		return values;
+	}
+}
+
 namespace Overlay
 {
 	SettingControl::SettingControl(Control& parent, const RECT& rect, Config::Setting& setting)
@@ -17,7 +35,7 @@ namespace Overlay
 			rect.left + SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH, rect.bottom - BORDER / 2 };
 		m_valueControl.reset(new ComboBoxControl(*this, r));
 		getValueComboBox().setValue(setting.getValueStr());
-		getValueComboBox().setValues(setting.getDefaultValueStrings());
+		getValueComboBox().setValues(getValueStrings(setting));
 		onValueChanged();
 		updateValuesParam();
 	}
@@ -40,6 +58,7 @@ namespace Overlay
 
 		if (&Config::antialiasing  == &m_setting ||
 			&Config::renderColorDepth == &m_setting ||
+			&Config::resolutionScale == &m_setting ||
 			&Config::textureFilter == &m_setting)
 		{
 			D3dDdi::Device::updateAllConfig();

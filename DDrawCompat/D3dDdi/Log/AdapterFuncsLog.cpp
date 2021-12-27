@@ -87,3 +87,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_GETCAPS& data)
 		<< data.pData
 		<< data.DataSize;
 }
+
+std::ostream& operator<<(std::ostream& os, const FORMATOP& data)
+{
+	return Compat::LogStruct(os)
+		<< data.Format
+		<< Compat::hex(data.Operations)
+		<< Compat::hex(data.FlipMsTypes)
+		<< Compat::hex(data.BltMsTypes)
+		<< data.PrivateFormatBitCount;
+}

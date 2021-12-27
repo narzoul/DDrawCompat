@@ -35,6 +35,7 @@ namespace D3dDdi
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
+		SIZE getScaledSize(SIZE size) const;
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
@@ -49,6 +50,7 @@ namespace D3dDdi
 		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
 
 		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
+		float getMaxScaleFactor(SIZE size) const;
 		std::string getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 		DWORD getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 
@@ -57,6 +59,7 @@ namespace D3dDdi
 		UINT m_runtimeVersion;
 		UINT m_driverVersion;
 		LUID m_luid;
+		std::wstring m_deviceName;
 		CompatWeakPtr<IDirectDraw7> m_repository;
 
 		static std::map<HANDLE, Adapter> s_adapters;

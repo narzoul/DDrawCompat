@@ -12,6 +12,7 @@ namespace Overlay
 		addControl(Config::antialiasing);
 		addControl(Config::displayFilter);
 		addControl(Config::renderColorDepth);
+		addControl(Config::resolutionScale);
 		addControl(Config::textureFilter);
 	}
 
