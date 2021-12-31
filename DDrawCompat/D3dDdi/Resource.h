@@ -88,7 +88,6 @@ namespace D3dDdi
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
 		RECT getRect(UINT subResourceIndex);
 		SIZE getScaledSize();
-		bool isOversized() const;
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		void loadMsaaResource(UINT subResourceIndex);
 		void loadMsaaResolvedResource(UINT subResourceIndex);
@@ -97,12 +96,6 @@ namespace D3dDdi
 		void notifyLock(UINT subResourceIndex);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource);
-		HRESULT splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect);
-
-		template <typename Arg>
-		HRESULT splitLock(Arg& data, HRESULT(APIENTRY *lockFunc)(HANDLE, Arg*));
-
-		void splitToTiles(UINT tileWidth, UINT tileHeight);
 		HRESULT sysMemPreferredBlt(D3DDDIARG_BLT& data, Resource& srcResource);
 
 		Device& m_device;
@@ -118,6 +111,7 @@ namespace D3dDdi
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
 		SIZE m_scaledSize;
+		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 	};
 }

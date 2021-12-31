@@ -96,12 +96,8 @@ namespace D3dDdi
 {
 	Resource::Data::Data(const D3DDDIARG_CREATERESOURCE2& data)
 		: D3DDDIARG_CREATERESOURCE2(data)
+		, surfaceData(data.pSurfList, data.pSurfList + data.SurfCount)
 	{
-		surfaceData.reserve(data.SurfCount);
-		for (UINT i = 0; i < data.SurfCount; ++i)
-		{
-			surfaceData.push_back(data.pSurfList[i]);
-		}
 		pSurfList = surfaceData.data();
 	}
 
@@ -117,6 +113,7 @@ namespace D3dDdi
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
 		, m_scaledSize{}
+		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
 	{
 		if (m_origData.Flags.VertexBuffer &&
@@ -157,16 +154,19 @@ namespace D3dDdi
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
 			0 != m_formatInfo.bytesPerPixel)
 		{
-			m_lockData.resize(m_fixedData.SurfCount);
-			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+			m_lockData.resize(m_origData.SurfCount);
+			for (UINT i = 0; i < m_origData.SurfCount; ++i)
 			{
-				m_lockData[i].data = const_cast<void*>(m_fixedData.pSurfList[i].pSysMem);
-				m_lockData[i].pitch = m_fixedData.pSurfList[i].SysMemPitch;
+				m_lockData[i].data = const_cast<void*>(m_origData.pSurfList[i].pSysMem);
+				m_lockData[i].pitch = m_origData.pSurfList[i].SysMemPitch;
 				m_lockData[i].isSysMemUpToDate = true;
 			}
 		}
+		else
+		{
+			createLockResource();
+		}
 
-		createLockResource();
 		data.hResource = m_fixedData.hResource;
 	}
 
@@ -210,28 +210,8 @@ namespace D3dDdi
 			}
 		}
 
-		if (isOversized())
-		{
-			if (srcResource)
-			{
-				srcResource->prepareForBltSrc(data);
-			}
-			return splitBlt(data, data.DstSubResourceIndex, data.DstRect, data.SrcRect);
-		}
-		
 		if (srcResource)
 		{
-			if (srcResource->isOversized())
-			{
-				if (m_lockResource)
-				{
-					loadVidMemResource(data.DstSubResourceIndex);
-					clearUpToDateFlags(data.DstSubResourceIndex);
-					m_lockData[data.DstSubResourceIndex].isVidMemUpToDate = true;
-				}
-				return srcResource->splitBlt(data, data.SrcSubResourceIndex, data.SrcRect, data.DstRect);
-			}
-
 			if (m_fixedData.Flags.Primary)
 			{
 				return presentationBlt(data, srcResource);
@@ -248,18 +228,19 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Resource::bltLock", data);
 
-		if (data.Flags.ReadOnly)
+		if (m_lockResource)
 		{
-			prepareForCpuRead(data.SubResourceIndex);
-		}
-		else
-		{
-			prepareForCpuWrite(data.SubResourceIndex);
+			if (data.Flags.ReadOnly)
+			{
+				prepareForCpuRead(data.SubResourceIndex);
+			}
+			else
+			{
+				prepareForCpuWrite(data.SubResourceIndex);
+			}
 		}
 
 		auto& lockData = m_lockData[data.SubResourceIndex];
-		lockData.qpcLastForcedLock = Time::queryPerformanceCounter();
-
 		unsigned char* ptr = static_cast<unsigned char*>(lockData.data);
 		if (data.Flags.AreaValid)
 		{
@@ -441,12 +422,10 @@ namespace D3dDdi
 		{
 			m_lockResource.reset(data.hResource);
 			m_lockData.resize(surfaceInfo.size());
-			auto qpcLastForcedLock = Time::queryPerformanceCounter() - Time::msToQpc(Config::evictionTimeout);
 			for (std::size_t i = 0; i < surfaceInfo.size(); ++i)
 			{
 				m_lockData[i].data = const_cast<void*>(surfaceInfo[i].pSysMem);
 				m_lockData[i].pitch = surfaceInfo[i].SysMemPitch;
-				m_lockData[i].qpcLastForcedLock = qpcLastForcedLock;
 				m_lockData[i].isSysMemUpToDate = true;
 				m_lockData[i].isVidMemUpToDate = true;
 				m_lockData[i].isMsaaUpToDate = m_msaaSurface.resource;
@@ -486,19 +465,22 @@ namespace D3dDdi
 			m_fixedData.MultisampleQuality = g_msaaOverride.second;
 		}
 
-		const bool isOffScreenPlain = 0 == (m_fixedData.Flags.Value & g_resourceTypeFlags);
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
-			(isOffScreenPlain || m_fixedData.Flags.Texture) &&
 			1 == m_fixedData.SurfCount &&
 			0 == m_fixedData.pSurfList[0].Depth &&
 			0 != D3dDdi::getFormatInfo(m_fixedData.Format).bytesPerPixel)
 		{
 			const auto& caps = m_device.getAdapter().getInfo().d3dExtendedCaps;
-			const auto& surfaceInfo = m_fixedData.pSurfList[0];
-			if (0 != caps.dwMaxTextureWidth && surfaceInfo.Width > caps.dwMaxTextureWidth ||
-				0 != caps.dwMaxTextureHeight && surfaceInfo.Height > caps.dwMaxTextureHeight)
+			auto& surfaceInfo = m_fixedData.surfaceData[0];
+			if (surfaceInfo.Width > caps.dwMaxTextureWidth)
 			{
-				splitToTiles(caps.dwMaxTextureWidth, caps.dwMaxTextureHeight);
+				surfaceInfo.Width = caps.dwMaxTextureWidth;
+				m_isOversized = true;
+			}
+			if (surfaceInfo.Height > caps.dwMaxTextureHeight)
+			{
+				surfaceInfo.Height = caps.dwMaxTextureHeight;
+				m_isOversized = true;
 			}
 		}
 	}
@@ -549,11 +531,6 @@ namespace D3dDdi
 			return m_device.getAdapter().getScaledSize(size);
 		}
 		return size;
-	}
-
-	bool Resource::isOversized() const
-	{
-		return m_fixedData.SurfCount != m_origData.SurfCount;
 	}
 
 	bool Resource::isValidRect(UINT subResourceIndex, const RECT& rect)
@@ -643,18 +620,7 @@ namespace D3dDdi
 			return E_ABORT;
 		}
 
-		if (isOversized())
-		{
-			if (0 != data.SubResourceIndex ||
-				data.Flags.RangeValid || data.Flags.AreaValid || data.Flags.BoxValid)
-			{
-				LOG_ONCE("WARNING: Unsupported lock of oversized resource: " << data);
-				return m_device.getOrigVtable().pfnLock(m_device, &data);
-			}
-			return splitLock(data, m_device.getOrigVtable().pfnLock);
-		}
-
-		if (m_lockResource)
+		if (m_lockResource || m_isOversized)
 		{
 			return bltLock(data);
 		}
@@ -999,136 +965,90 @@ namespace D3dDdi
 		return LOG_RESULT(S_OK);
 	}
 
-	HRESULT Resource::splitBlt(D3DDDIARG_BLT& data, UINT& subResourceIndex, RECT& rect, RECT& otherRect)
-	{
-		LOG_FUNC("Resource::splitBlt", data, subResourceIndex, rect, otherRect);
-
-		if (0 != subResourceIndex ||
-			data.SrcRect.right - data.SrcRect.left != data.DstRect.right - data.DstRect.left ||
-			data.SrcRect.bottom - data.SrcRect.top != data.DstRect.bottom - data.DstRect.top ||
-			data.Flags.MirrorLeftRight ||
-			data.Flags.MirrorUpDown ||
-			data.Flags.Rotate)
-		{
-			LOG_ONCE("WARNING: Unsupported blt of oversized resource: " << data);
-			return LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
-		}
-
-		const auto& caps = m_device.getAdapter().getInfo().d3dExtendedCaps;
-		const auto tilesPerRow = divCeil(m_origData.pSurfList[0].Width, caps.dwMaxTextureWidth);
-
-		const RECT origRect = rect;
-		const POINT otherRectOffset = { otherRect.left - rect.left, otherRect.top - rect.top };
-
-		POINT tilePos = {};
-		tilePos.y = rect.top / static_cast<LONG>(caps.dwMaxTextureHeight);
-
-		RECT tileRect = {};
-		tileRect.top = tilePos.y * caps.dwMaxTextureHeight;
-		tileRect.bottom = tileRect.top + caps.dwMaxTextureHeight;
-
-		while (tileRect.top < origRect.bottom)
-		{
-			tilePos.x = origRect.left / static_cast<LONG>(caps.dwMaxTextureWidth);
-			tileRect.left = tilePos.x * caps.dwMaxTextureWidth;
-			tileRect.right = tileRect.left + caps.dwMaxTextureWidth;
-
-			while (tileRect.left < origRect.right)
-			{
-				IntersectRect(&rect, &tileRect, &origRect);
-				otherRect = rect;
-				OffsetRect(&otherRect, otherRectOffset.x, otherRectOffset.y);
-				OffsetRect(&rect, -tileRect.left, -tileRect.top);
-				subResourceIndex = tilePos.y * tilesPerRow + tilePos.x;
-
-				HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
-				if (FAILED(result))
-				{
-					return LOG_RESULT(result);
-				}
-
-				++tilePos.x;
-				tileRect.left += caps.dwMaxTextureWidth;
-				tileRect.right += caps.dwMaxTextureWidth;
-				notifyLock(subResourceIndex);
-			}
-
-			++tilePos.y;
-			tileRect.top += caps.dwMaxTextureHeight;
-			tileRect.bottom += caps.dwMaxTextureHeight;
-		}
-
-		return LOG_RESULT(S_OK);
-	}
-
-	void Resource::splitToTiles(UINT tileWidth, UINT tileHeight)
-	{
-		std::vector<D3DDDI_SURFACEINFO> tiles;
-		const UINT bytesPerPixel = getFormatInfo(m_fixedData.Format).bytesPerPixel;
-
-		for (UINT y = 0; y < m_fixedData.pSurfList[0].Height; y += tileHeight)
-		{
-			for (UINT x = 0; x < m_fixedData.pSurfList[0].Width; x += tileWidth)
-			{
-				D3DDDI_SURFACEINFO tile = {};
-				tile.Width = min(m_fixedData.pSurfList[0].Width - x, tileWidth);
-				tile.Height = min(m_fixedData.pSurfList[0].Height - y, tileHeight);
-				tile.pSysMem = static_cast<const unsigned char*>(m_fixedData.pSurfList[0].pSysMem) +
-					y * m_fixedData.pSurfList[0].SysMemPitch + x * bytesPerPixel;
-				tile.SysMemPitch = m_fixedData.pSurfList[0].SysMemPitch;
-				tiles.push_back(tile);
-			}
-		}
-
-		m_fixedData.surfaceData = tiles;
-		m_fixedData.SurfCount = m_fixedData.surfaceData.size();
-		m_fixedData.pSurfList = m_fixedData.surfaceData.data();
-		m_fixedData.Flags.Texture = 0;
-	}
-
 	HRESULT Resource::sysMemPreferredBlt(D3DDDIARG_BLT& data, Resource& srcResource)
 	{
 		if (m_fixedData.Format == srcResource.m_fixedData.Format &&
-			!m_lockData.empty() &&
-			!srcResource.m_lockData.empty())
+			0 != m_formatInfo.bytesPerPixel &&
+			(D3DDDIFMT_P8 == m_fixedData.Format || m_isOversized || srcResource.m_isOversized))
 		{
-			auto& dstLockData = m_lockData[data.DstSubResourceIndex];
-			auto& srcLockData = srcResource.m_lockData[data.SrcSubResourceIndex];
-
-			bool isSysMemBltPreferred = true;
-			auto now = Time::queryPerformanceCounter();
-			if (D3DDDIFMT_P8 != m_fixedData.Format)
+			D3DDDIARG_LOCK srcLock = {};
+			srcLock.hResource = data.hSrcResource;
+			srcLock.SubResourceIndex = data.SrcSubResourceIndex;
+			if (D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
 			{
-				isSysMemBltPreferred = dstLockData.isSysMemUpToDate &&
-					Time::qpcToMs(now - dstLockData.qpcLastForcedLock) <= Config::evictionTimeout;
+				srcLock.Flags.NotifyOnly = 1;
+			}
+			else
+			{
+				srcLock.Area = data.SrcRect;
+				srcLock.Flags.AreaValid = 1;
+				srcLock.Flags.ReadOnly = 1;
 			}
 
-			if (isSysMemBltPreferred)
+			HRESULT result = srcResource.lock(srcLock);
+			if (FAILED(result))
 			{
-				prepareForCpuWrite(data.DstSubResourceIndex);
-				srcResource.prepareForCpuRead(data.SrcSubResourceIndex);
+				return result;
+			}
 
-				auto dstBuf = static_cast<BYTE*>(dstLockData.data) +
-					data.DstRect.top * dstLockData.pitch + data.DstRect.left * m_formatInfo.bytesPerPixel;
-				auto srcBuf = static_cast<const BYTE*>(srcLockData.data) +
-					data.SrcRect.top * srcLockData.pitch + data.SrcRect.left * m_formatInfo.bytesPerPixel;
+			D3DDDIARG_LOCK dstLock = {};
+			dstLock.hResource = data.hDstResource;
+			dstLock.SubResourceIndex = data.DstSubResourceIndex;
+			if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
+			{
+				dstLock.Flags.NotifyOnly = 1;
+			}
+			else
+			{
+				dstLock.Area = data.DstRect;
+				dstLock.Flags.AreaValid = 1;
+			}
+
+			result = lock(dstLock);
+			if (SUCCEEDED(result))
+			{
+				if (D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
+				{
+					auto& lockData = srcResource.m_lockData[data.SrcSubResourceIndex];
+					srcLock.pSurfData = static_cast<BYTE*>(lockData.data) + data.SrcRect.top * lockData.pitch +
+						data.SrcRect.left * m_formatInfo.bytesPerPixel;
+					srcLock.Pitch = lockData.pitch;
+				}
+
+				if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
+				{
+					auto& lockData = m_lockData[data.DstSubResourceIndex];
+					dstLock.pSurfData = static_cast<BYTE*>(lockData.data) + data.DstRect.top * lockData.pitch +
+						data.DstRect.left * m_formatInfo.bytesPerPixel;
+					dstLock.Pitch = lockData.pitch;
+				}
 
 				DDraw::Blitter::blt(
-					dstBuf,
-					dstLockData.pitch,
+					dstLock.pSurfData,
+					dstLock.Pitch,
 					data.DstRect.right - data.DstRect.left,
 					data.DstRect.bottom - data.DstRect.top,
-					srcBuf,
-					srcLockData.pitch,
+					srcLock.pSurfData,
+					srcLock.Pitch,
 					(1 - 2 * data.Flags.MirrorLeftRight) * (data.SrcRect.right - data.SrcRect.left),
 					(1 - 2 * data.Flags.MirrorUpDown) * (data.SrcRect.bottom - data.SrcRect.top),
 					m_formatInfo.bytesPerPixel,
 					data.Flags.DstColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr,
 					data.Flags.SrcColorKey ? reinterpret_cast<const DWORD*>(&data.ColorKey) : nullptr);
 
-				notifyLock(data.DstSubResourceIndex);
-				return S_OK;
+				D3DDDIARG_UNLOCK dstUnlock = {};
+				dstUnlock.hResource = dstLock.hResource;
+				dstUnlock.SubResourceIndex = dstLock.SubResourceIndex;
+				dstUnlock.Flags.NotifyOnly = dstLock.Flags.NotifyOnly;
+				unlock(dstUnlock);
 			}
+
+			D3DDDIARG_UNLOCK srcUnlock = {};
+			srcUnlock.hResource = srcLock.hResource;
+			srcUnlock.SubResourceIndex = srcLock.SubResourceIndex;
+			srcUnlock.Flags.NotifyOnly = srcLock.Flags.NotifyOnly;
+			srcResource.unlock(srcUnlock);
+			return result;
 		}
 
 		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
@@ -1157,36 +1077,9 @@ namespace D3dDdi
 		return result;
 	}
 
-	template <typename Arg>
-	HRESULT Resource::splitLock(Arg& data, HRESULT(APIENTRY *lockFunc)(HANDLE, Arg*))
-	{
-		LOG_FUNC("Resource::splitLock", data, lockFunc);
-		std::remove_const<Arg>::type tmpData = data;
-		HRESULT result = lockFunc(m_device, &data);
-		if (SUCCEEDED(result))
-		{
-			for (UINT i = 1; i < m_fixedData.SurfCount; ++i)
-			{
-				tmpData.SubResourceIndex = i;
-				lockFunc(m_device, &tmpData);
-			}
-		}
-		return LOG_RESULT(result);
-	}
-
 	HRESULT Resource::unlock(const D3DDDIARG_UNLOCK& data)
 	{
-		if (isOversized())
-		{
-			if (0 != data.SubResourceIndex)
-			{
-				LOG_ONCE("WARNING: Unsupported unlock of oversized resource: " << data);
-				return m_device.getOrigVtable().pfnUnlock(m_device, &data);
-			}
-			return splitLock(data, m_device.getOrigVtable().pfnUnlock);
-		}
-
-		return m_device.getOrigVtable().pfnUnlock(m_device, &data);
+		return (m_lockResource || m_isOversized) ? S_OK : m_device.getOrigVtable().pfnUnlock(m_device, &data);
 	}
 
 	void Resource::updateConfig()

@@ -15,7 +15,6 @@
 namespace Config
 {
 	const unsigned delayedFlipModeTimeout = 200;
-	const unsigned evictionTimeout = 200;
 	const unsigned maxPaletteUpdatesPerMs = 5;
 
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
