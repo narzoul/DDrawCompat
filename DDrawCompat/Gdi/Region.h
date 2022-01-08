@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <vector>
 
 #include <Windows.h>
 
@@ -19,6 +20,7 @@ namespace Gdi
 		Region& operator=(Region other);
 
 		void clear();
+		std::vector<RECT> getRects() const;
 		bool isEmpty() const;
 		void offset(int x, int y);
 		HRGN release();

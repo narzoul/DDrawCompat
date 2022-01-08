@@ -83,6 +83,7 @@ namespace D3dDdi
 		void createGdiLockResource();
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
+		bool downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight);
 		void fixResourceData();
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
@@ -95,6 +96,7 @@ namespace D3dDdi
 		void loadVidMemResource(UINT subResourceIndex);
 		void notifyLock(UINT subResourceIndex);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
+		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource);
 		HRESULT sysMemPreferredBlt(D3DDDIARG_BLT& data, Resource& srcResource);
 

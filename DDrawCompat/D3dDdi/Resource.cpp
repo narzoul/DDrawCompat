@@ -3,6 +3,7 @@
 #include <Common/Comparison.h>
 #include <Common/HResultException.h>
 #include <Common/Log.h>
+#include <Common/Rect.h>
 #include <Common/Time.h>
 #include <Config/Config.h>
 #include <D3dDdi/Adapter.h>
@@ -15,6 +16,7 @@
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <Dll/Dll.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
@@ -438,6 +440,44 @@ namespace D3dDdi
 #endif
 	}
 
+	bool Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight)
+	{
+		LONG newSrcWidth = (srcWidth + 1) / 2;
+		if (newSrcWidth <= dstWidth)
+		{
+			newSrcWidth = srcWidth;
+		}
+
+		LONG newSrcHeight = (srcHeight + 1) / 2;
+		if (newSrcHeight <= dstHeight)
+		{
+			newSrcHeight = srcHeight;
+		}
+
+		if (newSrcWidth == srcWidth && newSrcHeight == srcHeight)
+		{
+			return false;
+		}
+
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		auto newRt = &repo.getTempRenderTarget(newSrcWidth, newSrcHeight, 1);
+		if (newRt->resource == rt)
+		{
+			newRt = &repo.getTempRenderTarget(newSrcWidth, newSrcHeight, 0);
+		}
+		if (!newRt->resource)
+		{
+			return false;
+		}
+
+		m_device.getShaderBlitter().textureBlt(*newRt->resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
+			*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR);
+		rt = newRt->resource;
+		srcWidth = newSrcWidth;
+		srcHeight = newSrcHeight;
+		return true;
+	}
+
 	void Resource::fixResourceData()
 	{
 		if (m_fixedData.Flags.Primary)
@@ -768,84 +808,125 @@ namespace D3dDdi
 			}
 
 			srcResource = &srcResource->prepareForGpuRead(0);
-			data.hSrcResource = *srcResource;
 		}
 
-		const bool isPalettized = D3DDDIFMT_P8 == srcResource->m_origData.Format;
+		LONG srcWidth = srcResource->m_fixedData.pSurfList[0].Width;
+		LONG srcHeight = srcResource->m_fixedData.pSurfList[0].Height;
+		data.SrcRect = { 0, 0, srcWidth, srcHeight };
+		data.DstRect = g_presentationRect;
+
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		const auto& rtSurface = repo.getTempRenderTarget(srcWidth, srcHeight);
+		auto rt = rtSurface.resource ? rtSurface.resource : this;
+		auto rtIndex = rtSurface.resource ? 0 : data.DstSubResourceIndex;
+		auto rtRect = rtSurface.resource ? data.SrcRect : data.DstRect;
+
+		if (D3DDDIFMT_P8 == srcResource->m_origData.Format)
+		{
+			auto entries(Gdi::Palette::getHardwarePalette());
+			RGBQUAD pal[256] = {};
+			for (UINT i = 0; i < 256; ++i)
+			{
+				pal[i].rgbRed = entries[i].peRed;
+				pal[i].rgbGreen = entries[i].peGreen;
+				pal[i].rgbBlue = entries[i].peBlue;
+			}
+			m_device.getShaderBlitter().palettizedBlt(*rt, rtIndex, rtRect, *srcResource, data.SrcRect, pal);
+		}
+		else
+		{
+			copySubResourceRegion(*rt, rtIndex, rtRect, *srcResource, 0, data.SrcRect);
+		}
+
+		presentLayeredWindows(*rt, rtIndex, rtRect);
 
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
 		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
-
-		const RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
-		const bool isLayeredPresentNeeded = Gdi::Window::presentLayered(nullptr, monitorRect);
-
-		const LONG srcWidth = srcResource->m_fixedData.pSurfList[0].Width;
-		const LONG srcHeight = srcResource->m_fixedData.pSurfList[0].Height;
-		data.SrcRect = { 0, 0, srcWidth, srcHeight };
-
-		UINT presentationFilter = Config::displayFilter.get();
-		UINT presentationFilterParam = Config::displayFilter.getParam();
-		if (Config::Settings::DisplayFilter::BILINEAR == presentationFilter &&
-			(g_presentationRect.right - g_presentationRect.left == srcWidth &&
-				g_presentationRect.bottom - g_presentationRect.top == srcHeight) ||
-			(0 == presentationFilterParam &&
-				0 == (g_presentationRect.right - g_presentationRect.left) % srcWidth &&
-				0 == (g_presentationRect.bottom - g_presentationRect.top) % srcHeight))
+		if (isCursorEmulated)
 		{
-			presentationFilter = Config::Settings::DisplayFilter::POINT;
+			m_device.getShaderBlitter().cursorBlt(*rt, rtIndex, rtRect, cursorInfo.hCursor, cursorInfo.ptScreenPos);
 		}
 
-		if (isPalettized || isCursorEmulated || isLayeredPresentNeeded ||
-			Config::Settings::DisplayFilter::POINT != presentationFilter)
+		if (!rtSurface.resource)
 		{
-			const auto& dst(SurfaceRepository::get(m_device.getAdapter()).getTempRenderTarget(srcWidth, srcHeight));
-			if (!dst.resource)
-			{
-				return E_OUTOFMEMORY;
-			}
-
-			if (isPalettized)
-			{
-				auto entries(Gdi::Palette::getHardwarePalette());
-				RGBQUAD pal[256] = {};
-				for (UINT i = 0; i < 256; ++i)
-				{
-					pal[i].rgbRed = entries[i].peRed;
-					pal[i].rgbGreen = entries[i].peGreen;
-					pal[i].rgbBlue = entries[i].peBlue;
-				}
-				m_device.getShaderBlitter().palettizedBlt(*dst.resource, 0, *srcResource, pal);
-			}
-			else
-			{
-				copySubResourceRegion(*dst.resource, 0, data.SrcRect, data.hSrcResource, 0, data.SrcRect);
-			}
-
-			if (isLayeredPresentNeeded)
-			{
-				Gdi::Window::presentLayered(dst.surface, monitorRect);
-			}
-
-			if (isCursorEmulated)
-			{
-				POINT pos = { cursorInfo.ptScreenPos.x - monitorRect.left, cursorInfo.ptScreenPos.y - monitorRect.top };
-				m_device.getShaderBlitter().cursorBlt(*dst.resource, 0, cursorInfo.hCursor, pos);
-			}
-
-			if (Config::Settings::DisplayFilter::BILINEAR == presentationFilter)
-			{
-				m_device.getShaderBlitter().genBilinearBlt(*this, data.DstSubResourceIndex, g_presentationRect,
-					*dst.resource, data.SrcRect, presentationFilterParam);
-				return S_OK;
-			}
-
-			data.hSrcResource = *dst.resource;
+			return S_OK;
 		}
 
-		data.DstRect = g_presentationRect;
-		data.Flags.Linear = 0;
+		if (Config::Settings::DisplayFilter::BILINEAR == Config::displayFilter.get())
+		{
+			const LONG dstWidth = data.DstRect.right - data.DstRect.left;
+			const LONG dstHeight = data.DstRect.bottom - data.DstRect.top;
+			while (downscale(rt, data.SrcRect.right, data.SrcRect.bottom, dstWidth, dstHeight))
+			{
+			}
+
+			m_device.getShaderBlitter().genBilinearBlt(*this, data.DstSubResourceIndex, data.DstRect,
+				*rt, data.SrcRect, Config::displayFilter.getParam());
+			return S_OK;
+		}
+
+		data.hSrcResource = *rt;
+		data.SrcSubResourceIndex = 0;
 		data.Flags.Point = 1;
 		return m_device.getOrigVtable().pfnBlt(m_device, &data);
+	}
+
+	void Resource::presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect)
+	{
+		auto& blitter = m_device.getShaderBlitter();
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
+		auto layeredWindows(Gdi::Window::getVisibleLayeredWindows());
+
+		for (auto& layeredWindow : layeredWindows)
+		{
+			RECT visibleRect = {};
+			IntersectRect(&visibleRect, &layeredWindow.rect, &monitorRect);
+			if (IsRectEmpty(&visibleRect))
+			{
+				continue;
+			}
+
+			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left, visibleRect.bottom - visibleRect.top };
+			auto& windowSurface = repo.getTempSysMemSurface(srcRect.right, srcRect.bottom);
+			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, getPixelFormat(D3DDDIFMT_A8R8G8B8));
+			if (!windowSurface.resource || !texture.resource)
+			{
+				continue;
+			}
+
+			HDC srcDc = GetWindowDC(layeredWindow.hwnd);
+			HDC dstDc = nullptr;
+			windowSurface.surface->GetDC(windowSurface.surface, &dstDc);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, srcRect.right, srcRect.bottom, srcDc,
+				visibleRect.left - layeredWindow.rect.left, visibleRect.top - layeredWindow.rect.top, SRCCOPY);
+			windowSurface.surface->ReleaseDC(windowSurface.surface, dstDc);
+			ReleaseDC(layeredWindow.hwnd, srcDc);
+
+			copySubResourceRegion(*texture.resource, 0, srcRect, *windowSurface.resource, 0, srcRect);
+			texture.resource->notifyLock(0);
+
+			COLORREF colorKey = 0;
+			BYTE alpha = 0;
+			DWORD flags = 0;
+			GetLayeredWindowAttributes(layeredWindow.hwnd, &colorKey, &alpha, &flags);
+			if (flags & ULW_COLORKEY)
+			{
+				colorKey = ((colorKey & 0xFF) << 16) | (colorKey & 0xFF00) | ((colorKey & 0xFF0000) >> 16);
+			}
+
+			if (layeredWindow.region)
+			{
+				layeredWindow.region &= monitorRect;
+				layeredWindow.region.offset(-visibleRect.left, -visibleRect.top);
+			}
+			Rect::transform(visibleRect, monitorRect, dstRect);
+
+			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect, D3DTEXF_POINT,
+				(flags & ULW_COLORKEY) ? reinterpret_cast<UINT*>(&colorKey) : nullptr,
+				(flags & ULW_ALPHA) ? &alpha : nullptr,
+				layeredWindow.region);
+		}
 	}
 
 	void Resource::scaleRect(RECT& rect)
@@ -1151,6 +1232,13 @@ namespace D3dDdi
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
 					scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig),
 					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+				if (!m_msaaResolvedSurface.resource && m_msaaSurface.resource)
+				{
+					m_msaaSurface = {};
+					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
+						scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig),
+						DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+				}
 			}
 		}
 	}

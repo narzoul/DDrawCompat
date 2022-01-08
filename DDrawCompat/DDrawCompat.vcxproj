@@ -201,6 +201,7 @@
     <ClInclude Include="Common\HResultException.h" />
     <ClInclude Include="Common\Log.h" />
     <ClInclude Include="Common\Path.h" />
+    <ClInclude Include="Common\Rect.h" />
     <ClInclude Include="Common\ScopedSrwLock.h" />
     <ClInclude Include="Common\VtableHookVisitor.h" />
     <ClInclude Include="Common\VtableSizeVisitor.h" />
@@ -331,6 +332,7 @@
     <ClCompile Include="Common\Log.cpp" />
     <ClCompile Include="Common\Hook.cpp" />
     <ClCompile Include="Common\Path.cpp" />
+    <ClCompile Include="Common\Rect.cpp" />
     <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="Config\Config.cpp" />
     <ClCompile Include="Config\EnumSetting.cpp" />

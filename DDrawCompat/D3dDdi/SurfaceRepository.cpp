@@ -239,9 +239,13 @@ namespace D3dDdi
 		return surface;
 	}
 
-	const SurfaceRepository::Surface& SurfaceRepository::getTempRenderTarget(DWORD width, DWORD height)
+	const SurfaceRepository::Surface& SurfaceRepository::getTempRenderTarget(DWORD width, DWORD height, UINT index)
 	{
-		return getTempSurface(m_renderTarget, width, height, getPixelFormat(D3DDDIFMT_A8R8G8B8),
+		if (index >= m_renderTargets.size())
+		{
+			m_renderTargets.resize(index + 1);
+		}
+		return getTempSurface(m_renderTargets[index], width, height, getPixelFormat(D3DDDIFMT_A8R8G8B8),
 			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
@@ -249,6 +253,12 @@ namespace D3dDdi
 		const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
 		return getSurface(surface, max(width, surface.width), max(height, surface.height), pf, caps, surfaceCount);
+	}
+
+	SurfaceRepository::Surface& SurfaceRepository::getTempSysMemSurface(DWORD width, DWORD height)
+	{
+		return getTempSurface(m_sysMemSurface, width, height, getPixelFormat(D3DDDIFMT_A8R8G8B8),
+			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY);
 	}
 
 	const SurfaceRepository::Surface& SurfaceRepository::getTempTexture(DWORD width, DWORD height, const DDPIXELFORMAT& pf)

@@ -508,59 +508,40 @@ namespace Gdi
 			}
 		}
 
-		bool presentLayered(CompatWeakPtr<IDirectDrawSurface7> dst, const RECT& monitorRect)
+		std::vector<LayeredWindow> getVisibleLayeredWindows()
 		{
-			HDC dstDc = nullptr;
-
-			try
+			std::vector<LayeredWindow> layeredWindows;
+			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 			{
-				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
+				auto& window = **it;
+				if (window.isLayered && !window.visibleRegion.isEmpty())
 				{
-					auto& window = **it;
-					if (!window.isLayered || window.visibleRegion.isEmpty())
-					{
-						continue;
-					}
-
-					Gdi::Region rgn(window.visibleRegion);
-					rgn &= monitorRect;
-					if (rgn.isEmpty())
-					{
-						continue;
-					}
-
-					presentLayeredWindow(dst, window.hwnd, window.windowRect, monitorRect, dstDc, &rgn, window.isMenu);
-				}
-
-				auto configWindow = PresentationWindow::getConfigWindow();
-				if (configWindow && configWindow->isVisible())
-				{
-					presentOverlayWindow(dst, configWindow->getWindow(), monitorRect, dstDc);
-					auto capture = Input::getCapture();
-					if (capture && capture != configWindow)
-					{
-						presentOverlayWindow(dst, capture->getWindow(), monitorRect, dstDc);
-					}
-				}
-
-				HWND cursorWindow = Input::getCursorWindow();
-				if (cursorWindow)
-				{
-					presentOverlayWindow(dst, cursorWindow, monitorRect, dstDc);
+					layeredWindows.push_back({ window.hwnd, window.windowRect, window.visibleRegion });
 				}
 			}
-			catch (bool result)
+
+			RECT wr = {};
+			auto configWindow = PresentationWindow::getConfigWindow();
+			if (configWindow && configWindow->isVisible())
 			{
-				return result;
+				GetWindowRect(configWindow->getWindow(), &wr);
+				layeredWindows.push_back({ configWindow->getWindow(), wr, nullptr });
+				auto capture = Input::getCapture();
+				if (capture && capture != configWindow)
+				{
+					GetWindowRect(capture->getWindow(), &wr);
+					layeredWindows.push_back({ capture->getWindow(), wr, nullptr });
+				}
 			}
 
-			if (dstDc)
+			HWND cursorWindow = Input::getCursorWindow();
+			if (cursorWindow)
 			{
-				SelectClipRgn(dstDc, nullptr);
-				dst->ReleaseDC(dst, dstDc);
+				GetWindowRect(cursorWindow, &wr);
+				layeredWindows.push_back({ cursorWindow, wr, nullptr });
 			}
 
-			return false;
+			return layeredWindows;
 		}
 
 		void updateAll()

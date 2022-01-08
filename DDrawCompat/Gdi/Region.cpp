@@ -73,6 +73,17 @@ namespace Gdi
 		SetRectRgn(m_region, 0, 0, 0, 0);
 	}
 
+	std::vector<RECT> Region::getRects() const
+	{
+		DWORD rgnSize = GetRegionData(m_region, 0, nullptr);
+		std::vector<unsigned char> rgnDataBuf(rgnSize);
+		auto rgnData = reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
+
+		GetRegionData(m_region, rgnSize, rgnData);
+		auto rects = reinterpret_cast<RECT*>(rgnData->Buffer);
+		return { rects, rects + rgnData->rdh.nCount };
+	}
+
 	bool Region::isEmpty() const
 	{
 		return sizeof(RGNDATAHEADER) == GetRegionData(m_region, 0, nullptr);

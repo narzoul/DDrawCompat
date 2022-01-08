@@ -1,9 +1,11 @@
 #include <Common/Log.h>
+#include <Common/Rect.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/GenBilinear.h>
 #include <Shaders/PaletteLookup.h>
@@ -27,10 +29,11 @@ namespace D3dDdi
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		HANDLE pixelShader, UINT filter, const UINT* srcColorKey)
+		HANDLE pixelShader, UINT filter, const UINT* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter, srcColorKey);
+			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter, srcColorKey,
+			alpha, static_cast<HRGN>(srcRgn));
 
 		if (!m_vertexShaderDecl || !pixelShader)
 		{
@@ -39,6 +42,14 @@ namespace D3dDdi
 
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[srcSubResourceIndex];
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
+
+		bool srgb = false;
+		if (D3DTEXF_LINEAR == filter)
+		{
+			const auto& formatOps = m_device.getAdapter().getInfo().formatOps;
+			srgb = (formatOps.at(srcResource.getFixedDesc().Format).Operations & FORMATOP_SRGBREAD) &&
+				(formatOps.at(dstResource.getFixedDesc().Format).Operations & FORMATOP_SRGBWRITE);
+		}
 
 		auto& state = m_device.getState();
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -55,7 +66,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_ALPHATESTENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CULLMODE, D3DCULL_NONE });
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, nullptr != alpha });
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, nullptr != srcColorKey });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
@@ -63,39 +74,45 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0xF });
-		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, D3DTEXF_LINEAR == filter });
+		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, srgb });
+
+		if (alpha)
+		{
+			const UINT D3DBLEND_BLENDFACTOR = 14;
+			const UINT D3DBLEND_INVBLENDFACTOR = 15;
+			state.setTempRenderState({ D3DDDIRS_SRCBLEND, D3DBLEND_BLENDFACTOR });
+			state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_INVBLENDFACTOR });
+
+			const D3DCOLOR blendFactor = (*alpha << 16) | (*alpha << 8) | *alpha;
+			state.setTempRenderState({ D3DDDIRS_BLENDFACTOR, blendFactor });
+		}
 
 		setTempTextureStage(0, srcResource, filter, srcColorKey);
-
-		struct Vertex
-		{
-			float x;
-			float y;
-			float z;
-			float rhw;
-			float tu;
-			float tv;
-		};
+		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, srgb });
 
 		const float srcWidth = static_cast<float>(srcSurface.Width);
 		const float srcHeight = static_cast<float>(srcSurface.Height);
 
-		Vertex vertices[4] = {
-			{ dstRect.left - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.top / srcHeight },
-			{ dstRect.right - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.top / srcHeight },
-			{ dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight },
-			{ dstRect.right - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.bottom / srcHeight }
-		};
-
+		Vertex vertices[4] = {};
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, vertices);
 		
 		DeviceState::TempStateLock lock(state);
 
-		D3DDDIARG_DRAWPRIMITIVE dp = {};
-		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
-		dp.VStart = 0;
-		dp.PrimitiveCount = 2;
-		m_device.pfnDrawPrimitive(&dp, nullptr);
+		if (srcRgn)
+		{
+			auto srcRects(srcRgn.getRects());
+			for (const auto& sr : srcRects)
+			{
+				RectF dr = Rect::toRectF(sr);
+				Rect::transform(dr, srcRect, dstRect);
+				drawRect(vertices, sr, dr, srcWidth, srcHeight);
+			}
+		}
+		else
+		{
+			drawRect(vertices, srcRect, Rect::toRectF(dstRect), srcWidth, srcHeight);
+		}
+
 		m_device.flushPrimitives();
 	}
 
@@ -133,9 +150,10 @@ namespace D3dDdi
 		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderDecl) };
 	}
 
-	void ShaderBlitter::cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, HCURSOR cursor, POINT pt)
+	void ShaderBlitter::cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		HCURSOR cursor, POINT pt)
 	{
-		LOG_FUNC("ShaderBlitter::cursorBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, cursor, pt);
+		LOG_FUNC("ShaderBlitter::cursorBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect, cursor, pt);
 
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
 		auto cur = repo.getCursor(cursor);
@@ -143,21 +161,21 @@ namespace D3dDdi
 
 		pt.x -= cur.hotspot.x;
 		pt.y -= cur.hotspot.y;
-		RECT dstRect = { pt.x, pt.y, pt.x + cur.size.cx, pt.y + cur.size.cy };
+		RECT srcRect = { pt.x, pt.y, pt.x + cur.size.cx, pt.y + cur.size.cy };
 
-		auto& dstDesc = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
-		RECT clippedDstRect = {};
-		clippedDstRect.right = dstDesc.Width;
-		clippedDstRect.bottom = dstDesc.Height;
-		IntersectRect(&clippedDstRect, &clippedDstRect, &dstRect);
+		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
+		RECT clippedSrcRect = {};
+		IntersectRect(&clippedSrcRect, &srcRect, &monitorRect);
 
-		if (!cur.maskTexture || !cur.colorTexture || !cur.tempTexture || !xorTexture || IsRectEmpty(&clippedDstRect))
+		if (!cur.maskTexture || !cur.colorTexture || !cur.tempTexture || !xorTexture || IsRectEmpty(&clippedSrcRect))
 		{
 			return;
 		}
 
-		RECT clippedSrcRect = clippedDstRect;
-		OffsetRect(&clippedSrcRect, -dstRect.left, -dstRect.top);
+		RECT clippedDstRect = clippedSrcRect;
+		Rect::transform(clippedDstRect, monitorRect, dstRect);
+
+		OffsetRect(&clippedSrcRect, -srcRect.left, -srcRect.top);
 
 		D3DDDIARG_BLT data = {};
 		data.hSrcResource = dstResource;
@@ -172,6 +190,20 @@ namespace D3dDdi
 		setTempTextureStage(3, *xorTexture, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
 			m_psDrawCursor.get(), D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::drawRect(Vertex(&vertices)[4], const RECT& srcRect, const RectF& dstRect, float srcWidth, float srcHeight)
+	{
+		vertices[0] = { dstRect.left - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.top / srcHeight };
+		vertices[1] = { dstRect.right - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.top / srcHeight };
+		vertices[2] = { dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight };
+		vertices[3] = { dstRect.right - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.bottom / srcHeight };
+
+		D3DDDIARG_DRAWPRIMITIVE dp = {};
+		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
+		dp.VStart = 0;
+		dp.PrimitiveCount = 2;
+		m_device.pfnDrawPrimitive(&dp, nullptr);
 	}
 
 	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -201,11 +233,11 @@ namespace D3dDdi
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
 	}
 
-	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex,
-		const Resource& srcResource, RGBQUAD palette[256])
+	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, const RECT& srcRect, RGBQUAD palette[256])
 	{
-		LOG_FUNC("ShaderBlitter::palettizedBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex,
-			static_cast<HANDLE>(srcResource), Compat::array(reinterpret_cast<void**>(palette), 256));
+		LOG_FUNC("ShaderBlitter::palettizedBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcRect, Compat::array(reinterpret_cast<void**>(palette), 256));
 
 		auto paletteTexture(SurfaceRepository::get(m_device.getAdapter()).getPaletteTexture());
 		if (!paletteTexture)
@@ -228,11 +260,6 @@ namespace D3dDdi
 		unlock.hResource = *paletteTexture;
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 
-		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
-		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
-		const RECT dstRect = { 0, 0, static_cast<LONG>(dstSurface.Width), static_cast<LONG>(dstSurface.Height) };
-		const RECT srcRect = { 0, 0, static_cast<LONG>(srcSurface.Width), static_cast<LONG>(srcSurface.Height) };
-
 		setTempTextureStage(1, *paletteTexture, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
@@ -246,15 +273,14 @@ namespace D3dDdi
 		state.setTempTextureStageState({ stage, D3DDDITSS_MAGFILTER, filter });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MINFILTER, filter });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE });
-		state.setTempTextureStageState({ stage, D3DDDITSS_SRGBTEXTURE, D3DTEXF_LINEAR == filter });
 		state.setTempRenderState({ static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 });
 	}
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		UINT filter, const UINT* srcColorKey)
+		UINT filter, const UINT* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			m_psTextureSampler.get(), filter, srcColorKey);
+			m_psTextureSampler.get(), filter, srcColorKey, alpha, srcRgn);
 	}
 }

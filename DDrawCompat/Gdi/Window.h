@@ -10,12 +10,19 @@ namespace Gdi
 {
 	namespace Window
 	{
+		struct LayeredWindow
+		{
+			HWND hwnd;
+			RECT rect;
+			Gdi::Region region;
+		};
+
+		std::vector<LayeredWindow> getVisibleLayeredWindows();
 		void onStyleChanged(HWND hwnd, WPARAM wParam);
 		void onSyncPaint(HWND hwnd);
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);
-		bool presentLayered(CompatWeakPtr<IDirectDrawSurface7> dst, const RECT& monitorRect);
 		void updateAll();
 	}
 }

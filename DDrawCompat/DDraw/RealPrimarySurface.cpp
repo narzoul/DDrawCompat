@@ -136,14 +136,10 @@ namespace
 		g_frontBuffer->GetSurfaceDesc(g_frontBuffer, &desc);
 
 		g_clipper.release();
+		CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
+		g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
 
 		const bool isFlippable = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP);
-		if (!isFlippable)
-		{
-			CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
-			g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
-		}
-
 		g_surfaceDesc = desc;
 		g_isFullscreen = isFlippable;
 		g_isUpdatePending = true;

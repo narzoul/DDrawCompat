@@ -40,7 +40,8 @@ namespace D3dDdi
 		Resource* getPaletteTexture();
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
-		const Surface& getTempRenderTarget(DWORD width, DWORD height);
+		const Surface& getTempRenderTarget(DWORD width, DWORD height, UINT index = 0);
+		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
 			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempTexture(DWORD width, DWORD height, const DDPIXELFORMAT& pf);
@@ -68,9 +69,10 @@ namespace D3dDdi
 		Surface m_cursorTempTexture;
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
-		Surface m_renderTarget;
+		std::vector<Surface> m_renderTargets;
 		std::map<DDPIXELFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
+		Surface m_sysMemSurface;
 		
 		static bool s_inCreateSurface;
 	};
