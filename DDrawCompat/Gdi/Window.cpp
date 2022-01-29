@@ -440,7 +440,7 @@ namespace Gdi
 				{
 					RedrawWindow(hwnd, nullptr, it->second.invalidatedRegion,
 						RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
-					it->second.invalidatedRegion = nullptr;
+					it->second.invalidatedRegion.clear();
 				}
 			}
 

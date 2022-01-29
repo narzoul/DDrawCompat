@@ -264,7 +264,7 @@ namespace Gdi
 				}
 				else
 				{
-					g_region = Region();
+					g_region.clear();
 					EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
 					GetRgnBox(g_region, &g_bounds);
 				}
