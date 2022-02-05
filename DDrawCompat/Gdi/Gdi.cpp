@@ -1,3 +1,6 @@
+#include <dwmapi.h>
+
+#include <Common/Hook.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
@@ -15,6 +18,12 @@
 
 namespace
 {
+	HRESULT WINAPI dwmEnableComposition([[maybe_unused]] UINT uCompositionAction)
+	{
+		LOG_FUNC("DwmEnableComposition", uCompositionAction);
+		return LOG_RESULT(0);
+	}
+
 	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
 	{
 		DWORD windowPid = 0;
@@ -29,6 +38,17 @@ namespace
 
 namespace Gdi
 {
+	void checkDesktopComposition()
+	{
+		BOOL isEnabled = FALSE;
+		HRESULT result = DwmIsCompositionEnabled(&isEnabled);
+		LOG_DEBUG << "DwmIsCompositionEnabled: " << Compat::hex(result) << " " << isEnabled;
+		if (!isEnabled)
+		{
+			LOG_ONCE("Warning: Desktop composition is disabled. This is not supported.");
+		}
+	}
+
 	void dllThreadDetach()
 	{
 		WinProc::dllThreadDetach();
@@ -37,6 +57,11 @@ namespace Gdi
 
 	void installHooks()
 	{
+#pragma warning (disable : 4995)
+		HOOK_FUNCTION(dwmapi, DwmEnableComposition, dwmEnableComposition);
+#pragma warning (default : 4995)
+
+		checkDesktopComposition();
 		DisableProcessWindowsGhosting();
 
 		DcFunctions::installHooks();

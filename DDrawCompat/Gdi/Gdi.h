@@ -10,6 +10,7 @@ namespace Gdi
 
 	typedef void(*WindowPosChangeNotifyFunc)();
 
+	void checkDesktopComposition();
 	void dllThreadDetach();
 	void installHooks();
 	bool isDisplayDc(HDC dc);

@@ -159,6 +159,9 @@ namespace
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
 		const Gdi::Region& oldVisibleRegion, Gdi::Region& invalidatedRegion)
 	{
+		LOG_FUNC("Window::updatePosition", window.hwnd, oldWindowRect, oldClientRect,
+			static_cast<HRGN>(oldVisibleRegion), static_cast<HRGN>(invalidatedRegion));
+
 		const bool isClientOriginChanged =
 			window.clientRect.left - window.windowRect.left != oldClientRect.left - oldWindowRect.left ||
 			window.clientRect.top - window.windowRect.top != oldClientRect.top - oldWindowRect.top;

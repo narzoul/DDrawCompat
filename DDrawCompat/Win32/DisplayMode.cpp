@@ -3,6 +3,9 @@
 #include <string>
 #include <vector>
 
+#include <Windows.h>
+#include <VersionHelpers.h>
+
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
@@ -252,8 +255,11 @@ namespace
 		Compat::removeShim(user32, "EnumDisplaySettingsExA");
 		Compat::removeShim(user32, "EnumDisplaySettingsExW");
 
-		HOOK_FUNCTION(apphelp, DWM8And16Bit_IsShimApplied_CallOut, dwm8And16BitIsShimAppliedCallOut);
-		HOOK_FUNCTION(apphelp, SE_COM_HookInterface, seComHookInterface);
+		if (IsWindows8OrGreater())
+		{
+			HOOK_FUNCTION(apphelp, DWM8And16Bit_IsShimApplied_CallOut, dwm8And16BitIsShimAppliedCallOut);
+			HOOK_FUNCTION(apphelp, SE_COM_HookInterface, seComHookInterface);
+		}
 	}
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut()

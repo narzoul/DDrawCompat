@@ -12,6 +12,7 @@
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
+#include <Gdi/Gdi.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
@@ -55,14 +56,16 @@ namespace
 		switch (uMsg)
 		{
 		case WM_DISPLAYCHANGE:
-		{
 			if (0 != wParam)
 			{
 				return 0;
 			}
 			wParam = Win32::DisplayMode::getBpp();
 			break;
-		}
+
+		case WM_DWMCOMPOSITIONCHANGED:
+			Gdi::checkDesktopComposition();
+			break;
 
 		case WM_GETMINMAXINFO:
 			onGetMinMaxInfo(*reinterpret_cast<MINMAXINFO*>(lParam));
