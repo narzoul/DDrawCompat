@@ -9,6 +9,7 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
@@ -249,7 +250,7 @@ namespace
 		DWORD processId = 0;
 		GetWindowThreadProcessId(hwnd, &processId);
 		if (processId != context.processId ||
-			Gdi::PresentationWindow::isPresentationWindow(hwnd))
+			Gdi::GuiThread::isGuiThreadWindow(hwnd))
 		{
 			return TRUE;
 		}
@@ -277,7 +278,7 @@ namespace
 			}
 			else if (it->second.presentationWindow)
 			{
-				Gdi::PresentationWindow::destroy(it->second.presentationWindow);
+				Gdi::GuiThread::destroyWindow(it->second.presentationWindow);
 				it->second.presentationWindow = nullptr;
 			}
 		}
@@ -351,7 +352,7 @@ namespace
 			{
 				if (setPresentationWindowRgn)
 				{
-					Gdi::PresentationWindow::setWindowRgn(it->second.presentationWindow, it->second.windowRegion);
+					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, it->second.windowRegion);
 				}
 
 				WINDOWPOS wp = {};
@@ -379,7 +380,11 @@ namespace
 					wp.flags |= SWP_HIDEWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
 				}
 
-				Gdi::PresentationWindow::setWindowPos(it->second.presentationWindow, wp);
+				Gdi::GuiThread::execute([&]()
+					{
+						CALL_ORIG_FUNC(SetWindowPos)(it->second.presentationWindow,
+							wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags);
+					});
 			}
 		}
 		return TRUE;
@@ -524,7 +529,7 @@ namespace Gdi
 			}
 
 			RECT wr = {};
-			auto configWindow = PresentationWindow::getConfigWindow();
+			auto configWindow = GuiThread::getConfigWindow();
 			if (configWindow && configWindow->isVisible())
 			{
 				GetWindowRect(configWindow->getWindow(), &wr);
@@ -550,7 +555,7 @@ namespace Gdi
 		void updateAll()
 		{
 			LOG_FUNC("Window::updateAll");
-			if (!Gdi::PresentationWindow::isThreadReady())
+			if (!GuiThread::isReady())
 			{
 				return;
 			}
@@ -571,7 +576,7 @@ namespace Gdi
 					{
 						if (it->second.presentationWindow)
 						{
-							Gdi::PresentationWindow::destroy(it->second.presentationWindow);
+							GuiThread::destroyWindow(it->second.presentationWindow);
 						}
 						it = g_windows.erase(it);
 					}

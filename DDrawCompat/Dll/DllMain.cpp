@@ -17,6 +17,7 @@
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Input/Input.h>
@@ -113,7 +114,7 @@ namespace
 			Compat::Log() << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::closeDbgEng();
-			Gdi::PresentationWindow::startThread();
+			Gdi::GuiThread::start();
 			Compat::Log() << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}

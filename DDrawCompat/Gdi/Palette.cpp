@@ -196,7 +196,7 @@ namespace
 		if (result && !bForceBackground)
 		{
 			HWND dcWindow = CALL_ORIG_FUNC(WindowFromDC)(hdc);
-			if (dcWindow && !(GetWindowLong(dcWindow, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
+			if (dcWindow && !(CALL_ORIG_FUNC(GetWindowLongA)(dcWindow, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
 			{
 				HWND activeWindow = GetActiveWindow();
 				if (activeWindow == dcWindow || IsChild(activeWindow, dcWindow))

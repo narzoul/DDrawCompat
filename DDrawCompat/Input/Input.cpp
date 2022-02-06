@@ -9,6 +9,7 @@
 #include <Common/Log.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Input/Input.h>
 #include <Overlay/Window.h>
@@ -21,9 +22,6 @@ namespace
 		void* context;
 	};
 
-	const UINT WM_USER_HOTKEY = WM_USER;
-	const UINT WM_USER_RESET_HOOK = WM_USER + 1;
-
 	HANDLE g_bmpArrow = nullptr;
 	SIZE g_bmpArrowSize = {};
 	Overlay::Window* g_capture = nullptr;
@@ -31,7 +29,6 @@ namespace
 	HWND g_cursorWindow = nullptr;
 	std::map<Input::HotKey, HotKeyData> g_hotKeys;
 	RECT g_monitorRect = {};
-	DWORD g_inputThreadId = 0;
 	HHOOK g_keyboardHook = nullptr;
 	HHOOK g_mouseHook = nullptr;
 
@@ -65,72 +62,22 @@ namespace
 		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
 	}
 
-	unsigned WINAPI inputThreadProc(LPVOID /*lpParameter*/)
-	{
-		g_inputThreadId = GetCurrentThreadId();
-		g_bmpArrow = CALL_ORIG_FUNC(LoadImageA)(Dll::g_currentModule, "BMP_ARROW", IMAGE_BITMAP, 0, 0, 0);
-
-		BITMAP bm = {};
-		GetObject(g_bmpArrow, sizeof(bm), &bm);
-		g_bmpArrowSize = { bm.bmWidth, bm.bmHeight };
-
-		g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
-
-		MSG msg = {};
-		while (GetMessage(&msg, nullptr, 0, 0))
-		{
-			if (msg.message == WM_TIMER && !msg.hwnd && msg.lParam)
-			{
-				reinterpret_cast<TIMERPROC>(msg.lParam)(nullptr, WM_TIMER, msg.wParam, 0);
-			}
-			if (!msg.hwnd)
-			{
-				if (WM_USER_HOTKEY == msg.message)
-				{
-					DWORD pid = 0;
-					GetWindowThreadProcessId(GetForegroundWindow(), &pid);
-					if (GetCurrentProcessId() == pid)
-					{
-						auto it = std::find_if(g_hotKeys.begin(), g_hotKeys.end(),
-							[&](const auto& v) { return v.first.vk == msg.wParam; });
-						if (it != g_hotKeys.end())
-						{
-							it->second.action(it->second.context);
-						}
-					}
-				}
-				else if (WM_USER_RESET_HOOK == msg.message)
-				{
-					if (msg.wParam == WH_KEYBOARD_LL)
-					{
-						UnhookWindowsHookEx(g_keyboardHook);
-						g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-							WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
-					}
-					else if (msg.wParam == WH_MOUSE_LL && g_mouseHook)
-					{
-						UnhookWindowsHookEx(g_mouseHook);
-						g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-							WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
-					}
-				}
-			}
-			else
-			{
-				TranslateMessage(&msg);
-				DispatchMessage(&msg);
-			}
-		}
-
-		return 0;
-	}
-
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (HC_ACTION == nCode && (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam))
 		{
-			auto llHook = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
-			PostThreadMessage(GetCurrentThreadId(), WM_USER_HOTKEY, llHook->vkCode, llHook->scanCode);
+			DWORD pid = 0;
+			GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+			if (GetCurrentProcessId() == pid)
+			{
+				auto llHook = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
+				auto it = std::find_if(g_hotKeys.begin(), g_hotKeys.end(),
+					[&](const auto& v) { return v.first.vk == llHook->vkCode; });
+				if (it != g_hotKeys.end())
+				{
+					it->second.action(it->second.context);
+				}
+			}
 		}
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
@@ -174,6 +121,32 @@ namespace
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
 
+	void resetKeyboardHook()
+	{
+		Gdi::GuiThread::execute([]()
+			{
+				if (g_keyboardHook)
+				{
+					UnhookWindowsHookEx(g_keyboardHook);
+				}
+				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
+			});
+	}
+
+	void resetMouseHook()
+	{
+		Gdi::GuiThread::execute([]()
+			{
+				if (g_mouseHook)
+				{
+					UnhookWindowsHookEx(g_mouseHook);
+				}
+				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
+			});
+	}
+
 	void setCursorPos(POINT cp)
 	{
 		g_cursorPos = cp;
@@ -191,9 +164,16 @@ namespace
 		}
 
 		HHOOK result = origSetWindowsHookEx(idHook, lpfn, hmod, dwThreadId);
-		if (result && g_inputThreadId && (WH_KEYBOARD_LL == idHook || WH_MOUSE_LL == idHook))
+		if (result)
 		{
-			PostThreadMessage(g_inputThreadId, WM_USER_RESET_HOOK, idHook, 0);
+			if (WH_KEYBOARD_LL == idHook)
+			{
+				resetKeyboardHook();
+			}
+			else if (WH_MOUSE_LL == idHook && g_mouseHook)
+			{
+				resetMouseHook();
+			}
 		}
 		return result;
 	}
@@ -235,16 +215,22 @@ namespace Input
 
 	void installHooks()
 	{
+		g_bmpArrow = CALL_ORIG_FUNC(LoadImageA)(Dll::g_currentModule, "BMP_ARROW", IMAGE_BITMAP, 0, 0, 0);
+
+		BITMAP bm = {};
+		GetObject(g_bmpArrow, sizeof(bm), &bm);
+		g_bmpArrowSize = { bm.bmWidth, bm.bmHeight };
+
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
 	}
 
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context)
 	{
-		static HANDLE thread = Dll::createThread(&inputThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
-		if (thread)
+		g_hotKeys[hotKey] = { action, context };
+		if (!g_keyboardHook)
 		{
-			g_hotKeys[hotKey] = { action, context };
+			resetKeyboardHook();
 		}
 	}
 
@@ -255,7 +241,8 @@ namespace Input
 		{
 			if (!g_mouseHook)
 			{
-				g_cursorWindow = Gdi::PresentationWindow::create(window->getWindow(), &cursorWindowProc);
+				g_cursorWindow = Gdi::PresentationWindow::create(window->getWindow());
+				CALL_ORIG_FUNC(SetWindowLongA)(g_cursorWindow, GWL_WNDPROC, reinterpret_cast<LONG>(&cursorWindowProc));
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(g_cursorWindow, RGB(0xFF, 0xFF, 0xFF), 0, LWA_COLORKEY);
 
 				MONITORINFO mi = {};
@@ -266,17 +253,16 @@ namespace Input
 				RECT r = window->getRect();
 				g_cursorPos = { (r.left + r.right) / 2, (r.top + r.bottom) / 2 };
 				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, g_cursorPos.x, g_cursorPos.y,
-					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING);
-				ShowWindow(g_cursorWindow, SW_SHOW);
+					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
 
-				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
+				resetMouseHook();
 			}
 		}
 		else if (g_mouseHook)
 		{
 			UnhookWindowsHookEx(g_mouseHook);
 			g_mouseHook = nullptr;
-			PostMessage(g_cursorWindow, WM_CLOSE, 0, 0);
+			Gdi::GuiThread::destroyWindow(g_cursorWindow);
 			g_cursorWindow = nullptr;
 		}
 	}

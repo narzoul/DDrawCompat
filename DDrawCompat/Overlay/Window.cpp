@@ -9,6 +9,7 @@
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Input/Input.h>
 #include <Overlay/Control.h>
@@ -46,12 +47,14 @@ namespace Overlay
 {
 	Window::Window(Window* parentWindow, const RECT& rect, const Input::HotKey& hotKey)
 		: Control(nullptr, rect, WS_BORDER)
-		, m_hwnd(Gdi::PresentationWindow::create(parentWindow ? parentWindow->m_hwnd : nullptr, &staticWindowProc))
+		, m_hwnd(Gdi::PresentationWindow::create(parentWindow ? parentWindow->m_hwnd : nullptr))
 		, m_parentWindow(parentWindow)
 		, m_transparency(25)
 	{
 		g_windows.emplace(m_hwnd, *this);
+		CALL_ORIG_FUNC(SetWindowLongA)(m_hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(&staticWindowProc));
 		setTransparency(m_transparency);
+
 		if (0 != hotKey.vk)
 		{
 			Input::registerHotKey(hotKey, &toggleWindow, this);
@@ -60,7 +63,7 @@ namespace Overlay
 
 	Window::~Window()
 	{
-		Gdi::PresentationWindow::destroy(m_hwnd);
+		Gdi::GuiThread::destroyWindow(m_hwnd);
 		g_windows.erase(m_hwnd);
 	}
 
@@ -122,7 +125,7 @@ namespace Overlay
 		else
 		{
 			auto capture = Input::getCapture();
-			if (capture != this && capture->m_parentWindow == this)
+			if (capture && capture != this && capture->m_parentWindow == this)
 			{
 				capture->setVisible(false);
 			}
@@ -133,7 +136,12 @@ namespace Overlay
 
 	LRESULT CALLBACK Window::staticWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		return g_windows.find(hwnd)->second.windowProc(uMsg, wParam, lParam);
+		auto it = g_windows.find(hwnd);
+		if (it != g_windows.end())
+		{
+			return it->second.windowProc(uMsg, wParam, lParam);
+		}
+		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
 	}
 
 	void Window::updatePos()

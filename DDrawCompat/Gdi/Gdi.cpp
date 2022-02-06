@@ -8,6 +8,7 @@
 #include <Gdi/DcFunctions.h>
 #include <Gdi/Font.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/Icon.h>
 #include <Gdi/Metrics.h>
 #include <Gdi/Palette.h>
@@ -74,6 +75,7 @@ namespace Gdi
 		Caret::installHooks();
 		Cursor::installHooks();
 		Font::installHooks();
+		WinProc::installHooks();
 	}
 
 	bool isDisplayDc(HDC dc)
@@ -90,7 +92,7 @@ namespace Gdi
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
 	{
-		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || PresentationWindow::isPresentationWindow(hwnd))
+		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || GuiThread::isGuiThreadWindow(hwnd))
 		{
 			return;
 		}

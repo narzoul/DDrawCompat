@@ -513,6 +513,9 @@
     <ClInclude Include="Common\Rect.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Gdi\GuiThread.h">
+      <Filter>Header Files\Gdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -808,6 +811,9 @@
     </ClCompile>
     <ClCompile Include="Common\Rect.cpp">
       <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Gdi\GuiThread.cpp">
+      <Filter>Source Files\Gdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

@@ -14,6 +14,7 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
 
@@ -672,7 +673,7 @@ namespace
 	{
 		DWORD pid = 0;
 		GetWindowThreadProcessId(hwnd, &pid);
-		if (GetCurrentProcessId() == pid)
+		if (GetCurrentProcessId() == pid && !Gdi::GuiThread::isGuiThreadWindow(hwnd))
 		{
 			SendNotifyMessage(hwnd, WM_DISPLAYCHANGE, 0, lParam);
 		}

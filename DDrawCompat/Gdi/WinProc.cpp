@@ -13,6 +13,7 @@
 #include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
@@ -39,7 +40,6 @@ namespace
 	WindowProc getWindowProc(HWND hwnd);
 	bool isTopLevelWindow(HWND hwnd);
 	bool isUser32ScrollBar(HWND hwnd);
-	void onCreateWindow(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onGetMinMaxInfo(MINMAXINFO& mmi);
 	void onInitMenuPopup(HMENU menu);
@@ -95,12 +95,15 @@ namespace
 		case WM_ACTIVATEAPP:
 			if (!wParam)
 			{
-				auto configWindow = Gdi::PresentationWindow::getConfigWindow();
-				if (configWindow)
-				{
-					configWindow->setVisible(false);
-				}
-				CALL_ORIG_FUNC(ClipCursor)(nullptr);
+				Gdi::GuiThread::execute([&]()
+					{
+						auto configWindow = Gdi::GuiThread::getConfigWindow();
+						if (configWindow)
+						{
+							configWindow->setVisible(false);
+						}
+						CALL_ORIG_FUNC(ClipCursor)(nullptr);
+					});
 			}
 			break;
 
@@ -200,40 +203,6 @@ namespace
 
 		return GetModuleHandle("comctl32") != Compat::getModuleHandleFromAddress(
 			IsWindowUnicode(hwnd) ? it->second.wndProcW : it->second.wndProcA);
-	}
-
-	void onCreateWindow(HWND hwnd)
-	{
-		LOG_FUNC("onCreateWindow", hwnd);
-
-		{
-			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
-			if (g_windowProc.find(hwnd) != g_windowProc.end())
-			{
-				return;
-			}
-
-			auto wndProcA = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC));
-			auto wndProcW = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongW)(hwnd, GWL_WNDPROC));
-			g_windowProc[hwnd] = { wndProcA, wndProcW };
-			setWindowProc(hwnd, ddcWindowProcA, ddcWindowProcW);
-		}
-
-		if (!isTopLevelWindow(hwnd))
-		{
-			return;
-		}
-
-		char className[64] = {};
-		GetClassName(hwnd, className, sizeof(className));
-		if (std::string(className) == "CompatWindowDesktopReplacement")
-		{
-			// Disable VirtualizeDesktopPainting shim
-			SendNotifyMessage(hwnd, WM_CLOSE, 0, 0);
-			return;
-		}
-
-		Gdi::Window::updateAll();
 	}
 
 	void onDestroyWindow(HWND hwnd)
@@ -415,9 +384,9 @@ namespace
 		switch (event)
 		{
 		case EVENT_OBJECT_CREATE:
-			if (OBJID_WINDOW == idObject && !Gdi::PresentationWindow::isPresentationWindow(hwnd))
+			if (OBJID_WINDOW == idObject)
 			{
-				onCreateWindow(hwnd);
+				Gdi::WinProc::onCreateWindow(hwnd);
 			}
 			break;
 
@@ -511,10 +480,40 @@ namespace Gdi
 
 		void onCreateWindow(HWND hwnd)
 		{
-			if (PresentationWindow::isThreadReady())
+			LOG_FUNC("onCreateWindow", hwnd);
+			if (!GuiThread::isReady() || GuiThread::isGuiThreadWindow(hwnd))
 			{
-				::onCreateWindow(hwnd);
+				return;
 			}
+
+			{
+				Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
+				if (g_windowProc.find(hwnd) != g_windowProc.end())
+				{
+					return;
+				}
+
+				auto wndProcA = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_WNDPROC));
+				auto wndProcW = reinterpret_cast<WNDPROC>(CALL_ORIG_FUNC(GetWindowLongW)(hwnd, GWL_WNDPROC));
+				g_windowProc[hwnd] = { wndProcA, wndProcW };
+				setWindowProc(hwnd, ddcWindowProcA, ddcWindowProcW);
+			}
+
+			if (!isTopLevelWindow(hwnd))
+			{
+				return;
+			}
+
+			char className[64] = {};
+			GetClassName(hwnd, className, sizeof(className));
+			if (std::string(className) == "CompatWindowDesktopReplacement")
+			{
+				// Disable VirtualizeDesktopPainting shim
+				SendNotifyMessage(hwnd, WM_CLOSE, 0, 0);
+				return;
+			}
+
+			Gdi::Window::updateAll();
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)

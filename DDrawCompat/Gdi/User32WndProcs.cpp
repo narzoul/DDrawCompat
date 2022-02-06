@@ -3,7 +3,7 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
-#include <Gdi/PresentationWindow.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/ScrollBar.h>
 #include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
@@ -319,7 +319,7 @@ namespace
 		if (wp.x + wp.cx > mr.right)
 		{
 			HWND parent = GetNextWindow(wp.hwnd, GW_HWNDNEXT);
-			while (Gdi::PresentationWindow::isPresentationWindow(parent))
+			while (Gdi::GuiThread::isGuiThreadWindow(parent))
 			{
 				parent = GetNextWindow(parent, GW_HWNDNEXT);
 			}
