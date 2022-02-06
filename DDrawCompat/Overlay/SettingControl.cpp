@@ -33,9 +33,8 @@ namespace Overlay
 	{
 		const RECT r = { rect.left + SETTING_LABEL_WIDTH, rect.top + BORDER / 2,
 			rect.left + SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH, rect.bottom - BORDER / 2 };
-		m_valueControl.reset(new ComboBoxControl(*this, r));
+		m_valueControl.reset(new ComboBoxControl(*this, r, getValueStrings(setting)));
 		getValueComboBox().setValue(setting.getValueStr());
-		getValueComboBox().setValues(getValueStrings(setting));
 		onValueChanged();
 		updateValuesParam();
 	}
@@ -64,7 +63,7 @@ namespace Overlay
 			D3dDdi::Device::updateAllConfig();
 		}
 
-		invalidate(m_rect);
+		invalidate();
 	}
 
 	void SettingControl::onParamChanged()

@@ -1,18 +1,19 @@
 #include <Common/Hook.h>
+#include <Input/Input.h>
 #include <Overlay/ComboBoxControl.h>
 
 namespace Overlay
 {
-	ComboBoxControl::ComboBoxControl(Control& parent, const RECT& rect)
+	ComboBoxControl::ComboBoxControl(Control& parent, const RECT& rect, const std::vector<std::string>& values)
 		: Control(&parent, rect, WS_BORDER | WS_VISIBLE)
-		, m_dropDown(*this)
+		, m_dropDown(*this, values)
 	{
 	}
 
 	void ComboBoxControl::setValue(const std::string& value)
 	{
 		m_value = value;
-		invalidate(m_rect);
+		invalidate();
 	}
 
 	void ComboBoxControl::draw(HDC dc)

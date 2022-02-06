@@ -27,12 +27,9 @@ namespace Overlay
 
 	RECT ConfigWindow::calculateRect(const RECT& monitorRect) const
 	{
-		const LONG width = m_rect.right - m_rect.left;
-		const LONG height = m_rect.bottom - m_rect.top;
-
-		RECT r = { 0, 0, width, height };
-		OffsetRect(&r, monitorRect.left, monitorRect.top);
-		OffsetRect(&r, (monitorRect.right - monitorRect.left - width) / 2, (monitorRect.bottom - monitorRect.top - height) / 2);
+		RECT r = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
+		OffsetRect(&r, monitorRect.left + (monitorRect.right - monitorRect.left - r.right) / 2,
+			monitorRect.top + (monitorRect.bottom - monitorRect.top - r.bottom) / 2);
 		return r;
 	}
 }

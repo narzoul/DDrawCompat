@@ -21,7 +21,7 @@ namespace Overlay
 		Control& operator=(Control&&) = delete;
 
 		virtual void draw(HDC /*dc*/) {}
-		virtual void invalidate(const RECT& rect);
+		virtual void invalidate();
 		virtual void onLButtonDown(POINT pos);
 		virtual void onLButtonUp(POINT pos);
 		virtual void onMouseMove(POINT pos);

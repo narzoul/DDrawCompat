@@ -34,7 +34,6 @@ namespace
 
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK lowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
-	void setCursorPos(POINT cp);
 
 	LRESULT CALLBACK cursorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -95,11 +94,14 @@ namespace
 			cp.y += (llHook.pt.y - origCp.y);
 			cp.x = min(max(g_monitorRect.left, cp.x), g_monitorRect.right);
 			cp.y = min(max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
-			setCursorPos(cp);
+			g_cursorPos = cp;
 
-			RECT r = g_capture->getRect();
-			cp.x -= r.left;
-			cp.y -= r.top;
+			const RECT rect = g_capture->getRect();
+			const int scaleFactor = g_capture->getScaleFactor();
+			cp.x /= scaleFactor;
+			cp.y /= scaleFactor;
+			cp.x -= rect.left;
+			cp.y -= rect.top;
 
 			switch (wParam)
 			{
@@ -116,6 +118,7 @@ namespace
 				break;
 			}
 
+			DDraw::RealPrimarySurface::scheduleUpdate();
 			return 1;
 		}
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
@@ -145,13 +148,6 @@ namespace
 				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
 					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
 			});
-	}
-
-	void setCursorPos(POINT cp)
-	{
-		g_cursorPos = cp;
-		CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, cp.x, cp.y, g_bmpArrowSize.cx, g_bmpArrowSize.cy,
-			SWP_ASYNCWINDOWPOS | SWP_NOACTIVATE | SWP_NOSENDCHANGING);
 	}
 
 	HHOOK setWindowsHookEx(int idHook, HOOKPROC lpfn, HINSTANCE hmod, DWORD dwThreadId,
@@ -239,16 +235,16 @@ namespace Input
 		g_capture = window;
 		if (window)
 		{
+			MONITORINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			GetMonitorInfo(MonitorFromWindow(window->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
+			g_monitorRect = mi.rcMonitor;
+
 			if (!g_mouseHook)
 			{
 				g_cursorWindow = Gdi::PresentationWindow::create(window->getWindow());
 				CALL_ORIG_FUNC(SetWindowLongA)(g_cursorWindow, GWL_WNDPROC, reinterpret_cast<LONG>(&cursorWindowProc));
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(g_cursorWindow, RGB(0xFF, 0xFF, 0xFF), 0, LWA_COLORKEY);
-
-				MONITORINFO mi = {};
-				mi.cbSize = sizeof(mi);
-				GetMonitorInfo(MonitorFromWindow(window->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
-				g_monitorRect = mi.rcMonitor;
 
 				RECT r = window->getRect();
 				g_cursorPos = { (r.left + r.right) / 2, (r.top + r.bottom) / 2 };
@@ -265,5 +261,14 @@ namespace Input
 			Gdi::GuiThread::destroyWindow(g_cursorWindow);
 			g_cursorWindow = nullptr;
 		}
+	}
+
+	void updateCursor()
+	{
+		Gdi::GuiThread::execute([]()
+			{
+				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, g_cursorPos.x, g_cursorPos.y,
+					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING);
+			});
 	}
 }

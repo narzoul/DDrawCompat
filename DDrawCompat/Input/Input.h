@@ -25,4 +25,5 @@ namespace Input
 	void installHooks();
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context);
 	void setCapture(Overlay::Window* window);
+	void updateCursor();
 }

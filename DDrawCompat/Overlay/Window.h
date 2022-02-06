@@ -16,11 +16,13 @@ namespace Overlay
 		virtual ~Window() override;
 
 		virtual RECT calculateRect(const RECT& monitorRect) const = 0;
-		virtual void invalidate(const RECT& rect) override;
+		virtual void invalidate() override;
 		virtual void setVisible(bool isVisible) override;
 
+		int getScaleFactor() const { return m_scaleFactor; }
 		HWND getWindow() const { return m_hwnd; }
 		void setTransparency(int transparency);
+		void update();
 
 	protected:
 		HWND m_hwnd;
@@ -32,10 +34,14 @@ namespace Overlay
 	private:
 		virtual void draw(HDC dc) override;
 
-		void onEraseBackground(HDC dc);
-		void onPaint();
 		LRESULT windowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 		static LRESULT CALLBACK staticWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
+
+		int m_scaleFactor;
+		HDC m_dc;
+		HBITMAP m_bitmap;
+		void* m_bitmapBits;
+		bool m_invalid;
 	};
 }

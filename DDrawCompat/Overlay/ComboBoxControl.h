@@ -11,7 +11,7 @@ namespace Overlay
 	class ComboBoxControl : public Control
 	{
 	public:
-		ComboBoxControl(Control& parent, const RECT& rect);
+		ComboBoxControl(Control& parent, const RECT& rect, const std::vector<std::string>& values);
 
 		std::string getValue() const { return m_value; }
 		std::vector<std::string> getValues() const { return m_dropDown.getValues(); }

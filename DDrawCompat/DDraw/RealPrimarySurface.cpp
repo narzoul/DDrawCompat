@@ -19,10 +19,12 @@
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
+#include <Overlay/ConfigWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -159,6 +161,23 @@ namespace
 		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src);
 
 		Gdi::VirtualScreen::update();
+
+		Gdi::GuiThread::execute([]()
+			{
+				auto configWindow = Gdi::GuiThread::getConfigWindow();
+				if (configWindow)
+				{
+					configWindow->update();
+				}
+
+				auto capture = Input::getCapture();
+				if (capture)
+				{
+					capture->update();
+				}
+
+				Input::updateCursor();
+			});
 
 		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
 		{

@@ -14,7 +14,7 @@ namespace Overlay
 	class ComboBoxDropDown : public Window
 	{
 	public:
-		ComboBoxDropDown(ComboBoxControl& parent);
+		ComboBoxDropDown(ComboBoxControl& parent, const std::vector<std::string>& values);
 
 		virtual void onNotify(Control& control) override;
 
@@ -22,6 +22,8 @@ namespace Overlay
 		void setValues(const std::vector<std::string>& values);
 
 	private:
+		static RECT calculateRect(ComboBoxControl& parent, DWORD itemCount);
+
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 		virtual void onLButtonDown(POINT pos) override;
 

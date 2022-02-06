@@ -57,6 +57,8 @@ namespace
 
 	unsigned WINAPI messageWindowThreadProc(LPVOID /*lpParameter*/)
 	{
+		ImmDisableIME(0);
+
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = Dll::g_currentModule;

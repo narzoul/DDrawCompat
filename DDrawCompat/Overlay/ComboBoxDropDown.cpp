@@ -4,20 +4,25 @@
 
 namespace Overlay
 {
-	ComboBoxDropDown::ComboBoxDropDown(ComboBoxControl& parent)
-		: Window(&static_cast<Window&>(parent.getRoot()), { 0, 0, 100, 100 })
+	ComboBoxDropDown::ComboBoxDropDown(ComboBoxControl& parent, const std::vector<std::string>& values)
+		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()))
 		, m_parent(parent)
 	{
+		setValues(values);
 	}
 
-	RECT ComboBoxDropDown::calculateRect(const RECT& monitorRect) const
+	RECT ComboBoxDropDown::calculateRect(ComboBoxControl& parent, DWORD itemCount)
 	{
-		const RECT parentRect = m_parent.getRect();
-		RECT r = { parentRect.left, parentRect.bottom,
-			parentRect.right, parentRect.bottom + static_cast<int>(m_parent.getValues().size()) * ARROW_SIZE };
+		const RECT parentRect = parent.getRect();
+		return { parentRect.left, parentRect.bottom, parentRect.right,
+			parentRect.bottom + static_cast<int>(itemCount) * ARROW_SIZE };
+	}
 
+	RECT ComboBoxDropDown::calculateRect(const RECT& /*monitorRect*/) const
+	{
 		const Window& rootWindow = static_cast<const Window&>(m_parent.getRoot());
-		const RECT rootRect = rootWindow.calculateRect(monitorRect);
+		const RECT rootRect = rootWindow.getRect();
+		RECT r = calculateRect(m_parent, m_values.size());
 		OffsetRect(&r, rootRect.left, rootRect.top);
 		return r;
 	}

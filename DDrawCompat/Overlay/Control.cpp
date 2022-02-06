@@ -38,7 +38,7 @@ namespace Overlay
 			RECT r = m_rect;
 			if (!m_parent)
 			{
-				OffsetRect(&r, -m_rect.left, -m_rect.top);
+				OffsetRect(&r, -r.left, -r.top);
 			}
 			CALL_ORIG_FUNC(Rectangle)(dc, r.left, r.top, r.right, r.bottom);
 		}
@@ -102,11 +102,11 @@ namespace Overlay
 		return const_cast<Control&>(std::as_const(*this).getRoot());
 	}
 
-	void Control::invalidate(const RECT& rect)
+	void Control::invalidate()
 	{
 		if (m_parent)
 		{
-			m_parent->invalidate(rect);
+			m_parent->invalidate();
 		}
 	}
 
@@ -153,7 +153,7 @@ namespace Overlay
 		if (isVisible != Control::isVisible())
 		{
 			m_style ^= WS_VISIBLE;
-			invalidate(m_rect);
+			invalidate();
 		}
 	}
 }

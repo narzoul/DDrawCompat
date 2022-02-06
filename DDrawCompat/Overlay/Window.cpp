@@ -50,6 +50,11 @@ namespace Overlay
 		, m_hwnd(Gdi::PresentationWindow::create(parentWindow ? parentWindow->m_hwnd : nullptr))
 		, m_parentWindow(parentWindow)
 		, m_transparency(25)
+		, m_scaleFactor(1)
+		, m_dc(CreateCompatibleDC(nullptr))
+		, m_bitmap(nullptr)
+		, m_bitmapBits(nullptr)
+		, m_invalid(true)
 	{
 		g_windows.emplace(m_hwnd, *this);
 		CALL_ORIG_FUNC(SetWindowLongA)(m_hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(&staticWindowProc));
@@ -59,46 +64,44 @@ namespace Overlay
 		{
 			Input::registerHotKey(hotKey, &toggleWindow, this);
 		}
+
+		struct BITMAPINFO3 : public BITMAPINFO
+		{
+			RGBQUAD bmiRemainingColors[2];
+		};
+
+		BITMAPINFO3 bmi = {};
+		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+		bmi.bmiHeader.biWidth = rect.right - rect.left;
+		bmi.bmiHeader.biHeight = rect.top - rect.bottom;
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_BITFIELDS;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = 0xFF0000;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = 0x00FF00;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = 0x0000FF;
+
+		m_bitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &m_bitmapBits, nullptr, 0);
+		SaveDC(m_dc);
+		SelectObject(m_dc, m_bitmap);
 	}
 
 	Window::~Window()
 	{
 		Gdi::GuiThread::destroyWindow(m_hwnd);
 		g_windows.erase(m_hwnd);
+		RestoreDC(m_dc, -1);
+		DeleteDC(m_dc);
+		DeleteObject(m_bitmap);
 	}
 
 	void Window::draw(HDC /*dc*/)
 	{
 	}
 
-	void Window::invalidate(const RECT& rect)
+	void Window::invalidate()
 	{
-		InvalidateRect(m_hwnd, &rect, TRUE);
-	}
-
-	void Window::onEraseBackground(HDC dc)
-	{
-		RECT r = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
-		CALL_ORIG_FUNC(FillRect)(dc, &r, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
-	}
-
-	void Window::onPaint()
-	{
-		static HFONT font = createDefaultFont();
-
-		PAINTSTRUCT ps = {};
-		HDC dc = BeginPaint(m_hwnd, &ps);
-		SelectObject(dc, font);
-		SelectObject(dc, GetStockObject(DC_PEN));
-		SelectObject(dc, GetStockObject(NULL_BRUSH));
-		SetBkColor(dc, RGB(0, 0, 0));
-		SetDCBrushColor(dc, RGB(0, 0, 0));
-		SetDCPenColor(dc, RGB(0, 255, 0));
-		SetTextColor(dc, RGB(0, 255, 0));
-
-		drawAll(dc);
-
-		EndPaint(m_hwnd, &ps);
+		m_invalid = true;
 		DDraw::RealPrimarySurface::scheduleUpdate();
 	}
 
@@ -144,6 +147,35 @@ namespace Overlay
 		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
 	}
 
+	void Window::update()
+	{
+		if (!m_invalid || !isVisible())
+		{
+			return;
+		}
+		m_invalid = false;
+
+		static HFONT font = createDefaultFont();
+
+		SelectObject(m_dc, font);
+		SelectObject(m_dc, GetStockObject(DC_PEN));
+		SelectObject(m_dc, GetStockObject(NULL_BRUSH));
+		SetBkColor(m_dc, RGB(0, 0, 0));
+		SetDCBrushColor(m_dc, RGB(0, 0, 0));
+		SetDCPenColor(m_dc, RGB(0, 255, 0));
+		SetTextColor(m_dc, RGB(0, 255, 0));
+
+		RECT rect = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
+		CALL_ORIG_FUNC(FillRect)(m_dc, &rect, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
+		drawAll(m_dc);
+
+		HDC windowDc = GetWindowDC(m_hwnd);
+		CALL_ORIG_FUNC(StretchBlt)(
+			windowDc, 0, 0, (m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
+			m_dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SRCCOPY);
+		ReleaseDC(m_hwnd, windowDc);
+	}
+
 	void Window::updatePos()
 	{
 		auto monitorRect = Win32::DisplayMode::getEmulatedDisplayMode().rect;
@@ -175,9 +207,22 @@ namespace Overlay
 			}
 		}
 
-		m_rect = calculateRect(monitorRect);
-		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, HWND_TOPMOST, m_rect.left, m_rect.top,
-			m_rect.right - m_rect.left, m_rect.bottom - m_rect.top, SWP_NOACTIVATE);
+		int scaleX = (monitorRect.right - monitorRect.left) / 640;
+		int scaleY = (monitorRect.bottom - monitorRect.top) / 480;
+		m_scaleFactor = min(scaleX, scaleY);
+		m_scaleFactor = max(1, m_scaleFactor);
+		m_rect = calculateRect({ monitorRect.left / m_scaleFactor, monitorRect.top / m_scaleFactor,
+			monitorRect.right / m_scaleFactor, monitorRect.bottom / m_scaleFactor });
+
+		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, HWND_TOPMOST, m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
+			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor, SWP_NOACTIVATE);
+
+		if (Input::getCapture() == this)
+		{
+			Input::setCapture(this);
+		}
+
+		invalidate();
 	}
 
 	LRESULT Window::windowProc(UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -187,14 +232,6 @@ namespace Overlay
 		case WM_DISPLAYCHANGE:
 			updatePos();
 			break;
-
-		case WM_ERASEBKGND:
-			onEraseBackground(reinterpret_cast<HDC>(wParam));
-			return 1;
-
-		case WM_PAINT:
-			onPaint();
-			return 0;
 		}
 
 		return CALL_ORIG_FUNC(DefWindowProcA)(m_hwnd, uMsg, wParam, lParam);
