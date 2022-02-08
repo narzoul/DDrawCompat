@@ -13,6 +13,7 @@ namespace Overlay
 	void ComboBoxControl::setValue(const std::string& value)
 	{
 		m_value = value;
+		m_dropDown.select(value);
 		invalidate();
 	}
 

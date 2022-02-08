@@ -127,7 +127,7 @@ namespace Overlay
 		}
 		else
 		{
-			auto capture = Input::getCapture();
+			auto capture = Input::getCaptureWindow();
 			if (capture && capture != this && capture->m_parentWindow == this)
 			{
 				capture->setVisible(false);
@@ -162,8 +162,8 @@ namespace Overlay
 		SelectObject(m_dc, GetStockObject(NULL_BRUSH));
 		SetBkColor(m_dc, RGB(0, 0, 0));
 		SetDCBrushColor(m_dc, RGB(0, 0, 0));
-		SetDCPenColor(m_dc, RGB(0, 255, 0));
-		SetTextColor(m_dc, RGB(0, 255, 0));
+		SetDCPenColor(m_dc, FOREGROUND_COLOR);
+		SetTextColor(m_dc, FOREGROUND_COLOR);
 
 		RECT rect = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
 		CALL_ORIG_FUNC(FillRect)(m_dc, &rect, static_cast<HBRUSH>(GetStockObject(BLACK_BRUSH)));
@@ -217,9 +217,9 @@ namespace Overlay
 		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, HWND_TOPMOST, m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
 			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor, SWP_NOACTIVATE);
 
-		if (Input::getCapture() == this)
+		if (Input::getCaptureWindow() == this)
 		{
-			Input::setCapture(this);
+			Input::setCapture(Input::getCapture());
 		}
 
 		invalidate();

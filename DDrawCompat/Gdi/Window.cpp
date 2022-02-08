@@ -533,8 +533,10 @@ namespace Gdi
 			if (configWindow && configWindow->isVisible())
 			{
 				GetWindowRect(configWindow->getWindow(), &wr);
-				layeredWindows.push_back({ configWindow->getWindow(), wr, nullptr });
-				auto capture = Input::getCapture();
+				auto visibleRegion(getWindowRegion(configWindow->getWindow()));
+				visibleRegion.offset(wr.left, wr.top);
+				layeredWindows.push_back({ configWindow->getWindow(), wr, visibleRegion });
+				auto capture = Input::getCaptureWindow();
 				if (capture && capture != configWindow)
 				{
 					GetWindowRect(capture->getWindow(), &wr);

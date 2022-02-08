@@ -1,9 +1,8 @@
 #include <Config/Config.h>
-#include <Config/Parser.h>
 #include <Config/Setting.h>
 #include <D3dDdi/Device.h>
-#include <DDraw/RealPrimarySurface.h>
 #include <Overlay/ComboBoxControl.h>
+#include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
 
 namespace
@@ -26,8 +25,8 @@ namespace
 
 namespace Overlay
 {
-	SettingControl::SettingControl(Control& parent, const RECT& rect, Config::Setting& setting)
-		: Control(&parent, rect, WS_VISIBLE)
+	SettingControl::SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting)
+		: Control(&parent, rect, WS_VISIBLE | WS_TABSTOP)
 		, m_setting(setting)
 		, m_settingLabel(*this, { rect.left, rect.top, rect.left + SETTING_LABEL_WIDTH, rect.bottom }, setting.getName() + ':', 0)
 	{
@@ -36,12 +35,33 @@ namespace Overlay
 		m_valueControl.reset(new ComboBoxControl(*this, r, getValueStrings(setting)));
 		getValueComboBox().setValue(setting.getValueStr());
 		onValueChanged();
-		updateValuesParam();
+	}
+
+	RECT SettingControl::getHighlightRect() const
+	{
+		RECT r = m_rect;
+		InflateRect(&r, -BORDER / 2, 0);
+		return r;
 	}
 
 	ComboBoxControl& SettingControl::getValueComboBox() const
 	{
 		return static_cast<ComboBoxControl&>(*m_valueControl);
+	}
+
+	void SettingControl::onLButtonDown(POINT pos)
+	{
+		auto configWindow = static_cast<ConfigWindow*>(m_parent);
+		if (PtInRect(&m_rect, pos))
+		{
+			configWindow->setFocus(this);
+			Control::onLButtonDown(pos);
+		}
+		else
+		{
+			configWindow->setFocus(nullptr);
+			configWindow->onMouseMove(pos);
+		}
 	}
 
 	void SettingControl::onNotify(Control& control)
@@ -72,7 +92,6 @@ namespace Overlay
 			'(' + std::to_string(m_paramControl->getPos()) + ')');
 		m_setting.set(value);
 		getValueComboBox().setValue(value);
-		updateValuesParam();
 	}
 
 	void SettingControl::onValueChanged()
@@ -98,21 +117,6 @@ namespace Overlay
 			r.right = r.left + PARAM_CONTROL_WIDTH;
 			m_paramControl.reset(new ScrollBarControl(*this, r, paramInfo.min, paramInfo.max));
 			m_paramControl->setPos(m_setting.getParam());
-		}
-	}
-
-	void SettingControl::updateValuesParam()
-	{
-		const auto currentValue(Config::Parser::removeParam(m_setting.getValueStr()));
-		auto values(getValueComboBox().getValues());
-		for (auto& v : values)
-		{
-			if (Config::Parser::removeParam(v) == currentValue)
-			{
-				v = m_setting.getValueStr();
-				getValueComboBox().setValues(values);
-				break;
-			}
 		}
 	}
 }

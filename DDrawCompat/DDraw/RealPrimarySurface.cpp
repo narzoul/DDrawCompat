@@ -170,7 +170,7 @@ namespace
 					configWindow->update();
 				}
 
-				auto capture = Input::getCapture();
+				auto capture = Input::getCaptureWindow();
 				if (capture)
 				{
 					capture->update();

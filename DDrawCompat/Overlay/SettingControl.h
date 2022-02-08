@@ -1,7 +1,6 @@
 #pragma once
 
 #include <memory>
-#include <string>
 
 #include <Overlay/LabelControl.h>
 #include <Overlay/ScrollBarControl.h>
@@ -14,6 +13,7 @@ namespace Config
 namespace Overlay
 {
 	class ComboBoxControl;
+	class ConfigWindow;
 
 	class SettingControl : public Control
 	{
@@ -25,15 +25,16 @@ namespace Overlay
 		static const int TOTAL_WIDTH =
 			SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH + PARAM_LABEL_WIDTH + PARAM_CONTROL_WIDTH + BORDER;
 
-		SettingControl(Control& parent, const RECT& rect, Config::Setting& setting);
+		SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting);
 
+		virtual RECT getHighlightRect() const override;
+		virtual void onLButtonDown(POINT pos) override;
 		virtual void onNotify(Control& control) override;
 
 	private:
 		ComboBoxControl& getValueComboBox() const;
 		void onParamChanged();
 		void onValueChanged();
-		void updateValuesParam();
 
 		Config::Setting& m_setting;
 		LabelControl m_settingLabel;

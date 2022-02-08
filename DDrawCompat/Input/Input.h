@@ -7,6 +7,7 @@
 
 namespace Overlay
 {
+	class Control;
 	class Window;
 }
 
@@ -20,10 +21,12 @@ namespace Input
 
 	bool operator<(const HotKey& lhs, const HotKey& rhs);
 
-	Overlay::Window* getCapture();
+	Overlay::Control* getCapture();
+	Overlay::Window* getCaptureWindow();
+	POINT getCursorPos();
 	HWND getCursorWindow();
 	void installHooks();
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context);
-	void setCapture(Overlay::Window* window);
+	void setCapture(Overlay::Control* control);
 	void updateCursor();
 }

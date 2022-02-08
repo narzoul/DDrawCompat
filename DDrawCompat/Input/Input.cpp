@@ -24,7 +24,7 @@ namespace
 
 	HANDLE g_bmpArrow = nullptr;
 	SIZE g_bmpArrowSize = {};
-	Overlay::Window* g_capture = nullptr;
+	Overlay::Control* g_capture = nullptr;
 	POINT g_cursorPos = {};
 	HWND g_cursorWindow = nullptr;
 	std::map<Input::HotKey, HotKeyData> g_hotKeys;
@@ -61,6 +61,20 @@ namespace
 		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
 	}
 
+	POINT getRelativeCursorPos()
+	{
+		auto captureWindow = Input::getCaptureWindow();
+		const RECT rect = captureWindow->getRect();
+		const int scaleFactor = captureWindow->getScaleFactor();
+
+		auto cp = g_cursorPos;
+		cp.x /= scaleFactor;
+		cp.y /= scaleFactor;
+		cp.x -= rect.left;
+		cp.y -= rect.top;
+		return cp;
+	}
+
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (HC_ACTION == nCode && (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam))
@@ -85,23 +99,21 @@ namespace
 	{
 		if (HC_ACTION == nCode)
 		{
-			POINT cp = g_cursorPos;
-			POINT origCp = {};
-			GetCursorPos(&origCp);
+			if (WM_MOUSEMOVE == wParam)
+			{
+				POINT cp = g_cursorPos;
+				POINT origCp = {};
+				GetCursorPos(&origCp);
 
-			auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
-			cp.x += (llHook.pt.x - origCp.x);
-			cp.y += (llHook.pt.y - origCp.y);
-			cp.x = min(max(g_monitorRect.left, cp.x), g_monitorRect.right);
-			cp.y = min(max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
-			g_cursorPos = cp;
+				auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
+				cp.x += (llHook.pt.x - origCp.x);
+				cp.y += (llHook.pt.y - origCp.y);
+				cp.x = min(max(g_monitorRect.left, cp.x), g_monitorRect.right);
+				cp.y = min(max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
+				g_cursorPos = cp;
+			}
 
-			const RECT rect = g_capture->getRect();
-			const int scaleFactor = g_capture->getScaleFactor();
-			cp.x /= scaleFactor;
-			cp.y /= scaleFactor;
-			cp.x -= rect.left;
-			cp.y -= rect.top;
+			auto cp = getRelativeCursorPos();
 
 			switch (wParam)
 			{
@@ -199,9 +211,19 @@ namespace Input
 		return toTuple(lhs) < toTuple(rhs);
 	}
 
-	Overlay::Window* getCapture()
+	Overlay::Control* getCapture()
 	{
 		return g_capture;
+	}
+
+	Overlay::Window* getCaptureWindow()
+	{
+		return g_capture ? static_cast<Overlay::Window*>(&g_capture->getRoot()) : nullptr;
+	}
+
+	POINT getCursorPos()
+	{
+		return g_cursorPos;
 	}
 
 	HWND getCursorWindow()
@@ -230,11 +252,18 @@ namespace Input
 		}
 	}
 
-	void setCapture(Overlay::Window* window)
+	void setCapture(Overlay::Control* control)
 	{
-		g_capture = window;
-		if (window)
+		if (control && !control->isVisible())
 		{
+			control = nullptr;
+		}
+		g_capture = control;
+
+		if (control)
+		{
+			auto window = getCaptureWindow();
+
 			MONITORINFO mi = {};
 			mi.cbSize = sizeof(mi);
 			GetMonitorInfo(MonitorFromWindow(window->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
@@ -246,10 +275,10 @@ namespace Input
 				CALL_ORIG_FUNC(SetWindowLongA)(g_cursorWindow, GWL_WNDPROC, reinterpret_cast<LONG>(&cursorWindowProc));
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(g_cursorWindow, RGB(0xFF, 0xFF, 0xFF), 0, LWA_COLORKEY);
 
-				RECT r = window->getRect();
-				g_cursorPos = { (r.left + r.right) / 2, (r.top + r.bottom) / 2 };
+				g_cursorPos = { (g_monitorRect.left + g_monitorRect.right) / 2, (g_monitorRect.top + g_monitorRect.bottom) / 2 };
 				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, g_cursorPos.x, g_cursorPos.y,
 					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
+				g_capture->onMouseMove(getRelativeCursorPos());
 
 				resetMouseHook();
 			}

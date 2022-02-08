@@ -1,4 +1,7 @@
 #include <Common/Hook.h>
+#include <Common/Log.h>
+#include <Config/Parser.h>
+#include <Input/Input.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ComboBoxDropDown.h>
 
@@ -8,21 +11,26 @@ namespace Overlay
 		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()))
 		, m_parent(parent)
 	{
-		setValues(values);
+		for (int i = 0; i < static_cast<int>(values.size()); ++i)
+		{
+			m_labels.emplace_back(*this,
+				RECT{ 2, i * ARROW_SIZE + 2, m_rect.right - m_rect.left - 2, (i + 1) * ARROW_SIZE + 2 },
+				values[i], DT_SINGLELINE | DT_VCENTER, WS_VISIBLE | WS_TABSTOP);
+		}
 	}
 
 	RECT ComboBoxDropDown::calculateRect(ComboBoxControl& parent, DWORD itemCount)
 	{
 		const RECT parentRect = parent.getRect();
 		return { parentRect.left, parentRect.bottom, parentRect.right,
-			parentRect.bottom + static_cast<int>(itemCount) * ARROW_SIZE };
+			parentRect.bottom + static_cast<int>(itemCount) * ARROW_SIZE + 4 };
 	}
 
 	RECT ComboBoxDropDown::calculateRect(const RECT& /*monitorRect*/) const
 	{
 		const Window& rootWindow = static_cast<const Window&>(m_parent.getRoot());
 		const RECT rootRect = rootWindow.getRect();
-		RECT r = calculateRect(m_parent, m_values.size());
+		RECT r = calculateRect(m_parent, m_labels.size());
 		OffsetRect(&r, rootRect.left, rootRect.top);
 		return r;
 	}
@@ -31,11 +39,12 @@ namespace Overlay
 	{
 		if (PtInRect(&m_rect, { m_rect.left + pos.x, m_rect.top + pos.y }))
 		{
-			propagateMouseEvent(&Control::onLButtonDown, pos);
+			Control::onLButtonDown(pos);
 		}
 		else
 		{
 			setVisible(false);
+			Input::setCapture(m_parent.getParent());
 		}
 	}
 
@@ -45,17 +54,27 @@ namespace Overlay
 		m_parent.getParent()->onNotify(*m_parent.getParent());
 	}
 
-	void ComboBoxDropDown::setValues(const std::vector<std::string>& values)
+	void ComboBoxDropDown::select(const std::string& value)
 	{
-		m_values = values;
-		m_labels.clear();
-		int i = 0;
-		for (const auto& v : values)
+		const auto valueWithoutParam(Config::Parser::removeParam(value));
+		for (auto& label : m_labels)
 		{
-			m_labels.emplace_back(*this,
-				RECT{ BORDER, i * ARROW_SIZE, m_rect.right - m_rect.left - BORDER, (i + 1) * ARROW_SIZE },
-				v, DT_SINGLELINE | DT_VCENTER);
-			++i;
+			if (Config::Parser::removeParam(label.getLabel()) == valueWithoutParam)
+			{
+				label.setLabel(value);
+				label.setColor(HIGHLIGHT_COLOR);
+			}
+			else
+			{
+				label.setColor(FOREGROUND_COLOR);
+			}
 		}
+		invalidate();
+	}
+
+	void ComboBoxDropDown::setVisible(bool visible)
+	{
+		m_highlightedChild = nullptr;
+		Window::setVisible(visible);
 	}
 }

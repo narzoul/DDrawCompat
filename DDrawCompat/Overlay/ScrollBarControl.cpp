@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Common/Hook.h>
+#include <Input/Input.h>
 #include <Overlay/ScrollBarControl.h>
 
 namespace
@@ -46,7 +47,7 @@ namespace Overlay
 
 	void ScrollBarControl::onLButtonDown(POINT pos)
 	{
-		setCapture(this);
+		Input::setCapture(this);
 		if (PtInRect(&m_leftArrow, pos))
 		{
 			setPos(m_pos - 1);
@@ -77,9 +78,12 @@ namespace Overlay
 
 	void ScrollBarControl::onLButtonUp(POINT /*pos*/)
 	{
-		setCapture(nullptr);
-		stopRepeatTimer();
-		m_state = State::IDLE;
+		if (Input::getCapture() == this)
+		{
+			Input::setCapture(m_parent);
+			stopRepeatTimer();
+			m_state = State::IDLE;
+		}
 	}
 
 	void ScrollBarControl::onMouseMove(POINT pos)
@@ -119,7 +123,7 @@ namespace Overlay
 
 	void CALLBACK ScrollBarControl::repeatTimerProc(HWND /*hwnd*/, UINT /*message*/, UINT_PTR /*iTimerID*/, DWORD /*dwTime*/)
 	{
-		static_cast<ScrollBarControl*>(Overlay::Control::getCapture())->onRepeat();
+		static_cast<ScrollBarControl*>(Input::getCapture())->onRepeat();
 	}
 
 	void ScrollBarControl::setPos(int pos)

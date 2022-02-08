@@ -21,6 +21,7 @@ namespace Overlay
 		Control& operator=(Control&&) = delete;
 
 		virtual void draw(HDC /*dc*/) {}
+		virtual RECT getHighlightRect() const { return m_rect; }
 		virtual void invalidate();
 		virtual void onLButtonDown(POINT pos);
 		virtual void onLButtonUp(POINT pos);
@@ -36,15 +37,16 @@ namespace Overlay
 		bool isVisible() const { return m_style & WS_VISIBLE; }
 
 	protected:
+		static const COLORREF FOREGROUND_COLOR = RGB(0, 255, 0);
+		static const COLORREF HIGHLIGHT_COLOR = RGB(255, 255, 0);
+
 		void drawArrow(HDC dc, RECT rect, UINT state);
 		void propagateMouseEvent(void(Control::* onEvent)(POINT), POINT pos);
-
-		static Control* getCapture();
-		static void setCapture(Control* control);
 
 		Control* m_parent;
 		RECT m_rect;
 		DWORD m_style;
 		std::set<Control*> m_children;
+		Control* m_highlightedChild;
 	};
 }

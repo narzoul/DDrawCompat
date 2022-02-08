@@ -12,11 +12,16 @@ namespace Overlay
 	public:
 		ConfigWindow();
 
+		virtual void setVisible(bool isVisible) override;
+
+		void setFocus(SettingControl* control);
+
 	private:
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 
 		void addControl(Config::Setting& setting);
 
 		std::list<SettingControl> m_controls;
+		SettingControl* m_focus;
 	};
 }

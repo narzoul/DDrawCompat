@@ -3,12 +3,11 @@
 
 namespace Overlay
 {
-	Control* g_capture = nullptr;
-
 	Control::Control(Control* parent, const RECT& rect, DWORD style)
 		: m_parent(parent)
 		, m_rect(rect)
 		, m_style(style)
+		, m_highlightedChild(nullptr)
 	{
 		if (parent)
 		{
@@ -41,6 +40,14 @@ namespace Overlay
 				OffsetRect(&r, -r.left, -r.top);
 			}
 			CALL_ORIG_FUNC(Rectangle)(dc, r.left, r.top, r.right, r.bottom);
+		}
+
+		if (m_highlightedChild)
+		{
+			RECT r = m_highlightedChild->getHighlightRect();
+			SetDCPenColor(dc, HIGHLIGHT_COLOR);
+			CALL_ORIG_FUNC(Rectangle)(dc, r.left, r.top, r.right, r.bottom);
+			SetDCPenColor(dc, FOREGROUND_COLOR);
 		}
 	}
 
@@ -83,11 +90,6 @@ namespace Overlay
 		CALL_ORIG_FUNC(Polygon)(dc, poly, 3);
 	}
 
-	Control* Control::getCapture()
-	{
-		return g_capture;
-	}
-
 	const Control& Control::getRoot() const
 	{
 		if (m_parent)
@@ -122,17 +124,22 @@ namespace Overlay
 
 	void Control::onMouseMove(POINT pos)
 	{
+		auto prevHighlightedChild = m_highlightedChild;
+		m_highlightedChild = nullptr;
 		propagateMouseEvent(&Control::onMouseMove, pos);
+		if (m_highlightedChild != prevHighlightedChild)
+		{
+			invalidate();
+		}
+		if (m_parent && (m_style & WS_TABSTOP))
+		{
+			m_parent->m_highlightedChild = this;
+			invalidate();
+		}
 	}
 
 	void Control::propagateMouseEvent(void(Control::* onEvent)(POINT), POINT pos)
 	{
-		if (g_capture)
-		{
-			(g_capture->*onEvent)(pos);
-			return;
-		}
-
 		for (auto child : m_children)
 		{
 			if (PtInRect(&child->m_rect, pos))
@@ -141,11 +148,6 @@ namespace Overlay
 				return;
 			}
 		}
-	}
-
-	void Control::setCapture(Control* control)
-	{
-		g_capture = control;
 	}
 
 	void Control::setVisible(bool isVisible)
