@@ -5,6 +5,7 @@
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
+#include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
@@ -22,6 +23,7 @@ namespace Config
 	extern Settings::CpuAffinity cpuAffinity;
 	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayFilter displayFilter;
+	extern Settings::DisplayRefreshRate displayRefreshRate;
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;

@@ -64,6 +64,9 @@ namespace
 	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2);
 
 	template <typename Char>
+	DWORD getConfiguredRefreshRate(const Char* deviceName);
+
+	template <typename Char>
 	SIZE getConfiguredResolution(const Char* deviceName);
 
 	template <typename Char>
@@ -125,6 +128,11 @@ namespace
 				targetDevMode.dmFields |= DM_PELSHEIGHT;
 				targetDevMode.dmPelsHeight = currDevMode.dmPelsHeight;
 			}
+			if (!(targetDevMode.dmFields & DM_DISPLAYFREQUENCY))
+			{
+				targetDevMode.dmFields |= DM_DISPLAYFREQUENCY;
+				targetDevMode.dmDisplayFrequency = currDevMode.dmDisplayFrequency;
+			}
 
 			emulatedResolution = makeSize(targetDevMode.dmPelsWidth, targetDevMode.dmPelsHeight);
 			auto supportedDisplayModeMap(getSupportedDisplayModeMap(lpszDeviceName, 0));
@@ -137,23 +145,31 @@ namespace
 				return DISP_CHANGE_BADMODE;
 			}
 
+			DevMode<Char> dm = targetDevMode;
 			SIZE resolutionOverride = getConfiguredResolution(lpszDeviceName);
 			if (0 != resolutionOverride.cx)
 			{
-				DevMode<Char> dm = {};
-				dm.dmSize = sizeof(dm);
-				dm.dmFields = DM_PELSWIDTH | DM_PELSHEIGHT;
 				dm.dmPelsWidth = resolutionOverride.cx;
 				dm.dmPelsHeight = resolutionOverride.cy;
+			}
+
+			DWORD refreshRateOverride = getConfiguredRefreshRate(lpszDeviceName);
+			if (0 != refreshRateOverride)
+			{
+				dm.dmDisplayFrequency = refreshRateOverride;
+			}
+
+			if (0 != resolutionOverride.cx || 0 != refreshRateOverride)
+			{
 				LONG result = origChangeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, CDS_TEST, nullptr);
 				if (DISP_CHANGE_SUCCESSFUL == result)
 				{
-					targetDevMode.dmPelsWidth = resolutionOverride.cx;
-					targetDevMode.dmPelsHeight = resolutionOverride.cy;
+					targetDevMode = dm;
 				}
 				else
 				{
-					LOG_ONCE("Failed to apply setting: DisplayResolution = " << dm.dmPelsWidth << 'x' << dm.dmPelsHeight);
+					LOG_ONCE("Failed to apply custom display mode: "
+						<< dm.dmPelsWidth << 'x' << dm.dmPelsHeight << '@' << dm.dmDisplayFrequency);
 				}
 			}
 		}
@@ -350,6 +366,22 @@ namespace
 	{
 		Compat::ScopedSrwLockShared lock(g_srwLock);
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
+	}
+
+	template <typename Char>
+	DWORD getConfiguredRefreshRate(const Char* deviceName)
+	{
+		auto refreshRate = Config::displayRefreshRate.get();
+		if (Config::Settings::DisplayRefreshRate::DESKTOP == refreshRate)
+		{
+			DevMode<Char> dm = {};
+			dm.dmSize = sizeof(dm);
+			if (origEnumDisplaySettingsEx(deviceName, ENUM_REGISTRY_SETTINGS, &dm, 0))
+			{
+				refreshRate = dm.dmDisplayFrequency;
+			}
+		}
+		return refreshRate;
 	}
 
 	template <typename Char>

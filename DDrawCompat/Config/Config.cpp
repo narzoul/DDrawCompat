@@ -7,6 +7,7 @@ namespace Config
 	Settings::CpuAffinity cpuAffinity;
 	Settings::DesktopColorDepth desktopColorDepth;
 	Settings::DisplayFilter displayFilter;
+	Settings::DisplayRefreshRate displayRefreshRate;
 	Settings::DisplayResolution displayResolution;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
