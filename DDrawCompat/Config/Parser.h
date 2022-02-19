@@ -23,6 +23,7 @@ namespace Config
 		int parseInt(const std::string& value, int min, int max);
 		void registerSetting(Setting& setting);
 		std::string removeParam(const std::string& value);
+		std::string tolower(const std::string& str);
 		std::string trim(const std::string& str);
 	}
 }

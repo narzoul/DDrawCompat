@@ -2,6 +2,7 @@
 
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
@@ -20,6 +21,7 @@ namespace Config
 
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
 	extern Settings::Antialiasing antialiasing;
+	extern Settings::ConfigHotKey configHotKey;
 	extern Settings::CpuAffinity cpuAffinity;
 	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayFilter displayFilter;

@@ -5,6 +5,7 @@
 #include <Windows.h>
 
 #include <Input/Input.h>
+#include <Input/HotKey.h>
 #include <Overlay/Control.h>
 
 namespace Overlay

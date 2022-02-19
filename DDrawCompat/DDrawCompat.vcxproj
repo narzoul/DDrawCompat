@@ -211,12 +211,14 @@
     <ClInclude Include="Common\Time.h" />
     <ClInclude Include="Config\Config.h" />
     <ClInclude Include="Config\EnumSetting.h" />
+    <ClInclude Include="Config\HotKeySetting.h" />
     <ClInclude Include="Config\ListSetting.h" />
     <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
+    <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
@@ -315,6 +317,7 @@
     <ClInclude Include="Gdi\VirtualScreen.h" />
     <ClInclude Include="Gdi\Window.h" />
     <ClInclude Include="Gdi\WinProc.h" />
+    <ClInclude Include="Input\HotKey.h" />
     <ClInclude Include="Input\Input.h" />
     <ClInclude Include="Overlay\ComboBoxControl.h" />
     <ClInclude Include="Overlay\ComboBoxDropDown.h" />
@@ -417,6 +420,7 @@
     <ClCompile Include="Gdi\VirtualScreen.cpp" />
     <ClCompile Include="Gdi\Window.cpp" />
     <ClCompile Include="Gdi\WinProc.cpp" />
+    <ClCompile Include="Input\HotKey.cpp" />
     <ClCompile Include="Input\Input.cpp" />
     <ClCompile Include="Overlay\ComboBoxControl.cpp" />
     <ClCompile Include="Overlay\ComboBoxDropDown.cpp" />

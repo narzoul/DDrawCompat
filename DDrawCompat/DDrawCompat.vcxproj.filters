@@ -519,6 +519,15 @@
     <ClInclude Include="Config\Settings\DisplayRefreshRate.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\HotKeySetting.h">
+      <Filter>Header Files\Config</Filter>
+    </ClInclude>
+    <ClInclude Include="Input\HotKey.h">
+      <Filter>Header Files\Input</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Settings\ConfigHotKey.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -820,6 +829,9 @@
     </ClCompile>
     <ClCompile Include="Config\Settings\DisplayRefreshRate.cpp">
       <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Input\HotKey.cpp">
+      <Filter>Source Files\Input</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

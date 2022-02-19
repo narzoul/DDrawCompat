@@ -8,7 +8,7 @@
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 200 }, { VK_F11, {} })
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 200 }, Config::configHotKey.get())
 		, m_focus(nullptr)
 	{
 		addControl(Config::alternatePixelCenter);

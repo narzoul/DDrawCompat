@@ -4,6 +4,7 @@ namespace Config
 {
 	Settings::AlternatePixelCenter alternatePixelCenter;
 	Settings::Antialiasing antialiasing;
+	Settings::ConfigHotKey configHotKey;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::DesktopColorDepth desktopColorDepth;
 	Settings::DisplayFilter displayFilter;

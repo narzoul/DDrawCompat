@@ -10,7 +10,6 @@
 namespace
 {
 	void setConfig(const std::string& name, const std::string& value, const std::string& source);
-	std::string tolower(const std::string& str);
 
 	auto& getSettings()
 	{
@@ -76,22 +75,12 @@ namespace
 
 		try
 		{
-			it->second.set(tolower(value), source);
+			it->second.set(Config::Parser::tolower(value), source);
 		}
 		catch (const Config::ParsingError& error)
 		{
 			throw Config::ParsingError(it->second.getName() + ": " + error.what());
 		}
-	}
-
-	std::string tolower(const std::string& str)
-	{
-		std::string result(str);
-		for (auto& c : result)
-		{
-			c = std::tolower(c, std::locale());
-		}
-		return result;
 	}
 }
 
@@ -189,6 +178,16 @@ namespace Config
 				return value.substr(0, paramPos);
 			}
 			return value;
+		}
+
+		std::string tolower(const std::string& str)
+		{
+			std::string result(str);
+			for (auto& c : result)
+			{
+				c = std::tolower(c, std::locale());
+			}
+			return result;
 		}
 
 		std::string trim(const std::string& str)

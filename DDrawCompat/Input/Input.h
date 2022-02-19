@@ -1,7 +1,6 @@
 #pragma once
 
 #include <functional>
-#include <set>
 
 #include <Windows.h>
 
@@ -13,11 +12,7 @@ namespace Overlay
 
 namespace Input
 {
-	struct HotKey
-	{
-		UINT vk;
-		std::set<UINT> modifiers;
-	};
+	struct HotKey;
 
 	bool operator<(const HotKey& lhs, const HotKey& rhs);
 

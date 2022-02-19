@@ -77,18 +77,24 @@ namespace
 
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
-		if (HC_ACTION == nCode && (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam))
+		if (HC_ACTION == nCode &&
+			(WM_KEYDOWN == wParam || WM_KEYUP == wParam || WM_SYSKEYDOWN == wParam || WM_SYSKEYUP == wParam))
 		{
 			DWORD pid = 0;
 			GetWindowThreadProcessId(GetForegroundWindow(), &pid);
 			if (GetCurrentProcessId() == pid)
 			{
 				auto llHook = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
-				auto it = std::find_if(g_hotKeys.begin(), g_hotKeys.end(),
-					[&](const auto& v) { return v.first.vk == llHook->vkCode; });
-				if (it != g_hotKeys.end())
+				for (auto& hotkey : g_hotKeys)
 				{
-					it->second.action(it->second.context);
+					if (hotkey.first.vk == llHook->vkCode && Input::areModifierKeysDown(hotkey.first.modifiers))
+					{
+						if (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam)
+						{
+							hotkey.second.action(hotkey.second.context);
+						}
+						return 1;
+					}
 				}
 			}
 		}
@@ -245,10 +251,13 @@ namespace Input
 
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context)
 	{
-		g_hotKeys[hotKey] = { action, context };
-		if (!g_keyboardHook)
+		if (0 != hotKey.vk)
 		{
-			resetKeyboardHook();
+			g_hotKeys[hotKey] = { action, context };
+			if (!g_keyboardHook)
+			{
+				resetKeyboardHook();
+			}
 		}
 	}
 
