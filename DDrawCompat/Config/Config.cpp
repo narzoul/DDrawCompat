@@ -12,6 +12,7 @@ namespace Config
 	Settings::DisplayResolution displayResolution;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
+	Settings::SpriteFilter spriteFilter;
 	Settings::SpriteTexCoord spriteTexCoord;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::TextureFilter textureFilter;

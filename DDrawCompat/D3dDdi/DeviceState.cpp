@@ -310,7 +310,10 @@ namespace D3dDdi
 
 		case D3DDDITSS_MAGFILTER:
 		case D3DDDITSS_MINFILTER:
-			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getFilter();
+		{
+			auto filter = (m_spriteMode && 0 == stage) ? Config::spriteFilter.get() : Config::textureFilter.getFilter();
+			return D3DTEXF_NONE == filter ? value : filter;
+		}
 
 		case D3DDDITSS_MIPFILTER:
 			return D3DTEXF_NONE == Config::textureFilter.getMipFilter() ? value : Config::textureFilter.getMipFilter();
@@ -646,6 +649,8 @@ namespace D3dDdi
 				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
 				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
 			}
+			m_changedTextureStageStates[0].set(D3DDDITSS_MAGFILTER);
+			m_changedTextureStageStates[0].set(D3DDDITSS_MINFILTER);
 
 			D3DDDIARG_SETVERTEXSHADERCONSTB data = {};
 			data.Register = 15;

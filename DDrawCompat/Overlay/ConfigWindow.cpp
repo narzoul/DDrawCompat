@@ -16,6 +16,7 @@ namespace Overlay
 		addControl(Config::displayFilter);
 		addControl(Config::renderColorDepth);
 		addControl(Config::resolutionScale);
+		addControl(Config::spriteFilter);
 		addControl(Config::spriteTexCoord);
 		addControl(Config::textureFilter);
 	}

@@ -227,6 +227,7 @@
     <ClInclude Include="Config\Settings\DisplayResolution.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
+    <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\TextureFilter.h" />
@@ -352,6 +353,7 @@
     <ClCompile Include="Config\Settings\DisplayRefreshRate.cpp" />
     <ClCompile Include="Config\Settings\DisplayResolution.cpp" />
     <ClCompile Include="Config\Settings\ResolutionScale.cpp" />
+    <ClCompile Include="Config\Settings\SpriteFilter.cpp" />
     <ClCompile Include="Config\Settings\SpriteTexCoord.cpp" />
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp" />
     <ClCompile Include="Config\Settings\TextureFilter.cpp" />
