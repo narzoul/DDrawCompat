@@ -117,6 +117,7 @@ namespace D3dDdi
 		, m_scaledSize{}
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
+		, m_isClampable(true)
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -438,6 +439,11 @@ namespace D3dDdi
 #ifdef DEBUGLOGS
 		LOG_RESULT(m_lockResource.get());
 #endif
+	}
+
+	void Resource::disableClamp()
+	{
+		m_isClampable = false;
 	}
 
 	bool Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight)

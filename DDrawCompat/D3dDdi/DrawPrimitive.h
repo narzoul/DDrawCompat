@@ -70,6 +70,7 @@ namespace D3dDdi
 		void convertToTriangleList();
 		HRESULT flush(const UINT* flagBuffer);
 		HRESULT flushIndexed(const UINT* flagBuffer);
+		bool isSprite(INT baseVertexIndex, UINT16 index0, UINT16 index1, UINT16 index2);
 		INT loadIndices(const void* indices, UINT count);
 		INT loadVertices(UINT count);
 		UINT getBatchedVertexCount() const;
@@ -77,6 +78,7 @@ namespace D3dDdi
 		void repeatLastBatchedVertex();
 
 		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride);
+		void setTextureClampMode(INT baseVertexIndex, const UINT16* indices, UINT count);
 
 		Device& m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;

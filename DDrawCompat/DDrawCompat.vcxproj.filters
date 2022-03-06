@@ -528,6 +528,9 @@
     <ClInclude Include="Config\Settings\ConfigHotKey.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SpriteTexCoord.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -832,6 +835,9 @@
     </ClCompile>
     <ClCompile Include="Input\HotKey.cpp">
       <Filter>Source Files\Input</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\SpriteTexCoord.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

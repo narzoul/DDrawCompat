@@ -4,7 +4,7 @@
 #include <d3dumddi.h>
 
 #include <array>
-#include <set>
+#include <map>
 #include <memory>
 #include <vector>
 
@@ -19,6 +19,7 @@ const UINT D3DTEXF_ANISOTROPIC = 3;
 namespace D3dDdi
 {
 	class Device;
+	class Resource;
 
 	class DeviceState
 	{
@@ -26,6 +27,24 @@ namespace D3dDdi
 		typedef std::array<BOOL, 1> ShaderConstB;
 		typedef std::array<FLOAT, 4> ShaderConstF;
 		typedef std::array<INT, 4> ShaderConstI;
+
+		struct State
+		{
+			D3DDDIARG_SETDEPTHSTENCIL depthStencil;
+			HANDLE pixelShader;
+			std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> renderState;
+			D3DDDIARG_SETRENDERTARGET renderTarget;
+			D3DDDIARG_SETSTREAMSOURCE streamSource;
+			D3DDDIARG_SETSTREAMSOURCEUM streamSourceUm;
+			const void* streamSourceUmBuffer;
+			std::array<HANDLE, 8> textures;
+			std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> textureStageState;
+			HANDLE vertexShaderDecl;
+			HANDLE vertexShaderFunc;
+			D3DDDIARG_VIEWPORTINFO viewport;
+			D3DDDIARG_WINFO wInfo;
+			D3DDDIARG_ZRANGE zRange;
+		};
 
 		class TempPixelShaderConst
 		{
@@ -43,19 +62,26 @@ namespace D3dDdi
 		public:
 			TempStateLock(DeviceState& state)
 				: m_state(state)
-				, m_prevChangedStates(state.m_changedStates)
 			{
-				state.m_changedStates = 0;
+				state.m_isLocked = true;
 			}
 
 			~TempStateLock()
 			{
-				m_state.m_changedStates = m_prevChangedStates;
+				m_state.m_isLocked = false;
 			}
 
 		private:
 			DeviceState& m_state;
-			UINT m_prevChangedStates;
+		};
+
+		struct VertexDecl
+		{
+			std::vector<D3DDDIVERTEXELEMENT> elements;
+			std::array<UINT, 8> texCoordOffset;
+			std::array<UINT, 8> texCoordType;
+			UINT textureStageCount;
+			bool isTransformed;
 		};
 
 		DeviceState(Device& device);
@@ -84,6 +110,7 @@ namespace D3dDdi
 		HRESULT pfnSetZRange(const D3DDDIARG_ZRANGE* data);
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
+		void setSpriteMode(bool spriteMode);
 		void setTempDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
 		void setTempPixelShader(HANDLE shader);
 		void setTempRenderState(const D3DDDIARG_RENDERSTATE& renderState);
@@ -97,10 +124,16 @@ namespace D3dDdi
 		void setTempWInfo(const D3DDDIARG_WINFO& wInfo);
 		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
 
+		void disableTextureClamp(UINT stage);
 		void flush();
+		const State& getAppState() const { return m_app; }
+		Resource* getTextureResource(UINT stage);
+		const VertexDecl& getVertexDecl() const;
 		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }
-		void onDestroyResource(HANDLE resource);
+		bool isLocked() const { return m_isLocked; }
+		void onDestroyResource(D3dDdi::Resource* resource, HANDLE resourceHandle);
 		void updateConfig();
+		void updateStreamSource();
 
 	private:
 		friend class ScopedDeviceState;
@@ -114,24 +147,6 @@ namespace D3dDdi
 			CS_TEXTURE_STAGE = 1 << 4
 		};
 
-		struct State
-		{
-			D3DDDIARG_SETDEPTHSTENCIL depthStencil;
-			HANDLE pixelShader;
-			std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> renderState;
-			D3DDDIARG_SETRENDERTARGET renderTarget;
-			D3DDDIARG_SETSTREAMSOURCE streamSource;
-			D3DDDIARG_SETSTREAMSOURCEUM streamSourceUm;
-			const void* streamSourceUmBuffer;
-			std::array<HANDLE, 8> textures;
-			std::array<std::array<UINT, D3DDDITSS_TEXTURECOLORKEYVAL + 1>, 8> textureStageState;
-			HANDLE vertexShaderDecl;
-			HANDLE vertexShaderFunc;
-			D3DDDIARG_VIEWPORTINFO viewport;
-			D3DDDIARG_WINFO wInfo;
-			D3DDDIARG_ZRANGE zRange;
-		};
-
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createVertexShader(const BYTE(&code)[N])
 		{
@@ -141,6 +156,9 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const BYTE* code, UINT size);
 		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
+
+		UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value);
+		UINT mapTssValue(UINT stage, D3DDDITEXTURESTAGESTATETYPE state, UINT value);
 
 		template <typename Data>
 		void removeResource(HANDLE resource, Data State::* data, HANDLE Data::* resourceMember,
@@ -173,7 +191,6 @@ namespace D3dDdi
 		void updateRenderStates();
 		void updateRenderTarget();
 		void updateShaders();
-		void updateStreamSource();
 		void updateTextureColorKey(UINT stage);
 		void updateTextureStages();
 		void updateVertexFixupConstants();
@@ -187,11 +204,15 @@ namespace D3dDdi
 		std::array<ShaderConstF, 256> m_vertexShaderConst;
 		std::array<ShaderConstB, 16> m_vertexShaderConstB;
 		std::array<ShaderConstI, 16> m_vertexShaderConstI;
-		std::set<HANDLE> m_swVertexShaderDecls;
+		std::map<HANDLE, VertexDecl> m_vertexShaderDecls;
 		UINT m_changedStates;
 		UINT m_maxChangedTextureStage;
+		UINT m_usedTextureStages;
 		BitSet<D3DDDIRS_ZENABLE, D3DDDIRS_BLENDOPALPHA> m_changedRenderStates;
 		std::array<BitSet<D3DDDITSS_TEXTUREMAP, D3DDDITSS_TEXTURECOLORKEYVAL>, 8> m_changedTextureStageStates;
 		std::unique_ptr<void, ResourceDeleter> m_vsVertexFixup;
+		std::array<Resource*, 8> m_textureResource;
+		bool m_isLocked;
+		bool m_spriteMode;
 	};
 }

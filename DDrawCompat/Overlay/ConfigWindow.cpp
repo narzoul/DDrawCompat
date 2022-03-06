@@ -8,7 +8,7 @@
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 200 }, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 300 }, Config::configHotKey.get())
 		, m_focus(nullptr)
 	{
 		addControl(Config::alternatePixelCenter);
@@ -16,6 +16,7 @@ namespace Overlay
 		addControl(Config::displayFilter);
 		addControl(Config::renderColorDepth);
 		addControl(Config::resolutionScale);
+		addControl(Config::spriteTexCoord);
 		addControl(Config::textureFilter);
 	}
 

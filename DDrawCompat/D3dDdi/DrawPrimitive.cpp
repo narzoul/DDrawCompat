@@ -453,13 +453,35 @@ namespace D3dDdi
 
 	HRESULT DrawPrimitive::draw(D3DDDIARG_DRAWPRIMITIVE data, const UINT* flagBuffer)
 	{
-		m_device.getState().flush();
+		auto& state = m_device.getState();
+		if (!state.isLocked())
+		{
+			state.updateStreamSource();
+		}
+
+		auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
+		if (!state.isLocked())
+		{
+			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
+			{
+				bool spriteMode = isSprite(data.VStart, 0, 1, 2);
+				state.setSpriteMode(spriteMode);
+				if (spriteMode)
+				{
+					setTextureClampMode(data.VStart, nullptr, vertexCount);
+				}
+			}
+			else
+			{
+				state.setSpriteMode(false);
+			}
+			state.flush();
+		}
 
 		if (0 == m_batched.primitiveCount || flagBuffer ||
 			!appendPrimitives(data.PrimitiveType, data.VStart, data.PrimitiveCount, nullptr, 0, 0))
 		{
 			flushPrimitives();
-			auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 			if (m_streamSource.vertices)
 			{
 				appendVertices(data.VStart, vertexCount);
@@ -486,19 +508,41 @@ namespace D3dDdi
 	HRESULT DrawPrimitive::drawIndexed(
 		D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer)
 	{
-		m_device.getState().flush();
+		auto& state = m_device.getState();
+		if (!state.isLocked())
+		{
+			state.updateStreamSource();
+		}
 
 		auto indexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
+		auto vStart = data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride);
+		if (!state.isLocked())
+		{
+			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
+			{
+				bool spriteMode = isSprite(vStart, indices[0], indices[1], indices[2]);
+				state.setSpriteMode(spriteMode);
+				if (spriteMode)
+				{
+					setTextureClampMode(vStart, indices, indexCount);
+				}
+			}
+			else
+			{
+				state.setSpriteMode(false);
+			}
+			state.flush();
+		}
+
 		auto [min, max] = std::minmax_element(indices, indices + indexCount);
 		data.MinIndex = *min;
 		data.NumVertices = *max - *min + 1;
 
 		if (0 == m_batched.primitiveCount || flagBuffer ||
-			!appendPrimitives(data.PrimitiveType, data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride),
-				data.PrimitiveCount, indices, *min, *max))
+			!appendPrimitives(data.PrimitiveType, vStart, data.PrimitiveCount, indices, *min, *max))
 		{
 			flushPrimitives();
-			m_batched.baseVertexIndex = data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride);
+			m_batched.baseVertexIndex = vStart;
 			if (m_streamSource.vertices)
 			{
 				appendIndexedVerticesWithoutRebase(indices, indexCount, m_batched.baseVertexIndex, *min, *max);
@@ -603,6 +647,15 @@ namespace D3dDdi
 	UINT DrawPrimitive::getBatchedVertexCount() const
 	{
 		return m_batched.vertices.size() / m_streamSource.stride;
+	}
+
+	bool DrawPrimitive::isSprite(INT baseVertexIndex, UINT16 index0, UINT16 index1, UINT16 index2)
+	{
+		auto v = m_streamSource.vertices + baseVertexIndex * m_streamSource.stride;
+		auto v0 = reinterpret_cast<const D3DTLVERTEX*>(v + index0 * m_streamSource.stride);
+		auto v1 = reinterpret_cast<const D3DTLVERTEX*>(v + index1 * m_streamSource.stride);
+		auto v2 = reinterpret_cast<const D3DTLVERTEX*>(v + index2 * m_streamSource.stride);
+		return v0->sz == v1->sz && v0->sz == v2->sz;
 	}
 
 	INT DrawPrimitive::loadIndices(const void* indices, UINT count)
@@ -747,5 +800,54 @@ namespace D3dDdi
 			m_streamSource = { vertices, stride };
 		}
 		return result;
+	}
+
+	void DrawPrimitive::setTextureClampMode(INT baseVertexIndex, const UINT16* indices, UINT count)
+	{
+		if (Config::Settings::SpriteTexCoord::CLAMP != Config::spriteTexCoord.get())
+		{
+			return;
+		}
+
+		auto& state = m_device.getState();
+		auto& appState = state.getAppState();
+		auto& decl = state.getVertexDecl();
+		auto vertices = m_streamSource.vertices + baseVertexIndex * m_streamSource.stride;
+
+		for (UINT stage = 0; stage < decl.textureStageCount; ++stage)
+		{
+			const UINT D3DDECLTYPE_FLOAT2 = 1;
+			if (!appState.textures[stage] ||
+				D3DDECLTYPE_FLOAT2 != decl.texCoordType[stage] ||
+				D3DTADDRESS_CLAMP == appState.textureStageState[stage][D3DDDITSS_ADDRESSU] &&
+				D3DTADDRESS_CLAMP == appState.textureStageState[stage][D3DDDITSS_ADDRESSV])
+			{
+				continue;
+			}
+			
+			auto resource = state.getTextureResource(stage);
+			if (!resource || !resource->isClampable())
+			{
+				continue;
+			}
+
+			const float texelWidth = 1 / static_cast<float>(resource->getFixedDesc().pSurfList[0].Width);
+			const float texelHeight = 1 / static_cast<float>(resource->getFixedDesc().pSurfList[0].Height);
+			const float minU = -texelWidth;
+			const float maxU = 1 + texelWidth;
+			const float minV = -texelHeight;
+			const float maxV = 1 + texelHeight;
+
+			for (UINT i = 0; i < count; ++i)
+			{
+				auto vertex = vertices + (indices ? indices[i] : i) * m_streamSource.stride;
+				const float* texCoord = reinterpret_cast<const float*>(vertex + decl.texCoordOffset[stage]);
+				if (texCoord[0] < minU || texCoord[0] > maxU || texCoord[1] < minV || texCoord[1] > maxV)
+				{
+					state.disableTextureClamp(stage);
+					break;
+				}
+			}
+		}
 	}
 }

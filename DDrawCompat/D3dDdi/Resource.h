@@ -29,9 +29,11 @@ namespace D3dDdi
 		const Resource* getCustomResource() { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
+		bool isClampable() const { return m_isClampable; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
+		void disableClamp();
 		void* getLockPtr(UINT subResourceIndex);
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void onDestroyResource(HANDLE resource);
@@ -115,5 +117,6 @@ namespace D3dDdi
 		SIZE m_scaledSize;
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
+		bool m_isClampable;
 	};
 }

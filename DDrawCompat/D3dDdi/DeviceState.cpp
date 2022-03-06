@@ -14,34 +14,6 @@
 namespace
 {
 	const HANDLE DELETED_RESOURCE = reinterpret_cast<HANDLE>(0xBAADBAAD);
-
-	UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value)
-	{
-		if (state >= D3DDDIRS_WRAP0 && state <= D3DDDIRS_WRAP7)
-		{
-			return value & (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3);
-		}
-
-		return value;
-	}
-
-	UINT mapTssValue(D3DDDITEXTURESTAGESTATETYPE type, UINT value)
-	{
-		switch (type)
-		{
-		case D3DDDITSS_MAGFILTER:
-		case D3DDDITSS_MINFILTER:
-			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getFilter();
-
-		case D3DDDITSS_MIPFILTER:
-			return D3DTEXF_NONE == Config::textureFilter.getMipFilter() ? value : Config::textureFilter.getMipFilter();
-
-		case D3DDDITSS_MAXANISOTROPY:
-			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getMaxAnisotropy();
-		}
-
-		return value;
-	}
 }
 
 namespace D3dDdi
@@ -74,6 +46,9 @@ namespace D3dDdi
 		, m_maxChangedTextureStage(0)
 		, m_changedTextureStageStates{}
 		, m_vsVertexFixup(createVertexShader(g_vsVertexFixup))
+		, m_textureResource{}
+		, m_isLocked(false)
+		, m_spriteMode(false)
 	{
 		const UINT D3DBLENDOP_ADD = 1;
 		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
@@ -167,6 +142,12 @@ namespace D3dDdi
 		{
 			m_current.textureStageState[i].fill(UNINITIALIZED_STATE);
 			m_current.textureStageState[i][D3DDDITSS_TEXCOORDINDEX] = i;
+
+			// When ADDRESSU or ADDRESSV is set to CLAMP, their value is overridden by D3DTSS_ADDRESS.
+			// Setting this to CLAMP makes them behave as expected, instead of as WRAP,
+			// which would be the default init value set by the runtime.
+			m_current.textureStageState[i][D3DTSS_ADDRESS] = D3DTADDRESS_CLAMP;
+
 			m_current.textureStageState[i][D3DDDITSS_ADDRESSU] = D3DTADDRESS_WRAP;
 			m_current.textureStageState[i][D3DDDITSS_ADDRESSV] = D3DTADDRESS_WRAP;
 			m_current.textureStageState[i][D3DDDITSS_BORDERCOLOR] = 0;
@@ -232,9 +213,19 @@ namespace D3dDdi
 		return result;
 	}
 
+	void DeviceState::disableTextureClamp(UINT stage)
+	{
+		auto resource = getTextureResource(stage);
+		resource->disableClamp();
+		m_changedStates |= CS_TEXTURE_STAGE;
+		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
+		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
+		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
+	}
+
 	void DeviceState::flush()
 	{
-		if (0 == m_changedStates)
+		if (0 == m_changedStates || m_isLocked)
 		{
 			return;
 		}
@@ -264,25 +255,96 @@ namespace D3dDdi
 		m_maxChangedTextureStage = 0;
 	}
 
-	void DeviceState::onDestroyResource(HANDLE resource)
+	Resource* DeviceState::getTextureResource(UINT stage)
+	{
+		if (!m_textureResource[stage] || *m_textureResource[stage] != m_app.textures[stage])
+		{
+			m_textureResource[stage] = m_device.getResource(m_app.textures[stage]);
+		}
+		return m_textureResource[stage];
+	}
+
+	const DeviceState::VertexDecl& DeviceState::getVertexDecl() const
+	{
+		static const VertexDecl emptyDecl = {};
+		auto it = m_vertexShaderDecls.find(m_app.vertexShaderDecl);
+		return it != m_vertexShaderDecls.end() ? it->second : emptyDecl;
+	}
+
+	UINT DeviceState::mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value)
+	{
+		if (state >= D3DDDIRS_WRAP0 && state <= D3DDDIRS_WRAP7)
+		{
+			return value & (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3);
+		}
+		if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
+		{
+			return 0 != value && !m_spriteMode;
+		}
+
+		return value;
+	}
+
+	UINT DeviceState::mapTssValue(UINT stage, D3DDDITEXTURESTAGESTATETYPE state, UINT value)
+	{
+		switch (state)
+		{
+		case D3DDDITSS_ADDRESSU:
+		case D3DDDITSS_ADDRESSV:
+			if (m_spriteMode && D3DTADDRESS_CLAMP != value)
+			{
+				if (Config::Settings::SpriteTexCoord::CLAMP == Config::spriteTexCoord.get())
+				{
+					auto resource = getTextureResource(stage);
+					if (resource && resource->isClampable())
+					{
+						return D3DTADDRESS_CLAMP;
+					}
+				}
+				else if (Config::Settings::SpriteTexCoord::CLAMPALL == Config::spriteTexCoord.get())
+				{
+					return D3DTADDRESS_CLAMP;
+				}
+			}
+			return value;
+
+		case D3DDDITSS_MAGFILTER:
+		case D3DDDITSS_MINFILTER:
+			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getFilter();
+
+		case D3DDDITSS_MIPFILTER:
+			return D3DTEXF_NONE == Config::textureFilter.getMipFilter() ? value : Config::textureFilter.getMipFilter();
+
+		case D3DDDITSS_MAXANISOTROPY:
+			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getMaxAnisotropy();
+		}
+
+		return value;
+	}
+
+	void DeviceState::onDestroyResource(D3dDdi::Resource* resource, HANDLE resourceHandle)
 	{
 		for (UINT i = 0; i < m_current.textures.size(); ++i)
 		{
-			if (m_current.textures[i] == resource)
+			if (m_current.textures[i] == resourceHandle)
 			{
 				m_current.textures[i] = DELETED_RESOURCE;
 			}
-			if (m_app.textures[i] == resource)
+			if (m_app.textures[i] == resourceHandle)
 			{
 				pfnSetTexture(i, nullptr);
 			}
+			if (m_textureResource[i] == resource)
+			{
+				m_textureResource[i] = nullptr;
+			}
 		}
 
-		removeResource(resource, &State::renderTarget, &D3DDDIARG_SETRENDERTARGET::hRenderTarget,
+		removeResource(resourceHandle, &State::renderTarget, &D3DDDIARG_SETRENDERTARGET::hRenderTarget,
 			&DeviceState::pfnSetRenderTarget);
-		removeResource(resource, &State::depthStencil, &D3DDDIARG_SETDEPTHSTENCIL::hZBuffer,
+		removeResource(resourceHandle, &State::depthStencil, &D3DDDIARG_SETDEPTHSTENCIL::hZBuffer,
 			&DeviceState::pfnSetDepthStencil);
-		removeResource(resource, &State::streamSource, &D3DDDIARG_SETSTREAMSOURCE::hVertexBuffer,
+		removeResource(resourceHandle, &State::streamSource, &D3DDDIARG_SETSTREAMSOURCE::hVertexBuffer,
 			&DeviceState::pfnSetStreamSource);
 	}
 
@@ -293,22 +355,37 @@ namespace D3dDdi
 		LOG_DEBUG << Compat::array(vertexElements, data->NumVertexElements);
 
 		const UINT D3DDECLUSAGE_POSITION = 0;
+		const UINT D3DDECLUSAGE_TEXCOORD = 5;
 		const UINT D3DDECLUSAGE_POSITIONT = 9;
+
+		std::vector<D3DDDIVERTEXELEMENT> ve(vertexElements, vertexElements + data->NumVertexElements);
+		VertexDecl decl = {};
+		decl.elements = ve;
+
 		for (UINT i = 0; i < data->NumVertexElements; ++i)
 		{
-			if (D3DDECLUSAGE_POSITIONT == vertexElements[i].Usage)
+			if (D3DDECLUSAGE_TEXCOORD == vertexElements[i].Usage)
 			{
-				std::vector<D3DDDIVERTEXELEMENT> ve(vertexElements, vertexElements + data->NumVertexElements);
-				ve[i].Usage = D3DDECLUSAGE_POSITION;
-				HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, ve.data());
-				if (SUCCEEDED(result))
+				decl.texCoordOffset[vertexElements[i].UsageIndex] = vertexElements[i].Offset;
+				decl.texCoordType[vertexElements[i].UsageIndex] = vertexElements[i].Type;
+				if (vertexElements[i].UsageIndex >= decl.textureStageCount)
 				{
-					m_swVertexShaderDecls.insert(data->ShaderHandle);
+					decl.textureStageCount = vertexElements[i].UsageIndex + 1;
 				}
-				return result;
+			}
+			else if (D3DDECLUSAGE_POSITIONT == vertexElements[i].Usage)
+			{
+				ve[i].Usage = D3DDECLUSAGE_POSITION;
+				decl.isTransformed = true;
 			}
 		}
-		return m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, vertexElements);
+
+		HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, ve.data());
+		if (SUCCEEDED(result))
+		{
+			m_vertexShaderDecls[data->ShaderHandle] = decl;
+		}
+		return result;
 	}
 
 	HRESULT DeviceState::pfnDeletePixelShader(HANDLE shader)
@@ -321,7 +398,7 @@ namespace D3dDdi
 		HRESULT result = deleteShader(shader, &State::vertexShaderDecl, m_device.getOrigVtable().pfnDeleteVertexShaderDecl);
 		if (SUCCEEDED(result))
 		{
-			m_swVertexShaderDecls.erase(shader);
+			m_vertexShaderDecls.erase(shader);
 		}
 		return result;
 	}
@@ -397,16 +474,29 @@ namespace D3dDdi
 	{
 		m_app.textures[stage] = texture;
 		m_changedStates |= CS_TEXTURE_STAGE;
+		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
+		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
 		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
 		return S_OK;
 	}
 
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
+		if (D3DTSS_ADDRESS == data->State)
+		{
+			m_app.textureStageState[data->Stage][D3DDDITSS_ADDRESSU] = data->Value;
+			m_app.textureStageState[data->Stage][D3DDDITSS_ADDRESSV] = data->Value;
+			m_changedTextureStageStates[data->Stage].set(D3DDDITSS_ADDRESSU);
+			m_changedTextureStageStates[data->Stage].set(D3DDDITSS_ADDRESSV);
+			m_maxChangedTextureStage = max(data->Stage, m_maxChangedTextureStage);
+			return S_OK;
+		}
+		
 		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
 		{
 			m_app.textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
 		}
+
 		m_app.textureStageState[data->Stage][data->State] = data->Value;
 		m_changedTextureStageStates[data->Stage].set(data->State);
 		m_maxChangedTextureStage = max(data->Stage, m_maxChangedTextureStage);
@@ -544,6 +634,27 @@ namespace D3dDdi
 		return true;
 	}
 
+	void DeviceState::setSpriteMode(bool spriteMode)
+	{
+		if (spriteMode != m_spriteMode)
+		{
+			m_spriteMode = spriteMode;
+			m_changedStates |= CS_RENDER_STATE | CS_TEXTURE_STAGE;
+			m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
+			if (Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get())
+			{
+				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
+				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
+			}
+
+			D3DDDIARG_SETVERTEXSHADERCONSTB data = {};
+			data.Register = 15;
+			data.Count = 1;
+			BOOL value = spriteMode && Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get();
+			pfnSetVertexShaderConstB(&data, &value);
+		}
+	}
+
 	void DeviceState::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource)
 	{
 		if (0 == memcmp(&streamSource, &m_current.streamSource, sizeof(streamSource)))
@@ -673,6 +784,27 @@ namespace D3dDdi
 		m_device.flushPrimitives();
 		m_device.getOrigVtable().pfnSetTexture(m_device, stage, texture);
 		m_current.textures[stage] = texture;
+
+		if (0 == stage && texture)
+		{
+			auto resource = (texture == m_app.textures[stage]) ? getTextureResource(stage) : m_device.getResource(texture);
+			if (resource)
+			{
+				D3DDDIARG_SETVERTEXSHADERCONST data = {};
+				data.Register = 253;
+				data.Count = 1;
+
+				auto& si = resource->getFixedDesc().pSurfList[0];
+				ShaderConstF reg = { static_cast<float>(si.Width), static_cast<float>(si.Height),
+					m_vertexShaderConst[253][2], m_vertexShaderConst[253][3] };
+
+				if (0 != memcmp(&reg, &m_vertexShaderConst[data.Register], sizeof(reg)))
+				{
+					pfnSetVertexShaderConst(&data, &reg);
+				}
+			}
+		}
+
 		LOG_DS << stage << " " << texture;
 		return true;
 	}
@@ -750,7 +882,8 @@ namespace D3dDdi
 
 	void DeviceState::updateConfig()
 	{
-		m_changedStates |= CS_RENDER_TARGET | CS_TEXTURE_STAGE;
+		m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_TEXTURE_STAGE;
+		m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
 		for (UINT i = 0; i < m_changedTextureStageStates.size(); ++i)
 		{
 			m_changedTextureStageStates[i].set(D3DDDITSS_MINFILTER);
@@ -758,6 +891,8 @@ namespace D3dDdi
 			m_changedTextureStageStates[i].set(D3DDDITSS_MIPFILTER);
 			m_changedTextureStageStates[i].set(D3DDDITSS_MAXANISOTROPY);
 		}
+		m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
+		m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
 		m_maxChangedTextureStage = m_changedTextureStageStates.size() - 1;
 	}
 
@@ -813,7 +948,8 @@ namespace D3dDdi
 	{
 		setPixelShader(m_app.pixelShader);
 		setVertexShaderDecl(m_app.vertexShaderDecl);
-		if (m_swVertexShaderDecls.find(m_current.vertexShaderDecl) != m_swVertexShaderDecls.end())
+		auto it = m_vertexShaderDecls.find(m_app.vertexShaderDecl);
+		if (it != m_vertexShaderDecls.end() && it->second.isTransformed)
 		{
 			setVertexShaderFunc(m_vsVertexFixup.get());
 		}
@@ -885,7 +1021,7 @@ namespace D3dDdi
 			m_changedTextureStageStates[stage].forEach([&](UINT stateIndex)
 				{
 					const auto state = static_cast<D3DDDITEXTURESTAGESTATETYPE>(stateIndex);
-					setTextureStageState({ stage, state, mapTssValue(state, m_app.textureStageState[stage][state]) });
+					setTextureStageState({ stage, state, mapTssValue(stage, state, m_app.textureStageState[stage][state]) });
 				});
 			m_changedTextureStageStates[stage].reset();
 		}
@@ -894,16 +1030,18 @@ namespace D3dDdi
 	void DeviceState::updateVertexFixupConstants()
 	{
 		D3DDDIARG_SETVERTEXSHADERCONST data = {};
-		data.Register = 254;
-		data.Count = 2;
+		data.Register = 253;
+		data.Count = 3;
 
+		const float stc = static_cast<float>(Config::spriteTexCoord.getParam()) / 100;
 		const float apc = Config::alternatePixelCenter.get();
 		const auto& vp = m_app.viewport;
 		const auto& zr = m_current.zRange;
 		const float sx = static_cast<float>(m_current.viewport.Width) / m_app.viewport.Width;
 		const float sy = static_cast<float>(m_current.viewport.Height) / m_app.viewport.Height;
 
-		ShaderConstF registers[2] = {
+		ShaderConstF registers[3] = {
+			{ m_vertexShaderConst[253][0], m_vertexShaderConst[253][1], stc, stc },
 			{ 0.5f + apc - 0.5f / sx - vp.X - vp.Width / 2, 0.5f + apc - 0.5f / sy - vp.Y - vp.Height / 2, -zr.MinZ, 0.0f },
 			{ 2.0f / vp.Width, -2.0f / vp.Height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
 		};

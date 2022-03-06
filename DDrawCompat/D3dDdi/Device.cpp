@@ -242,7 +242,13 @@ namespace D3dDdi
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
 		if (SUCCEEDED(result))
 		{
-			m_resources.erase(resource);
+			auto it = m_resources.find(resource);
+			Resource* res = nullptr;
+			if (it != m_resources.end())
+			{
+				res = it->second.get();
+				m_resources.erase(it);
+			}
 			if (resource == m_sharedPrimary)
 			{
 				m_sharedPrimary = nullptr;
@@ -253,7 +259,7 @@ namespace D3dDdi
 				g_gdiResource = nullptr;
 			}
 			m_drawPrimitive.removeSysMemVertexBuffer(resource);
-			m_state.onDestroyResource(resource);
+			m_state.onDestroyResource(res, resource);
 		}
 
 		return result;

@@ -1,3 +1,5 @@
+bool g_useTexCoordAdj : register(b15);
+float4 g_texCoordAdj : register(c253);
 float4 g_offset : register(c254);
 float4 g_multiplier : register(c255);
 
@@ -19,5 +21,9 @@ VS main(const VS i)
     o.pos.xyz *= w;
     o.pos.w = w;
     o.fog = i.color[1].a;
+    if (g_useTexCoordAdj)
+    {
+        o.tex[0].xy = round(o.tex[0].xy * g_texCoordAdj.xy + g_texCoordAdj.zw) / g_texCoordAdj.xy;
+    }
     return o;
 }
