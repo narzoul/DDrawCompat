@@ -659,6 +659,11 @@ namespace D3dDdi
 
 	HRESULT Resource::lock(D3DDDIARG_LOCK& data)
 	{
+		if (D3DDDIMULTISAMPLE_NONE != m_fixedData.MultisampleType)
+		{
+			return E_FAIL;
+		}
+
 		D3DDDIARG_BLT blt = {};
 		DDraw::setBltSrc(blt);
 		if (blt.hSrcResource)

@@ -1,3 +1,4 @@
+#include <functional>
 #include <set>
 
 #include <Common/Hook.h>
@@ -23,43 +24,89 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
 
 namespace
 {
-	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
+	struct D3D9ON12_CREATE_DEVICE_ARGS {};
 
+	typedef HRESULT(APIENTRY* PFND3D9ON12_OPENADAPTER)(
+		D3DDDIARG_OPENADAPTER* pOpenAdapter, LUID* pLUID, D3D9ON12_CREATE_DEVICE_ARGS* pArgs);
+
+	struct D3D9ON12_PRIVATE_DDI_TABLE
+	{
+		PFND3D9ON12_OPENADAPTER pfnOpenAdapter;
+	};
+
+	void APIENTRY getPrivateDdiTable(D3D9ON12_PRIVATE_DDI_TABLE* pPrivateDDITable);
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData);
+	HRESULT APIENTRY openAdapterPrivate(D3DDDIARG_OPENADAPTER* pOpenData, LUID* pLUID, D3D9ON12_CREATE_DEVICE_ARGS* pArgs);
+
+	decltype(&getPrivateDdiTable) g_origGetPrivateDdiTable = nullptr;
+	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
+	PFND3D9ON12_OPENADAPTER g_origOpenAdapterPrivate = nullptr;
+
+	void APIENTRY getPrivateDdiTable(D3D9ON12_PRIVATE_DDI_TABLE* pPrivateDDITable)
+	{
+		LOG_FUNC("GetPrivateDDITable", pPrivateDDITable);
+		g_origGetPrivateDdiTable(pPrivateDDITable);
+		g_origOpenAdapterPrivate = pPrivateDDITable->pfnOpenAdapter;
+		pPrivateDDITable->pfnOpenAdapter = &openAdapterPrivate;
+	}
 
 	FARPROC WINAPI getProcAddress(HMODULE hModule, LPCSTR lpProcName)
 	{
 		LOG_FUNC("GetProcAddress", hModule, lpProcName);
-		if (lpProcName && std::string(lpProcName) == "OpenAdapter")
+		if (lpProcName)
 		{
-			g_origOpenAdapter = reinterpret_cast<PFND3DDDI_OPENADAPTER>(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
-			if (g_origOpenAdapter)
+			if ("OpenAdapter" == std::string(lpProcName))
 			{
-				static std::set<HMODULE> hookedModules;
-				if (hookedModules.find(hModule) == hookedModules.end())
+				g_origOpenAdapter = reinterpret_cast<PFND3DDDI_OPENADAPTER>(
+					CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+				if (g_origOpenAdapter)
 				{
-					Compat::Log() << "Hooking user mode display driver: " << Compat::funcPtrToStr(g_origOpenAdapter);
-					Dll::pinModule(hModule);
-					hookedModules.insert(hModule);
+					static std::set<HMODULE> hookedModules;
+					if (hookedModules.find(hModule) == hookedModules.end())
+					{
+						Compat::Log() << "Hooking user mode display driver: " << Compat::funcPtrToStr(g_origOpenAdapter);
+						Dll::pinModule(hModule);
+						hookedModules.insert(hModule);
+					}
+					return reinterpret_cast<FARPROC>(&openAdapter);
 				}
-				return reinterpret_cast<FARPROC>(&openAdapter);
+			}
+			else if ("GetPrivateDDITable" == std::string(lpProcName))
+			{
+				g_origGetPrivateDdiTable = reinterpret_cast<decltype(&getPrivateDdiTable)>(
+					CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+				if (g_origGetPrivateDdiTable)
+				{
+					return reinterpret_cast<FARPROC>(&getPrivateDdiTable);
+				}
 			}
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
 	}
 
-	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
+	HRESULT openAdapterCommon(D3DDDIARG_OPENADAPTER* pOpenData, std::function<HRESULT()> origOpenAdapter)
 	{
-		LOG_FUNC("openAdapter", pOpenData);
 		D3dDdi::ScopedCriticalSection lock;
 		D3dDdi::AdapterCallbacks::hookVtable(*pOpenData->pAdapterCallbacks, pOpenData->Version);
-		HRESULT result = g_origOpenAdapter(pOpenData);
+		HRESULT result = origOpenAdapter();
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, pOpenData->DriverVersion);
 			D3dDdi::Adapter::add(*pOpenData);
 		}
-		return LOG_RESULT(result);
+		return result;
+	}
+
+	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData)
+	{
+		LOG_FUNC("OpenAdapter", pOpenData);
+		return LOG_RESULT(openAdapterCommon(pOpenData, [=]() { return g_origOpenAdapter(pOpenData); }));
+	}
+
+	HRESULT APIENTRY openAdapterPrivate(D3DDDIARG_OPENADAPTER* pOpenData, LUID* pLUID, D3D9ON12_CREATE_DEVICE_ARGS* pArgs)
+	{
+		LOG_FUNC("OpenAdapter_Private", pOpenData, pLUID, pArgs);
+		return LOG_RESULT(openAdapterCommon(pOpenData, [=]() { return g_origOpenAdapterPrivate(pOpenData, pLUID, pArgs); }));
 	}
 }
 
