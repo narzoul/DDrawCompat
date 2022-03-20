@@ -10,6 +10,7 @@
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
+#include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/SupportedResolutions.h>
@@ -31,6 +32,7 @@ namespace Config
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;
+	extern Settings::SpriteDetection spriteDetection;
 	extern Settings::SpriteFilter spriteFilter;
 	extern Settings::SpriteTexCoord spriteTexCoord;
 	extern Settings::SupportedResolutions supportedResolutions;
