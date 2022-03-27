@@ -8,6 +8,7 @@
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
+#include <Config/Config.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/KernelModeThunksLog.h>
@@ -206,6 +207,14 @@ namespace
 		{
 			switch (pData->Type)
 			{
+			case KMTQAITYPE_UMDRIVERNAME:
+				if (Config::forceD3D9On12.get() &&
+					KMTUMDVERSION_DX9 == static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData)->Version)
+				{
+					return STATUS_INVALID_PARAMETER;
+				}
+				break;
+
 			case KMTQAITYPE_GETSEGMENTSIZE:
 			{
 				auto info = static_cast<D3DKMT_SEGMENTSIZEINFO*>(pData->pPrivateDriverData);
@@ -222,8 +231,8 @@ namespace
 
 				info->DedicatedVideoMemorySize = min(info->DedicatedVideoMemorySize, maxMem);
 				info->SharedSystemMemorySize = min(info->SharedSystemMemorySize, maxMem);
+				break;
 			}
-			break;
 			}
 		}
 		return LOG_RESULT(result);

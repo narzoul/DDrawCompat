@@ -8,6 +8,7 @@
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
+#include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SpriteDetection.h>
@@ -30,6 +31,7 @@ namespace Config
 	extern Settings::DisplayFilter displayFilter;
 	extern Settings::DisplayRefreshRate displayRefreshRate;
 	extern Settings::DisplayResolution displayResolution;
+	extern Settings::ForceD3D9On12 forceD3D9On12;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;
 	extern Settings::SpriteDetection spriteDetection;

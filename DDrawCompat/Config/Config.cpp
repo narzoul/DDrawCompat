@@ -10,6 +10,7 @@ namespace Config
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayRefreshRate displayRefreshRate;
 	Settings::DisplayResolution displayResolution;
+	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
 	Settings::SpriteDetection spriteDetection;
