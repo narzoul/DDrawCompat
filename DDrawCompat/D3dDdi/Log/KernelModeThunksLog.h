@@ -23,3 +23,5 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_SETGAMMARAMP& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETQUEUEDLIMIT& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETVIDPNSOURCEOWNER& data);
 std::ostream& operator<<(std::ostream& os, const D3DKMT_SETVIDPNSOURCEOWNER1& data);
+std::ostream& operator<<(std::ostream& os, const D3DKMT_SUBMITPRESENTTOHWQUEUE& data);
+std::ostream& operator<<(std::ostream& os, const D3DKMT_SUBMITPRESENTBLTTOHWQUEUE& data);

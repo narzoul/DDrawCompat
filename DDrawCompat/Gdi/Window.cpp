@@ -355,36 +355,15 @@ namespace
 					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, it->second.windowRegion);
 				}
 
-				WINDOWPOS wp = {};
-				wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
-				if (isVisible)
+				const HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
+				if (DDraw::RealPrimarySurface::isFullscreen() && devicePresentationWindow == it->second.presentationWindow)
 				{
-					wp.hwndInsertAfter = GetWindow(hwnd, GW_HWNDPREV);
-					if (!wp.hwndInsertAfter)
-					{
-						wp.hwndInsertAfter = (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) ? HWND_TOPMOST : HWND_TOP;
-					}
-					else if (wp.hwndInsertAfter == it->second.presentationWindow)
-					{
-						wp.flags |= SWP_NOZORDER;
-					}
-
-					wp.x = it->second.windowRect.left;
-					wp.y = it->second.windowRect.top;
-					wp.cx = it->second.windowRect.right - it->second.windowRect.left;
-					wp.cy = it->second.windowRect.bottom - it->second.windowRect.top;
-					wp.flags |= SWP_SHOWWINDOW;
+					DDraw::RealPrimarySurface::updateDevicePresentationWindowPos();
 				}
 				else
 				{
-					wp.flags |= SWP_HIDEWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+					Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
 				}
-
-				Gdi::GuiThread::execute([&]()
-					{
-						CALL_ORIG_FUNC(SetWindowPos)(it->second.presentationWindow,
-							wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags);
-					});
 			}
 		}
 		return TRUE;
@@ -395,6 +374,56 @@ namespace Gdi
 {
 	namespace Window
 	{
+		HWND getPresentationWindow(HWND hwnd)
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			auto it = g_windows.find(hwnd);
+			return it != g_windows.end() ? it->second.presentationWindow : nullptr;
+		}
+
+		std::vector<LayeredWindow> getVisibleLayeredWindows()
+		{
+			std::vector<LayeredWindow> layeredWindows;
+			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
+			{
+				auto& window = **it;
+				if (window.isLayered && !window.visibleRegion.isEmpty())
+				{
+					layeredWindows.push_back({ window.hwnd, window.windowRect, window.visibleRegion });
+				}
+			}
+
+			RECT wr = {};
+			auto configWindow = GuiThread::getConfigWindow();
+			if (configWindow && configWindow->isVisible())
+			{
+				GetWindowRect(configWindow->getWindow(), &wr);
+				auto visibleRegion(getWindowRegion(configWindow->getWindow()));
+				visibleRegion.offset(wr.left, wr.top);
+				layeredWindows.push_back({ configWindow->getWindow(), wr, visibleRegion });
+				auto capture = Input::getCaptureWindow();
+				if (capture && capture != configWindow)
+				{
+					GetWindowRect(capture->getWindow(), &wr);
+					layeredWindows.push_back({ capture->getWindow(), wr, nullptr });
+				}
+			}
+
+			HWND cursorWindow = Input::getCursorWindow();
+			if (cursorWindow)
+			{
+				GetWindowRect(cursorWindow, &wr);
+				layeredWindows.push_back({ cursorWindow, wr, nullptr });
+			}
+
+			return layeredWindows;
+		}
+
+		bool isTopLevelWindow(HWND hwnd)
+		{
+			return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
+		}
+
 		void onStyleChanged(HWND hwnd, WPARAM wParam)
 		{
 			if (GWL_EXSTYLE == wParam)
@@ -516,44 +545,6 @@ namespace Gdi
 			}
 		}
 
-		std::vector<LayeredWindow> getVisibleLayeredWindows()
-		{
-			std::vector<LayeredWindow> layeredWindows;
-			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
-			{
-				auto& window = **it;
-				if (window.isLayered && !window.visibleRegion.isEmpty())
-				{
-					layeredWindows.push_back({ window.hwnd, window.windowRect, window.visibleRegion });
-				}
-			}
-
-			RECT wr = {};
-			auto configWindow = GuiThread::getConfigWindow();
-			if (configWindow && configWindow->isVisible())
-			{
-				GetWindowRect(configWindow->getWindow(), &wr);
-				auto visibleRegion(getWindowRegion(configWindow->getWindow()));
-				visibleRegion.offset(wr.left, wr.top);
-				layeredWindows.push_back({ configWindow->getWindow(), wr, visibleRegion });
-				auto capture = Input::getCaptureWindow();
-				if (capture && capture != configWindow)
-				{
-					GetWindowRect(capture->getWindow(), &wr);
-					layeredWindows.push_back({ capture->getWindow(), wr, nullptr });
-				}
-			}
-
-			HWND cursorWindow = Input::getCursorWindow();
-			if (cursorWindow)
-			{
-				GetWindowRect(cursorWindow, &wr);
-				layeredWindows.push_back({ cursorWindow, wr, nullptr });
-			}
-
-			return layeredWindows;
-		}
-
 		void updateAll()
 		{
 			LOG_FUNC("Window::updateAll");
@@ -602,6 +593,45 @@ namespace Gdi
 			{
 				SendNotifyMessage(hwnd, WM_SYNCPAINT, 0, 0);
 			}
+		}
+
+		void updatePresentationWindowPos(HWND presentationWindow, HWND owner)
+		{
+			const bool isOwnerVisible = IsWindowVisible(owner) && !IsIconic(owner);
+
+			WINDOWPOS wp = {};
+			wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
+			if (isOwnerVisible)
+			{
+				wp.hwndInsertAfter = GetWindow(owner, GW_HWNDPREV);
+				if (!wp.hwndInsertAfter)
+				{
+					wp.hwndInsertAfter = (GetWindowLong(owner, GWL_EXSTYLE) & WS_EX_TOPMOST) ? HWND_TOPMOST : HWND_TOP;
+				}
+				else if (wp.hwndInsertAfter == presentationWindow)
+				{
+					wp.flags |= SWP_NOZORDER;
+				}
+
+				RECT wr = {};
+				GetWindowRect(owner, &wr);
+
+				wp.x = wr.left;
+				wp.y = wr.top;
+				wp.cx = wr.right - wr.left;
+				wp.cy = wr.bottom - wr.top;
+				wp.flags |= SWP_SHOWWINDOW;
+			}
+			else
+			{
+				wp.flags |= SWP_HIDEWINDOW | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER;
+			}
+
+			Gdi::GuiThread::execute([&]()
+				{
+					CALL_ORIG_FUNC(SetWindowPos)(presentationWindow,
+						wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags);
+				});
 		}
 	}
 }

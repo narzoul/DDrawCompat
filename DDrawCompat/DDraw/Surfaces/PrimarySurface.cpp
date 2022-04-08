@@ -80,7 +80,7 @@ namespace DDraw
 		}
 
 		g_origCaps = origCaps;
-		g_deviceWindow = DDraw::DirectDraw::getDeviceWindow(dd.get());
+		g_deviceWindow = *DDraw::DirectDraw::getDeviceWindowPtr(dd.get());
 
 		if (desc.ddpfPixelFormat.dwRGBBitCount <= 8)
 		{

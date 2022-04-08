@@ -18,6 +18,7 @@
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Palette.h>
+#include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -28,6 +29,8 @@ namespace
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_adapterInfoSrwLock;
 	std::string g_lastDDrawDeviceName;
+	decltype(&D3DKMTSubmitPresentBltToHwQueue) g_origSubmitPresentBltToHwQueue = nullptr;
+	decltype(&D3DKMTSubmitPresentToHwQueue) g_origSubmitPresentToHwQueue = nullptr;
 
 	long long g_qpcLastVsync = 0;
 	UINT g_vsyncCounter = 0;
@@ -199,6 +202,13 @@ namespace
 		}
 	}
 
+	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
+	{
+		LOG_FUNC("D3DKMTPresent", pData);
+		D3dDdi::KernelModeThunks::fixPresent(*pData);
+		return LOG_RESULT(D3DKMTPresent(pData));
+	}
+
 	NTSTATUS APIENTRY queryAdapterInfo(const D3DKMT_QUERYADAPTERINFO* pData)
 	{
 		LOG_FUNC("D3DKMTQueryAdapterInfo", pData);
@@ -249,6 +259,20 @@ namespace
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCounter + 1);
 		}
 		return LOG_RESULT(result);
+	}
+
+	NTSTATUS APIENTRY submitPresentToHwQueue(D3DKMT_SUBMITPRESENTTOHWQUEUE* pData)
+	{
+		LOG_FUNC("D3DKMTSubmitPresentToHwQueue", pData);
+		D3dDdi::KernelModeThunks::fixPresent(pData->PrivatePresentData);
+		return LOG_RESULT(g_origSubmitPresentToHwQueue(pData));
+	}
+
+	NTSTATUS APIENTRY submitPresentBltToHwQueue(const D3DKMT_SUBMITPRESENTBLTTOHWQUEUE* pData)
+	{
+		LOG_FUNC("D3DKMTSubmitPresentBltToHwQueue", pData);
+		D3dDdi::KernelModeThunks::fixPresent(const_cast<D3DKMT_PRESENT&>(pData->PrivatePresentData));
+		return LOG_RESULT(g_origSubmitPresentBltToHwQueue(pData));
 	}
 
 	void updateGdiAdapterInfo()
@@ -331,6 +355,27 @@ namespace D3dDdi
 {
 	namespace KernelModeThunks
 	{
+		void fixPresent(D3DKMT_PRESENT& data)
+		{
+			static RECT rect = {};
+			if (DDraw::RealPrimarySurface::isFullscreen())
+			{
+				HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
+				if (devicePresentationWindow && devicePresentationWindow == data.hWindow)
+				{
+					rect = DDraw::RealPrimarySurface::getMonitorRect();
+					OffsetRect(&rect, -rect.left, -rect.top);
+					data.SrcRect = rect;
+					data.DstRect.right = data.DstRect.left + rect.right;
+					data.DstRect.bottom = data.DstRect.top + rect.bottom;
+					if (1 == data.SubRectCnt)
+					{
+						data.pSrcSubRects = &rect;
+					}
+				}
+			}
+		}
+
 		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd)
 		{
 			DDraw::ScopedThreadLock lock;
@@ -359,12 +404,19 @@ namespace D3dDdi
 
 		void installHooks()
 		{
+			g_origSubmitPresentBltToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentBltToHwQueue)>(
+				GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTSubmitPresentBltToHwQueue"));
+			g_origSubmitPresentToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentToHwQueue)>(
+				GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTSubmitPresentToHwQueue"));
+
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "CreateDCA", ddrawCreateDcA);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCloseAdapter", closeAdapter);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCreateDCFromMemory", createDcFromMemory);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTPresent", present);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTQueryAdapterInfo", queryAdapterInfo);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetGammaRamp", setGammaRamp);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentToHwQueue", submitPresentToHwQueue);
 
 			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}

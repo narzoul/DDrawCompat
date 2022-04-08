@@ -38,7 +38,6 @@ namespace
 	std::map<HWND, WindowProc> g_windowProc;
 
 	WindowProc getWindowProc(HWND hwnd);
-	bool isTopLevelWindow(HWND hwnd);
 	bool isUser32ScrollBar(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onGetMinMaxInfo(MINMAXINFO& mmi);
@@ -72,7 +71,7 @@ namespace
 			break;
 
 		case WM_SYNCPAINT:
-			if (isTopLevelWindow(hwnd))
+			if (Gdi::Window::isTopLevelWindow(hwnd))
 			{
 				Gdi::Window::onSyncPaint(hwnd);
 				return 0;
@@ -124,7 +123,7 @@ namespace
 			break;
 
 		case WM_STYLECHANGED:
-			if (isTopLevelWindow(hwnd))
+			if (Gdi::Window::isTopLevelWindow(hwnd))
 			{
 				Gdi::Window::onStyleChanged(hwnd, wParam);
 			}
@@ -181,11 +180,6 @@ namespace
 		return g_windowProc[hwnd];
 	}
 
-	bool isTopLevelWindow(HWND hwnd)
-	{
-		return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
-	}
-
 	bool isUser32ScrollBar(HWND hwnd)
 	{
 		WNDCLASS wc = {};
@@ -207,7 +201,7 @@ namespace
 
 	void onDestroyWindow(HWND hwnd)
 	{
-		if (isTopLevelWindow(hwnd))
+		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			Gdi::Window::updateAll();
 			return;
@@ -272,7 +266,7 @@ namespace
 			notifyFunc();
 		}
 
-		if (isTopLevelWindow(hwnd))
+		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			Gdi::Window::updateAll();
 		}
@@ -286,7 +280,7 @@ namespace
 
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp)
 	{
-		if (isTopLevelWindow(hwnd))
+		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			wp.flags |= SWP_NOREDRAW;
 		}
@@ -499,7 +493,7 @@ namespace Gdi
 				setWindowProc(hwnd, ddcWindowProcA, ddcWindowProcW);
 			}
 
-			if (!isTopLevelWindow(hwnd))
+			if (!Gdi::Window::isTopLevelWindow(hwnd))
 			{
 				return;
 			}

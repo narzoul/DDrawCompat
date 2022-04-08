@@ -126,7 +126,7 @@ namespace D3dDdi
 			throw HResultException(E_FAIL);
 		}
 
-		if (m_origData.Flags.Primary)
+		if (m_origData.Flags.MatchGdiPrimary)
 		{
 			g_presentationRect = calculatePresentationRect();
 			auto& si = m_origData.pSurfList[0];
@@ -175,7 +175,7 @@ namespace D3dDdi
 
 	Resource::~Resource()
 	{
-		if (m_origData.Flags.Primary)
+		if (m_origData.Flags.MatchGdiPrimary)
 		{
 			Gdi::VirtualScreen::setFullscreenMode(false);
 			Gdi::Cursor::setEmulated(false);
@@ -215,7 +215,7 @@ namespace D3dDdi
 
 		if (srcResource)
 		{
-			if (m_fixedData.Flags.Primary)
+			if (m_fixedData.Flags.MatchGdiPrimary)
 			{
 				return presentationBlt(data, srcResource);
 			}
@@ -486,7 +486,7 @@ namespace D3dDdi
 
 	void Resource::fixResourceData()
 	{
-		if (m_fixedData.Flags.Primary)
+		if (m_fixedData.Flags.MatchGdiPrimary)
 		{
 			RECT r = DDraw::RealPrimarySurface::getMonitorRect();
 			if (!IsRectEmpty(&r))
@@ -538,7 +538,7 @@ namespace D3dDdi
 
 	D3DDDIFORMAT Resource::getFormatConfig()
 	{
-		if (m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Primary && D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
+		if (m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.MatchGdiPrimary && D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
 			(D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format))
 		{
 			switch (Config::renderColorDepth.get())
@@ -552,7 +552,7 @@ namespace D3dDdi
 
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
-		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.Primary ||
+		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.MatchGdiPrimary ||
 			m_fixedData.Flags.ZBuffer) &&
 			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool)
 		{
@@ -570,7 +570,7 @@ namespace D3dDdi
 	SIZE Resource::getScaledSize()
 	{
 		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
-		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.Primary ||
+		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.MatchGdiPrimary ||
 			m_fixedData.Flags.ZBuffer) &&
 			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool)
 		{

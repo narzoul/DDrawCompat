@@ -239,8 +239,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Time::init();
 		Win32::Thread::applyConfig();
 
-		const DWORD disableMaxWindowedMode = 12;
-		CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
+		if (Config::Settings::FullscreenMode::EXCLUSIVE == Config::fullscreenMode.get())
+		{
+			const DWORD disableMaxWindowedMode = 12;
+			CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
+		}
 
 		Compat::Log() << "DDrawCompat loaded successfully";
 	}

@@ -45,6 +45,9 @@ namespace
 	std::atomic<long long> g_qpcLastUpdate = 0;
 	UINT g_flipEndVsyncCount = 0;
 	UINT g_presentEndVsyncCount = 0;
+	HWND g_devicePresentationWindow = nullptr;
+	HWND g_deviceWindow = nullptr;
+	HWND* g_deviceWindowPtr = nullptr;
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer();
 	CompatPtr<IDirectDrawSurface7> getLastSurface();
@@ -128,6 +131,11 @@ namespace
 		g_isFullscreen = false;
 		g_waitingForPrimaryUnlock = false;
 		g_surfaceDesc = {};
+
+		DDraw::RealPrimarySurface::updateDevicePresentationWindowPos();
+		g_devicePresentationWindow = nullptr;
+		g_deviceWindow = nullptr;
+		g_deviceWindowPtr = nullptr;
 		g_monitorRect = {};
 	}
 
@@ -200,9 +208,11 @@ namespace
 		g_isUpdatePending = false;
 		g_waitingForPrimaryUnlock = false;
 
-		if (g_isFullscreen)
+		if (g_isFullscreen && g_devicePresentationWindow)
 		{
+			*g_deviceWindowPtr = g_devicePresentationWindow;
 			g_frontBuffer->Flip(g_frontBuffer, getBackBuffer(), DDFLIP_WAIT);
+			*g_deviceWindowPtr = g_deviceWindow;
 		}
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + max(flipInterval, 1);
 	}
@@ -296,7 +306,13 @@ namespace DDraw
 		g_frontBuffer = CompatPtr<IDirectDrawSurface7>::from(surface.get()).detach();
 		g_frontBuffer->SetPrivateData(g_frontBuffer, IID_IReleaseNotifier,
 			&g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
+		
+		g_deviceWindowPtr = DDraw::DirectDraw::getDeviceWindowPtr(dd.get());
+		g_deviceWindow = g_deviceWindowPtr ? *g_deviceWindowPtr : nullptr;
+		g_devicePresentationWindow = Gdi::Window::getPresentationWindow(g_deviceWindow);
+
 		onRestore();
+		updateDevicePresentationWindowPos();
 
 		return DD_OK;
 	}
@@ -354,6 +370,11 @@ namespace DDraw
 		}
 	}
 
+	HWND RealPrimarySurface::getDevicePresentationWindow()
+	{
+		return g_devicePresentationWindow;
+	}
+
 	HRESULT RealPrimarySurface::getGammaRamp(DDGAMMARAMP* rampData)
 	{
 		DDraw::ScopedThreadLock lock;
@@ -374,6 +395,15 @@ namespace DDraw
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
 	{
 		return g_frontBuffer;
+	}
+
+	HWND RealPrimarySurface::getTopmost()
+	{
+		if (g_isFullscreen && g_devicePresentationWindow)
+		{
+			return g_devicePresentationWindow;
+		}
+		return HWND_TOPMOST;
 	}
 
 	void RealPrimarySurface::init()
@@ -436,6 +466,28 @@ namespace DDraw
 		{
 			updateNowIfNotBusy();
 		}
+	}
+
+	void RealPrimarySurface::updateDevicePresentationWindowPos()
+	{
+		if (!g_devicePresentationWindow)
+		{
+			return;
+		}
+
+		Gdi::GuiThread::execute([&]()
+			{
+				if (g_isFullscreen && IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
+				{
+					CALL_ORIG_FUNC(SetWindowPos)(g_devicePresentationWindow, HWND_TOPMOST, g_monitorRect.left, g_monitorRect.top,
+						g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top,
+						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
+				}
+				else
+				{
+					Gdi::Window::updatePresentationWindowPos(g_devicePresentationWindow, g_deviceWindow);
+				}
+			});
 	}
 
 	bool RealPrimarySurface::waitForFlip(Surface* surface)

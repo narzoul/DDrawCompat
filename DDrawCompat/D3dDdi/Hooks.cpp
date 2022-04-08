@@ -1,6 +1,10 @@
 #include <functional>
 #include <set>
 
+#include <Windows.h>
+#include <winternl.h>
+#include <d3dkmthk.h>
+
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <D3dDdi/Adapter.h>
@@ -9,6 +13,7 @@
 #include <D3dDdi/Hooks.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <D3dDdi/Log/KernelModeThunksLog.h>
 #include <Dll/Dll.h>
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_OPENADAPTER& data)
@@ -28,26 +33,36 @@ namespace
 
 	typedef HRESULT(APIENTRY* PFND3D9ON12_OPENADAPTER)(
 		D3DDDIARG_OPENADAPTER* pOpenAdapter, LUID* pLUID, D3D9ON12_CREATE_DEVICE_ARGS* pArgs);
+	typedef HRESULT(APIENTRY* PFND3D9ON12_KMTPRESENT)(
+		HANDLE hDevice, D3DKMT_PRESENT* pKMTArgs);
 
 	struct D3D9ON12_PRIVATE_DDI_TABLE
 	{
 		PFND3D9ON12_OPENADAPTER pfnOpenAdapter;
+		FARPROC pfnGetSharedGDIHandle;
+		FARPROC pfnCreateSharedNTHandle;
+		FARPROC pfnGetDeviceState;
+		PFND3D9ON12_KMTPRESENT pfnKMTPresent;
 	};
 
 	void APIENTRY getPrivateDdiTable(D3D9ON12_PRIVATE_DDI_TABLE* pPrivateDDITable);
+	HRESULT APIENTRY kmtPresent(HANDLE hDevice, D3DKMT_PRESENT* pKMTArgs);
 	HRESULT APIENTRY openAdapter(D3DDDIARG_OPENADAPTER* pOpenData);
 	HRESULT APIENTRY openAdapterPrivate(D3DDDIARG_OPENADAPTER* pOpenData, LUID* pLUID, D3D9ON12_CREATE_DEVICE_ARGS* pArgs);
 
 	decltype(&getPrivateDdiTable) g_origGetPrivateDdiTable = nullptr;
 	PFND3DDDI_OPENADAPTER g_origOpenAdapter = nullptr;
 	PFND3D9ON12_OPENADAPTER g_origOpenAdapterPrivate = nullptr;
+	PFND3D9ON12_KMTPRESENT g_origKmtPresent = nullptr;
 
 	void APIENTRY getPrivateDdiTable(D3D9ON12_PRIVATE_DDI_TABLE* pPrivateDDITable)
 	{
 		LOG_FUNC("GetPrivateDDITable", pPrivateDDITable);
 		g_origGetPrivateDdiTable(pPrivateDDITable);
 		g_origOpenAdapterPrivate = pPrivateDDITable->pfnOpenAdapter;
+		g_origKmtPresent = pPrivateDDITable->pfnKMTPresent;
 		pPrivateDDITable->pfnOpenAdapter = &openAdapterPrivate;
+		pPrivateDDITable->pfnKMTPresent = &kmtPresent;
 	}
 
 	FARPROC WINAPI getProcAddress(HMODULE hModule, LPCSTR lpProcName)
@@ -82,6 +97,13 @@ namespace
 			}
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+	}
+
+	HRESULT APIENTRY kmtPresent(HANDLE hDevice, D3DKMT_PRESENT* pKMTArgs)
+	{
+		LOG_FUNC("KMTPresent", hDevice, pKMTArgs);
+		D3dDdi::KernelModeThunks::fixPresent(*pKMTArgs);
+		return LOG_RESULT(g_origKmtPresent(hDevice, pKMTArgs));
 	}
 
 	HRESULT openAdapterCommon(D3DDDIARG_OPENADAPTER* pOpenData, std::function<HRESULT()> origOpenAdapter)

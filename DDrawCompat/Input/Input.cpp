@@ -285,8 +285,9 @@ namespace Input
 				CALL_ORIG_FUNC(SetLayeredWindowAttributes)(g_cursorWindow, RGB(0xFF, 0xFF, 0xFF), 0, LWA_COLORKEY);
 
 				g_cursorPos = { (g_monitorRect.left + g_monitorRect.right) / 2, (g_monitorRect.top + g_monitorRect.bottom) / 2 };
-				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, g_cursorPos.x, g_cursorPos.y,
-					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
+				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, DDraw::RealPrimarySurface::getTopmost(),
+					g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx, g_bmpArrowSize.cy,
+					SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
 				g_capture->onMouseMove(getRelativeCursorPos());
 
 				resetMouseHook();
@@ -305,8 +306,9 @@ namespace Input
 	{
 		Gdi::GuiThread::execute([]()
 			{
-				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, HWND_TOPMOST, g_cursorPos.x, g_cursorPos.y,
-					g_bmpArrowSize.cx, g_bmpArrowSize.cy, SWP_NOACTIVATE | SWP_NOSENDCHANGING);
+				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, DDraw::RealPrimarySurface::getTopmost(),
+					g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx, g_bmpArrowSize.cy,
+					SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING);
 			});
 	}
 }

@@ -9,6 +9,7 @@
 #include <Gdi/TitleBar.h>
 #include <Gdi/User32WndProcs.h>
 #include <Gdi/VirtualScreen.h>
+#include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 
 std::ostream& operator<<(std::ostream& os, const MENUITEMINFOW& val)
@@ -248,6 +249,21 @@ namespace
 				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_ARROW));
 			}
 			return FALSE;
+		}
+
+		case WM_SETREDRAW:
+		{
+			if (Gdi::Window::isTopLevelWindow(hwnd))
+			{
+				BOOL isVisible = IsWindowVisible(hwnd);
+				auto result = origDefWindowProc(hwnd, msg, wParam, lParam);
+				if (isVisible != IsWindowVisible(hwnd))
+				{
+					Gdi::Window::updateAll();
+				}
+				return result;
+			}
+			break;
 		}
 		}
 

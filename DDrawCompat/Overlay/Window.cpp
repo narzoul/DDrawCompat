@@ -122,7 +122,6 @@ namespace Overlay
 		if (m_style & WS_VISIBLE)
 		{
 			updatePos();
-			ShowWindow(m_hwnd, SW_SHOWNA);
 			Input::setCapture(this);
 		}
 		else
@@ -214,8 +213,10 @@ namespace Overlay
 		m_rect = calculateRect({ monitorRect.left / m_scaleFactor, monitorRect.top / m_scaleFactor,
 			monitorRect.right / m_scaleFactor, monitorRect.bottom / m_scaleFactor });
 
-		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, HWND_TOPMOST, m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
-			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor, SWP_NOACTIVATE);
+		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, DDraw::RealPrimarySurface::getTopmost(),
+			m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
+			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
+			SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
 
 		if (Input::getCaptureWindow() == this)
 		{
@@ -230,7 +231,10 @@ namespace Overlay
 		switch (uMsg)
 		{
 		case WM_DISPLAYCHANGE:
-			updatePos();
+			if (m_style & WS_VISIBLE)
+			{
+				updatePos();
+			}
 			break;
 		}
 

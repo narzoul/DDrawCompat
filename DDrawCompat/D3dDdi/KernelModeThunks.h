@@ -1,5 +1,9 @@
 #pragma once
 
+#include <Windows.h>
+#include <winternl.h>
+#include <d3dkmthk.h>
+
 #include <ddraw.h>
 
 #include <Common/CompatRef.h>
@@ -16,6 +20,7 @@ namespace D3dDdi
 			MONITORINFOEXW monitorInfo;
 		};
 
+		void fixPresent(D3DKMT_PRESENT& data);
 		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd);
 		AdapterInfo getLastOpenAdapterInfo();
 		long long getQpcLastVsync();

@@ -163,3 +163,18 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_SETVIDPNSOURCEOWNER1& da
 		<< data.Version0
 		<< Compat::hex(data.Flags.Value);
 }
+
+std::ostream& operator<<(std::ostream& os, const D3DKMT_SUBMITPRESENTTOHWQUEUE& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::array(data.hHwQueues, data.PrivatePresentData.BroadcastContextCount + 1)
+		<< data.PrivatePresentData;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DKMT_SUBMITPRESENTBLTTOHWQUEUE& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(data.hHwQueue)
+		<< Compat::hex(data.HwQueueProgressFenceId)
+		<< data.PrivatePresentData;
+}

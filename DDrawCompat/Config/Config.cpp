@@ -11,6 +11,7 @@ namespace Config
 	Settings::DisplayRefreshRate displayRefreshRate;
 	Settings::DisplayResolution displayResolution;
 	Settings::ForceD3D9On12 forceD3D9On12;
+	Settings::FullscreenMode fullscreenMode;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
 	Settings::SpriteDetection spriteDetection;
