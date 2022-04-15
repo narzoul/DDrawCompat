@@ -109,7 +109,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
-		RealPrimarySurface::waitForFlip(m_data);
+		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		DirectDrawClipper::update();
 		return blt(This, lpDDSrcSurface, lpSrcRect, [=](TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
 			{ return getOrigVtable(This).Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx); });
@@ -119,7 +119,7 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
-		RealPrimarySurface::waitForFlip(m_data);
+		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		return blt(This, lpDDSrcSurface, lpSrcRect, [=](TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
 			{ return getOrigVtable(This).BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans); });
 	}
@@ -144,7 +144,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
-		RealPrimarySurface::waitForFlip(m_data);
+		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		HRESULT result = getOrigVtable(This).GetDC(This, lphDC);
 		if (SUCCEEDED(result))
 		{
@@ -181,7 +181,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 		DWORD dwFlags, HANDLE hEvent)
 	{
-		RealPrimarySurface::waitForFlip(m_data);
+		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{

@@ -30,6 +30,8 @@ namespace DDraw
 		template <typename TSurface>
 		static Surface* getSurface(TSurface& dds);
 
+		CompatWeakPtr<IDirectDrawSurface7> getDDS() const { return m_surface; };
+
 		template <typename TSurface>
 		SurfaceImpl<TSurface>* getImpl() const;
 

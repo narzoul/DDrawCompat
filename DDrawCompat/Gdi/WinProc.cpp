@@ -147,6 +147,23 @@ namespace
 		return ddcWindowProc(hwnd, uMsg, wParam, lParam, CallWindowProcW, getWindowProc(hwnd).wndProcW);
 	}
 
+	BOOL WINAPI getMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
+		decltype(&GetMessageA) origGetMessage)
+	{
+		DDraw::RealPrimarySurface::setUpdateReady();
+		return origGetMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+	}
+
+	BOOL WINAPI getMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
+	{
+		return getMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, CALL_ORIG_FUNC(GetMessageA));
+	}
+
+	BOOL WINAPI getMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
+	{
+		return getMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, CALL_ORIG_FUNC(GetMessageW));
+	}
+
 	LONG getWindowLong(HWND hWnd, int nIndex,
 		decltype(&GetWindowLongA) origGetWindowLong, WNDPROC(WindowProc::* wndProc))
 	{
@@ -288,6 +305,23 @@ namespace
 		{
 			wp.flags |= SWP_NOCOPYBITS;
 		}
+	}
+
+	BOOL peekMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg,
+		decltype(&PeekMessageA) origPeekMessage)
+	{
+		DDraw::RealPrimarySurface::setUpdateReady();
+		return origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+	}
+
+	BOOL WINAPI peekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg)
+	{
+		return peekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg, CALL_ORIG_FUNC(PeekMessageA));
+	}
+
+	BOOL WINAPI peekMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg)
+	{
+		return peekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg, CALL_ORIG_FUNC(PeekMessageW));
 	}
 
 	BOOL WINAPI setLayeredWindowAttributes(HWND hwnd, COLORREF crKey, BYTE bAlpha, DWORD dwFlags)
@@ -455,8 +489,12 @@ namespace Gdi
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(user32, GetMessageA, getMessageA);
+			HOOK_FUNCTION(user32, GetMessageW, getMessageW);
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);
 			HOOK_FUNCTION(user32, GetWindowLongW, getWindowLongW);
+			HOOK_FUNCTION(user32, PeekMessageA, peekMessageA);
+			HOOK_FUNCTION(user32, PeekMessageW, peekMessageW);
 			HOOK_FUNCTION(user32, SetLayeredWindowAttributes, setLayeredWindowAttributes);
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);

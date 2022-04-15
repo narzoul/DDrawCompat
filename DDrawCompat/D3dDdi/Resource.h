@@ -27,6 +27,7 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_handle; }
 		const Resource* getCustomResource() { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
+		Device& getDevice() const { return m_device; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
 		bool isClampable() const { return m_isClampable; }

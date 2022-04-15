@@ -1,10 +1,10 @@
-#include <atomic>
 #include <memory>
 #include <vector>
 
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 #include <Config/Config.h>
 #include <D3dDdi/Device.h>
@@ -29,6 +29,8 @@
 
 namespace
 {
+	const unsigned DELAYED_FLIP_MODE_TIMEOUT_MS = 200;
+
 	void onRelease();
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
@@ -40,11 +42,18 @@ namespace
 	bool g_isFullscreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
 
+	Compat::CriticalSection g_presentCs;
+	bool g_isDelayedFlipPending = false;
 	bool g_isUpdatePending = false;
-	bool g_waitingForPrimaryUnlock = false;
-	std::atomic<long long> g_qpcLastUpdate = 0;
+	bool g_isUpdateReady = false;
+	DWORD g_lastUpdateThreadId = 0;
+	long long g_qpcLastUpdate = 0;
+	long long g_qpcUpdateStart = 0;
+
+	long long g_qpcDelayedFlipEnd = 0;
 	UINT g_flipEndVsyncCount = 0;
 	UINT g_presentEndVsyncCount = 0;
+
 	HWND g_devicePresentationWindow = nullptr;
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
@@ -112,24 +121,14 @@ namespace
 		return 1;
 	}
 
-	bool isFlipPending()
-	{
-		return static_cast<INT>(D3dDdi::KernelModeThunks::getVsyncCounter() - g_flipEndVsyncCount) < 0;
-	}
-
-	bool isPresentPending()
-	{
-		return static_cast<INT>(D3dDdi::KernelModeThunks::getVsyncCounter() - g_presentEndVsyncCount) < 0;
-	}
-
 	void onRelease()
 	{
 		LOG_FUNC("RealPrimarySurface::onRelease");
 
 		g_frontBuffer = nullptr;
+		g_lastFlipSurface = nullptr;
 		g_clipper.release();
 		g_isFullscreen = false;
-		g_waitingForPrimaryUnlock = false;
 		g_surfaceDesc = {};
 
 		DDraw::RealPrimarySurface::updateDevicePresentationWindowPos();
@@ -152,16 +151,20 @@ namespace
 		const bool isFlippable = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP);
 		g_surfaceDesc = desc;
 		g_isFullscreen = isFlippable;
-		g_isUpdatePending = true;
-		g_qpcLastUpdate = Time::queryPerformanceCounter() - Time::msToQpc(Config::delayedFlipModeTimeout);
 
 		if (isFlippable)
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
-			g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
-			g_presentEndVsyncCount = g_flipEndVsyncCount;
-			D3dDdi::KernelModeThunks::waitForVsyncCounter(g_flipEndVsyncCount);
+			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
 		}
+
+		Compat::ScopedCriticalSection lock(g_presentCs);
+		g_isUpdatePending = false;
+		g_isUpdateReady = false;
+		g_qpcLastUpdate = Time::queryPerformanceCounter() - Time::msToQpc(DELAYED_FLIP_MODE_TIMEOUT_MS);
+		g_qpcUpdateStart = g_qpcLastUpdate;
+		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
+		g_flipEndVsyncCount = g_presentEndVsyncCount;
 	}
 
 	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src)
@@ -202,11 +205,15 @@ namespace
 		D3dDdi::KernelModeThunks::setDcPaletteOverride(nullptr);
 	}
 
-	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, UINT flipInterval)
+	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src)
 	{
+		{
+			Compat::ScopedCriticalSection lock(g_presentCs);
+			g_isUpdatePending = false;
+			g_isUpdateReady = false;
+		}
+
 		presentToPrimaryChain(src);
-		g_isUpdatePending = false;
-		g_waitingForPrimaryUnlock = false;
 
 		if (g_isFullscreen && g_devicePresentationWindow)
 		{
@@ -214,60 +221,26 @@ namespace
 			g_frontBuffer->Flip(g_frontBuffer, getBackBuffer(), DDFLIP_WAIT);
 			*g_deviceWindowPtr = g_deviceWindow;
 		}
-		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + max(flipInterval, 1);
-	}
-
-	void updateNowIfNotBusy()
-	{
-		auto primary(DDraw::PrimarySurface::getPrimary());
-		RECT emptyRect = {};
-		HRESULT result = primary ? primary->BltFast(primary, 0, 0, primary, &emptyRect, DDBLTFAST_WAIT) : DD_OK;
-		g_waitingForPrimaryUnlock = DDERR_SURFACEBUSY == result || DDERR_LOCKEDSURFACES == result;
-
-		if (!g_waitingForPrimaryUnlock)
-		{
-			const auto msSinceLastUpdate = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate);
-			updateNow(primary, msSinceLastUpdate > Config::delayedFlipModeTimeout ? 0 : 1);
-		}
+		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
 	}
 
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
 	{
-		bool skipWaitForVsync = false;
-
+		int msUntilUpdateReady = 0;
 		while (true)
 		{
-			if (!skipWaitForVsync)
+			if (msUntilUpdateReady > 0)
+			{
+				Sleep(1);
+			}
+			else
 			{
 				D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
 			}
-			skipWaitForVsync = false;
-			Sleep(1);
 
 			DDraw::ScopedThreadLock lock;
-			Gdi::Caret::blink();
-			if (Gdi::Cursor::update())
-			{
-				g_isUpdatePending = true;
-			}
-
-			if (g_isUpdatePending && !isPresentPending())
-			{
-				auto qpcNow = Time::queryPerformanceCounter();
-				auto qpcLastVsync = D3dDdi::KernelModeThunks::getQpcLastVsync();
-				if (Time::qpcToMs(qpcNow - qpcLastVsync) < 1 ||
-					Time::qpcToMs(qpcNow - g_qpcLastUpdate) < 1 && Time::qpcToMs(qpcNow - qpcLastVsync) <= 3)
-				{
-					skipWaitForVsync = true;
-				}
-				else
-				{
-					updateNowIfNotBusy();
-				}
-			}
+			msUntilUpdateReady = DDraw::RealPrimarySurface::flush();
 		}
-
-		return 0;
 	}
 }
 
@@ -325,27 +298,19 @@ namespace DDraw
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
 		const DWORD flipInterval = getFlipInterval(flags);
-		if (0 == flipInterval)
+		if (0 == flipInterval ||
+			Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate) < DELAYED_FLIP_MODE_TIMEOUT_MS)
 		{
-			g_isUpdatePending = true;
-			return DD_OK;
-		}
-
-		const auto msSinceLastUpdate = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate);
-		const bool isFlipDelayed = msSinceLastUpdate >= 0 && msSinceLastUpdate <= Config::delayedFlipModeTimeout;
-		if (isFlipDelayed)
-		{
-			if (!isPresentPending())
-			{
-				CompatPtr<IDirectDrawSurface7> prevPrimarySurface(
-					surfaceTargetOverride ? surfaceTargetOverride : PrimarySurface::getLastSurface());
-				updateNow(prevPrimarySurface, 0);
-			}
-			g_isUpdatePending = true;
+			PrimarySurface::waitForIdle();
+			Compat::ScopedCriticalSection lock(g_presentCs);
+			g_isDelayedFlipPending = true;
+			g_isUpdatePending = false;
+			g_isUpdateReady = false;
+			g_lastUpdateThreadId = GetCurrentThreadId();
 		}
 		else
 		{
-			updateNow(PrimarySurface::getPrimary(), flipInterval);
+			updateNow(PrimarySurface::getPrimary());
 		}
 		g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + flipInterval;
 
@@ -358,16 +323,60 @@ namespace DDraw
 		{
 			g_lastFlipSurface = nullptr;
 		}
+
+		g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
 		return DD_OK;
 	}
 
-	void RealPrimarySurface::flush()
+	int RealPrimarySurface::flush()
 	{
-		DDraw::ScopedThreadLock lock;
-		if (g_isUpdatePending && !isPresentPending())
+		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
+		if (static_cast<int>(vsyncCount - g_presentEndVsyncCount) < 0)
 		{
-			updateNowIfNotBusy();
+			return -1;
 		}
+
+		{
+			Compat::ScopedCriticalSection lock(g_presentCs);
+			if (!g_isUpdateReady)
+			{
+				if (g_isUpdatePending)
+				{
+					auto msSinceUpdateStart = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcUpdateStart);
+					if (msSinceUpdateStart < 10)
+					{
+						return 10 - static_cast<int>(msSinceUpdateStart);
+					}
+					g_isUpdateReady = true;
+				}
+				else if (g_isDelayedFlipPending)
+				{
+					auto msSinceDelayedFlipEnd = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcDelayedFlipEnd);
+					if (msSinceDelayedFlipEnd < 3)
+					{
+						return 3 - static_cast<int>(msSinceDelayedFlipEnd);
+					}
+					g_isDelayedFlipPending = false;
+					g_isUpdateReady = true;
+				}
+			}
+
+			if (!g_isUpdateReady)
+			{
+				return -1;
+			}
+		}
+
+		auto src(g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : DDraw::PrimarySurface::getPrimary());
+		RECT emptyRect = {};
+		HRESULT result = src ? src->BltFast(src, 0, 0, src, &emptyRect, DDBLTFAST_WAIT) : DD_OK;
+		if (DDERR_SURFACEBUSY == result || DDERR_LOCKEDSURFACES == result)
+		{
+			return 1;
+		}
+
+		updateNow(src);
+		return 0;
 	}
 
 	HWND RealPrimarySurface::getDevicePresentationWindow()
@@ -441,8 +450,16 @@ namespace DDraw
 
 	void RealPrimarySurface::scheduleUpdate()
 	{
+		Compat::ScopedCriticalSection lock(g_presentCs);
 		g_qpcLastUpdate = Time::queryPerformanceCounter();
-		g_isUpdatePending = true;
+		if (!g_isUpdatePending)
+		{
+			g_qpcUpdateStart = g_qpcLastUpdate;
+			g_isUpdatePending = true;
+			g_isDelayedFlipPending = false;
+			g_lastUpdateThreadId = GetCurrentThreadId();
+		}
+		g_isUpdateReady = false;
 	}
 
 	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)
@@ -457,14 +474,13 @@ namespace DDraw
 		return gammaControl->SetGammaRamp(gammaControl, 0, rampData);
 	}
 
-	void RealPrimarySurface::update()
+	void RealPrimarySurface::setUpdateReady()
 	{
-		DDraw::ScopedThreadLock lock;
-		g_qpcLastUpdate = Time::queryPerformanceCounter();
-		g_isUpdatePending = true;
-		if (g_waitingForPrimaryUnlock)
+		Compat::ScopedCriticalSection lock(g_presentCs);
+		if ((g_isUpdatePending || g_isDelayedFlipPending) && GetCurrentThreadId() == g_lastUpdateThreadId)
 		{
-			updateNowIfNotBusy();
+			g_isUpdateReady = true;
+			g_isDelayedFlipPending = false;
 		}
 	}
 
@@ -490,17 +506,23 @@ namespace DDraw
 			});
 	}
 
-	bool RealPrimarySurface::waitForFlip(Surface* surface)
+	bool RealPrimarySurface::waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface)
 	{
 		auto primary(DDraw::PrimarySurface::getPrimary());
-		if (!surface || !primary ||
-			surface != g_lastFlipSurface &&
-			surface != Surface::getSurface(*DDraw::PrimarySurface::getPrimary()))
+		if (!surface || !primary || !g_lastFlipSurface ||
+			surface != primary && surface != g_lastFlipSurface->getDDS())
 		{
 			return true;
 		}
 
-		D3dDdi::KernelModeThunks::waitForVsyncCounter(g_flipEndVsyncCount);
+		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
+		while (static_cast<int>(vsyncCount - g_flipEndVsyncCount) < 0)
+		{
+			flush();
+			++vsyncCount;
+			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
+			g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
+		}
 		return true;
 	}
 }

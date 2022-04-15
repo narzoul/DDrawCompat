@@ -25,10 +25,5 @@ namespace Time
 		return qpc.QuadPart;
 	}
 
-	inline ULONG64 queryThreadCycleTime()
-	{
-		ULONG64 cycleTime = 0;
-		QueryThreadCycleTime(GetCurrentThread(), &cycleTime);
-		return cycleTime;
-	}
+	void waitForNextTick();
 }

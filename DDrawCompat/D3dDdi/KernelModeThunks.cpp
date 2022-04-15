@@ -2,7 +2,6 @@
 #include <string>
 
 #include <Windows.h>
-#include <VersionHelpers.h>
 
 #include <Common/Log.h>
 #include <Common/Hook.h>
@@ -107,6 +106,21 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	NTSTATUS APIENTRY createDevice(D3DKMT_CREATEDEVICE* pData)
+	{
+		LOG_FUNC("D3DKMTCreateDevice", pData);
+		NTSTATUS result = D3DKMTCreateDevice(pData);
+		if (SUCCEEDED(result))
+		{
+			D3DKMT_SETQUEUEDLIMIT limit = {};
+			limit.hDevice = pData->hDevice;
+			limit.Type = D3DKMT_SET_QUEUEDLIMIT_PRESENT;
+			limit.QueuedPresentLimit = 1;
+			D3DKMTSetQueuedLimit(&limit);
+		}
+		return LOG_RESULT(result);
+	}
+
 	HDC WINAPI ddrawCreateDcA(LPCSTR pwszDriver, LPCSTR pwszDevice, LPCSTR pszPort, const DEVMODEA* pdm)
 	{
 		LOG_FUNC("ddrawCreateDCA", pwszDriver, pwszDevice, pszPort, pdm);
@@ -152,7 +166,7 @@ namespace
 	{
 		D3DKMT_GETSCANLINE data = {};
 		getVidPnSource(data.hAdapter, data.VidPnSourceId);
-		if (!data.hAdapter || FAILED(D3DKMTGetScanLine(&data)) || data.InVerticalBlank)
+		if (!data.hAdapter || FAILED(D3DKMTGetScanLine(&data)))
 		{
 			return -1;
 		}
@@ -187,19 +201,6 @@ namespace
 			g_lastOpenAdapterInfo = getAdapterInfo(g_lastDDrawDeviceName, *pData);
 		}
 		return LOG_RESULT(result);
-	}
-
-	void pollForVerticalBlank()
-	{
-		int scanLine = getScanLine();
-		int prevScanLine = scanLine;
-		auto qpcStart = Time::queryPerformanceCounter();
-		while (scanLine >= prevScanLine && Time::queryPerformanceCounter() - qpcStart < Time::g_qpcFrequency / 60)
-		{
-			Sleep(1);
-			prevScanLine = scanLine;
-			scanLine = getScanLine();
-		}
 	}
 
 	NTSTATUS APIENTRY present(D3DKMT_PRESENT* pData)
@@ -252,6 +253,7 @@ namespace
 	{
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
 		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
+		DDraw::RealPrimarySurface::setUpdateReady();
 		DDraw::RealPrimarySurface::flush();
 		HRESULT result = D3DKMTSetGammaRamp(pData);
 		if (SUCCEEDED(result))
@@ -324,30 +326,24 @@ namespace
 
 	void waitForVerticalBlank()
 	{
-		if (IsWindows8OrGreater())
+		auto qpcStart = Time::queryPerformanceCounter();
+		int scanLine = getScanLine();
+		int prevScanLine = 0;
+		while (scanLine >= prevScanLine)
 		{
-			D3DKMT_WAITFORVERTICALBLANKEVENT data = {};
-
-			{
-				Compat::ScopedSrwLockShared lock(g_adapterInfoSrwLock);
-				data.hAdapter = g_lastOpenAdapterInfo.adapter;
-				data.VidPnSourceId = g_lastOpenAdapterInfo.vidPnSourceId;
-			}
-
-			if (!data.hAdapter)
-			{
-				updateGdiAdapterInfo();
-				data.hAdapter = g_gdiAdapterInfo.adapter;
-				data.VidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
-			}
-
-			if (data.hAdapter && SUCCEEDED(D3DKMTWaitForVerticalBlankEvent(&data)))
-			{
-				return;
-			}
+			Time::waitForNextTick();
+			prevScanLine = scanLine;
+			scanLine = getScanLine();
 		}
 
-		pollForVerticalBlank();
+		if (scanLine < 0)
+		{
+			auto msElapsed = static_cast<DWORD>(Time::qpcToMs(Time::queryPerformanceCounter() - qpcStart));
+			if (msElapsed < 16)
+			{
+				Sleep(16 - msElapsed);
+			}
+		}
 	}
 }
 
@@ -412,6 +408,7 @@ namespace D3dDdi
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "CreateDCA", ddrawCreateDcA);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCloseAdapter", closeAdapter);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCreateDCFromMemory", createDcFromMemory);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCreateDevice", createDevice);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTPresent", present);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTQueryAdapterInfo", queryAdapterInfo);

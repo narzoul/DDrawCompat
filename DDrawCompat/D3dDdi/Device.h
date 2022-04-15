@@ -58,6 +58,7 @@ namespace D3dDdi
 		void prepareForGpuWrite();
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
+		void waitForIdle();
 
 		static void add(Adapter& adapter, HANDLE device);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
@@ -75,6 +76,7 @@ namespace D3dDdi
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
+		HANDLE m_eventQuery;
 		std::map<HANDLE, std::unique_ptr<Resource>> m_resources;
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;

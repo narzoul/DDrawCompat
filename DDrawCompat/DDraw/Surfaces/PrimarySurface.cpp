@@ -14,6 +14,7 @@
 namespace
 {
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
+	D3dDdi::Device* g_device = nullptr;
 	HANDLE g_gdiResourceHandle = nullptr;
 	HANDLE g_frontResource = nullptr;
 	DWORD g_origCaps = 0;
@@ -28,6 +29,7 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::~PrimarySurface");
 
+		g_device = nullptr;
 		g_gdiResourceHandle = nullptr;
 		g_frontResource = nullptr;
 		g_primarySurface = nullptr;
@@ -91,6 +93,7 @@ namespace DDraw
 			ResizePalette(g_palette, 256);
 		}
 
+		g_device = D3dDdi::Device::findDeviceByResource(DirectDrawSurface::getDriverResourceHandle(*surface));
 		data->restore();
 		D3dDdi::Device::updateAllConfig();
 		return DD_OK;
@@ -265,7 +268,15 @@ namespace DDraw
 			ReleaseDC(g_deviceWindow, dc);
 		}
 
-		RealPrimarySurface::update();
+		RealPrimarySurface::scheduleUpdate();
+	}
+
+	void PrimarySurface::waitForIdle()
+	{
+		if (g_device)
+		{
+			g_device->waitForIdle();
+		}
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;

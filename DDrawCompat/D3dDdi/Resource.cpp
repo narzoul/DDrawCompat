@@ -832,6 +832,16 @@ namespace D3dDdi
 		auto rtIndex = rtSurface.resource ? 0 : data.DstSubResourceIndex;
 		auto rtRect = rtSurface.resource ? data.SrcRect : data.DstRect;
 
+		if (D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
+		{
+			srcResource = repo.getTempTexture(srcWidth, srcHeight, getPixelFormat(srcResource->m_fixedData.Format)).resource;
+			if (!srcResource)
+			{
+				return E_OUTOFMEMORY;
+			}
+			copySubResourceRegion(*srcResource, 0, data.SrcRect, data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
+		}
+
 		if (D3DDDIFMT_P8 == srcResource->m_origData.Format)
 		{
 			auto entries(Gdi::Palette::getHardwarePalette());

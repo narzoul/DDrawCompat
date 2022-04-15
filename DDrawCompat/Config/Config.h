@@ -21,9 +21,6 @@
 
 namespace Config
 {
-	const unsigned delayedFlipModeTimeout = 200;
-	const unsigned maxPaletteUpdatesPerMs = 5;
-
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
 	extern Settings::Antialiasing antialiasing;
 	extern Settings::ConfigHotKey configHotKey;

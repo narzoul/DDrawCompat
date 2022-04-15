@@ -12,6 +12,6 @@ namespace Gdi
 		HCURSOR setCursor(HCURSOR cursor);
 		void setMonitorClipRect(const RECT& rect);
 		void setEmulated(bool isEmulated);
-		bool update();
+		void update();
 	}
 }

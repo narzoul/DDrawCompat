@@ -16,7 +16,7 @@ namespace DDraw
 		static HRESULT create(CompatRef<DirectDraw> dd);
 
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
-		static void flush();
+		static int flush();
 		static HWND getDevicePresentationWindow();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static RECT getMonitorRect();
@@ -29,8 +29,8 @@ namespace DDraw
 		static HRESULT restore();
 		static void scheduleUpdate();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
-		static void update();
+		static void setUpdateReady();
 		static void updateDevicePresentationWindowPos();
-		static bool waitForFlip(Surface* surface);
+		static bool waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface);
 	};
 }

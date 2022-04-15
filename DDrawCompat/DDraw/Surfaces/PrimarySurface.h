@@ -31,6 +31,7 @@ namespace DDraw
 		static bool isGdiSurface(TSurface* surface);
 
 		static void updateFrontResource();
+		static void waitForIdle();
 
 		virtual void restore();
 

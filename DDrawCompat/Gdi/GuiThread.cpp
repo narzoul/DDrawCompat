@@ -4,6 +4,9 @@
 #include <Common/Hook.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <Gdi/Caret.h>
+#include <Gdi/Cursor.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Region.h>
 #include <Gdi/WinProc.h>
@@ -83,13 +86,23 @@ namespace
 		}
 
 		MSG msg = {};
-		while (GetMessage(&msg, nullptr, 0, 0))
+		while (CALL_ORIG_FUNC(GetMessageA)(&msg, nullptr, 0, 0))
 		{
 			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 
 		return 0;
+	}
+
+	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
+	{
+		while (true)
+		{
+			Sleep(5);
+			Gdi::Caret::blink();
+			Gdi::Cursor::update();
+		}
 	}
 }
 
@@ -154,6 +167,7 @@ namespace Gdi
 		void start()
 		{
 			Dll::createThread(messageWindowThreadProc, &g_threadId, THREAD_PRIORITY_TIME_CRITICAL, 0);
+			Dll::createThread(updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL, 0);
 		}
 	}
 }

@@ -2,6 +2,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Cursor.h>
 #include <Win32/DisplayMode.h>
@@ -222,7 +223,7 @@ namespace Gdi
 			}
 		}
 
-		bool update()
+		void update()
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (!IsRectEmpty(&g_monitorClipRect))
@@ -238,11 +239,9 @@ namespace Gdi
 					(cursorInfo.hCursor != g_prevCursorInfo.hCursor || cursorInfo.ptScreenPos != g_prevCursorInfo.ptScreenPos))
 				{
 					g_prevCursorInfo = cursorInfo;
-					return true;
+					DDraw::RealPrimarySurface::scheduleUpdate();
 				}
 			}
-
-			return false;
 		}
 	}
 }

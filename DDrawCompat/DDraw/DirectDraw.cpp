@@ -73,6 +73,7 @@ namespace
 	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent)
 	{
+		DDraw::RealPrimarySurface::setUpdateReady();
 		DDraw::RealPrimarySurface::flush();
 		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
 	}
