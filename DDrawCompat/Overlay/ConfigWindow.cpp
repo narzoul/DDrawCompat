@@ -20,6 +20,7 @@ namespace Overlay
 		addControl(Config::spriteFilter);
 		addControl(Config::spriteTexCoord);
 		addControl(Config::textureFilter);
+		addControl(Config::vSync);
 	}
 
 	void ConfigWindow::addControl(Config::Setting& setting)

@@ -20,4 +20,5 @@ namespace Config
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
+	Settings::VSync vSync;
 }

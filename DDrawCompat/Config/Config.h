@@ -18,6 +18,7 @@
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
+#include <Config/Settings/VSync.h>
 
 namespace Config
 {
@@ -39,4 +40,5 @@ namespace Config
 	extern Settings::SupportedResolutions supportedResolutions;
 	extern Settings::TextureFilter textureFilter;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
+	extern Settings::VSync vSync;
 }

@@ -103,6 +103,12 @@ namespace
 
 	UINT getFlipInterval(DWORD flags)
 	{
+		auto vSync = Config::vSync.get();
+		if (Config::Settings::VSync::APP != vSync)
+		{
+			return Config::Settings::VSync::OFF == vSync ? 0 : Config::vSync.getParam();
+		}
+
 		if (flags & DDFLIP_NOVSYNC)
 		{
 			return 0;

@@ -543,6 +543,9 @@
     <ClInclude Include="Config\Settings\FullscreenMode.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\VSync.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -855,6 +858,9 @@
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
     <ClCompile Include="Config\Settings\SpriteDetection.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\VSync.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
