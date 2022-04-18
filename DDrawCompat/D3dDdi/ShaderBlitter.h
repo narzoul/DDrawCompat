@@ -25,6 +25,8 @@ namespace D3dDdi
 
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
+		void gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, const RECT& srcRect);
 		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect, UINT blurPercent);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -33,6 +35,10 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			UINT filter, const UINT* srcColorKey = nullptr, const BYTE* alpha = nullptr,
 			const Gdi::Region& srcRgn = nullptr);
+
+		static bool isGammaRampDefault();
+		static void resetGammaRamp();
+		static void setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp);
 
 	private:
 		struct Vertex
@@ -63,6 +69,7 @@ namespace D3dDdi
 
 		Device& m_device;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
+		std::unique_ptr<void, ResourceDeleter> m_psGamma;
 		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;

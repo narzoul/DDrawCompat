@@ -455,6 +455,7 @@
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
+    <FxCompile Include="Shaders\Gamma.hlsl" />
     <FxCompile Include="Shaders\GenBilinear.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
     <FxCompile Include="Shaders\TextureSampler.hlsl" />

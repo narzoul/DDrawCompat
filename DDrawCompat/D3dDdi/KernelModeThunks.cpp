@@ -28,6 +28,7 @@ namespace
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_adapterInfoSrwLock;
 	std::string g_lastDDrawDeviceName;
+	bool g_isExclusiveFullscreen = false;
 	decltype(&D3DKMTSubmitPresentBltToHwQueue) g_origSubmitPresentBltToHwQueue = nullptr;
 	decltype(&D3DKMTSubmitPresentToHwQueue) g_origSubmitPresentToHwQueue = nullptr;
 
@@ -249,16 +250,48 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	NTSTATUS APIENTRY releaseProcessVidPnSourceOwners(HANDLE hProcess)
+	{
+		LOG_FUNC("D3DKMTReleaseProcessVidPnSourceOwners", hProcess);
+		NTSTATUS result = D3DKMTReleaseProcessVidPnSourceOwners(hProcess);
+		if (SUCCEEDED(result))
+		{
+			g_isExclusiveFullscreen = false;
+		}
+		return LOG_RESULT(result);
+	}
+
 	NTSTATUS APIENTRY setGammaRamp(const D3DKMT_SETGAMMARAMP* pData)
 	{
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
+		NTSTATUS result = 0;
 		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
 		DDraw::RealPrimarySurface::setUpdateReady();
 		DDraw::RealPrimarySurface::flush();
-		HRESULT result = D3DKMTSetGammaRamp(pData);
+		if (g_isExclusiveFullscreen || D3DDDI_GAMMARAMP_RGB256x3x16 != pData->Type || !pData->pGammaRampRgb256x3x16)
+		{
+			D3dDdi::ShaderBlitter::resetGammaRamp();
+			result = D3DKMTSetGammaRamp(pData);
+		}
+		else
+		{
+			D3dDdi::ShaderBlitter::setGammaRamp(*pData->pGammaRampRgb256x3x16);
+			DDraw::RealPrimarySurface::scheduleUpdate();
+		}
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCounter + 1);
+		}
+		return LOG_RESULT(result);
+	}
+
+	NTSTATUS APIENTRY setVidPnSourceOwner(const D3DKMT_SETVIDPNSOURCEOWNER* pData)
+	{
+		LOG_FUNC("D3DKMTSetVidPnSourceOwner", pData);
+		NTSTATUS result = D3DKMTSetVidPnSourceOwner(pData);
+		if (SUCCEEDED(result))
+		{
+			g_isExclusiveFullscreen = 0 != pData->VidPnSourceCount;
 		}
 		return LOG_RESULT(result);
 	}
@@ -412,7 +445,9 @@ namespace D3dDdi
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTOpenAdapterFromHdc", openAdapterFromHdc);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTPresent", present);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTQueryAdapterInfo", queryAdapterInfo);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTReleaseProcessVidPnSourceOwners", releaseProcessVidPnSourceOwners);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetGammaRamp", setGammaRamp);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetVidPnSourceOwner", setVidPnSourceOwner);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentToHwQueue", submitPresentToHwQueue);
 
 			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);

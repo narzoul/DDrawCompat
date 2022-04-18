@@ -465,20 +465,15 @@ namespace D3dDdi
 			return false;
 		}
 
-		auto& repo = SurfaceRepository::get(m_device.getAdapter());
-		auto newRt = &repo.getTempRenderTarget(newSrcWidth, newSrcHeight, 1);
-		if (newRt->resource == rt)
-		{
-			newRt = &repo.getTempRenderTarget(newSrcWidth, newSrcHeight, 0);
-		}
-		if (!newRt->resource)
+		auto& nextRt = getNextRenderTarget(rt, newSrcWidth, newSrcHeight);
+		if (!nextRt.resource)
 		{
 			return false;
 		}
 
-		m_device.getShaderBlitter().textureBlt(*newRt->resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
+		m_device.getShaderBlitter().textureBlt(*nextRt.resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
 			*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR);
-		rt = newRt->resource;
+		rt = nextRt.resource;
 		srcWidth = newSrcWidth;
 		srcHeight = newSrcHeight;
 		return true;
@@ -531,11 +526,6 @@ namespace D3dDdi
 		}
 	}
 
-	void* Resource::getLockPtr(UINT subResourceIndex)
-	{
-		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
-	}
-
 	D3DDDIFORMAT Resource::getFormatConfig()
 	{
 		if (m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.MatchGdiPrimary && D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
@@ -550,6 +540,11 @@ namespace D3dDdi
 		return m_fixedData.Format;
 	}
 
+	void* Resource::getLockPtr(UINT subResourceIndex)
+	{
+		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
+	}
+
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
 		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.MatchGdiPrimary ||
@@ -559,6 +554,17 @@ namespace D3dDdi
 			return m_device.getAdapter().getMultisampleConfig(m_fixedData.Format);
 		}
 		return { D3DDDIMULTISAMPLE_NONE, 0 };
+	}
+
+	const SurfaceRepository::Surface& Resource::getNextRenderTarget(Resource* currentRt, DWORD width, DWORD height)
+	{
+		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		auto nextRt = &repo.getTempRenderTarget(width, height, 1);
+		if (nextRt->resource == currentRt)
+		{
+			nextRt = &repo.getTempRenderTarget(width, height, 0);
+		}
+		return *nextRt;
 	}
 
 	RECT Resource::getRect(UINT subResourceIndex)
@@ -873,23 +879,46 @@ namespace D3dDdi
 			return S_OK;
 		}
 
-		if (Config::Settings::DisplayFilter::BILINEAR == Config::displayFilter.get())
+		const LONG dstWidth = data.DstRect.right - data.DstRect.left;
+		const LONG dstHeight = data.DstRect.bottom - data.DstRect.top;
+		while (downscale(rt, data.SrcRect.right, data.SrcRect.bottom, dstWidth, dstHeight))
 		{
-			const LONG dstWidth = data.DstRect.right - data.DstRect.left;
-			const LONG dstHeight = data.DstRect.bottom - data.DstRect.top;
-			while (downscale(rt, data.SrcRect.right, data.SrcRect.bottom, dstWidth, dstHeight))
-			{
-			}
-
-			m_device.getShaderBlitter().genBilinearBlt(*this, data.DstSubResourceIndex, data.DstRect,
-				*rt, data.SrcRect, Config::displayFilter.getParam());
-			return S_OK;
 		}
 
-		data.hSrcResource = *rt;
-		data.SrcSubResourceIndex = 0;
-		data.Flags.Point = 1;
-		return m_device.getOrigVtable().pfnBlt(m_device, &data);
+		const SurfaceRepository::Surface* rtGamma = nullptr;
+		if (!ShaderBlitter::isGammaRampDefault() &&
+			SurfaceRepository::get(m_device.getAdapter()).getGammaRampTexture())
+		{
+			rtGamma = &getNextRenderTarget(rt, dstWidth, dstHeight);
+		}
+		const bool useGamma = rtGamma && rtGamma->resource;
+		auto& rtNext = useGamma ? *rtGamma->resource : *this;
+		auto rtNextIndex = useGamma ? 0 : data.DstSubResourceIndex;
+		auto rtNextRect = useGamma ? RECT{ 0, 0, dstWidth, dstHeight } : data.DstRect;
+
+		if (Config::Settings::DisplayFilter::BILINEAR == Config::displayFilter.get())
+		{
+			m_device.getShaderBlitter().genBilinearBlt(rtNext, rtNextIndex, rtNextRect,
+				*rt, data.SrcRect, Config::displayFilter.getParam());
+		}
+		else
+		{
+			D3DDDIARG_BLT blt = {};
+			blt.hSrcResource = *rt;
+			blt.SrcSubResourceIndex = 0;
+			blt.SrcRect = data.SrcRect;
+			blt.hDstResource = rtNext;
+			blt.DstSubResourceIndex = rtNextIndex;
+			blt.DstRect = rtNextRect;
+			blt.Flags.Point = 1;
+			m_device.getOrigVtable().pfnBlt(m_device, &blt);
+		}
+
+		if (useGamma)
+		{
+			m_device.getShaderBlitter().gammaBlt(*this, data.DstSubResourceIndex, data.DstRect, rtNext, rtNextRect);
+		}
+		return S_OK;
 	}
 
 	void Resource::presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect)

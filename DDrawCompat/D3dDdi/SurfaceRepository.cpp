@@ -169,6 +169,16 @@ namespace D3dDdi
 		return result;
 	}
 
+	Resource* SurfaceRepository::getGammaRampTexture()
+	{
+		DDPIXELFORMAT pf = {};
+		pf.dwSize = sizeof(pf);
+		pf.dwFlags = DDPF_LUMINANCE;
+		pf.dwLuminanceBitCount = 8;
+		pf.dwLuminanceBitMask = 0xFF;
+		return getSurface(m_gammaRampTexture, 256, 3, pf, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
+	}
+
 	Resource* SurfaceRepository::getLogicalXorTexture()
 	{
 		return getInitializedResource(m_logicalXorTexture, 256, 256, DDraw::DirectDraw::getRgbPixelFormat(8),

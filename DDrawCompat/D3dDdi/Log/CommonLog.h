@@ -6,6 +6,7 @@
 #include <d3dumddi.h>
 
 std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONLIST& data);
+std::ostream& operator<<(std::ostream& os, const D3DDDI_GAMMA_RAMP_RGB256x3x16& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDI_PATCHLOCATIONLIST& data);
 std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val);
 std::ostream& operator<<(std::ostream& os, D3DDDIFORMAT val);

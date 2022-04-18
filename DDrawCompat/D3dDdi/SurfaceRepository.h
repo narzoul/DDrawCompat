@@ -38,6 +38,7 @@ namespace D3dDdi
 		Cursor getCursor(HCURSOR cursor);
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
+		Resource* getGammaRampTexture();
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempRenderTarget(DWORD width, DWORD height, UINT index = 0);
@@ -67,6 +68,7 @@ namespace D3dDdi
 		Surface m_cursorMaskTexture;
 		Surface m_cursorColorTexture;
 		Surface m_cursorTempTexture;
+		Surface m_gammaRampTexture;
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
 		std::vector<Surface> m_renderTargets;

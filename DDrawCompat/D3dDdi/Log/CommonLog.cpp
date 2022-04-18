@@ -10,6 +10,14 @@ std::ostream& operator<<(std::ostream& os, const D3DDDI_ALLOCATIONLIST& data)
 		<< Compat::hex(data.Value);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDI_GAMMA_RAMP_RGB256x3x16& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::array(data.Red, 256)
+		<< Compat::array(data.Green, 256)
+		<< Compat::array(data.Blue, 256);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDI_PATCHLOCATIONLIST& data)
 {
 	return Compat::LogStruct(os)

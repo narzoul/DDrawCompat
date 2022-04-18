@@ -135,7 +135,7 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_SETGAMMARAMP& data)
 		<< Compat::hex(data.hDevice)
 		<< data.VidPnSourceId
 		<< data.Type
-		<< static_cast<const void*>(data.pGammaRampRgb256x3x16)
+		<< data.pGammaRampRgb256x3x16
 		<< data.Size;
 }
 

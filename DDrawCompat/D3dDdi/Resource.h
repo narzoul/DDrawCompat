@@ -90,6 +90,7 @@ namespace D3dDdi
 		void fixResourceData();
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
+		const SurfaceRepository::Surface& getNextRenderTarget(Resource* currentRt, DWORD width, DWORD height);
 		RECT getRect(UINT subResourceIndex);
 		SIZE getScaledSize();
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);

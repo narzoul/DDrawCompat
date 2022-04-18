@@ -7,6 +7,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Shaders/DrawCursor.h>
+#include <Shaders/Gamma.h>
 #include <Shaders/GenBilinear.h>
 #include <Shaders/PaletteLookup.h>
 #include <Shaders/TextureSampler.h>
@@ -15,11 +16,27 @@
 #define CONCAT(a, b) CONCAT_(a, b)
 #define SCOPED_STATE(state, ...) DeviceState::Scoped##state CONCAT(scopedState, __LINE__)(m_device.getState(), __VA_ARGS__)
 
+namespace
+{
+	D3DDDI_GAMMA_RAMP_RGB256x3x16 g_gammaRamp;
+	bool g_isGammaRampDefault = true;
+	bool g_isGammaRampInvalidated = false;
+
+	void setGammaValues(BYTE* ptr, USHORT* ramp)
+	{
+		for (UINT i = 0; i < 256; ++i)
+		{
+			ptr[i] = static_cast<BYTE>(ramp[i] * 0xFF / 0xFFFF);
+		}
+	}
+}
+
 namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
+		, m_psGamma(createPixelShader(g_psGamma))
 		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
 		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
@@ -206,9 +223,49 @@ namespace D3dDdi
 		m_device.pfnDrawPrimitive(&dp, nullptr);
 	}
 
+	void ShaderBlitter::gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, const RECT& srcRect)
+	{
+		LOG_FUNC("ShaderBlitter::gammaBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcRect);
+
+		auto gammaRampTexture(SurfaceRepository::get(m_device.getAdapter()).getGammaRampTexture());
+		if (!gammaRampTexture)
+		{
+			return;
+		}
+
+		if (g_isGammaRampInvalidated)
+		{
+			D3DDDIARG_LOCK lock = {};
+			lock.hResource = *gammaRampTexture;
+			lock.Flags.Discard = 1;
+			m_device.getOrigVtable().pfnLock(m_device, &lock);
+			if (!lock.pSurfData)
+			{
+				return;
+			}
+
+			auto ptr = static_cast<BYTE*>(lock.pSurfData);
+			setGammaValues(ptr, g_gammaRamp.Red);
+			setGammaValues(ptr + lock.Pitch, g_gammaRamp.Green);
+			setGammaValues(ptr + 2 * lock.Pitch, g_gammaRamp.Blue);
+
+			D3DDDIARG_UNLOCK unlock = {};
+			unlock.hResource = *gammaRampTexture;
+			m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+			g_isGammaRampInvalidated = false;
+		}
+
+		setTempTextureStage(1, *gammaRampTexture, D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGamma.get(), D3DTEXF_POINT);
+	}
+
 	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, const RECT& srcRect, UINT blurPercent)
 	{
+		LOG_FUNC("ShaderBlitter::genBilinearBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcRect, blurPercent);
 		if (100 == blurPercent)
 		{
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect,
@@ -231,6 +288,11 @@ namespace D3dDdi
 
 		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, registers.size() }, registers.data());
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
+	}
+
+	bool ShaderBlitter::isGammaRampDefault()
+	{
+		return g_isGammaRampDefault;
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -262,6 +324,24 @@ namespace D3dDdi
 
 		setTempTextureStage(1, *paletteTexture, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::resetGammaRamp()
+	{
+		g_isGammaRampDefault = true;
+		g_isGammaRampInvalidated = false;
+	}
+
+	void ShaderBlitter::setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp)
+	{
+		g_gammaRamp = ramp;
+		g_isGammaRampDefault = true;
+		for (WORD i = 0; i < 256 && g_isGammaRampDefault; ++i)
+		{
+			const WORD defaultRamp = i * 0xFFFF / 0xFF;
+			g_isGammaRampDefault = defaultRamp == ramp.Red[i] && defaultRamp == ramp.Green[i] && defaultRamp == ramp.Blue[i];
+		}
+		g_isGammaRampInvalidated = !g_isGammaRampDefault;
 	}
 
 	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter, const UINT* srcColorKey)

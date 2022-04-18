@@ -25,6 +25,14 @@ std::ostream& operator<<(std::ostream& os, const DDCOLORKEY& ck)
 		<< Compat::hex(ck.dwColorSpaceHighValue);
 }
 
+std::ostream& operator<<(std::ostream& os, const DDGAMMARAMP& ramp)
+{
+	return Compat::LogStruct(os)
+		<< Compat::array(ramp.red, 256)
+		<< Compat::array(ramp.green, 256)
+		<< Compat::array(ramp.blue, 256);
+}
+
 std::ostream& operator<<(std::ostream& os, const DDSCAPS& caps)
 {
 	return Compat::LogStruct(os)
