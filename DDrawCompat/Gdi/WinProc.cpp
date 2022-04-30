@@ -37,15 +37,29 @@ namespace
 	Compat::SrwLock g_windowProcSrwLock;
 	std::map<HWND, WindowProc> g_windowProc;
 
+	thread_local unsigned g_inCreateDialog = 0;
+	thread_local unsigned g_inMessageBox = 0;
+
 	WindowProc getWindowProc(HWND hwnd);
 	bool isUser32ScrollBar(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onGetMinMaxInfo(MINMAXINFO& mmi);
+	void onInitDialog(HWND hwnd);
 	void onInitMenuPopup(HMENU menu);
 	void onUninitMenuPopup(HMENU menu);
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp);
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
+
+	template <auto func, typename Result, typename... Params>
+	Result WINAPI createDialog(Params... params)
+	{
+		LOG_FUNC(Compat::g_origFuncName<func>.c_str(), params...);
+		++g_inCreateDialog;
+		Result result = CALL_ORIG_FUNC(func)(params...);
+		--g_inCreateDialog;
+		return LOG_RESULT(result);
+	}
 
 	LRESULT CALLBACK ddcWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
 		decltype(&CallWindowProcA) callWindowProc, WNDPROC wndProc)
@@ -68,6 +82,10 @@ namespace
 
 		case WM_GETMINMAXINFO:
 			onGetMinMaxInfo(*reinterpret_cast<MINMAXINFO*>(lParam));
+			break;
+
+		case WM_INITDIALOG:
+			onInitDialog(hwnd);
 			break;
 
 		case WM_SYNCPAINT:
@@ -195,6 +213,51 @@ namespace
 	{
 		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		return g_windowProc[hwnd];
+	}
+
+	template <auto func, typename... Params>
+	int WINAPI messageBox(Params... params)
+	{
+		LOG_FUNC(Compat::g_origFuncName<func>.c_str(), params...);
+		++g_inMessageBox;
+		int result = CALL_ORIG_FUNC(func)(params...);
+		--g_inMessageBox;
+		return LOG_RESULT(result);
+	}
+
+	void onInitDialog(HWND hwnd)
+	{
+		if (!Gdi::Window::isTopLevelWindow(hwnd) ||
+			0 == g_inMessageBox &&
+			(0 == g_inCreateDialog || !(CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & DS_CENTER)))
+		{
+			return;
+		}
+
+		HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+
+		MONITORINFO origMi = {};
+		origMi.cbSize = sizeof(origMi);
+		CALL_ORIG_FUNC(GetMonitorInfoA)(monitor, &origMi);
+
+		MONITORINFO mi = {};
+		mi.cbSize = sizeof(mi);
+		GetMonitorInfoA(monitor, &mi);
+
+		if (!EqualRect(&origMi.rcMonitor, &mi.rcMonitor))
+		{
+			RECT wr = {};
+			GetWindowRect(hwnd, &wr);
+			const LONG width = wr.right - wr.left;
+			const LONG height = wr.bottom - wr.top;
+
+			const RECT& mr = 0 == g_inMessageBox ? mi.rcWork : mi.rcMonitor;
+			const LONG left = (mr.left + mr.right - width) / 2;
+			const LONG top = (mr.top + mr.bottom - height) / 2;
+
+			CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, left, top, width, height,
+				SWP_NOACTIVATE | SWP_NOZORDER | SWP_NOSENDCHANGING);
+		}
 	}
 
 	bool isUser32ScrollBar(HWND hwnd)
@@ -489,10 +552,24 @@ namespace Gdi
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(user32, CreateDialogIndirectParamA, createDialog<CreateDialogIndirectParamA>);
+			HOOK_FUNCTION(user32, CreateDialogIndirectParamW, createDialog<CreateDialogIndirectParamW>);
+			HOOK_FUNCTION(user32, CreateDialogParamA, createDialog<CreateDialogParamA>);
+			HOOK_FUNCTION(user32, CreateDialogParamW, createDialog<CreateDialogParamW>);
+			HOOK_FUNCTION(user32, DialogBoxParamA, createDialog<DialogBoxParamA>);
+			HOOK_FUNCTION(user32, DialogBoxParamW, createDialog<DialogBoxParamW>);
+			HOOK_FUNCTION(user32, DialogBoxIndirectParamA, createDialog<DialogBoxIndirectParamA>);
+			HOOK_FUNCTION(user32, DialogBoxIndirectParamW, createDialog<DialogBoxIndirectParamW>);
 			HOOK_FUNCTION(user32, GetMessageA, getMessageA);
 			HOOK_FUNCTION(user32, GetMessageW, getMessageW);
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);
 			HOOK_FUNCTION(user32, GetWindowLongW, getWindowLongW);
+			HOOK_FUNCTION(user32, MessageBoxA, messageBox<MessageBoxA>);
+			HOOK_FUNCTION(user32, MessageBoxW, messageBox<MessageBoxW>);
+			HOOK_FUNCTION(user32, MessageBoxExA, messageBox<MessageBoxExA>);
+			HOOK_FUNCTION(user32, MessageBoxExW, messageBox<MessageBoxExW>);
+			HOOK_FUNCTION(user32, MessageBoxIndirectA, messageBox<MessageBoxIndirectA>);
+			HOOK_FUNCTION(user32, MessageBoxIndirectW, messageBox<MessageBoxIndirectW>);
 			HOOK_FUNCTION(user32, PeekMessageA, peekMessageA);
 			HOOK_FUNCTION(user32, PeekMessageW, peekMessageW);
 			HOOK_FUNCTION(user32, SetLayeredWindowAttributes, setLayeredWindowAttributes);

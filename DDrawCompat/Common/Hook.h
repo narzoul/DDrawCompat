@@ -20,6 +20,9 @@ namespace Compat
 	template <auto origFunc>
 	decltype(origFunc) g_origFuncPtr = origFunc;
 
+	template <auto origFunc>
+	std::string g_origFuncName;
+
 	FARPROC getProcAddress(HMODULE module, const char* procName);
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName);
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
@@ -29,6 +32,7 @@ namespace Compat
 	template <auto origFunc>
 	void hookFunction(const char* moduleName, const char* funcName, decltype(origFunc) newFuncPtr)
 	{
+		g_origFuncName<origFunc> = funcName;
 		hookFunction(moduleName, funcName, reinterpret_cast<void*&>(g_origFuncPtr<origFunc>), newFuncPtr);
 	}
 
