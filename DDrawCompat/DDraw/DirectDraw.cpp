@@ -1,19 +1,26 @@
 #include <map>
+#include <set>
 #include <sstream>
 
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
+#include <Config/Config.h>
 #include <D3dDdi/Adapter.h>
+#include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/Resource.h>
 #include <DDraw/DirectDraw.h>
+#include <DDraw/DirectDrawSurface.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
 
 namespace
 {
+	const DWORD SURFACE_LOST_FLAG = 0x10000000;
 
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>
 	HRESULT STDMETHODCALLTYPE CreateSurface(
@@ -71,11 +78,53 @@ namespace
 	}
 
 	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags)
+	{
+		HRESULT result = getOrigVtable(This).SetCooperativeLevel(This, hWnd, dwFlags);
+		if (SUCCEEDED(result))
+		{
+			DDraw::TagSurface::create(*CompatPtr<IDirectDraw>::from(This));
+		}
+		return result;
+	}
+
+	template <typename TDirectDraw>
 	HRESULT STDMETHODCALLTYPE WaitForVerticalBlank(TDirectDraw* This, DWORD dwFlags, HANDLE hEvent)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
 		DDraw::RealPrimarySurface::flush();
 		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
+	}
+
+	HRESULT WINAPI restoreSurfaceLostFlag(
+		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
+	{
+		auto& surfacesToRestore = *static_cast<std::set<void*>*>(lpContext);
+		auto it = surfacesToRestore.find(DDraw::DirectDrawSurface::getSurfaceObject(*lpDDSurface));
+		if (it != surfacesToRestore.end())
+		{
+			DWORD& flags = DDraw::DirectDrawSurface::getFlags(*lpDDSurface);
+			flags &= ~SURFACE_LOST_FLAG;
+			surfacesToRestore.erase(it);
+		}
+		return DDENUMRET_OK;
+	}
+
+	HRESULT WINAPI setSurfaceLostFlag(
+		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
+	{
+		auto& surfacesToRestore = *static_cast<std::set<void*>*>(lpContext);
+		DWORD& flags = DDraw::DirectDrawSurface::getFlags(*lpDDSurface);
+		if (!(flags & SURFACE_LOST_FLAG))
+		{
+			auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSurface));
+			if (resource && !resource->getOrigDesc().Flags.MatchGdiPrimary)
+			{
+				flags |= SURFACE_LOST_FLAG;
+				surfacesToRestore.insert(DDraw::DirectDrawSurface::getSurfaceObject(*lpDDSurface));
+			}
+		}
+		return DDENUMRET_OK;
 	}
 
 	template <typename Vtable>
@@ -84,6 +133,7 @@ namespace
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
 		vtable.GetGDISurface = &GetGDISurface;
+		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;
 
 		if constexpr (std::is_same_v<Vtable, IDirectDraw4Vtbl> || std::is_same_v<Vtable, IDirectDraw7Vtbl>)
@@ -142,6 +192,42 @@ namespace DDraw
 			return pf;
 		}
 
+		LRESULT handleActivateApp(bool isActivated, std::function<LRESULT()> callOrigWndProc)
+		{
+			LOG_FUNC("handleActivateApp", isActivated, callOrigWndProc);
+			if (Config::Settings::AltTabFix::KEEPVIDMEM != Config::altTabFix.get())
+			{
+				return LOG_RESULT(callOrigWndProc());
+			}
+
+			DDraw::ScopedThreadLock lock;
+			std::set<void*> surfacesToRestore;
+			TagSurface::forEachDirectDraw([&](CompatRef<IDirectDraw7> dd)
+				{
+					dd->EnumSurfaces(&dd, DDENUMSURFACES_DOESEXIST | DDENUMSURFACES_ALL, nullptr,
+						&surfacesToRestore, &setSurfaceLostFlag);
+				});
+
+			LRESULT result = callOrigWndProc();
+
+			TagSurface::forEachDirectDraw([&](CompatRef<IDirectDraw7> dd)
+				{
+					dd->EnumSurfaces(&dd, DDENUMSURFACES_DOESEXIST | DDENUMSURFACES_ALL, nullptr,
+						&surfacesToRestore, &restoreSurfaceLostFlag);
+				});
+
+			if (isActivated)
+			{
+				auto realPrimary(DDraw::RealPrimarySurface::getSurface());
+				if (realPrimary)
+				{
+					realPrimary->Restore(realPrimary);
+				}
+			}
+
+			return LOG_RESULT(result);
+		}
+
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)
 		{
 			static std::map<LUID, CompatWeakPtr<IDirectDraw7>> repositories;
@@ -155,7 +241,7 @@ namespace DDraw
 				{
 					return;
 				}
-				repo->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL);
+				repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL);
 				it = repositories.insert({ adapterInfo.luid, repo }).first;
 				repo.detach();
 			}

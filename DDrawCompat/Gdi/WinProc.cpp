@@ -7,6 +7,7 @@
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
 #include <Dll/Dll.h>
+#include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
@@ -105,7 +106,17 @@ namespace
 			break;
 		}
 
-		LRESULT result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
+		LRESULT result = 0;
+		if (WM_ACTIVATEAPP == uMsg && Dll::g_origDDrawModule == Compat::getModuleHandleFromAddress(
+			reinterpret_cast<void*>(GetWindowLongA(hwnd, GWL_WNDPROC))))
+		{
+			result = DDraw::DirectDraw::handleActivateApp(wParam, [=]() {
+				return callWindowProc(wndProc, hwnd, uMsg, wParam, lParam); });
+		}
+		else
+		{
+			result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
+		}
 
 		switch (uMsg)
 		{

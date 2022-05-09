@@ -218,6 +218,7 @@
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
+    <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
@@ -277,6 +278,7 @@
     <ClInclude Include="DDraw\Surfaces\PrimarySurfaceImpl.h" />
     <ClInclude Include="DDraw\Surfaces\Surface.h" />
     <ClInclude Include="DDraw\Surfaces\SurfaceImpl.h" />
+    <ClInclude Include="DDraw\Surfaces\TagSurface.h" />
     <ClInclude Include="DDraw\Types.h" />
     <ClInclude Include="DDraw\IReleaseNotifier.h" />
     <ClInclude Include="DDraw\RealPrimarySurface.h" />
@@ -399,6 +401,7 @@
     <ClCompile Include="DDraw\Surfaces\PrimarySurfaceImpl.cpp" />
     <ClCompile Include="DDraw\Surfaces\Surface.cpp" />
     <ClCompile Include="DDraw\Surfaces\SurfaceImpl.cpp" />
+    <ClCompile Include="DDraw\Surfaces\TagSurface.cpp" />
     <ClCompile Include="Direct3d\Direct3d.cpp" />
     <ClCompile Include="Direct3d\Direct3dDevice.cpp" />
     <ClCompile Include="Direct3d\Direct3dExecuteBuffer.cpp" />

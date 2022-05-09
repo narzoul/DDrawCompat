@@ -546,6 +546,12 @@
     <ClInclude Include="Config\Settings\VSync.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\Surfaces\TagSurface.h">
+      <Filter>Header Files\DDraw\Surfaces</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Settings\AltTabFix.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -862,6 +868,9 @@
     </ClCompile>
     <ClCompile Include="Config\Settings\VSync.cpp">
       <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\Surfaces\TagSurface.cpp">
+      <Filter>Source Files\DDraw\Surfaces</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

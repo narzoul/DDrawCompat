@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Config/Settings/AlternatePixelCenter.h>
+#include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/CpuAffinity.h>
@@ -23,6 +24,7 @@
 namespace Config
 {
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
+	extern Settings::AltTabFix altTabFix;
 	extern Settings::Antialiasing antialiasing;
 	extern Settings::ConfigHotKey configHotKey;
 	extern Settings::CpuAffinity cpuAffinity;

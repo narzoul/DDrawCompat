@@ -3,6 +3,7 @@
 namespace Config
 {
 	Settings::AlternatePixelCenter alternatePixelCenter;
+	Settings::AltTabFix altTabFix;
 	Settings::Antialiasing antialiasing;
 	Settings::ConfigHotKey configHotKey;
 	Settings::CpuAffinity cpuAffinity;
