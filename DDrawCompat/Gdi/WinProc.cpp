@@ -6,10 +6,12 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
+#include <Config/Config.h>
 #include <Dll/Dll.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/TagSurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/Dc.h>
@@ -426,6 +428,22 @@ namespace
 				return reinterpret_cast<LONG>(oldWndProc);
 			}
 		}
+		else if ((GWL_STYLE == nIndex || GWL_EXSTYLE == nIndex) && Config::removeBorders.get())
+		{
+			auto tagSurface = DDraw::TagSurface::findFullscreenWindow(hWnd);
+			if (tagSurface)
+			{
+				if (GWL_STYLE == nIndex)
+				{
+					return tagSurface->setWindowStyle(dwNewLong);
+				}
+				else
+				{
+					return tagSurface->setWindowExStyle(dwNewLong);
+				}
+			}
+		}
+
 		return origSetWindowLong(hWnd, nIndex, dwNewLong);
 	}
 

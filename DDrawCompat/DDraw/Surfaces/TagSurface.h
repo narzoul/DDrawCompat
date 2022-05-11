@@ -11,13 +11,24 @@ namespace DDraw
 	class TagSurface : public Surface
 	{
 	public:
-		TagSurface(DWORD origCaps, void* ddObject) : Surface(origCaps), m_ddObject(ddObject) {}
+		TagSurface(DWORD origCaps, void* ddObject);
 		virtual ~TagSurface() override;
 
-		static HRESULT create(CompatRef<IDirectDraw> dd);
+		static TagSurface* get(CompatRef<IDirectDraw> dd);
+		static TagSurface* findFullscreenWindow(HWND hwnd);
+
 		static void forEachDirectDraw(std::function<void(CompatRef<IDirectDraw7>)> callback);
 
+		void setFullscreenWindow(HWND hwnd);
+		LONG setWindowStyle(LONG style);
+		LONG setWindowExStyle(LONG exStyle);
+
 	private:
+		static HRESULT create(CompatRef<IDirectDraw> dd);
+
 		void* m_ddObject;
+		HWND m_fullscreenWindow;
+		LONG m_fullscreenWindowStyle;
+		LONG m_fullscreenWindowExStyle;
 	};
 }

@@ -13,6 +13,7 @@ namespace Config
 	Settings::DisplayResolution displayResolution;
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FullscreenMode fullscreenMode;
+	Settings::RemoveBorders removeBorders;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
 	Settings::SpriteDetection spriteDetection;

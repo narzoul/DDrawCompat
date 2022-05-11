@@ -83,7 +83,18 @@ namespace
 		HRESULT result = getOrigVtable(This).SetCooperativeLevel(This, hWnd, dwFlags);
 		if (SUCCEEDED(result))
 		{
-			DDraw::TagSurface::create(*CompatPtr<IDirectDraw>::from(This));
+			auto tagSurface = DDraw::TagSurface::get(*CompatPtr<IDirectDraw>::from(This));
+			if (tagSurface)
+			{
+				if (dwFlags & DDSCL_FULLSCREEN)
+				{
+					tagSurface->setFullscreenWindow(hWnd);
+				}
+				else if (dwFlags & DDSCL_NORMAL)
+				{
+					tagSurface->setFullscreenWindow(nullptr);
+				}
+			}
 		}
 		return result;
 	}

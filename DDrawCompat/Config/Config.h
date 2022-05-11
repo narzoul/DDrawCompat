@@ -11,6 +11,7 @@
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/RemoveBorders.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SpriteDetection.h>
@@ -34,6 +35,7 @@ namespace Config
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::ForceD3D9On12 forceD3D9On12;
 	extern Settings::FullscreenMode fullscreenMode;
+	extern Settings::RemoveBorders removeBorders;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;
 	extern Settings::SpriteDetection spriteDetection;
