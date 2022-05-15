@@ -12,6 +12,7 @@ namespace Overlay
 		, m_focus(nullptr)
 	{
 		addControl(Config::alternatePixelCenter);
+		addControl(Config::bltFilter);
 		addControl(Config::antialiasing);
 		addControl(Config::displayFilter);
 		addControl(Config::renderColorDepth);

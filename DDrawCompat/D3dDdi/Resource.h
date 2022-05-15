@@ -77,6 +77,8 @@ namespace D3dDdi
 		};
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
+		HRESULT bltViaCpu(D3DDDIARG_BLT data, Resource& srcResource);
+		HRESULT bltViaGpu(D3DDDIARG_BLT data, Resource& srcResource);
 		void clearUpToDateFlags(UINT subResourceIndex);
 		void clipRect(UINT subResourceIndex, RECT& rect);
 		HRESULT copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex);
@@ -102,7 +104,6 @@ namespace D3dDdi
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource);
-		HRESULT sysMemPreferredBlt(D3DDDIARG_BLT& data, Resource& srcResource);
 
 		Device& m_device;
 		HANDLE m_handle;

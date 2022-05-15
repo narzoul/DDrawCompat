@@ -220,6 +220,7 @@
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
     <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
+    <ClInclude Include="Config\Settings\BltFilter.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
