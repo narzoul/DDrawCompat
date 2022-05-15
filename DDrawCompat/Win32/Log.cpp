@@ -71,6 +71,31 @@ namespace
 			<< Compat::hex(mcs.style)
 			<< Compat::hex(mcs.lParam);
 	}
+
+	template <typename OsVersionInfoEx>
+	std::ostream& logOsVersionInfoEx(std::ostream& os, const OsVersionInfoEx& vi)
+	{
+		return Compat::LogStruct(os)
+			<< vi.dwOSVersionInfoSize
+			<< vi.dwMajorVersion
+			<< vi.dwMinorVersion
+			<< vi.dwBuildNumber
+			<< vi.dwPlatformId
+			<< Compat::out(vi.szCSDVersion)
+			<< vi.wServicePackMajor
+			<< vi.wServicePackMinor
+			<< Compat::hex(vi.wSuiteMask)
+			<< static_cast<DWORD>(vi.wProductType)
+			<< static_cast<DWORD>(vi.wReserved);
+	}
+
+	template <typename OsVersionInfoEx, typename OsVersionInfo>
+	std::ostream& logOsVersionInfo(std::ostream& os, const OsVersionInfo& vi)
+	{
+		OsVersionInfoEx viEx = {};
+		memcpy(&viEx, &vi, min(sizeof(viEx), vi.dwOSVersionInfoSize));
+		return logOsVersionInfoEx(os, viEx);
+	}
 }
 
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis)
@@ -347,6 +372,26 @@ std::ostream& operator<<(std::ostream& os, const NMHDR& nm)
 		<< nm.hwndFrom
 		<< nm.idFrom
 		<< Compat::hex(nm.code);
+}
+
+std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOA& vi)
+{
+	return logOsVersionInfo<OSVERSIONINFOEXA>(os, vi);
+}
+
+std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOW& vi)
+{
+	return logOsVersionInfo<OSVERSIONINFOEXW>(os, vi);
+}
+
+std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXA& vi)
+{
+	return logOsVersionInfoEx(os, vi);
+}
+
+std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXW& vi)
+{
+	return logOsVersionInfoEx(os, vi);
 }
 
 std::ostream& operator<<(std::ostream& os, const POINT& p)

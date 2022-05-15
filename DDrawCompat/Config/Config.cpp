@@ -23,4 +23,5 @@ namespace Config
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
 	Settings::VSync vSync;
+	Settings::WinVersionLie winVersionLie;
 }

@@ -555,6 +555,12 @@
     <ClInclude Include="Config\Settings\RemoveBorders.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\WinVersionLie.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Win32\Version.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -874,6 +880,12 @@
     </ClCompile>
     <ClCompile Include="DDraw\Surfaces\TagSurface.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\WinVersionLie.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\Version.cpp">
+      <Filter>Source Files\Win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

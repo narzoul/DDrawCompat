@@ -238,6 +238,7 @@
     <ClInclude Include="Config\Settings\TextureFilter.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="Config\Settings\VSync.h" />
+    <ClInclude Include="Config\Settings\WinVersionLie.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />
     <ClInclude Include="D3dDdi\AdapterCallbacks.h" />
     <ClInclude Include="D3dDdi\AdapterFuncs.h" />
@@ -342,6 +343,7 @@
     <ClInclude Include="Win32\MemoryManagement.h" />
     <ClInclude Include="Win32\Registry.h" />
     <ClInclude Include="Win32\Thread.h" />
+    <ClInclude Include="Win32\Version.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\Log.cpp" />
@@ -366,6 +368,7 @@
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp" />
     <ClCompile Include="Config\Settings\TextureFilter.cpp" />
     <ClCompile Include="Config\Settings\VSync.cpp" />
+    <ClCompile Include="Config\Settings\WinVersionLie.cpp" />
     <ClCompile Include="D3dDdi\Adapter.cpp" />
     <ClCompile Include="D3dDdi\AdapterCallbacks.cpp" />
     <ClCompile Include="D3dDdi\AdapterFuncs.cpp" />
@@ -450,6 +453,7 @@
     <ClCompile Include="Win32\MemoryManagement.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />
     <ClCompile Include="Win32\Thread.cpp" />
+    <ClCompile Include="Win32\Version.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc" />

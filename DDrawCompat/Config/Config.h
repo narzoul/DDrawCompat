@@ -21,6 +21,7 @@
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
 #include <Config/Settings/VSync.h>
+#include <Config/Settings/WinVersionLie.h>
 
 namespace Config
 {
@@ -45,4 +46,5 @@ namespace Config
 	extern Settings::TextureFilter textureFilter;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
 	extern Settings::VSync vSync;
+	extern Settings::WinVersionLie winVersionLie;
 }
