@@ -11,6 +11,7 @@
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Blitter.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -118,6 +119,7 @@ namespace D3dDdi
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
 		, m_isClampable(true)
+		, m_isPrimary(false)
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -352,18 +354,38 @@ namespace D3dDdi
 
 	HRESULT Resource::bltViaGpu(D3DDDIARG_BLT data, Resource& srcResource)
 	{
-		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-			(m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown))
+		Resource* srcRes = &srcResource;
+		if (m_msaaResolvedSurface.resource && srcResource.m_msaaResolvedSurface.resource &&
+			(srcResource.m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate ||
+				srcResource.m_lockData[data.SrcSubResourceIndex].isMsaaUpToDate))
 		{
-			if (SUCCEEDED(shaderBlt(data, srcResource)))
-			{
-				return S_OK;
-			}
+			srcResource.loadMsaaResolvedResource(data.SrcSubResourceIndex);
+			srcRes = srcResource.m_msaaResolvedSurface.resource;
+			data.hSrcResource = *srcRes;
+			srcResource.scaleRect(data.SrcRect);
+			loadMsaaResolvedResource(data.DstSubResourceIndex);
 		}
 		else
 		{
 			srcResource.prepareForBltSrc(data);
-			prepareForBltDst(data);
+		}
+
+		Resource& dstRes = prepareForBltDst(data);
+
+		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
+			(m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey || data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown) &&
+			SUCCEEDED(shaderBlt(data, dstRes, *srcRes)))
+		{
+			return S_OK;
+		}
+
+		if (&dstRes != this && D3DDDIPOOL_SYSTEMMEM == srcRes->m_fixedData.Pool)
+		{
+			RECT r = { 0, 0, data.SrcRect.right - data.SrcRect.left, data.SrcRect.bottom - data.SrcRect.top };
+			copySubResourceRegion(*this, data.DstSubResourceIndex, r, *srcRes, data.SrcSubResourceIndex, data.SrcRect);
+			data.hSrcResource = *this;
+			data.SrcSubResourceIndex = data.DstSubResourceIndex;
+			data.SrcRect = r;
 		}
 
 		auto bltFilter = Config::bltFilter.get();
@@ -666,8 +688,7 @@ namespace D3dDdi
 
 	D3DDDIFORMAT Resource::getFormatConfig()
 	{
-		if (m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.MatchGdiPrimary && D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-			(D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format))
+		if (D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format)
 		{
 			switch (Config::renderColorDepth.get())
 			{
@@ -685,9 +706,7 @@ namespace D3dDdi
 
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
-		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.MatchGdiPrimary ||
-			m_fixedData.Flags.ZBuffer) &&
-			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool)
+		if (!m_fixedData.Flags.Texture)
 		{
 			return m_device.getAdapter().getMultisampleConfig(m_fixedData.Format);
 		}
@@ -714,9 +733,7 @@ namespace D3dDdi
 	SIZE Resource::getScaledSize()
 	{
 		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
-		if ((m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.Texture && !m_fixedData.Flags.MatchGdiPrimary ||
-			m_fixedData.Flags.ZBuffer) &&
-			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool)
+		if (!m_fixedData.Flags.Texture)
 		{
 			return m_device.getAdapter().getScaledSize(size);
 		}
@@ -1143,16 +1160,26 @@ namespace D3dDdi
 		}
 	}
 
-	HRESULT Resource::shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource)
+	void Resource::setAsPrimary()
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		if (!m_isPrimary)
+		{
+			m_isPrimary = true;
+			updateConfig();
+		}
+	}
+
+	HRESULT Resource::shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource)
 	{
 		LOG_FUNC("Resource::shaderBlt", data, srcResource);
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
 
-		Resource* srcRes = &srcResource.prepareForBltSrc(data);
+		Resource* srcRes = &srcResource;
 		UINT srcIndex = data.SrcSubResourceIndex;
 		RECT srcRect = data.SrcRect;
 
-		Resource* dstRes = &prepareForBltDst(data);
+		Resource* dstRes = &dstResource;
 		UINT dstIndex = data.DstSubResourceIndex;
 		RECT dstRect = data.DstRect;
 
@@ -1241,7 +1268,9 @@ namespace D3dDdi
 
 	void Resource::updateConfig()
 	{
-		if (m_isSurfaceRepoResource)
+		if (m_isSurfaceRepoResource || D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || D3DDDIFMT_P8 == m_fixedData.Format ||
+			m_fixedData.Flags.MatchGdiPrimary ||
+			!m_isPrimary && !m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
 		{
 			return;
 		}
@@ -1257,7 +1286,7 @@ namespace D3dDdi
 		m_formatConfig = formatConfig;
 		m_scaledSize = scaledSize;
 
-		if (m_fixedData.Flags.RenderTarget &&
+		if ((m_fixedData.Flags.RenderTarget || m_isPrimary) &&
 			(m_msaaSurface.resource || m_msaaResolvedSurface.resource))
 		{
 			for (UINT i = 0; i < m_lockData.size(); ++i)

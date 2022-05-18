@@ -3,6 +3,7 @@
 #include <Config/Config.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/Resource.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -235,6 +236,22 @@ namespace DDraw
 
 		updateFrontResource();
 		D3dDdi::Device::setGdiResourceHandle(g_frontResource);
+
+		DDSCAPS2 caps = {};
+		caps.dwCaps = DDSCAPS_FLIP;
+		auto surface(CompatPtr<IDirectDrawSurface7>::from(m_surface.get()));
+		HRESULT result = S_OK;
+		do
+		{
+			auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*surface));
+			if (resource)
+			{
+				resource->setAsPrimary();
+			}
+			CompatPtr<IDirectDrawSurface7> next;
+			result = surface->GetAttachedSurface(surface, &caps, &next.getRef());
+			next.swap(surface);
+		} while (SUCCEEDED(result) && surface != m_surface);
 
 		Surface::restore();
 	}

@@ -47,6 +47,7 @@ namespace D3dDdi
 		void prepareForGpuWrite(UINT subResourceIndex);
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
+		void setAsPrimary();
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
 
@@ -103,7 +104,7 @@ namespace D3dDdi
 		void notifyLock(UINT subResourceIndex);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
-		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& srcResource);
+		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
 
 		Device& m_device;
 		HANDLE m_handle;
@@ -121,5 +122,6 @@ namespace D3dDdi
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;
+		bool m_isPrimary;
 	};
 }
