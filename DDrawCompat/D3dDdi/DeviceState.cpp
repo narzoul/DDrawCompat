@@ -277,6 +277,17 @@ namespace D3dDdi
 		{
 			return value & (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3);
 		}
+
+		if (D3DDDIRS_COLORKEYENABLE == state && value)
+		{
+			UINT enable = FALSE;
+			for (UINT i = 0; i < getVertexDecl().textureStageCount && !enable; ++i)
+			{
+				enable = !m_app.textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY];
+			}
+			return enable;
+		}
+
 		if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
 		{
 			return 0 != value && !m_spriteMode;
@@ -476,7 +487,8 @@ namespace D3dDdi
 	HRESULT DeviceState::pfnSetTexture(UINT stage, HANDLE texture)
 	{
 		m_app.textures[stage] = texture;
-		m_changedStates |= CS_TEXTURE_STAGE;
+		m_changedStates |= CS_RENDER_STATE | CS_TEXTURE_STAGE;
+		m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
 		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
@@ -495,9 +507,15 @@ namespace D3dDdi
 			return S_OK;
 		}
 		
-		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
+		if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State ||
+			D3DDDITSS_DISABLETEXTURECOLORKEY == data->State)
 		{
-			m_app.textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
+			if (D3DDDITSS_TEXTURECOLORKEYVAL == data->State)
+			{
+				m_app.textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
+			}
+			m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
+			m_changedStates |= CS_RENDER_STATE;
 		}
 
 		m_app.textureStageState[data->Stage][data->State] = data->Value;
