@@ -9,6 +9,7 @@
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
 #include <Shaders/GenBilinear.h>
+#include <Shaders/LockRef.h>
 #include <Shaders/PaletteLookup.h>
 #include <Shaders/TextureSampler.h>
 
@@ -38,10 +39,16 @@ namespace D3dDdi
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
 		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
+		, m_psLockRef(createPixelShader(g_psLockRef))
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
 		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
 		, m_vertexShaderDecl(createVertexShaderDecl())
+		, m_vertices{}
 	{
+		for (std::size_t i = 0; i < m_vertices.size(); ++i)
+		{
+			m_vertices[i].rhw = 1;
+		}
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -104,15 +111,11 @@ namespace D3dDdi
 			state.setTempRenderState({ D3DDDIRS_BLENDFACTOR, blendFactor });
 		}
 
-		setTempTextureStage(0, srcResource, filter, srcColorKey);
+		setTempTextureStage(0, srcResource, srcRect, filter, srcColorKey);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, srgb });
 
-		const float srcWidth = static_cast<float>(srcSurface.Width);
-		const float srcHeight = static_cast<float>(srcSurface.Height);
+		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
 
-		Vertex vertices[4] = {};
-		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, vertices);
-		
 		DeviceState::TempStateLock lock(state);
 
 		if (srcRgn)
@@ -122,12 +125,12 @@ namespace D3dDdi
 			{
 				RectF dr = Rect::toRectF(sr);
 				Rect::transform(dr, srcRect, dstRect);
-				drawRect(vertices, sr, dr, srcWidth, srcHeight);
+				drawRect(sr, dr, srcSurface.Width, srcSurface.Height);
 			}
 		}
 		else
 		{
-			drawRect(vertices, srcRect, Rect::toRectF(dstRect), srcWidth, srcHeight);
+			drawRect(srcRect, Rect::toRectF(dstRect), srcSurface.Width, srcSurface.Height);
 		}
 
 		m_device.flushPrimitives();
@@ -154,7 +157,10 @@ namespace D3dDdi
 
 		const D3DDDIVERTEXELEMENT vertexElements[] = {
 			{ 0, 0, D3DDECLTYPE_FLOAT4, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_POSITIONT, 0 },
-			{ 0, 16, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 }
+			{ 0, 16, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 0 },
+			{ 0, 24, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 1 },
+			{ 0, 32, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 2 },
+			{ 0, 40, D3DDECLTYPE_FLOAT2, D3DDECLMETHOD_DEFAULT, D3DDECLUSAGE_TEXCOORD, 3 }
 		};
 
 		D3DDDIARG_CREATEVERTEXSHADERDECL data = {};
@@ -202,19 +208,21 @@ namespace D3dDdi
 		data.DstRect = clippedSrcRect;
 		m_device.getOrigVtable().pfnBlt(m_device, &data);
 
-		setTempTextureStage(1, *cur.maskTexture, D3DTEXF_POINT);
-		setTempTextureStage(2, *cur.colorTexture, D3DTEXF_POINT);
-		setTempTextureStage(3, *xorTexture, D3DTEXF_POINT);
+		setTempTextureStage(1, *cur.maskTexture, clippedSrcRect, D3DTEXF_POINT);
+		setTempTextureStage(2, *cur.colorTexture, clippedSrcRect, D3DTEXF_POINT);
+		setTempTextureStage(3, *xorTexture, clippedSrcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
 			m_psDrawCursor.get(), D3DTEXF_POINT);
 	}
 
-	void ShaderBlitter::drawRect(Vertex(&vertices)[4], const RECT& srcRect, const RectF& dstRect, float srcWidth, float srcHeight)
+	void ShaderBlitter::drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight)
 	{
-		vertices[0] = { dstRect.left - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.top / srcHeight };
-		vertices[1] = { dstRect.right - 0.5f, dstRect.top - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.top / srcHeight };
-		vertices[2] = { dstRect.left - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.left / srcWidth, srcRect.bottom / srcHeight };
-		vertices[3] = { dstRect.right - 0.5f, dstRect.bottom - 0.5f, 0, 1, srcRect.right / srcWidth, srcRect.bottom / srcHeight };
+		m_vertices[0].xy = { dstRect.left - 0.5f, dstRect.top - 0.5f };
+		m_vertices[1].xy = { dstRect.right - 0.5f, dstRect.top - 0.5f };
+		m_vertices[2].xy = { dstRect.left - 0.5f, dstRect.bottom - 0.5f };
+		m_vertices[3].xy = { dstRect.right - 0.5f, dstRect.bottom - 0.5f };
+
+		setTextureCoords(0, srcRect, srcWidth, srcHeight);
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
 		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
@@ -257,7 +265,7 @@ namespace D3dDdi
 			g_isGammaRampInvalidated = false;
 		}
 
-		setTempTextureStage(1, *gammaRampTexture, D3DTEXF_POINT);
+		setTempTextureStage(1, *gammaRampTexture, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGamma.get(), D3DTEXF_POINT);
 	}
 
@@ -295,6 +303,19 @@ namespace D3dDdi
 		return g_isGammaRampDefault;
 	}
 
+	void ShaderBlitter::lockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+		const Resource& lockRefResource)
+	{
+		LOG_FUNC("ShaderBlitter::lockRefBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
+			static_cast<HANDLE>(lockRefResource));
+
+		setTempTextureStage(1, lockRefResource, srcRect, D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			m_psLockRef.get(), D3DTEXF_POINT);
+	}
+
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, const RECT& srcRect, RGBQUAD palette[256])
 	{
@@ -322,7 +343,7 @@ namespace D3dDdi
 		unlock.hResource = *paletteTexture;
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 
-		setTempTextureStage(1, *paletteTexture, D3DTEXF_POINT);
+		setTempTextureStage(1, *paletteTexture, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
 
@@ -344,16 +365,31 @@ namespace D3dDdi
 		g_isGammaRampInvalidated = !g_isGammaRampDefault;
 	}
 
-	void ShaderBlitter::setTempTextureStage(UINT stage, HANDLE texture, UINT filter, const UINT* srcColorKey)
+	void ShaderBlitter::setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
+		const UINT* srcColorKey)
 	{
 		auto& state = m_device.getState();
 		state.setTempTexture(stage, texture, srcColorKey);
+		state.setTempTextureStageState({ stage, D3DDDITSS_TEXCOORDINDEX, stage });
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP });
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MAGFILTER, filter });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MINFILTER, filter });
 		state.setTempTextureStageState({ stage, D3DDDITSS_MIPFILTER, D3DTEXF_NONE });
 		state.setTempRenderState({ static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 });
+
+		auto& si = texture.getFixedDesc().pSurfList[0];
+		setTextureCoords(stage, rect, si.Width, si.Height);
+	}
+
+	void ShaderBlitter::setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height)
+	{
+		const float w = static_cast<float>(width);
+		const float h = static_cast<float>(height);
+		m_vertices[0].tc[stage] = { rect.left / w, rect.top / h };
+		m_vertices[1].tc[stage] = { rect.right / w, rect.top / h };
+		m_vertices[2].tc[stage] = { rect.left / w, rect.bottom / h };
+		m_vertices[3].tc[stage] = { rect.right / w, rect.bottom / h };
 	}
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

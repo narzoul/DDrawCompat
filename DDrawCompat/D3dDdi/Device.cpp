@@ -164,11 +164,12 @@ namespace D3dDdi
 	HRESULT Device::pfnClear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
 	{
 		flushPrimitives();
-		m_state.flush();
 		if (data->Flags & D3DCLEAR_TARGET)
 		{
+			setRenderTarget(m_state.getAppState().renderTarget);
 			prepareForGpuWrite();
 		}
+		m_state.flush();
 
 		if (m_renderTarget && rect)
 		{

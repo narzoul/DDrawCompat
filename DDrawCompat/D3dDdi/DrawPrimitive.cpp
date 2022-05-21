@@ -475,6 +475,8 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
+			m_device.setRenderTarget(state.getAppState().renderTarget);
+			m_device.prepareForGpuWrite();
 			state.flush();
 		}
 
@@ -531,6 +533,8 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
+			m_device.setRenderTarget(state.getAppState().renderTarget);
+			m_device.prepareForGpuWrite();
 			state.flush();
 		}
 

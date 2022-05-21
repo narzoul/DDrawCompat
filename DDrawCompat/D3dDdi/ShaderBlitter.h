@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 
 #include <Windows.h>
@@ -29,6 +30,9 @@ namespace D3dDdi
 			const Resource& srcResource, const RECT& srcRect);
 		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect, UINT blurPercent);
+		void lockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			const Resource& lockRefResource);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect, RGBQUAD palette[256]);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -43,12 +47,10 @@ namespace D3dDdi
 	private:
 		struct Vertex
 		{
-			float x;
-			float y;
+			std::array<float, 2> xy;
 			float z;
 			float rhw;
-			float tu;
-			float tv;
+			std::array<float, 2> tc[4];
 		};
 
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -64,15 +66,19 @@ namespace D3dDdi
 
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
 		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
-		void drawRect(Vertex(&vertices)[4], const RECT& srcRect, const RectF& dstRect, float srcWidth, float srcHeight);
-		void setTempTextureStage(UINT stage, HANDLE texture, UINT filter, const UINT* srcColorKey = nullptr);
+		void drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight);
+		void setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
+			const UINT* srcColorKey = nullptr);
+		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
 		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
+		std::unique_ptr<void, ResourceDeleter> m_psLockRef;
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
+		std::array<Vertex, 4> m_vertices;
 	};
 }

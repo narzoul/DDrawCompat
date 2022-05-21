@@ -75,6 +75,7 @@ namespace D3dDdi
 			bool isVidMemUpToDate;
 			bool isMsaaUpToDate;
 			bool isMsaaResolvedUpToDate;
+			bool isRefLocked;
 		};
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
@@ -97,6 +98,7 @@ namespace D3dDdi
 		RECT getRect(UINT subResourceIndex);
 		SIZE getScaledSize();
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
+		void loadFromLockRefResource(UINT subResourceIndex);
 		void loadMsaaResource(UINT subResourceIndex);
 		void loadMsaaResolvedResource(UINT subResourceIndex);
 		void loadSysMemResource(UINT subResourceIndex);
@@ -114,6 +116,7 @@ namespace D3dDdi
 		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
 		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, ResourceDeleter> m_lockResource;
+		SurfaceRepository::Surface m_lockRefSurface;
 		SurfaceRepository::Surface m_msaaSurface;
 		SurfaceRepository::Surface m_msaaResolvedSurface;
 		D3DDDIFORMAT m_formatConfig;

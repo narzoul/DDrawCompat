@@ -111,6 +111,7 @@ namespace D3dDdi
 		, m_fixedData(data)
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device, device.getOrigVtable().pfnDestroyResource))
+		, m_lockRefSurface{}
 		, m_msaaSurface{}
 		, m_msaaResolvedSurface{}
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
@@ -184,11 +185,12 @@ namespace D3dDdi
 			Gdi::Cursor::setMonitorClipRect({});
 		}
 
-		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface)
+		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface || m_lockRefSurface.surface)
 		{
 			auto& repo = SurfaceRepository::get(m_device.getAdapter());
 			repo.release(m_msaaSurface);
 			repo.release(m_msaaResolvedSurface);
+			repo.release(m_lockRefSurface);
 		}
 	}
 
@@ -593,6 +595,7 @@ namespace D3dDdi
 				m_lockData[i].isVidMemUpToDate = true;
 				m_lockData[i].isMsaaUpToDate = m_msaaSurface.resource;
 				m_lockData[i].isMsaaResolvedUpToDate = m_msaaResolvedSurface.resource;
+				m_lockData[i].isRefLocked = false;
 			}
 		}
 
@@ -747,6 +750,38 @@ namespace D3dDdi
 			rect.bottom <= static_cast<LONG>(m_fixedData.pSurfList[subResourceIndex].Height);
 	}
 
+	void Resource::loadFromLockRefResource(UINT subResourceIndex)
+	{
+		if (m_lockData[subResourceIndex].isRefLocked)
+		{
+			m_lockData[subResourceIndex].isRefLocked = false;
+			loadVidMemResource(subResourceIndex);
+
+			auto srcResource = this;
+			auto srcIndex = subResourceIndex;
+			auto& si = m_fixedData.pSurfList[subResourceIndex];
+			const RECT srcRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+			if (!m_fixedData.Flags.Texture)
+			{
+				auto& repo = SurfaceRepository::get(m_device.getAdapter());
+				auto& texture = repo.getTempTexture(si.Width, si.Height, getPixelFormat(m_fixedData.Format));
+				if (!texture.resource)
+				{
+					return;
+				}
+				srcResource = texture.resource;
+				srcIndex = 0;
+				copySubResourceRegion(*srcResource, 0, srcRect, m_handle, subResourceIndex, srcRect);
+			}
+
+			const RECT dstRect = { 0, 0, static_cast<LONG>(m_msaaResolvedSurface.width),
+				static_cast<LONG>(m_msaaResolvedSurface.height) };
+			m_device.getShaderBlitter().lockRefBlt(*m_msaaResolvedSurface.resource, subResourceIndex, dstRect,
+				*srcResource, srcIndex, srcRect, *m_lockRefSurface.resource);
+			m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
+		}
+	}
+
 	void Resource::loadMsaaResource(UINT subResourceIndex)
 	{
 		if (!m_lockData[subResourceIndex].isMsaaUpToDate)
@@ -767,6 +802,7 @@ namespace D3dDdi
 
 	void Resource::loadMsaaResolvedResource(UINT subResourceIndex)
 	{
+		loadFromLockRefResource(subResourceIndex);
 		if (!m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 		{
 			if (m_lockData[subResourceIndex].isMsaaUpToDate)
@@ -799,20 +835,14 @@ namespace D3dDdi
 		{
 			if (m_lockData[subResourceIndex].isMsaaUpToDate || m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 			{
-				if (m_msaaResolvedSurface.resource)
-				{
-					loadMsaaResolvedResource(subResourceIndex);
-					copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
-				}
-				else
-				{
-					copySubResource(*this, *m_msaaSurface.resource, subResourceIndex);
-				}
+				loadMsaaResolvedResource(subResourceIndex);
+				copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
 			}
 			else
 			{
 				copySubResource(*this, m_lockResource.get(), subResourceIndex);
 				notifyLock(subResourceIndex);
+				m_lockData[subResourceIndex].isRefLocked = false;
 			}
 			m_lockData[subResourceIndex].isVidMemUpToDate = true;
 		}
@@ -883,6 +913,7 @@ namespace D3dDdi
 	{
 		if (m_lockResource)
 		{
+			loadFromLockRefResource(subResourceIndex);
 			if (m_lockData[subResourceIndex].isMsaaUpToDate)
 			{
 				resource = *m_msaaSurface.resource;
@@ -921,6 +952,14 @@ namespace D3dDdi
 	{
 		if (m_lockResource)
 		{
+			if (m_lockRefSurface.resource &&
+				(m_lockData[subResourceIndex].isMsaaResolvedUpToDate || m_lockData[subResourceIndex].isMsaaUpToDate))
+			{
+				loadVidMemResource(subResourceIndex);
+				copySubResource(*m_lockRefSurface.resource, m_handle, subResourceIndex);
+				m_lockData[subResourceIndex].isRefLocked = true;
+			}
+
 			loadSysMemResource(subResourceIndex);
 			clearUpToDateFlags(subResourceIndex);
 			m_lockData[subResourceIndex].isSysMemUpToDate = true;
@@ -1270,7 +1309,8 @@ namespace D3dDdi
 	{
 		if (m_isSurfaceRepoResource || D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || D3DDDIFMT_P8 == m_fixedData.Format ||
 			m_fixedData.Flags.MatchGdiPrimary ||
-			!m_isPrimary && !m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
+			!m_isPrimary && !m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer ||
+			!m_fixedData.Flags.ZBuffer && !m_lockResource)
 		{
 			return;
 		}
@@ -1297,11 +1337,13 @@ namespace D3dDdi
 				}
 				m_lockData[i].isMsaaUpToDate = false;
 				m_lockData[i].isMsaaResolvedUpToDate = false;
+				m_lockData[i].isRefLocked = false;
 			}
 		}
 
 		m_msaaSurface = {};
 		m_msaaResolvedSurface = {};
+		m_lockRefSurface = {};
 
 		if (D3DDDIMULTISAMPLE_NONE != msaa.first || m_fixedData.Format != formatConfig ||
 			static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
@@ -1343,6 +1385,13 @@ namespace D3dDdi
 					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
 						scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig),
 						DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+				}
+
+				if (m_msaaResolvedSurface.resource)
+				{
+					SurfaceRepository::get(m_device.getAdapter()).getSurface(m_lockRefSurface,
+						m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height, getPixelFormat(m_fixedData.Format),
+						DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				}
 			}
 		}
