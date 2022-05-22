@@ -76,7 +76,7 @@ namespace DDraw
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
 			g_monitorRect = {};
 			RealPrimarySurface::release();
 			return result;

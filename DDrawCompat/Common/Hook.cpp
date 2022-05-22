@@ -131,9 +131,7 @@ namespace
 		BYTE* targetFunc = static_cast<BYTE*>(origFuncPtr);
 
 		std::ostringstream oss;
-#ifdef DEBUGLOGS
 		oss << Compat::funcPtrToStr(targetFunc) << ' ';
-#endif
 
 		char origFuncPtrStr[20] = {};
 		if (!funcName)
@@ -170,16 +168,15 @@ namespace
 			{
 				break;
 			}
-#ifdef DEBUGLOGS
+
 			Compat::LogStream(oss) << Compat::hexDump(prevTargetFunc, instructionSize) << " -> "
 				<< Compat::funcPtrToStr(targetFunc) << ' ';
-#endif
 			prevTargetFunc = targetFunc;
 		}
 
 		if (Compat::getModuleHandleFromAddress(targetFunc) == Dll::g_currentModule)
 		{
-			Compat::Log() << "ERROR: Target function is already hooked: " << funcName;
+			LOG_INFO << "ERROR: Target function is already hooked: " << funcName;
 			return;
 		}
 
@@ -241,7 +238,7 @@ namespace
 		auto dbgEng = LoadLibraryW((Compat::getSystemPath() / "dbgeng.dll").c_str());
 		if (!dbgEng)
 		{
-			Compat::Log() << "ERROR: DbgEng: failed to load library";
+			LOG_INFO << "ERROR: DbgEng: failed to load library";
 			return false;
 		}
 
@@ -250,7 +247,7 @@ namespace
 		auto debugCreate = reinterpret_cast<decltype(&DebugCreate)>(Compat::getProcAddress(dbgEng, "DebugCreate"));
 		if (!debugCreate)
 		{
-			Compat::Log() << "ERROR: DbgEng: DebugCreate not found";
+			LOG_INFO << "ERROR: DbgEng: DebugCreate not found";
 			return false;
 		}
 
@@ -260,14 +257,14 @@ namespace
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugSymbols, reinterpret_cast<void**>(&g_debugSymbols))) ||
 			FAILED(result = g_debugClient->QueryInterface(IID_IDebugDataSpaces4, reinterpret_cast<void**>(&g_debugDataSpaces))))
 		{
-			Compat::Log() << "ERROR: DbgEng: object creation failed: " << Compat::hex(result);
+			LOG_INFO << "ERROR: DbgEng: object creation failed: " << Compat::hex(result);
 			return false;
 		}
 
 		result = g_debugClient->OpenDumpFileWide(Compat::getModulePath(Dll::g_currentModule).c_str(), 0);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: DbgEng: OpenDumpFile failed: " << Compat::hex(result);
+			LOG_INFO << "ERROR: DbgEng: OpenDumpFile failed: " << Compat::hex(result);
 			return false;
 		}
 
@@ -275,7 +272,7 @@ namespace
 		result = g_debugControl->WaitForEvent(0, INFINITE);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: DbgEng: WaitForEvent failed: " << Compat::hex(result);
+			LOG_INFO << "ERROR: DbgEng: WaitForEvent failed: " << Compat::hex(result);
 			return false;
 		}
 
@@ -283,7 +280,7 @@ namespace
 		result = g_debugSymbols->GetModuleParameters(1, 0, 0, &dmp);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: DbgEng: GetModuleParameters failed: " << Compat::hex(result);
+			LOG_INFO << "ERROR: DbgEng: GetModuleParameters failed: " << Compat::hex(result);
 			return false;
 		}
 
@@ -291,7 +288,7 @@ namespace
 		result = g_debugDataSpaces->GetValidRegionVirtual(dmp.Base, dmp.Size, &g_debugBase, &size);
 		if (FAILED(result) || 0 == g_debugBase)
 		{
-			Compat::Log() << "ERROR: DbgEng: GetValidRegionVirtual failed: " << Compat::hex(result);
+			LOG_INFO << "ERROR: DbgEng: GetValidRegionVirtual failed: " << Compat::hex(result);
 			return false;
 		}
 

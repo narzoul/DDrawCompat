@@ -5,10 +5,6 @@
       <Configuration>Debug</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="ReleaseWithDebugLogs|Win32">
-      <Configuration>ReleaseWithDebugLogs</Configuration>
-      <Platform>Win32</Platform>
-    </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
       <Configuration>Release</Configuration>
       <Platform>Win32</Platform>
@@ -36,13 +32,6 @@
     <CharacterSet>NotSet</CharacterSet>
     <SpectreMitigation>false</SpectreMitigation>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'" Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
-    <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
-    <CharacterSet>NotSet</CharacterSet>
-    <SpectreMitigation>false</SpectreMitigation>
-  </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
   <ImportGroup Label="ExtensionSettings">
   </ImportGroup>
@@ -52,9 +41,6 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
-  </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -72,22 +58,14 @@
     <IntDir>$(SolutionDir)Build\$(Configuration)\</IntDir>
     <MultiProcFXC>true</MultiProcFXC>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">
-    <TargetName>ddraw</TargetName>
-    <LinkIncremental>false</LinkIncremental>
-    <GenerateManifest>false</GenerateManifest>
-    <IntDir>$(SolutionDir)Build\$(Configuration)\</IntDir>
-    <MultiProcFXC>true</MultiProcFXC>
-  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <PrecompiledHeader>
       </PrecompiledHeader>
       <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>DEBUGLOGS;WIN32_LEAN_AND_MEAN;CINTERFACE;_NO_DDRAWINT_NO_COM;PSAPI_VERSION=1;WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32_LEAN_AND_MEAN;CINTERFACE;_NO_DDRAWINT_NO_COM;PSAPI_VERSION=1;WIN32;_DEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <MinimalRebuild>false</MinimalRebuild>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
       <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
@@ -111,9 +89,9 @@
       <VariableName>g_ps%(Filename)</VariableName>
     </FxCompile>
     <FxCompile>
+      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
       <ObjectFileOutput />
       <ShaderModel>2.0</ShaderModel>
-      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
       <ShaderType>Pixel</ShaderType>
       <DisableOptimizations>false</DisableOptimizations>
     </FxCompile>
@@ -127,6 +105,7 @@
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir)</AdditionalIncludeDirectories>
     </ClCompile>
@@ -148,46 +127,8 @@
     </FxCompile>
     <FxCompile>
       <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
-    </FxCompile>
-    <FxCompile>
       <ObjectFileOutput />
       <ShaderModel>2.0</ShaderModel>
-      <ShaderType>Pixel</ShaderType>
-    </FxCompile>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">
-    <ClCompile>
-      <PrecompiledHeader>
-      </PrecompiledHeader>
-      <WarningLevel>Level4</WarningLevel>
-      <PreprocessorDefinitions>DEBUGLOGS;WIN32_LEAN_AND_MEAN;CINTERFACE;_NO_DDRAWINT_NO_COM;PSAPI_VERSION=1;WIN32;NDEBUG;_WINDOWS;_USRDLL;DDRAWCOMPAT_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <ObjectFileName>$(IntDir)%(RelativeDir)</ObjectFileName>
-      <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(IntDir)</AdditionalIncludeDirectories>
-    </ClCompile>
-    <Link>
-      <AdditionalDependencies>dwmapi.lib;dxguid.lib;imm32.lib;msimg32.lib;oleacc.lib;uxtheme.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <GenerateDebugInformation>DebugFull</GenerateDebugInformation>
-      <OptimizeReferences>true</OptimizeReferences>
-      <ImportLibrary>$(IntDir)$(TargetName).lib</ImportLibrary>
-    </Link>
-    <PreBuildEvent>
-      <Command>powershell.exe -NonInteractive -NoProfile -ExecutionPolicy Unrestricted -File genversion.ps1 "$(IntDir)version.h"</Command>
-      <Message>Generating version information</Message>
-    </PreBuildEvent>
-    <ResourceCompile>
-      <AdditionalIncludeDirectories>$(IntDir)</AdditionalIncludeDirectories>
-      <PreprocessorDefinitions>SPECIALBUILD=\"$(Configuration)\"</PreprocessorDefinitions>
-    </ResourceCompile>
-    <FxCompile>
-      <VariableName>g_ps%(Filename)</VariableName>
-    </FxCompile>
-    <FxCompile>
-      <ObjectFileOutput />
-      <ShaderModel>2.0</ShaderModel>
-      <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
       <ShaderType>Pixel</ShaderType>
     </FxCompile>
   </ItemDefinitionGroup>
@@ -229,6 +170,7 @@
     <ClInclude Include="Config\Settings\DisplayResolution.h" />
     <ClInclude Include="Config\Settings\ForceD3D9On12.h" />
     <ClInclude Include="Config\Settings\FullscreenMode.h" />
+    <ClInclude Include="Config\Settings\LogLevel.h" />
     <ClInclude Include="Config\Settings\RemoveBorders.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
@@ -471,11 +413,9 @@
     <FxCompile Include="Shaders\TextureSampler.hlsl" />
     <FxCompile Include="Shaders\VertexFixup.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">Vertex</ShaderType>
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">g_vs%(Filename)</VariableName>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">g_vs%(Filename)</VariableName>
-      <VariableName Condition="'$(Configuration)|$(Platform)'=='ReleaseWithDebugLogs|Win32'">g_vs%(Filename)</VariableName>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

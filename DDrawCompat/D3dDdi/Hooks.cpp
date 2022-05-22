@@ -79,7 +79,7 @@ namespace
 					static std::set<HMODULE> hookedModules;
 					if (hookedModules.find(hModule) == hookedModules.end())
 					{
-						Compat::Log() << "Hooking user mode display driver: " << Compat::funcPtrToStr(g_origOpenAdapter);
+						LOG_INFO << "Hooking user mode display driver: " << Compat::funcPtrToStr(g_origOpenAdapter);
 						Dll::pinModule(hModule);
 						hookedModules.insert(hModule);
 					}

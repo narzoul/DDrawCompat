@@ -277,7 +277,7 @@ namespace DDraw
 
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
 			g_monitorRect = {};
 			return result;
 		}

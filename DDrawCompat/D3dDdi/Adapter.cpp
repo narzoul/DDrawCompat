@@ -23,9 +23,9 @@ namespace
 
 		if (result.empty())
 		{
-			return "\"\"";
+			return "none";
 		}
-		return '"' + result.substr(2) + '"';
+		return result.substr(2);
 	}
 }
 
@@ -55,8 +55,8 @@ namespace D3dDdi
 		info.formatOps = getFormatOps();
 		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.formatOps);
 
-		Compat::Log() << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
-		Compat::Log() << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
+		LOG_INFO << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
+		LOG_INFO << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
 		LOG_DEBUG << "Supported resource formats:";
 		for (const auto& formatOp : info.formatOps)
 		{

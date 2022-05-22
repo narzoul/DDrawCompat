@@ -54,7 +54,7 @@ namespace Win32
 
 				if (0 == cpuAffinity || !CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), cpuAffinity))
 				{
-					Compat::Log() << (0 == cpuAffinity ? "Invalid" : "Failed to set") << " CPU affinity, falling back to default";
+					LOG_INFO << (0 == cpuAffinity ? "Invalid" : "Failed to set") << " CPU affinity, falling back to default";
 					Config::cpuAffinity.reset();
 					CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), Config::cpuAffinity.get());
 				}

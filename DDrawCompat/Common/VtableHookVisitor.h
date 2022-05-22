@@ -17,12 +17,10 @@ template <auto memberPtr, typename Vtable>
 constexpr auto getCompatFunc(Vtable*)
 {
 	auto func = getCompatVtable<Vtable>().*memberPtr;
-#ifdef DEBUGLOGS
 	if (!func)
 	{
 		func = &callOrigFunc<memberPtr>;
 	}
-#endif
 	return func;
 }
 
@@ -52,17 +50,20 @@ public:
 	template <auto memberPtr>
 	void visit([[maybe_unused]] const char* funcName)
 	{
-		if constexpr (getCompatFunc<memberPtr, Vtable>())
+		if constexpr (!(getCompatVtable<Vtable>().*memberPtr))
 		{
-			if (m_vtable.*memberPtr)
+			if (Compat::Log::getLogLevel() < Config::Settings::LogLevel::DEBUG)
 			{
-#ifdef DEBUGLOGS
-				s_funcName<memberPtr> = s_vtableTypeName + "::" + funcName;
-				Compat::Log() << "Hooking function: " << s_funcName<memberPtr>
-					<< " (" << Compat::funcPtrToStr(m_vtable.*memberPtr) << ')';
-#endif
-				m_vtable.*memberPtr = &hookFunc<memberPtr>;
+				return;
 			}
+		}
+
+		if (m_vtable.*memberPtr)
+		{
+			s_funcName<memberPtr> = s_vtableTypeName + "::" + funcName;
+			LOG_DEBUG << "Hooking function: " << s_funcName<memberPtr>
+				<< " (" << Compat::funcPtrToStr(m_vtable.*memberPtr) << ')';
+			m_vtable.*memberPtr = &hookFunc<memberPtr>;
 		}
 	}
 
@@ -101,11 +102,9 @@ private:
 	static std::string s_vtableTypeName;
 };
 
-#ifdef DEBUGLOGS
 template <typename Vtable, typename Lock>
 template <auto memberPtr>
 std::string VtableHookVisitor<Vtable, Lock>::s_funcName;
 
 template <typename Vtable, typename Lock>
 std::string VtableHookVisitor<Vtable, Lock>::s_vtableTypeName(getVtableTypeName());
-#endif

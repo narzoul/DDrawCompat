@@ -323,20 +323,14 @@ namespace
 	template <auto origFunc>
 	void hookGdiDcFunction(const char* moduleName, const char* funcName)
 	{
-#ifdef DEBUGLOGS
 		g_funcName<origFunc> = funcName;
-#endif
-
 		Compat::hookFunction<origFunc>(moduleName, funcName, &compatGdiDcFunc<origFunc>);
 	}
 
 	template <auto origFunc>
 	void hookGdiTextDcFunction(const char* moduleName, const char* funcName)
 	{
-#ifdef DEBUGLOGS
 		g_funcName<origFunc> = funcName;
-#endif
-
 		Compat::hookFunction<origFunc>(moduleName, funcName, &compatGdiTextDcFunc<origFunc>);
 	}
 

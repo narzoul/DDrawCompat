@@ -34,7 +34,7 @@ namespace
 		}
 		else
 		{
-			Compat::Log() << "ERROR: Failed to create a Direct3D object for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a Direct3D object for hooking: " << Compat::hex(result);
 		}
 		return d3d;
 	}
@@ -58,7 +58,7 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &renderTarget.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a render target for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a render target for hooking: " << Compat::hex(result);
 		}
 		return renderTarget;
 	}
@@ -103,7 +103,7 @@ namespace
 			&d3d, IID_IDirect3DRGBDevice, &renderTarget, &d3dDevice.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a Direct3D device for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a Direct3D device for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -130,7 +130,7 @@ namespace
 		HRESULT result = dev->CreateExecuteBuffer(&dev, &desc, &buffer.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create an execute buffer for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create an execute buffer for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -143,7 +143,7 @@ namespace
 		HRESULT result = d3d->CreateLight(&d3d, &light.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a light for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a light for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -156,7 +156,7 @@ namespace
 		HRESULT result = d3d->CreateMaterial(&d3d, &material.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a material for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a material for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -179,7 +179,7 @@ namespace
 		HRESULT result = dd->CreateSurface(&dd, &desc, &texture.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a texture for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a texture for hooking: " << Compat::hex(result);
 			return;
 		}
 
@@ -199,7 +199,7 @@ namespace
 		HRESULT result = d3d->CreateVertexBuffer(&d3d, &desc, &vertexBuffer.getRef(), 0, nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a vertex buffer for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a vertex buffer for hooking: " << Compat::hex(result);
 		}
 
 		Direct3d::Direct3dVertexBuffer::hookVtable(*vertexBuffer.get()->lpVtbl);
@@ -211,7 +211,7 @@ namespace
 		HRESULT result = d3d->CreateViewport(&d3d, &viewport.getRef(), nullptr);
 		if (FAILED(result))
 		{
-			Compat::Log() << "ERROR: Failed to create a Direct3D viewport for hooking: " << Compat::hex(result);
+			LOG_INFO << "ERROR: Failed to create a Direct3D viewport for hooking: " << Compat::hex(result);
 			return;
 		}
 

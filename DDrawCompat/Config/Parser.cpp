@@ -19,11 +19,11 @@ namespace
 
 	void loadConfigFile(const std::string& source, const std::filesystem::path& path)
 	{
-		Compat::Log() << "Loading " << source << " config file: " << path.u8string();
+		LOG_INFO << "Loading " << source << " config file: " << path.u8string();
 		std::ifstream f(path);
 		if (!f.is_open())
 		{
-			Compat::Log() << "  File not found, skipping";
+			LOG_INFO << "  File not found, skipping";
 			return;
 		}
 
@@ -54,7 +54,7 @@ namespace
 			}
 			catch (const Config::ParsingError& error)
 			{
-				Compat::Log() << "  Line #" << lineNumber << ": " << error.what();
+				LOG_INFO << "  Line #" << lineNumber << ": " << error.what();
 			}
 		}
 	}
@@ -120,14 +120,14 @@ namespace Config
 				}
 			}
 
-			Compat::Log() << "Final configuration:";
+			LOG_INFO << "Final configuration:";
 			for (const auto& setting : getSettings())
 			{
 				std::string name(setting.second.getName());
 				name.insert(name.end(), maxNameLength - name.length(), ' ');
 				std::string source(setting.second.getSource());
 				source.insert(source.end(), maxSourceLength - source.length(), ' ');
-				Compat::Log() << "  [" << source << "] " << name << " = " << setting.second.getValueStr();
+				LOG_INFO << "  [" << source << "] " << name << " = " << setting.second.getValueStr();
 			}
 		}
 

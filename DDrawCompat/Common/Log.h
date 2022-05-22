@@ -10,28 +10,22 @@
 
 #include <Windows.h>
 
-#include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/LogLevel.h>
 #include <DDraw/Log.h>
 #include <Win32/Log.h>
 
-#ifdef DEBUGLOGS
-#define LOG_DEBUG Compat::Log()
+#define LOG_INFO Compat::Log(Config::Settings::LogLevel::INFO)
+#define LOG_DEBUG Compat::Log(Config::Settings::LogLevel::DEBUG)
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_FUNC_CUSTOM(funcPtr, ...) Compat::LogFunc<funcPtr> logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)
-#else
-#define LOG_DEBUG if constexpr (false) Compat::Log()
-#define LOG_FUNC(...)
-#define LOG_FUNC_CUSTOM(funcPtr, ...)
-#define LOG_RESULT(...) __VA_ARGS__
-#endif
 
 #define LOG_ONCE(msg) \
 	{ \
 		static bool isAlreadyLogged = false; \
 		if (!isAlreadyLogged) \
 		{ \
-			Compat::Log() << msg; \
+			LOG_INFO << msg; \
 			isAlreadyLogged = true; \
 		} \
 	}
@@ -245,28 +239,34 @@ namespace Compat
 	class Log
 	{
 	public:
-		Log();
+		Log(bool isEnabled);
+		Log(unsigned logLevel);
 		~Log();
 
 		template <typename T>
 		Log& operator<<(const T& t)
 		{
-			LogStream(s_logFile) << t;
+			if (m_isEnabled)
+			{
+				LogStream(*s_logStream) << t;
+			}
 			return *this;
 		}
 
-		static void initLogging(std::filesystem::path processPath);
+		static unsigned getLogLevel() { return s_logLevel; }
+		static void initLogging(std::filesystem::path processPath, unsigned logLevel);
 		static bool isLeaveLog() { return s_isLeaveLog; }
 
 	private:
 		friend class LogFuncBase;
 
-		ScopedCriticalSection m_lock;
+		bool m_isEnabled;
 
 		static thread_local DWORD s_indent;
 
 		static bool s_isLeaveLog;
-		static std::ofstream s_logFile;
+		static unsigned s_logLevel;
+		static std::ostream* s_logStream;
 	};
 
 	template <auto funcPtr, int paramIndex, typename = decltype(funcPtr)>
@@ -315,7 +315,10 @@ namespace Compat
 		template <typename T>
 		T setResult(T result)
 		{
-			m_logResult = [=](Log& log) { log << std::hex << result << std::dec; };
+			if (m_isEnabled)
+			{
+				m_logResult = [=](Log& log) { log << std::hex << result << std::dec; };
+			}
 			return result;
 		}
 
@@ -324,28 +327,18 @@ namespace Compat
 		LogFuncBase(const char* funcName, std::function<void(Log&)> logParams)
 			: m_funcName(funcName)
 			, m_logParams(logParams)
+			, m_isEnabled(Log::s_logLevel >= Config::Settings::LogLevel::DEBUG)
 		{
-			Log log;
-			log << "> ";
-			logCall(log);
-			Log::s_indent += 2;
-		}
-
-		~LogFuncBase()
-		{
-			Log::s_isLeaveLog = true;
-			Log::s_indent -= 2;
-			Log log;
-			log << "< ";
-			logCall(log);
-
-			if (m_logResult)
+			if (m_isEnabled)
 			{
-				log << " = ";
-				m_logResult(log);
+				Log log(Config::Settings::LogLevel::DEBUG);
+				log << "> ";
+				logCall(log);
+				Log::s_indent += 2;
 			}
-			Log::s_isLeaveLog = false;
 		}
+
+		~LogFuncBase();
 
 		template <typename Param>
 		auto packParam(Param&& param)
@@ -377,6 +370,7 @@ namespace Compat
 		const char* m_funcName;
 		std::function<void(Log&)> m_logParams;
 		std::function<void(Log&)> m_logResult;
+		bool m_isEnabled;
 	};
 
 	template <auto funcPtr = nullptr>

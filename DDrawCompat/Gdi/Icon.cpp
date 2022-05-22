@@ -51,10 +51,7 @@ namespace
 	template <auto origFunc>
 	void hookIconFunc(const char* moduleName, const char* funcName)
 	{
-#ifdef DEBUGLOGS
 		g_funcName<origFunc> = funcName;
-#endif
-
 		Compat::hookFunction<origFunc>(moduleName, funcName, &iconFunc<origFunc>);
 	}
 

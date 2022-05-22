@@ -72,7 +72,7 @@ namespace
 			"DDrawCompatMessageWindow", nullptr, 0, 0, 0, 0, 0, HWND_MESSAGE, nullptr, nullptr, nullptr);
 		if (!g_messageWindow)
 		{
-			Compat::Log() << "ERROR: Failed to create a message-only window";
+			LOG_INFO << "ERROR: Failed to create a message-only window";
 			return 0;
 		}
 

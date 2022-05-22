@@ -378,7 +378,7 @@ namespace
 		HMODULE module = Compat::getModuleHandleFromAddress(wndProc);
 		if (module != GetModuleHandle("ntdll") && module != GetModuleHandle("user32"))
 		{
-			Compat::Log() << "Failed to hook a user32 window procedure: " << className;
+			LOG_INFO << "Failed to hook a user32 window procedure: " << className;
 			return;
 		}
 

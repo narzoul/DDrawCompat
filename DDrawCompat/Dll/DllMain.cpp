@@ -70,11 +70,11 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
-			Compat::Log() << "Installing display mode hooks";
+			LOG_INFO << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks();
-			Compat::Log() << "Installing registry hooks";
+			LOG_INFO << "Installing registry hooks";
 			Win32::Registry::installHooks();
-			Compat::Log() << "Installing Direct3D driver hooks";
+			LOG_INFO << "Installing Direct3D driver hooks";
 			D3dDdi::installHooks();
 			Gdi::VirtualScreen::init();
 
@@ -82,7 +82,7 @@ namespace
 			HRESULT result = CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
 			if (FAILED(result))
 			{
-				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
+				LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
 				return;
 			}
 
@@ -91,7 +91,7 @@ namespace
 				nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
 			if (FAILED(result))
 			{
-				Compat::Log() << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
+				LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
 				return;
 			}
 
@@ -104,19 +104,19 @@ namespace
 			}
 			if (FAILED(result))
 			{
-				Compat::Log() << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
+				LOG_INFO << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
 				return;
 			}
 
-			Compat::Log() << "Installing DirectDraw hooks";
+			LOG_INFO << "Installing DirectDraw hooks";
 			DDraw::installHooks(dd7);
-			Compat::Log() << "Installing Direct3D hooks";
+			LOG_INFO << "Installing Direct3D hooks";
 			Direct3d::installHooks(dd, dd7);
-			Compat::Log() << "Installing GDI hooks";
+			LOG_INFO << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::closeDbgEng();
 			Gdi::GuiThread::start();
-			Compat::Log() << "Finished installing hooks";
+			LOG_INFO << "Finished installing hooks";
 			isAlreadyInstalled = true;
 		}
 	}
@@ -143,7 +143,7 @@ namespace
 
 	void printEnvironmentVariable(const char* var)
 	{
-		Compat::Log() << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
+		LOG_INFO << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
 	}
 
 	void setDpiAwareness()
@@ -189,26 +189,26 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		auto processPath(Compat::getModulePath(nullptr));
-		Compat::Log::initLogging(processPath);
-		Compat::Log() << "Process path: " << processPath.u8string();
+		LOG_INFO << "Process path: " << processPath.u8string();
 
 		auto currentDllPath(Compat::getModulePath(hinstDLL));
-		Compat::Log() << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
+		LOG_INFO << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
 		printEnvironmentVariable("__COMPAT_LAYER");
 
 		Config::Parser::loadAllConfigFiles(processPath);
+		Compat::Log::initLogging(processPath, Config::logLevel.get());
 
 		auto systemPath(Compat::getSystemPath());
 		if (Compat::isEqual(currentDllPath.parent_path(), systemPath))
 		{
-			Compat::Log() << "DDrawCompat cannot be installed in the Windows system directory";
+			LOG_INFO << "DDrawCompat cannot be installed in the Windows system directory";
 			return FALSE;
 		}
 
 		Dll::g_origDDrawModule = LoadLibraryW((systemPath / "ddraw.dll").c_str());
 		if (!Dll::g_origDDrawModule)
 		{
-			Compat::Log() << "ERROR: Failed to load system ddraw.dll from " << systemPath.u8string();
+			LOG_INFO << "ERROR: Failed to load system ddraw.dll from " << systemPath.u8string();
 			return FALSE;
 		}
 
@@ -247,11 +247,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
 		}
 
-		Compat::Log() << "DDrawCompat loaded successfully";
+		LOG_INFO << "DDrawCompat loaded successfully";
 	}
 	else if (fdwReason == DLL_PROCESS_DETACH)
 	{
-		Compat::Log() << "DDrawCompat detached successfully";
+		LOG_INFO << "DDrawCompat detached successfully";
 	}
 	else if (fdwReason == DLL_THREAD_DETACH)
 	{
