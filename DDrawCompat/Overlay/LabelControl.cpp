@@ -27,7 +27,10 @@ namespace Overlay
 
 	void LabelControl::setColor(COLORREF color)
 	{
-		m_color = color;
-		invalidate();
+		if (m_color != color)
+		{
+			m_color = color;
+			invalidate();
+		}
 	}
 }

@@ -567,6 +567,9 @@
     <ClInclude Include="Config\Settings\LogLevel.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Overlay\ButtonControl.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -892,6 +895,9 @@
     </ClCompile>
     <ClCompile Include="Win32\Version.cpp">
       <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\ButtonControl.cpp">
+      <Filter>Source Files\Overlay</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

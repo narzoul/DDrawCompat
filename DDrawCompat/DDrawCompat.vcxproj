@@ -273,6 +273,7 @@
     <ClInclude Include="Gdi\WinProc.h" />
     <ClInclude Include="Input\HotKey.h" />
     <ClInclude Include="Input\Input.h" />
+    <ClInclude Include="Overlay\ButtonControl.h" />
     <ClInclude Include="Overlay\ComboBoxControl.h" />
     <ClInclude Include="Overlay\ComboBoxDropDown.h" />
     <ClInclude Include="Overlay\ConfigWindow.h" />
@@ -383,6 +384,7 @@
     <ClCompile Include="Gdi\WinProc.cpp" />
     <ClCompile Include="Input\HotKey.cpp" />
     <ClCompile Include="Input\Input.cpp" />
+    <ClCompile Include="Overlay\ButtonControl.cpp" />
     <ClCompile Include="Overlay\ComboBoxControl.cpp" />
     <ClCompile Include="Overlay\ComboBoxDropDown.cpp" />
     <ClCompile Include="Overlay\ConfigWindow.cpp" />

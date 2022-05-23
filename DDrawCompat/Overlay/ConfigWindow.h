@@ -2,6 +2,8 @@
 
 #include <list>
 
+#include <Overlay/ButtonControl.h>
+#include <Overlay/LabelControl.h>
 #include <Overlay/SettingControl.h>
 #include <Overlay/Window.h>
 
@@ -17,10 +19,14 @@ namespace Overlay
 		void setFocus(SettingControl* control);
 
 	private:
+		static void onClose(Control& control);
+
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 
 		void addControl(Config::Setting& setting);
 
+		LabelControl m_caption;
+		ButtonControl m_closeButton;
 		std::list<SettingControl> m_controls;
 		SettingControl* m_focus;
 	};

@@ -5,10 +5,20 @@
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
 
+namespace
+{
+	const int CAPTION_HEIGHT = 22;
+}
+
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 300 }, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 330 }, Config::configHotKey.get())
+		, m_caption(*this, { 0, 0, SettingControl::TOTAL_WIDTH - CAPTION_HEIGHT + 1, CAPTION_HEIGHT },
+			"DDrawCompat Config Overlay", 0, WS_BORDER | WS_VISIBLE)
+		, m_closeButton(*this,
+			{ SettingControl::TOTAL_WIDTH - CAPTION_HEIGHT, 0, SettingControl::TOTAL_WIDTH, CAPTION_HEIGHT },
+			"X", onClose)
 		, m_focus(nullptr)
 	{
 		addControl(Config::alternatePixelCenter);
@@ -30,6 +40,7 @@ namespace Overlay
 		const int rowHeight = 25;
 
 		RECT rect = { 0, index * rowHeight + BORDER / 2, m_rect.right, (index + 1) * rowHeight + BORDER / 2 };
+		OffsetRect(&rect, 0, m_caption.getRect().bottom);
 		m_controls.emplace_back(*this, rect, setting);
 	}
 
@@ -39,6 +50,11 @@ namespace Overlay
 		OffsetRect(&r, monitorRect.left + (monitorRect.right - monitorRect.left - r.right) / 2,
 			monitorRect.top + (monitorRect.bottom - monitorRect.top - r.bottom) / 2);
 		return r;
+	}
+
+	void ConfigWindow::onClose(Control& control)
+	{
+		static_cast<ConfigWindow*>(control.getParent())->setVisible(false);
 	}
 
 	void ConfigWindow::setFocus(SettingControl* control)
