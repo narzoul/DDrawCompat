@@ -9,6 +9,8 @@
 
 namespace
 {
+	std::filesystem::path g_overlayConfigPath;
+
 	void setConfig(const std::string& name, const std::string& value, const std::string& source);
 
 	auto& getSettings()
@@ -88,6 +90,11 @@ namespace Config
 {
 	namespace Parser
 	{
+		std::filesystem::path getOverlayConfigPath()
+		{
+			return g_overlayConfigPath;
+		}
+
 		void loadAllConfigFiles(const std::filesystem::path& processPath)
 		{
 			for (auto& setting : getSettings()) {
@@ -103,8 +110,20 @@ namespace Config
 			{
 				processConfigPath.replace_extension();
 			}
+			g_overlayConfigPath = processConfigPath;
 			processConfigPath.replace_filename(L"DDrawCompat-" + processConfigPath.filename().native() + L".ini");
 			loadConfigFile("process", processConfigPath);
+
+			for (auto& setting : getSettings()) {
+				setting.second.setBaseValue();
+			}
+
+			g_overlayConfigPath.replace_filename(L"DDrawCompatOverlay-" + g_overlayConfigPath.filename().native() + L".ini");
+			loadConfigFile("overlay", g_overlayConfigPath);
+
+			for (auto& setting : getSettings()) {
+				setting.second.setExportedValue();
+			}
 
 			std::size_t maxNameLength = 0;
 			std::size_t maxSourceLength = 0;

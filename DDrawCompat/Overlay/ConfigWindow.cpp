@@ -1,4 +1,8 @@
+#include <fstream>
+#include <sstream>
+
 #include <Common/Hook.h>
+#include <Common/Log.h>
 #include <Config/Config.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
@@ -13,14 +17,16 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 330 }, Config::configHotKey.get())
-		, m_caption(*this, { 0, 0, SettingControl::TOTAL_WIDTH - CAPTION_HEIGHT + 1, CAPTION_HEIGHT },
-			"DDrawCompat Config Overlay", 0, WS_BORDER | WS_VISIBLE)
-		, m_closeButton(*this,
-			{ SettingControl::TOTAL_WIDTH - CAPTION_HEIGHT, 0, SettingControl::TOTAL_WIDTH, CAPTION_HEIGHT },
-			"X", onClose)
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 350 }, Config::configHotKey.get())
+		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
+		RECT r = { 0, 0, m_rect.right - CAPTION_HEIGHT + 1, CAPTION_HEIGHT };
+		m_caption.reset(new LabelControl(*this, r, "DDrawCompat Config Overlay", 0, WS_BORDER | WS_VISIBLE));
+
+		r = { m_rect.right - CAPTION_HEIGHT, 0, m_rect.right, CAPTION_HEIGHT };
+		m_captionCloseButton.reset(new ButtonControl(*this, r, "X", onClose));
+
 		addControl(Config::alternatePixelCenter);
 		addControl(Config::bltFilter);
 		addControl(Config::antialiasing);
@@ -32,16 +38,36 @@ namespace Overlay
 		addControl(Config::spriteTexCoord);
 		addControl(Config::textureFilter);
 		addControl(Config::vSync);
+
+		m_closeButton = addButton("Close", onClose);
+		m_exportButton = addButton("Export", onExport);
+		m_importButton = addButton("Import", onImport);
+		m_resetAllButton = addButton("Reset all", onResetAll);
+
+		std::ifstream f(Config::Parser::getOverlayConfigPath());
+		std::ostringstream oss;
+		oss << f.rdbuf();
+		m_fileContent = oss.str();
+
+		updateButtons();
+	}
+
+	std::unique_ptr<ButtonControl> ConfigWindow::addButton(const std::string& label, ButtonControl::ClickHandler clickHandler)
+	{
+		++m_buttonCount;
+		RECT r = { 0, 0, 80, 22 };
+		OffsetRect(&r, m_rect.right - m_buttonCount * (r.right + BORDER), m_rect.bottom - (r.bottom + BORDER));
+		return std::make_unique<ButtonControl>(*this, r, label, clickHandler);
 	}
 
 	void ConfigWindow::addControl(Config::Setting& setting)
 	{
-		const int index = m_controls.size();
+		const int index = m_settingControls.size();
 		const int rowHeight = 25;
 
 		RECT rect = { 0, index * rowHeight + BORDER / 2, m_rect.right, (index + 1) * rowHeight + BORDER / 2 };
-		OffsetRect(&rect, 0, m_caption.getRect().bottom);
-		m_controls.emplace_back(*this, rect, setting);
+		OffsetRect(&rect, 0, CAPTION_HEIGHT);
+		m_settingControls.emplace_back(*this, rect, setting);
 	}
 
 	RECT ConfigWindow::calculateRect(const RECT& monitorRect) const
@@ -52,9 +78,79 @@ namespace Overlay
 		return r;
 	}
 
+	std::string ConfigWindow::constructFileContent()
+	{
+		std::ostringstream oss;
+		for (auto& settingControl : m_settingControls)
+		{
+			const auto& setting = settingControl.getSetting();
+			const auto value = setting.getValueStr();
+			if (value == setting.getBaseValue())
+			{
+				oss << "# ";
+			}
+			oss << setting.getName() << " = " << value << std::endl;
+		}
+		return oss.str();
+	}
+
+	void ConfigWindow::exportSettings()
+	{
+		auto path(Config::Parser::getOverlayConfigPath());
+		std::ofstream f(path);
+		if (f.fail())
+		{
+			LOG_ONCE("ERROR: Failed to open overlay config file for writing: " << path.u8string());
+			return;
+		}
+
+		m_fileContent = constructFileContent();
+		f.write(m_fileContent.c_str(), m_fileContent.length());
+
+		for (auto& settingControl : m_settingControls)
+		{
+			settingControl.getSetting().setExportedValue();
+		}
+
+		updateButtons();
+	}
+
+	void ConfigWindow::importSettings()
+	{
+		for (auto& settingControl : m_settingControls)
+		{
+			settingControl.set(settingControl.getSetting().getExportedValue());
+		}
+		updateButtons();
+	}
+
 	void ConfigWindow::onClose(Control& control)
 	{
 		static_cast<ConfigWindow*>(control.getParent())->setVisible(false);
+	}
+
+	void ConfigWindow::onExport(Control& control)
+	{
+		static_cast<ConfigWindow*>(control.getParent())->exportSettings();
+	}
+
+	void ConfigWindow::onImport(Control& control)
+	{
+		static_cast<ConfigWindow*>(control.getParent())->importSettings();
+	}
+
+	void ConfigWindow::onResetAll(Control& control)
+	{
+		static_cast<ConfigWindow*>(control.getParent())->resetSettings();
+	}
+
+	void ConfigWindow::resetSettings()
+	{
+		for (auto& settingControl : m_settingControls)
+		{
+			settingControl.set(settingControl.getSetting().getBaseValue());
+		}
+		updateButtons();
 	}
 
 	void ConfigWindow::setFocus(SettingControl* control)
@@ -89,5 +185,36 @@ namespace Overlay
 			Window::setVisible(isVisible);
 			setFocus(nullptr);
 		}
+	}
+
+	void ConfigWindow::updateButtons()
+	{
+		if (!m_exportButton)
+		{
+			return;
+		}
+
+		bool enableImport = false;
+		bool enableReset = false;
+
+		for (auto& settingControl : m_settingControls)
+		{
+			const auto& setting = settingControl.getSetting();
+			const auto value = setting.getValueStr();
+
+			if (value != setting.getBaseValue())
+			{
+				enableReset = true;
+			}
+
+			if (value != setting.getExportedValue())
+			{
+				enableImport = true;
+			}
+		}
+
+		m_exportButton->setEnabled(m_fileContent != constructFileContent());
+		m_importButton->setEnabled(enableImport);
+		m_resetAllButton->setEnabled(enableReset);
 	}
 }

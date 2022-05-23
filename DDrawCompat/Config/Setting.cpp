@@ -60,6 +60,16 @@ namespace Config
 		m_source = source;
 	}
 
+	void Setting::setBaseValue()
+	{
+		m_baseValue = getValueStr();
+	}
+
+	void Setting::setExportedValue()
+	{
+		m_exportedValue = getValueStr();
+	}
+
 	void Setting::setParam(const std::string& param)
 	{
 		const auto paramInfo = getParamInfo();

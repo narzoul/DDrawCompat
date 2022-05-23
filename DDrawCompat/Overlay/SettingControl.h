@@ -31,6 +31,9 @@ namespace Overlay
 		virtual void onLButtonDown(POINT pos) override;
 		virtual void onNotify(Control& control) override;
 
+		Config::Setting& getSetting() const { return m_setting; }
+		void set(const std::string& value);
+
 	private:
 		ComboBoxControl& getValueComboBox() const;
 		void onParamChanged();

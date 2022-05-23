@@ -59,6 +59,7 @@ namespace Overlay
 		}
 		else
 		{
+			configWindow->updateButtons();
 			configWindow->setFocus(nullptr);
 			configWindow->onMouseMove(pos);
 		}
@@ -119,6 +120,15 @@ namespace Overlay
 			r.right = r.left + PARAM_CONTROL_WIDTH;
 			m_paramControl.reset(new ScrollBarControl(*this, r, paramInfo.min, paramInfo.max));
 			m_paramControl->setPos(m_setting.getParam());
+		}
+	}
+
+	void SettingControl::set(const std::string& value)
+	{
+		if (m_setting.getValueStr() != value)
+		{
+			getValueComboBox().setValue(value);
+			onNotify(*m_valueControl);
 		}
 	}
 }

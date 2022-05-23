@@ -39,10 +39,12 @@ namespace Overlay
 			{
 				OffsetRect(&r, -r.left, -r.top);
 			}
+			SetDCPenColor(dc, isEnabled() ? FOREGROUND_COLOR : DISABLED_COLOR);
 			CALL_ORIG_FUNC(Rectangle)(dc, r.left, r.top, r.right, r.bottom);
+			SetDCPenColor(dc, FOREGROUND_COLOR);
 		}
 
-		if (m_highlightedChild)
+		if (m_highlightedChild && m_highlightedChild->isEnabled())
 		{
 			RECT r = m_highlightedChild->getHighlightRect();
 			SetDCPenColor(dc, HIGHLIGHT_COLOR);
@@ -112,6 +114,20 @@ namespace Overlay
 		}
 	}
 
+	bool Control::isEnabled() const
+	{
+		return !(m_style & WS_DISABLED) && (!m_parent || m_parent->isEnabled());
+	}
+
+	void Control::setEnabled(bool isEnabled)
+	{
+		if (!(m_style & WS_DISABLED) != isEnabled)
+		{
+			m_style = isEnabled ? (m_style & ~WS_DISABLED) : (m_style | WS_DISABLED);
+			invalidate();
+		}
+	}
+
 	void Control::onLButtonDown(POINT pos)
 	{
 		propagateMouseEvent(&Control::onLButtonDown, pos);
@@ -124,6 +140,11 @@ namespace Overlay
 
 	void Control::onMouseMove(POINT pos)
 	{
+		if (m_style & WS_DISABLED)
+		{
+			return;
+		}
+
 		auto prevHighlightedChild = m_highlightedChild;
 		m_highlightedChild = nullptr;
 		propagateMouseEvent(&Control::onMouseMove, pos);
@@ -140,6 +161,11 @@ namespace Overlay
 
 	void Control::propagateMouseEvent(void(Control::* onEvent)(POINT), POINT pos)
 	{
+		if (m_style & WS_DISABLED)
+		{
+			return;
+		}
+
 		for (auto child : m_children)
 		{
 			if (PtInRect(&child->m_rect, pos))

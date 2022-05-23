@@ -28,6 +28,8 @@ namespace Config
 		virtual ParamInfo getParamInfo() const { return {}; }
 		virtual std::string getValueStr() const = 0;
 
+		const std::string& getBaseValue() const { return m_baseValue; }
+		const std::string& getExportedValue() const { return m_exportedValue; }
 		const std::string& getName() const { return m_name; }
 		int getParam() const { return m_param; }
 		const std::string& getSource() const { return m_source; }
@@ -35,6 +37,8 @@ namespace Config
 		void reset();
 		void set(const std::string& value);
 		void set(const std::string& value, const std::string& source);
+		void setBaseValue();
+		void setExportedValue();
 
 	protected:
 		virtual void setValue(const std::string& value) = 0;
@@ -47,5 +51,7 @@ namespace Config
 		std::string m_name;
 		std::string m_default;
 		std::string m_source;
+		std::string m_baseValue;
+		std::string m_exportedValue;
 	};
 }

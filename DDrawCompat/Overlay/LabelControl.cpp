@@ -14,10 +14,10 @@ namespace Overlay
 	void LabelControl::draw(HDC dc)
 	{
 		RECT r = { m_rect.left + BORDER, m_rect.top, m_rect.right - BORDER, m_rect.bottom };
-		SetTextColor(dc, m_color);
+		auto prevColor = SetTextColor(dc, (FOREGROUND_COLOR == m_color && !isEnabled()) ? DISABLED_COLOR : m_color );
 		CALL_ORIG_FUNC(DrawTextA)(dc, m_label.c_str(), m_label.size(), &r,
 			m_format | DT_NOCLIP | DT_SINGLELINE | DT_VCENTER);
-		SetTextColor(dc, FOREGROUND_COLOR);
+		SetTextColor(dc, prevColor);
 	}
 
 	void LabelControl::onLButtonDown(POINT /*pos*/)

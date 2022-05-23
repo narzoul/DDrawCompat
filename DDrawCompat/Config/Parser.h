@@ -18,6 +18,7 @@ namespace Config
 
 	namespace Parser
 	{
+		std::filesystem::path getOverlayConfigPath();
 		void loadAllConfigFiles(const std::filesystem::path& processPath);
 		SIZE parseResolution(const std::string& value);
 		int parseInt(const std::string& value, int min, int max);

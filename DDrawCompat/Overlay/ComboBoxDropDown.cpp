@@ -51,7 +51,7 @@ namespace Overlay
 	void ComboBoxDropDown::onNotify(Control& control)
 	{
 		m_parent.setValue(static_cast<LabelControl&>(control).getLabel());
-		m_parent.getParent()->onNotify(*m_parent.getParent());
+		m_parent.getParent()->onNotify(m_parent);
 	}
 
 	void ComboBoxDropDown::select(const std::string& value)
