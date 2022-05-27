@@ -81,6 +81,8 @@ namespace D3dDdi
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltViaCpu(D3DDDIARG_BLT data, Resource& srcResource);
 		HRESULT bltViaGpu(D3DDDIARG_BLT data, Resource& srcResource);
+		void clearRectExterior(UINT subResourceIndex, const RECT& rect);
+		void clearRectInterior(UINT subResourceIndex, const RECT& rect);
 		void clearUpToDateFlags(UINT subResourceIndex);
 		void clipRect(UINT subResourceIndex, RECT& rect);
 		HRESULT copySubResource(Resource& dstResource, Resource& srcResource, UINT subResourceIndex);

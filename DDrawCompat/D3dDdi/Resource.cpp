@@ -417,6 +417,37 @@ namespace D3dDdi
 		return result;
 	}
 
+	void Resource::clearRectExterior(UINT subResourceIndex, const RECT& rect)
+	{
+		const LONG width = m_fixedData.pSurfList[subResourceIndex].Width;
+		const LONG height = m_fixedData.pSurfList[subResourceIndex].Height;
+		if (rect.left > 0)
+		{
+			clearRectInterior(subResourceIndex, { 0, 0, rect.left, height });
+		}
+		if (rect.right < width)
+		{
+			clearRectInterior(subResourceIndex, { rect.right, 0, width, height });
+		}
+		if (rect.top > 0)
+		{
+			clearRectInterior(subResourceIndex, { rect.left, 0, rect.right, rect.top });
+		}
+		if (rect.bottom < height)
+		{
+			clearRectInterior(subResourceIndex, { rect.left, rect.bottom, rect.right, height });
+		}
+	}
+
+	void Resource::clearRectInterior(UINT subResourceIndex, const RECT& rect)
+	{
+		D3DDDIARG_COLORFILL data = {};
+		data.hResource = m_handle;
+		data.SubResourceIndex = subResourceIndex;
+		data.DstRect = rect;
+		m_device.getOrigVtable().pfnColorFill(m_device, &data);
+	}
+
 	void Resource::clearUpToDateFlags(UINT subResourceIndex)
 	{
 		m_lockData[subResourceIndex].isMsaaUpToDate = false;
@@ -1110,6 +1141,8 @@ namespace D3dDdi
 		{
 			m_device.getShaderBlitter().gammaBlt(*this, data.DstSubResourceIndex, data.DstRect, rtNext, rtNextRect);
 		}
+
+		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 		return S_OK;
 	}
 
