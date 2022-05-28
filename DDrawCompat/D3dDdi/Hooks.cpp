@@ -108,6 +108,11 @@ namespace
 
 	HRESULT openAdapterCommon(D3DDDIARG_OPENADAPTER* pOpenData, std::function<HRESULT()> origOpenAdapter)
 	{
+		if (pOpenData->Interface > 7)
+		{
+			return origOpenAdapter();
+		}
+
 		D3dDdi::ScopedCriticalSection lock;
 		D3dDdi::AdapterCallbacks::hookVtable(*pOpenData->pAdapterCallbacks, pOpenData->Version);
 		HRESULT result = origOpenAdapter();
