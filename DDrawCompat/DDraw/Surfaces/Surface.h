@@ -16,12 +16,16 @@ namespace DDraw
 	class Surface
 	{
 	public:
+		static const DWORD ALIGNMENT = 32;
+
 		virtual HRESULT STDMETHODCALLTYPE QueryInterface(REFIID, LPVOID*);
 		virtual ULONG STDMETHODCALLTYPE AddRef();
 		virtual ULONG STDMETHODCALLTYPE Release();
 
 		Surface(DWORD origCaps);
 		virtual ~Surface();
+
+		static void* alignBuffer(void* buffer);
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 		static HRESULT create(
@@ -44,6 +48,8 @@ namespace DDraw
 
 		virtual void createImpl();
 
+		void fixAlignment(CompatRef<IDirectDrawSurface7> surface);
+
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface2>> m_impl2;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface3>> m_impl3;
@@ -59,5 +65,6 @@ namespace DDraw
 		DWORD m_origCaps;
 		DWORD m_refCount;
 		SIZE m_sizeOverride;
+		std::unique_ptr<void, void(*)(void*)> m_sysMemBuffer;
 	};
 }

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/Antialiasing.h>
@@ -27,6 +28,7 @@
 
 namespace Config
 {
+	extern Settings::AlignSysMemSurfaces alignSysMemSurfaces;
 	extern Settings::AlternatePixelCenter alternatePixelCenter;
 	extern Settings::AltTabFix altTabFix;
 	extern Settings::Antialiasing antialiasing;

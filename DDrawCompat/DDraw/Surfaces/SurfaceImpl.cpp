@@ -1,4 +1,5 @@
 #include <set>
+#include <type_traits>
 
 #include <d3d.h>
 #include <d3dumddi.h>
@@ -253,6 +254,24 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette)
 	{
 		return getOrigVtable(This).SetPalette(This, lpDDPalette);
+	}
+
+	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::SetSurfaceDesc(TSurface* This, TSurfaceDesc* lpddsd, DWORD dwFlags)
+	{
+		if constexpr (!std::is_same_v<TSurface, IDirectDrawSurface> && !std::is_same_v<TSurface, IDirectDrawSurface2>)
+		{
+			HRESULT result = getOrigVtable(This).SetSurfaceDesc(This, lpddsd, dwFlags);
+			if (SUCCEEDED(result) && (lpddsd->dwFlags & DDSD_LPSURFACE))
+			{
+				m_data->m_sysMemBuffer.reset();
+			}
+			return result;
+		}
+		else
+		{
+			return DD_OK;
+		}
 	}
 
 	template <typename TSurface>

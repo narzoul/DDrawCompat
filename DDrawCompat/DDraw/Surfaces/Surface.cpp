@@ -1,6 +1,7 @@
 #include <initguid.h>
 
 #include <Common/CompatPtr.h>
+#include <Config/Config.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
@@ -10,6 +11,14 @@
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
 DEFINE_GUID(IID_CompatSurfacePrivateData,
 	0xc62d8849, 0xdfac, 0x4454, 0xa1, 0xe8, 0xda, 0x67, 0x44, 0x64, 0x26, 0xba);
+
+namespace
+{
+	void heapFree(void* p)
+	{
+		HeapFree(GetProcessHeap(), 0, p);
+	}
+}
 
 namespace DDraw
 {
@@ -37,12 +46,26 @@ namespace DDraw
 		: m_origCaps(origCaps)
 		, m_refCount(0)
 		, m_sizeOverride{}
+		, m_sysMemBuffer(nullptr, &heapFree)
 	{
 	}
 
 	Surface::~Surface()
 	{
 		DirectDrawClipper::setClipper(*this, nullptr);
+	}
+
+	void* Surface::alignBuffer(void* buffer)
+	{
+		auto p = static_cast<BYTE*>(buffer);
+		const DWORD alignmentOffset = Config::alignSysMemSurfaces.get();
+		const DWORD mod = reinterpret_cast<DWORD>(p) % ALIGNMENT;
+		p = p - mod + alignmentOffset;
+		if (mod > alignmentOffset)
+		{
+			p += ALIGNMENT;
+		}
+		return p;
 	}
 
 	void Surface::attach(CompatRef<IDirectDrawSurface7> dds, std::unique_ptr<Surface> privateData)
@@ -82,6 +105,10 @@ namespace DDraw
 				attach(*attachedSurfaces[i], std::make_unique<Surface>(privateData->m_origCaps));
 			}
 		}
+		else if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) && !(desc.dwFlags & DDSD_LPSURFACE))
+		{
+			privateData->fixAlignment(*surface7);
+		}
 
 		attach(*surface7, std::move(privateData));
 
@@ -104,6 +131,39 @@ namespace DDraw
 		m_impl3.reset(new SurfaceImpl<IDirectDrawSurface3>(this));
 		m_impl4.reset(new SurfaceImpl<IDirectDrawSurface4>(this));
 		m_impl7.reset(new SurfaceImpl<IDirectDrawSurface7>(this));
+	}
+
+	void Surface::fixAlignment(CompatRef<IDirectDrawSurface7> surface)
+	{
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		if (FAILED(surface->Lock(&surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		{
+			return;
+		}
+		surface->Unlock(&surface, nullptr);
+
+		const DWORD alignmentOffset = Config::alignSysMemSurfaces.get();
+		const DWORD size = desc.lPitch * desc.dwHeight;
+		if (0 == size || alignmentOffset == reinterpret_cast<DWORD>(desc.lpSurface) % ALIGNMENT)
+		{
+			return;
+		}
+
+		m_sysMemBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size + ALIGNMENT));
+		if (!m_sysMemBuffer)
+		{
+			return;
+		}
+
+		desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_LPSURFACE;
+		desc.lpSurface = alignBuffer(m_sysMemBuffer.get());
+		if (FAILED(surface->SetSurfaceDesc(&surface, &desc, 0)))
+		{
+			m_sysMemBuffer.reset();
+		}
 	}
 
 	template <>

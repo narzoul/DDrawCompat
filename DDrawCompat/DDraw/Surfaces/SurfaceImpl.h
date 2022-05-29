@@ -40,6 +40,7 @@ namespace DDraw
 		virtual HRESULT Restore(TSurface* This);
 		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper);
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette);
+		virtual HRESULT SetSurfaceDesc(TSurface* This, TSurfaceDesc* lpddsd, DWORD dwFlags);
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
 	protected:

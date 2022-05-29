@@ -158,6 +158,7 @@
     <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
+    <ClInclude Include="Config\Settings\AlignSysMemSurfaces.h" />
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
     <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />

@@ -566,6 +566,7 @@ namespace D3dDdi
 			return;
 		}
 
+		const auto ALIGNMENT = DDraw::Surface::ALIGNMENT;
 		std::vector<D3DDDI_SURFACEINFO> surfaceInfo(m_fixedData.SurfCount);
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
@@ -575,21 +576,16 @@ namespace D3dDdi
 			if (i != 0)
 			{
 				std::uintptr_t offset = reinterpret_cast<std::uintptr_t>(surfaceInfo[i - 1].pSysMem) +
-					((surfaceInfo[i - 1].SysMemPitch * surfaceInfo[i - 1].Height + 15) & ~15);
+					((surfaceInfo[i - 1].SysMemPitch * surfaceInfo[i - 1].Height + ALIGNMENT - 1) / ALIGNMENT * ALIGNMENT);
 				surfaceInfo[i].pSysMem = reinterpret_cast<void*>(offset);
 			}
 		}
 
 		std::uintptr_t bufferSize = reinterpret_cast<std::uintptr_t>(surfaceInfo.back().pSysMem) +
-			surfaceInfo.back().SysMemPitch * surfaceInfo.back().Height + 8;
+			surfaceInfo.back().SysMemPitch * surfaceInfo.back().Height + ALIGNMENT;
 		m_lockBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bufferSize));
 
-		BYTE* bufferStart = static_cast<BYTE*>(m_lockBuffer.get());
-		if (0 == reinterpret_cast<std::uintptr_t>(bufferStart) % 16)
-		{
-			bufferStart += 8;
-		}
-
+		BYTE* bufferStart = static_cast<BYTE*>(DDraw::Surface::alignBuffer(m_lockBuffer.get()));
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
 			surfaceInfo[i].pSysMem = bufferStart + reinterpret_cast<uintptr_t>(surfaceInfo[i].pSysMem);

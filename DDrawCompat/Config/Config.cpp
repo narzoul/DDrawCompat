@@ -2,6 +2,7 @@
 
 namespace Config
 {
+	Settings::AlignSysMemSurfaces alignSysMemSurfaces;
 	Settings::AlternatePixelCenter alternatePixelCenter;
 	Settings::AltTabFix altTabFix;
 	Settings::Antialiasing antialiasing;

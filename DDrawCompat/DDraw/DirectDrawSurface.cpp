@@ -1,3 +1,5 @@
+#include <type_traits>
+
 #include <Common/CompatVtable.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/ScopedThreadLock.h>
@@ -69,6 +71,11 @@ namespace
 		SET_COMPAT_METHOD(SetClipper);
 		SET_COMPAT_METHOD(SetPalette);
 		SET_COMPAT_METHOD(Unlock);
+
+		if constexpr (!std::is_same_v<Vtable, IDirectDrawSurfaceVtbl> && !std::is_same_v<Vtable, IDirectDrawSurface2Vtbl>)
+		{
+			SET_COMPAT_METHOD(SetSurfaceDesc);
+		}
 	}
 }
 

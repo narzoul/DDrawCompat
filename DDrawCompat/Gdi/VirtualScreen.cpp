@@ -90,7 +90,7 @@ namespace
 		}
 
 		void* bits = nullptr;
-		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, 8);
+		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, Config::alignSysMemSurfaces.get());
 	}
 }
 
@@ -206,7 +206,7 @@ namespace Gdi
 			desc.ddpfPixelFormat = DDraw::DirectDraw::getRgbPixelFormat(g_bpp);
 			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 			desc.lPitch = g_pitch;
-			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + 8 +
+			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + Config::alignSysMemSurfaces.get() +
 				(rect.top - g_bounds.top) * g_pitch +
 				(rect.left - g_bounds.left) * g_bpp / 8;
 			return desc;
