@@ -3,6 +3,7 @@
 #include <functional>
 
 #include <ddraw.h>
+#include <ddrawi.h>
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
@@ -18,15 +19,15 @@ namespace DDraw
 		void suppressEmulatedDirectDraw(GUID*& guid);
 
 		template <typename TDirectDraw>
-		void* getDdObject(TDirectDraw& dd)
+		DDRAWI_DIRECTDRAW_INT& getInt(TDirectDraw& dd)
 		{
-			return reinterpret_cast<void**>(&dd)[1];
+			return reinterpret_cast<DDRAWI_DIRECTDRAW_INT&>(dd);
 		}
 
 		template <typename TDirectDraw>
 		HWND* getDeviceWindowPtr(TDirectDraw& dd)
 		{
-			return &reinterpret_cast<HWND**>(&dd)[1][8];
+			return &reinterpret_cast<HWND>(getInt(dd).lpLcl->hWnd);
 		}
 
 		template <typename Vtable>

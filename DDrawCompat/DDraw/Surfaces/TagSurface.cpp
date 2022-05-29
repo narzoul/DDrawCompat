@@ -6,14 +6,14 @@
 
 namespace
 {
-	std::map<void*, DDraw::TagSurface*> g_ddObjects;
+	std::map<DDRAWI_DIRECTDRAW_LCL*, DDraw::TagSurface*> g_ddObjects;
 }
 
 namespace DDraw
 {
-	TagSurface::TagSurface(DWORD origCaps, void* ddObject)
+	TagSurface::TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl)
 		: Surface(origCaps)
-		, m_ddObject(ddObject)
+		, m_ddLcl(ddLcl)
 		, m_fullscreenWindow(nullptr)
 		, m_fullscreenWindowStyle(0)
 		, m_fullscreenWindowExStyle(0)
@@ -23,7 +23,7 @@ namespace DDraw
 	TagSurface::~TagSurface()
 	{
 		setFullscreenWindow(nullptr);
-		g_ddObjects.erase(m_ddObject);
+		g_ddObjects.erase(m_ddLcl);
 	}
 
 	HRESULT TagSurface::create(CompatRef<IDirectDraw> dd)
@@ -35,9 +35,9 @@ namespace DDraw
 		desc.dwHeight = 1;
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
-		auto ddObject = DDraw::DirectDraw::getDdObject(dd.get());
-		auto privateData(std::make_unique<TagSurface>(desc.ddsCaps.dwCaps, ddObject));
-		g_ddObjects[ddObject] = privateData.get();
+		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
+		auto privateData(std::make_unique<TagSurface>(desc.ddsCaps.dwCaps, ddLcl));
+		g_ddObjects[ddLcl] = privateData.get();
 
 		IDirectDrawSurface* surface = nullptr;
 		return Surface::create(dd, desc, surface, std::move(privateData));
@@ -57,25 +57,20 @@ namespace DDraw
 
 	void TagSurface::forEachDirectDraw(std::function<void(CompatRef<IDirectDraw7>)> callback)
 	{
-		struct DirectDrawInterface
+		for (auto& ddObj : g_ddObjects)
 		{
-			const void* vtable;
-			void* ddObject;
-			DirectDrawInterface* next;
-			DWORD refCount;
-		};
-
-		for (auto ddObj : g_ddObjects)
-		{
-			DirectDrawInterface intf = { &CompatVtable<IDirectDraw7Vtbl>::s_origVtable, ddObj.first, nullptr, 1 };
+			DDRAWI_DIRECTDRAW_INT intf = {};
+			intf.lpVtbl = &CompatVtable<IDirectDraw7Vtbl>::s_origVtable;
+			intf.lpLcl = ddObj.first;
+			intf.dwIntRefCnt = 1;
 			callback(CompatRef<IDirectDraw7>(reinterpret_cast<IDirectDraw7&>(intf)));
 		}
 	}
 
 	TagSurface* TagSurface::get(CompatRef<IDirectDraw> dd)
 	{
-		auto ddObject = DDraw::DirectDraw::getDdObject(dd.get());
-		auto it = g_ddObjects.find(ddObject);
+		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
+		auto it = g_ddObjects.find(ddLcl);
 		if (it != g_ddObjects.end())
 		{
 			return it->second;
@@ -85,7 +80,7 @@ namespace DDraw
 		{
 			return nullptr;
 		}
-		return g_ddObjects[ddObject];
+		return g_ddObjects[ddLcl];
 	}
 
 	void TagSurface::setFullscreenWindow(HWND hwnd)

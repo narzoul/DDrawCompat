@@ -20,8 +20,6 @@
 
 namespace
 {
-	const DWORD SURFACE_LOST_FLAG = 0x10000000;
-
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>
 	HRESULT STDMETHODCALLTYPE CreateSurface(
 		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc, TSurface** lplpDDSurface, IUnknown* pUnkOuter)
@@ -110,12 +108,12 @@ namespace
 	HRESULT WINAPI restoreSurfaceLostFlag(
 		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
 	{
-		auto& surfacesToRestore = *static_cast<std::set<void*>*>(lpContext);
-		auto it = surfacesToRestore.find(DDraw::DirectDrawSurface::getSurfaceObject(*lpDDSurface));
+		auto& surfacesToRestore = *static_cast<std::set<DDRAWI_DDRAWSURFACE_LCL*>*>(lpContext);
+		auto lcl = DDraw::DirectDrawSurface::getInt(*lpDDSurface).lpLcl;
+		auto it = surfacesToRestore.find(lcl);
 		if (it != surfacesToRestore.end())
 		{
-			DWORD& flags = DDraw::DirectDrawSurface::getFlags(*lpDDSurface);
-			flags &= ~SURFACE_LOST_FLAG;
+			lcl->dwFlags &= ~DDRAWISURF_INVALID;
 			surfacesToRestore.erase(it);
 		}
 		return DDENUMRET_OK;
@@ -125,14 +123,14 @@ namespace
 		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
 	{
 		auto& surfacesToRestore = *static_cast<std::set<void*>*>(lpContext);
-		DWORD& flags = DDraw::DirectDrawSurface::getFlags(*lpDDSurface);
-		if (!(flags & SURFACE_LOST_FLAG))
+		auto lcl = DDraw::DirectDrawSurface::getInt(*lpDDSurface).lpLcl;
+		if (!(lcl->dwFlags & DDRAWISURF_INVALID))
 		{
 			auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSurface));
 			if (resource && !resource->getOrigDesc().Flags.MatchGdiPrimary)
 			{
-				flags |= SURFACE_LOST_FLAG;
-				surfacesToRestore.insert(DDraw::DirectDrawSurface::getSurfaceObject(*lpDDSurface));
+				lcl->dwFlags |= DDRAWISURF_INVALID;
+				surfacesToRestore.insert(lcl);
 			}
 		}
 		return DDENUMRET_OK;
@@ -212,7 +210,7 @@ namespace DDraw
 			}
 
 			DDraw::ScopedThreadLock lock;
-			std::set<void*> surfacesToRestore;
+			std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
 			TagSurface::forEachDirectDraw([&](CompatRef<IDirectDraw7> dd)
 				{
 					dd->EnumSurfaces(&dd, DDENUMSURFACES_DOESEXIST | DDENUMSURFACES_ALL, nullptr,

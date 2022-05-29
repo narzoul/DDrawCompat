@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ddraw.h>
+#include <ddrawi.h>
 #include <functional>
 
 #include <Common/CompatRef.h>
@@ -11,7 +12,7 @@ namespace DDraw
 	class TagSurface : public Surface
 	{
 	public:
-		TagSurface(DWORD origCaps, void* ddObject);
+		TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl);
 		virtual ~TagSurface() override;
 
 		static TagSurface* get(CompatRef<IDirectDraw> dd);
@@ -26,7 +27,7 @@ namespace DDraw
 	private:
 		static HRESULT create(CompatRef<IDirectDraw> dd);
 
-		void* m_ddObject;
+		DDRAWI_DIRECTDRAW_LCL* m_ddLcl;
 		HWND m_fullscreenWindow;
 		LONG m_fullscreenWindowStyle;
 		LONG m_fullscreenWindowExStyle;

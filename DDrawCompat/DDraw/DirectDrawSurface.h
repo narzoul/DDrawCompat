@@ -3,6 +3,7 @@
 #include <vector>
 
 #include <Windows.h>
+#include <ddrawi.h>
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
@@ -14,21 +15,15 @@ namespace DDraw
 		std::vector<CompatPtr<IDirectDrawSurface7>> getAllAttachedSurfaces(CompatRef<IDirectDrawSurface7> surface);
 
 		template <typename TSurface>
-		void* getSurfaceObject(TSurface& surface)
+		DDRAWI_DDRAWSURFACE_INT& getInt(TSurface& surface)
 		{
-			return reinterpret_cast<void**>(&surface)[1];
-		}
-
-		template <typename TSurface>
-		DWORD& getFlags(TSurface& surface)
-		{
-			return reinterpret_cast<DWORD**>(&surface)[1][7];
+			return reinterpret_cast<DDRAWI_DDRAWSURFACE_INT&>(surface);
 		}
 
 		template <typename TSurface>
 		HANDLE getRuntimeResourceHandle(TSurface& surface)
 		{
-			return reinterpret_cast<HANDLE**>(&surface)[1][2];
+			return reinterpret_cast<HANDLE>(getInt(surface).lpLcl->hDDSurface);
 		}
 
 		template <typename TSurface>
