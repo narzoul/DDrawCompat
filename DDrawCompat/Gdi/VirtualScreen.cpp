@@ -38,10 +38,25 @@ namespace
 	std::map<HDC, VirtualScreenDc> g_dcs;
 
 	BOOL CALLBACK addMonitorRectToRegion(
-		HMONITOR /*hMonitor*/, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
+		HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
 	{
+		MONITORINFOEX mi = {};
+		mi.cbSize = sizeof(mi);
+		CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, &mi);
+
+		DEVMODE dm = {};
+		dm.dmSize = sizeof(dm);
+		CALL_ORIG_FUNC(EnumDisplaySettingsExA)(mi.szDevice, ENUM_CURRENT_SETTINGS, &dm, 0);
+
+		RECT rect = *lprcMonitor;
+		if (0 != dm.dmPelsWidth && 0 != dm.dmPelsHeight)
+		{
+			rect.right = rect.left + dm.dmPelsWidth;
+			rect.bottom = rect.top + dm.dmPelsHeight;
+		}
+
 		Gdi::Region& virtualScreenRegion = *reinterpret_cast<Gdi::Region*>(dwData);
-		Gdi::Region monitorRegion(*lprcMonitor);
+		Gdi::Region monitorRegion(rect);
 		virtualScreenRegion |= monitorRegion;
 		return TRUE;
 	}

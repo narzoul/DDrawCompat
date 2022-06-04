@@ -50,6 +50,18 @@ namespace Config
 			throw ParsingError("MappedSetting::getValueStr(): value not found in mapping");
 		}
 
+		std::string convertToString(Value value)
+		{
+			for (const auto& pair : m_valueMapping)
+			{
+				if (pair.second == value)
+				{
+					return pair.first;
+				}
+			}
+			return {};
+		}
+
 	protected:
 		MappedSetting(const std::string& name, const std::string& default,
 			const std::vector<std::pair<std::string, Value>>& valueMapping)

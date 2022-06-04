@@ -222,18 +222,6 @@ namespace DDraw
 		g_primarySurface = m_surface;
 		g_gdiResourceHandle = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
 
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		m_surface->GetSurfaceDesc(m_surface, &desc);
-		if (desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY)
-		{
-			DDSURFACEDESC2 gdiDesc = Gdi::VirtualScreen::getSurfaceDesc(g_monitorRect);
-			desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PITCH | DDSD_LPSURFACE;
-			desc.lPitch = gdiDesc.lPitch;
-			desc.lpSurface = gdiDesc.lpSurface;
-			m_surface->SetSurfaceDesc(m_surface, &desc, 0);
-		}
-
 		updateFrontResource();
 		D3dDdi::Device::setGdiResourceHandle(g_frontResource);
 

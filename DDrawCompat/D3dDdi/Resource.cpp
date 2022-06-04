@@ -528,6 +528,7 @@ namespace D3dDdi
 
 	void Resource::createGdiLockResource()
 	{
+		LOG_FUNC("Resource::createGdiLockResource");
 		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorRect()));
 		if (!gdiSurfaceDesc.lpSurface)
 		{

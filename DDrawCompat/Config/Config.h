@@ -11,6 +11,7 @@
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
+#include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/LogLevel.h>
@@ -39,6 +40,7 @@ namespace Config
 	extern Settings::DisplayFilter displayFilter;
 	extern Settings::DisplayRefreshRate displayRefreshRate;
 	extern Settings::DisplayResolution displayResolution;
+	extern Settings::DpiAwareness dpiAwareness;
 	extern Settings::ForceD3D9On12 forceD3D9On12;
 	extern Settings::FullscreenMode fullscreenMode;
 	extern Settings::LogLevel logLevel;
