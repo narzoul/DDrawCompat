@@ -9,12 +9,16 @@
 #include <Config/Config.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/Resource.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/IReleaseNotifier.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Types.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
@@ -34,6 +38,7 @@ namespace
 	void onRelease();
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
+	CompatWeakPtr<IDirectDrawSurface7> g_windowedBackBuffer;
 	CompatWeakPtr<IDirectDrawClipper> g_clipper;
 	RECT g_monitorRect = {};
 	DDSURFACEDESC2 g_surfaceDesc = {};
@@ -65,7 +70,24 @@ namespace
 	{
 		if (!g_isFullscreen)
 		{
-			Gdi::Window::present(*g_frontBuffer, src, *g_clipper);
+			{
+				D3dDdi::ScopedCriticalSection lock;
+				auto srcResource = D3dDdi::Device::findResource(
+					DDraw::DirectDrawSurface::getDriverResourceHandle(src.get()));
+				auto bbResource = D3dDdi::Device::findResource(
+					DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
+
+				D3DDDIARG_BLT blt = {};
+				blt.hSrcResource = *srcResource;
+				blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(src.get());
+				blt.SrcRect = DDraw::PrimarySurface::getMonitorRect();
+				blt.hDstResource = *bbResource;
+				blt.DstSubResourceIndex = 0;
+				blt.DstRect = g_monitorRect;
+				bbResource->presentationBlt(blt, srcResource);
+			}
+
+			Gdi::Window::present(*g_frontBuffer, *g_windowedBackBuffer, *g_clipper);
 			return;
 		}
 
@@ -74,6 +96,48 @@ namespace
 		{
 			backBuffer->Blt(backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
 		}
+	}
+
+	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DDRAWI_DIRECTDRAW_LCL* ddLcl, DWORD width, DWORD height)
+	{
+		if (!ddLcl)
+		{
+			LOG_INFO << "ERROR: createWindowedBackBuffer: ddLcl is null";
+			return nullptr;
+		}
+
+		auto tagSurface = DDraw::TagSurface::get(ddLcl);
+		if (!tagSurface)
+		{
+			LOG_INFO << "ERROR: createWindowedBackBuffer: TagSurface not found";
+			return nullptr;
+		}
+
+		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*tagSurface->getDDS());
+		if (!resource)
+		{
+			LOG_INFO << "ERROR: createWindowedBackBuffer: driver resource handle not found";
+			return nullptr;
+		}
+
+		auto device = D3dDdi::Device::findDeviceByResource(resource);
+		if (!device)
+		{
+			LOG_INFO << "ERROR: createWindowedBackBuffer: device not found";
+			return nullptr;
+		}
+
+		auto& repo = D3dDdi::SurfaceRepository::get(device->getAdapter());
+		D3dDdi::SurfaceRepository::Surface surface = {};
+		repo.getSurface(surface, width, height, DDraw::DirectDraw::getRgbPixelFormat(32),
+			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+		if (!surface.surface)
+		{
+			LOG_INFO << "ERROR: createWindowedBackBuffer: surface creation failed";
+			return nullptr;
+		}
+
+		return surface.surface;
 	}
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer()
@@ -133,6 +197,7 @@ namespace
 
 		g_frontBuffer = nullptr;
 		g_lastFlipSurface = nullptr;
+		g_windowedBackBuffer.release();
 		g_clipper.release();
 		g_isFullscreen = false;
 		g_surfaceDesc = {};
@@ -162,6 +227,11 @@ namespace
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
+		}
+
+		if (g_windowedBackBuffer)
+		{
+			g_windowedBackBuffer->Restore(g_windowedBackBuffer);
 		}
 
 		Compat::ScopedCriticalSection lock(g_presentCs);
@@ -204,11 +274,7 @@ namespace
 
 		Gdi::Region excludeRegion(DDraw::PrimarySurface::getMonitorRect());
 		Gdi::Window::present(excludeRegion);
-
-		auto palette(Gdi::Palette::getHardwarePalette());
-		D3dDdi::KernelModeThunks::setDcPaletteOverride(palette.data());
 		bltToPrimaryChain(*src);
-		D3dDdi::KernelModeThunks::setDcPaletteOverride(nullptr);
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src)
@@ -280,6 +346,17 @@ namespace DDraw
 			LOG_INFO << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
 			g_monitorRect = {};
 			return result;
+		}
+
+		if (0 == desc.dwBackBufferCount)
+		{
+			g_windowedBackBuffer = createWindowedBackBuffer(DDraw::DirectDraw::getInt(dd.get()).lpLcl,
+				g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top).detach();
+			if (!g_windowedBackBuffer)
+			{
+				g_monitorRect = {};
+				return DDERR_GENERIC;
+			}
 		}
 
 		g_frontBuffer = CompatPtr<IDirectDrawSurface7>::from(surface.get()).detach();

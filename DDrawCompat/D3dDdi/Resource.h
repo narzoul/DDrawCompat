@@ -45,6 +45,7 @@ namespace D3dDdi
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
 		void prepareForGpuWrite(UINT subResourceIndex);
+		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
 		void setAsPrimary();
@@ -106,7 +107,6 @@ namespace D3dDdi
 		void loadSysMemResource(UINT subResourceIndex);
 		void loadVidMemResource(UINT subResourceIndex);
 		void notifyLock(UINT subResourceIndex);
-		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
 

@@ -15,6 +15,7 @@ namespace DDraw
 		TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl);
 		virtual ~TagSurface() override;
 
+		static TagSurface* get(DDRAWI_DIRECTDRAW_LCL* ddLcl);
 		static TagSurface* get(CompatRef<IDirectDraw> dd);
 		static TagSurface* findFullscreenWindow(HWND hwnd);
 

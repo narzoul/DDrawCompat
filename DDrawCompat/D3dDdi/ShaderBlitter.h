@@ -34,7 +34,7 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			const Resource& lockRefResource);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect, RGBQUAD palette[256]);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, RGBQUAD palette[256]);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			UINT filter, const UINT* srcColorKey = nullptr, const BYTE* alpha = nullptr,

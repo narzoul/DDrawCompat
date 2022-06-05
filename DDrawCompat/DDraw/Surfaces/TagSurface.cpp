@@ -67,13 +67,23 @@ namespace DDraw
 		}
 	}
 
-	TagSurface* TagSurface::get(CompatRef<IDirectDraw> dd)
+	TagSurface* TagSurface::get(DDRAWI_DIRECTDRAW_LCL* ddLcl)
 	{
-		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
 		auto it = g_ddObjects.find(ddLcl);
 		if (it != g_ddObjects.end())
 		{
 			return it->second;
+		}
+		return nullptr;
+	}
+
+	TagSurface* TagSurface::get(CompatRef<IDirectDraw> dd)
+	{
+		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
+		auto tagSurface = get(ddLcl);
+		if (tagSurface)
+		{
+			return tagSurface;
 		}
 
 		if (FAILED(create(dd)))

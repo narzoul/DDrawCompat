@@ -317,10 +317,11 @@ namespace D3dDdi
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-		const Resource& srcResource, const RECT& srcRect, RGBQUAD palette[256])
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, RGBQUAD palette[256])
 	{
 		LOG_FUNC("ShaderBlitter::palettizedBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, Compat::array(reinterpret_cast<void**>(palette), 256));
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
+			Compat::array(reinterpret_cast<void**>(palette), 256));
 
 		auto paletteTexture(SurfaceRepository::get(m_device.getAdapter()).getPaletteTexture());
 		if (!paletteTexture)
@@ -344,7 +345,8 @@ namespace D3dDdi
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 
 		setTempTextureStage(1, *paletteTexture, srcRect, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psPaletteLookup.get(), D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::resetGammaRamp()

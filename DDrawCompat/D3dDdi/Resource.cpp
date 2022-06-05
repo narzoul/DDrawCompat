@@ -1038,19 +1038,22 @@ namespace D3dDdi
 	{
 		if (srcResource->m_lockResource)
 		{
-			if (srcResource->m_lockData[0].isSysMemUpToDate &&
+			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate &&
 				!srcResource->m_fixedData.Flags.RenderTarget)
 			{
-				srcResource->m_lockData[0].isVidMemUpToDate = false;
+				srcResource->m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate = false;
 			}
 
-			srcResource = &srcResource->prepareForGpuRead(0);
+			srcResource = &srcResource->prepareForGpuRead(data.SrcSubResourceIndex);
 		}
 
-		LONG srcWidth = srcResource->m_fixedData.pSurfList[0].Width;
-		LONG srcHeight = srcResource->m_fixedData.pSurfList[0].Height;
+		LONG srcWidth = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Width;
+		LONG srcHeight = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Height;
 		data.SrcRect = { 0, 0, srcWidth, srcHeight };
-		data.DstRect = g_presentationRect;
+		if (!IsRectEmpty(&g_presentationRect))
+		{
+			data.DstRect = g_presentationRect;
+		}
 
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
 		const auto& rtSurface = repo.getTempRenderTarget(srcWidth, srcHeight);
@@ -1078,14 +1081,18 @@ namespace D3dDdi
 				pal[i].rgbGreen = entries[i].peGreen;
 				pal[i].rgbBlue = entries[i].peBlue;
 			}
-			m_device.getShaderBlitter().palettizedBlt(*rt, rtIndex, rtRect, *srcResource, data.SrcRect, pal);
+			m_device.getShaderBlitter().palettizedBlt(
+				*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect, pal);
 		}
 		else
 		{
-			copySubResourceRegion(*rt, rtIndex, rtRect, *srcResource, 0, data.SrcRect);
+			copySubResourceRegion(*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect);
 		}
 
-		presentLayeredWindows(*rt, rtIndex, rtRect);
+		if (!IsRectEmpty(&g_presentationRect))
+		{
+			presentLayeredWindows(*rt, rtIndex, rtRect);
+		}
 
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
 		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
