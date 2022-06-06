@@ -8,6 +8,7 @@
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
@@ -419,6 +420,26 @@ namespace Gdi
 			return layeredWindows;
 		}
 
+		bool hasFullscreenWindow()
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			RECT mr = DDraw::PrimarySurface::getMonitorRect();
+			for (auto& window : g_windows)
+			{
+				if (!window.second.isLayered &&
+					window.second.windowRect.left <= mr.left &&
+					window.second.windowRect.top <= mr.top &&
+					window.second.windowRect.right >= mr.right &&
+					window.second.windowRect.bottom >= mr.bottom &&
+					IsWindowVisible(window.first) &&
+					!IsIconic(window.first))
+				{
+					return true;
+				}
+			}
+			return false;
+		}
+
 		bool isTopLevelWindow(HWND hwnd)
 		{
 			return GetDesktopWindow() == GetAncestor(hwnd, GA_PARENT);
@@ -492,6 +513,14 @@ namespace Gdi
 			CompatRef<IDirectDrawClipper> clipper)
 		{
 			D3dDdi::ScopedCriticalSection lock;
+			auto presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
+			if (presentationWindow && IsWindowVisible(presentationWindow))
+			{
+				clipper->SetHWnd(&clipper, 0, presentationWindow);
+				dst->Blt(&dst, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
+				return;
+			}
+
 			for (auto window : g_windowZOrder)
 			{
 				if (window->presentationWindow && !window->visibleRegion.isEmpty())

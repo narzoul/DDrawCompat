@@ -49,6 +49,7 @@ namespace D3dDdi
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
 		void setAsPrimary();
+		void setFullscreenMode(bool isFullscreen);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
 

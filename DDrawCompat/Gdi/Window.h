@@ -19,6 +19,7 @@ namespace Gdi
 
 		HWND getPresentationWindow(HWND hwnd);
 		std::vector<LayeredWindow> getVisibleLayeredWindows();
+		bool hasFullscreenWindow();
 		bool isTopLevelWindow(HWND hwnd);
 		void onStyleChanged(HWND hwnd, WPARAM wParam);
 		void onSyncPaint(HWND hwnd);

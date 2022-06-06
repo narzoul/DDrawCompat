@@ -387,20 +387,19 @@ namespace D3dDdi
 		void fixPresent(D3DKMT_PRESENT& data)
 		{
 			static RECT rect = {};
-			if (DDraw::RealPrimarySurface::isFullscreen())
+			HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
+			HWND presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
+			if (devicePresentationWindow && devicePresentationWindow == data.hWindow ||
+				presentationWindow && presentationWindow == data.hWindow)
 			{
-				HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
-				if (devicePresentationWindow && devicePresentationWindow == data.hWindow)
+				rect = DDraw::RealPrimarySurface::getMonitorRect();
+				OffsetRect(&rect, -rect.left, -rect.top);
+				data.SrcRect = rect;
+				data.DstRect.right = data.DstRect.left + rect.right;
+				data.DstRect.bottom = data.DstRect.top + rect.bottom;
+				if (1 == data.SubRectCnt)
 				{
-					rect = DDraw::RealPrimarySurface::getMonitorRect();
-					OffsetRect(&rect, -rect.left, -rect.top);
-					data.SrcRect = rect;
-					data.DstRect.right = data.DstRect.left + rect.right;
-					data.DstRect.bottom = data.DstRect.top + rect.bottom;
-					if (1 == data.SubRectCnt)
-					{
-						data.pSrcSubRects = &rect;
-					}
+					data.pSrcSubRects = &rect;
 				}
 			}
 		}

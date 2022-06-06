@@ -25,6 +25,7 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Palette.h>
+#include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
@@ -62,6 +63,7 @@ namespace
 	HWND g_devicePresentationWindow = nullptr;
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
+	HWND g_presentationWindow = nullptr;
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer();
 	CompatPtr<IDirectDrawSurface7> getLastSurface();
@@ -195,6 +197,16 @@ namespace
 	{
 		LOG_FUNC("RealPrimarySurface::onRelease");
 
+		if (g_presentationWindow)
+		{
+			auto resource = D3dDdi::Device::findResource(
+				DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
+			resource->setFullscreenMode(false);
+
+			Gdi::GuiThread::destroyWindow(g_presentationWindow);
+			g_presentationWindow = nullptr;
+		}
+
 		g_frontBuffer = nullptr;
 		g_lastFlipSurface = nullptr;
 		g_windowedBackBuffer.release();
@@ -296,6 +308,44 @@ namespace
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
 	}
 
+	void updatePresentationWindowPos()
+	{
+		if (!g_presentationWindow)
+		{
+			return;
+		}
+
+		bool isFullscreen = false;
+		if (SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
+		{
+			HWND foregroundWindow = GetForegroundWindow();
+			if (foregroundWindow)
+			{
+				DWORD pid = 0;
+				GetWindowThreadProcessId(foregroundWindow, &pid);
+				isFullscreen = GetCurrentProcessId() == pid && Gdi::Window::hasFullscreenWindow();
+			}
+		}
+
+		auto resource = D3dDdi::Device::findResource(
+			DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
+		resource->setFullscreenMode(isFullscreen);
+
+		Gdi::GuiThread::execute([&]()
+			{
+				if (isFullscreen)
+				{
+					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, g_monitorRect.left, g_monitorRect.top,
+						g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top,
+						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
+				}
+				else if (IsWindowVisible(g_presentationWindow))
+				{
+					ShowWindow(g_presentationWindow, SW_HIDE);
+				}
+			});
+	}
+
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
 	{
 		int msUntilUpdateReady = 0;
@@ -311,6 +361,7 @@ namespace
 			}
 
 			DDraw::ScopedThreadLock lock;
+			updatePresentationWindowPos();
 			msUntilUpdateReady = DDraw::RealPrimarySurface::flush();
 		}
 	}
@@ -363,9 +414,19 @@ namespace DDraw
 		g_frontBuffer->SetPrivateData(g_frontBuffer, IID_IReleaseNotifier,
 			&g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);
 		
-		g_deviceWindowPtr = DDraw::DirectDraw::getDeviceWindowPtr(dd.get());
+		g_deviceWindowPtr = (0 != desc.dwBackBufferCount) ? DDraw::DirectDraw::getDeviceWindowPtr(dd.get()) : nullptr;
 		g_deviceWindow = g_deviceWindowPtr ? *g_deviceWindowPtr : nullptr;
-		g_devicePresentationWindow = Gdi::Window::getPresentationWindow(g_deviceWindow);
+		g_devicePresentationWindow = g_deviceWindow ? Gdi::Window::getPresentationWindow(g_deviceWindow) : nullptr;
+
+		if (0 == desc.dwBackBufferCount)
+		{
+			auto mr = DDraw::PrimarySurface::getMonitorRect();
+			if (!EqualRect(&mr, &g_monitorRect))
+			{
+				g_presentationWindow = Gdi::PresentationWindow::create(nullptr);
+				updatePresentationWindowPos();
+			}
+		}
 
 		onRestore();
 		updateDevicePresentationWindowPos();
@@ -484,6 +545,11 @@ namespace DDraw
 		return g_monitorRect;
 	}
 
+	HWND RealPrimarySurface::getPresentationWindow()
+	{
+		return g_presentationWindow;
+	}
+
 	CompatWeakPtr<IDirectDrawSurface7> RealPrimarySurface::getSurface()
 	{
 		return g_frontBuffer;
@@ -494,6 +560,10 @@ namespace DDraw
 		if (g_isFullscreen && g_devicePresentationWindow)
 		{
 			return g_devicePresentationWindow;
+		}
+		if (g_presentationWindow && IsWindowVisible(g_presentationWindow))
+		{
+			return g_presentationWindow;
 		}
 		return HWND_TOPMOST;
 	}
@@ -576,7 +646,7 @@ namespace DDraw
 
 		Gdi::GuiThread::execute([&]()
 			{
-				if (g_isFullscreen && IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
+				if (IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
 				{
 					CALL_ORIG_FUNC(SetWindowPos)(g_devicePresentationWindow, HWND_TOPMOST, g_monitorRect.left, g_monitorRect.top,
 						g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top,

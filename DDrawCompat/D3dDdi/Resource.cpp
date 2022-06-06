@@ -131,16 +131,7 @@ namespace D3dDdi
 
 		if (m_origData.Flags.MatchGdiPrimary)
 		{
-			g_presentationRect = calculatePresentationRect();
-			auto& si = m_origData.pSurfList[0];
-			RECT primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
-
-			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
-			if (!EqualRect(&g_presentationRect, &primaryRect))
-			{
-				Gdi::Cursor::setEmulated(true);
-			}
-			Gdi::VirtualScreen::setFullscreenMode(true);
+			setFullscreenMode(true);
 		}
 
 		fixResourceData();
@@ -180,9 +171,7 @@ namespace D3dDdi
 	{
 		if (m_origData.Flags.MatchGdiPrimary)
 		{
-			Gdi::VirtualScreen::setFullscreenMode(false);
-			Gdi::Cursor::setEmulated(false);
-			Gdi::Cursor::setMonitorClipRect({});
+			setFullscreenMode(false);
 		}
 
 		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface || m_lockRefSurface.surface)
@@ -1036,6 +1025,7 @@ namespace D3dDdi
 
 	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource* srcResource)
 	{
+		LOG_FUNC("Resource::presentationBlt", data, *srcResource);
 		if (srcResource->m_lockResource)
 		{
 			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate &&
@@ -1066,7 +1056,7 @@ namespace D3dDdi
 			srcResource = repo.getTempTexture(srcWidth, srcHeight, getPixelFormat(srcResource->m_fixedData.Format)).resource;
 			if (!srcResource)
 			{
-				return E_OUTOFMEMORY;
+				return LOG_RESULT(E_OUTOFMEMORY);
 			}
 			copySubResourceRegion(*srcResource, 0, data.SrcRect, data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
 		}
@@ -1103,7 +1093,7 @@ namespace D3dDdi
 
 		if (!rtSurface.resource)
 		{
-			return S_OK;
+			return LOG_RESULT(S_OK);
 		}
 
 		const LONG dstWidth = data.DstRect.right - data.DstRect.left;
@@ -1147,7 +1137,7 @@ namespace D3dDdi
 		}
 
 		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
-		return S_OK;
+		return LOG_RESULT(S_OK);
 	}
 
 	void Resource::presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect)
@@ -1241,6 +1231,35 @@ namespace D3dDdi
 		{
 			m_isPrimary = true;
 			updateConfig();
+		}
+	}
+
+	void Resource::setFullscreenMode(bool isFullscreen)
+	{
+		if (!IsRectEmpty(&g_presentationRect) == isFullscreen)
+		{
+			return;
+		}
+
+		if (isFullscreen)
+		{
+			g_presentationRect = calculatePresentationRect();
+			auto& si = m_origData.pSurfList[0];
+			RECT primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
+
+			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
+			if (!EqualRect(&g_presentationRect, &primaryRect))
+			{
+				Gdi::Cursor::setEmulated(true);
+			}
+			Gdi::VirtualScreen::setFullscreenMode(m_origData.Flags.MatchGdiPrimary);
+		}
+		else
+		{
+			g_presentationRect = {};
+			Gdi::VirtualScreen::setFullscreenMode(false);
+			Gdi::Cursor::setEmulated(false);
+			Gdi::Cursor::setMonitorClipRect({});
 		}
 	}
 
