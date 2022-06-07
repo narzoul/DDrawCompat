@@ -15,6 +15,7 @@ namespace DDraw
 		template <typename DirectDraw>
 		static HRESULT create(CompatRef<DirectDraw> dd);
 
+		static void destroyDefaultPrimary();
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static int flush();
 		static HWND getDevicePresentationWindow();

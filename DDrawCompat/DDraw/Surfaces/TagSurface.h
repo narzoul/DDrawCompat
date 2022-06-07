@@ -19,6 +19,7 @@ namespace DDraw
 		static TagSurface* get(CompatRef<IDirectDraw> dd);
 		static TagSurface* findFullscreenWindow(HWND hwnd);
 
+		static bool doesFullscreenDirectDrawExist();
 		static void forEachDirectDraw(std::function<void(CompatRef<IDirectDraw7>)> callback);
 
 		void setFullscreenWindow(HWND hwnd);

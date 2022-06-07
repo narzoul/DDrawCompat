@@ -43,6 +43,18 @@ namespace DDraw
 		return Surface::create(dd, desc, surface, std::move(privateData));
 	}
 
+	bool TagSurface::doesFullscreenDirectDrawExist()
+	{
+		for (auto& pair : g_ddObjects)
+		{
+			if (pair.second->m_fullscreenWindow)
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
 	TagSurface* TagSurface::findFullscreenWindow(HWND hwnd)
 	{
 		for (auto& pair : g_ddObjects)

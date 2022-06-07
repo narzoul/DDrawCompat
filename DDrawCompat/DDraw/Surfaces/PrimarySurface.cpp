@@ -50,6 +50,8 @@ namespace DDraw
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 	HRESULT PrimarySurface::create(CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface)
 	{
+		LOG_FUNC("PrimarySurface::create", &dd, desc, surface);
+		DDraw::RealPrimarySurface::destroyDefaultPrimary();
 		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
 		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;
@@ -58,7 +60,7 @@ namespace DDraw
 		HRESULT result = RealPrimarySurface::create(dd);
 		if (FAILED(result))
 		{
-			return result;
+			return LOG_RESULT(result);
 		}
 
 		const DWORD origCaps = desc.ddsCaps.dwCaps;
@@ -79,7 +81,7 @@ namespace DDraw
 			LOG_INFO << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
 			g_monitorRect = {};
 			RealPrimarySurface::release();
-			return result;
+			return LOG_RESULT(result);
 		}
 
 		g_origCaps = origCaps;
@@ -97,7 +99,7 @@ namespace DDraw
 		g_device = D3dDdi::Device::findDeviceByResource(DirectDrawSurface::getDriverResourceHandle(*surface));
 		data->restore();
 		D3dDdi::Device::updateAllConfig();
-		return DD_OK;
+		return LOG_RESULT(DD_OK);
 	}
 
 	template HRESULT PrimarySurface::create(

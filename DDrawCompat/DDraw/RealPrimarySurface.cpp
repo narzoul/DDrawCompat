@@ -38,6 +38,9 @@ namespace
 
 	void onRelease();
 
+	CompatWeakPtr<IDirectDraw7> g_defaultPrimaryDD;
+	CompatWeakPtr<IDirectDrawSurface7> g_defaultPrimary;
+
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_windowedBackBuffer;
 	CompatWeakPtr<IDirectDrawClipper> g_clipper;
@@ -98,6 +101,65 @@ namespace
 		{
 			backBuffer->Blt(backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
 		}
+	}
+
+	BOOL WINAPI createDefaultPrimaryEnum(
+		GUID* lpGUID, LPSTR /*lpDriverDescription*/, LPSTR lpDriverName, LPVOID lpContext, HMONITOR /*hm*/)
+	{
+		auto& deviceName = *static_cast<std::wstring*>(lpContext);
+		if (deviceName != std::wstring(lpDriverName, lpDriverName + strlen(lpDriverName)))
+		{
+			return TRUE;
+		}
+
+		CompatPtr<IDirectDraw7> dd;
+		if (FAILED(CALL_ORIG_PROC(DirectDrawCreateEx)(
+			lpGUID, reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr)))
+		{
+			return FALSE;
+		}
+
+		if (FAILED(dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
+		{
+			return FALSE;
+		}
+
+		CompatPtr<IDirectDrawSurface7> primary;
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_CAPS;
+		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+		if (FAILED(dd.get()->lpVtbl->CreateSurface(dd, &desc, &primary.getRef(), nullptr)))
+		{
+			return FALSE;
+		}
+
+		g_defaultPrimary = primary.detach();
+		g_defaultPrimaryDD = dd.detach();
+		return FALSE;
+	}
+
+	void createDefaultPrimary()
+	{
+		if (g_frontBuffer || g_defaultPrimary && SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)))
+		{
+			return;
+		}
+
+		DDraw::RealPrimarySurface::destroyDefaultPrimary();
+
+		if (DDraw::TagSurface::doesFullscreenDirectDrawExist())
+		{
+			return;
+		}
+
+		auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
+		if (0 == dm.diff.cx && 0 == dm.diff.cy)
+		{
+			return;
+		}
+
+		CALL_ORIG_PROC(DirectDrawEnumerateExA)(createDefaultPrimaryEnum, &dm.deviceName, DDENUM_ATTACHEDSECONDARYDEVICES);
 	}
 
 	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DDRAWI_DIRECTDRAW_LCL* ddLcl, DWORD width, DWORD height)
@@ -361,6 +423,7 @@ namespace
 			}
 
 			DDraw::ScopedThreadLock lock;
+			createDefaultPrimary();
 			updatePresentationWindowPos();
 			msUntilUpdateReady = DDraw::RealPrimarySurface::flush();
 		}
@@ -372,6 +435,7 @@ namespace DDraw
 	template <typename DirectDraw>
 	HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
 	{
+		LOG_FUNC("RealPrimarySurface::create", &dd);
 		DDraw::ScopedThreadLock lock;
 		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
 
@@ -438,6 +502,12 @@ namespace DDraw
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw2>);
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw4>);
 	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw7>);
+
+	void RealPrimarySurface::destroyDefaultPrimary()
+	{
+		g_defaultPrimary.release();
+		g_defaultPrimaryDD.release();
+	}
 
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
