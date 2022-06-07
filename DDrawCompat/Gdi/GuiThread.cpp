@@ -1,3 +1,4 @@
+#include <ShObjIdl.h>
 #include <Windows.h>
 
 #include <Common/Log.h>
@@ -61,6 +62,7 @@ namespace
 	unsigned WINAPI messageWindowThreadProc(LPVOID /*lpParameter*/)
 	{
 		ImmDisableIME(0);
+		CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
@@ -124,6 +126,21 @@ namespace Gdi
 						hWndParent, hMenu, hInstance, lpParam);
 				});
 			return hwnd;
+		}
+
+		void deleteTaskbarTab(HWND hwnd)
+		{
+			execute([&]()
+				{
+					ITaskbarList* taskbarList = nullptr;
+					if (SUCCEEDED(CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_ITaskbarList,
+						reinterpret_cast<void**>(&taskbarList))))
+					{
+						taskbarList->lpVtbl->HrInit(taskbarList);
+						taskbarList->lpVtbl->DeleteTab(taskbarList, hwnd);
+						taskbarList->lpVtbl->Release(taskbarList);
+					}
+				});
 		}
 
 		void destroyWindow(HWND hwnd)

@@ -297,6 +297,7 @@ namespace
 		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			Gdi::Window::updateAll();
+			Gdi::GuiThread::deleteTaskbarTab(hwnd);
 			return;
 		}
 

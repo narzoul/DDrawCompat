@@ -17,6 +17,7 @@ namespace Gdi
 	{
 		HWND createWindow(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle,
 			int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
+		void deleteTaskbarTab(HWND hwnd);
 		void destroyWindow(HWND hwnd);
 		void setWindowRgn(HWND hwnd, Gdi::Region rgn);
 
