@@ -5,6 +5,7 @@
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
 #include <Common/ScopedCriticalSection.h>
+#include <Common/ScopedThreadPriority.h>
 #include <Common/Time.h>
 #include <Config/Config.h>
 #include <D3dDdi/Device.h>
@@ -747,5 +748,34 @@ namespace DDraw
 			g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
 		}
 		return true;
+	}
+
+	void RealPrimarySurface::waitForFlipFpsLimit()
+	{
+		static long long g_qpcPrevWaitEnd = Time::queryPerformanceCounter() - Time::g_qpcFrequency;
+		auto qpcNow = Time::queryPerformanceCounter();
+		auto qpcWaitEnd = g_qpcPrevWaitEnd + Time::g_qpcFrequency / Config::fpsLimiter.getParam();
+		if (qpcNow - qpcWaitEnd >= 0)
+		{
+			g_qpcPrevWaitEnd = qpcNow;
+			g_qpcDelayedFlipEnd = qpcNow;
+			return;
+		}
+		g_qpcPrevWaitEnd = qpcWaitEnd;
+		g_qpcDelayedFlipEnd = qpcWaitEnd;
+
+		Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
+		while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
+		{
+			Time::waitForNextTick();
+			flush();
+			qpcNow = Time::queryPerformanceCounter();
+		}
+
+		while (qpcWaitEnd - qpcNow > 0)
+		{
+			qpcNow = Time::queryPerformanceCounter();
+		}
+		g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
 	}
 }

@@ -34,5 +34,6 @@ namespace DDraw
 		static void setUpdateReady();
 		static void updateDevicePresentationWindowPos();
 		static bool waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface);
+		static void waitForFlipFpsLimit();
 	};
 }

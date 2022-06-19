@@ -15,6 +15,7 @@ namespace Config
 	Settings::DisplayResolution displayResolution;
 	Settings::DpiAwareness dpiAwareness;
 	Settings::ForceD3D9On12 forceD3D9On12;
+	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;
 	Settings::LogLevel logLevel;
 	Settings::RemoveBorders removeBorders;

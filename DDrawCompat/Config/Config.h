@@ -13,6 +13,7 @@
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/ForceD3D9On12.h>
+#include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/LogLevel.h>
 #include <Config/Settings/RemoveBorders.h>
@@ -42,6 +43,7 @@ namespace Config
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::DpiAwareness dpiAwareness;
 	extern Settings::ForceD3D9On12 forceD3D9On12;
+	extern Settings::FpsLimiter fpsLimiter;
 	extern Settings::FullscreenMode fullscreenMode;
 	extern Settings::LogLevel logLevel;
 	extern Settings::RemoveBorders removeBorders;

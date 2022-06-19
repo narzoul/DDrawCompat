@@ -14,6 +14,7 @@
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Dll/Dll.h>
+#include <Gdi/WinProc.h>
 
 namespace
 {
@@ -110,6 +111,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)
 	{
+		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		DirectDrawClipper::update();
 		return blt(This, lpDDSrcSurface, lpSrcRect, [=](TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
@@ -120,6 +122,7 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::BltFast(
 		TSurface* This, DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans)
 	{
+		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		return blt(This, lpDDSrcSurface, lpSrcRect, [=](TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
 			{ return getOrigVtable(This).BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans); });
@@ -145,6 +148,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
+		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		HRESULT result = getOrigVtable(This).GetDC(This, lphDC);
 		if (SUCCEEDED(result))
@@ -182,6 +186,7 @@ namespace DDraw
 		TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
 		DWORD dwFlags, HANDLE hEvent)
 	{
+		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))

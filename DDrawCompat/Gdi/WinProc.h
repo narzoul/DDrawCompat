@@ -9,6 +9,7 @@ namespace Gdi
 		void dllThreadDetach();
 		void installHooks();
 		void onCreateWindow(HWND hwnd);
+		void startFrame();
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 	}
 }

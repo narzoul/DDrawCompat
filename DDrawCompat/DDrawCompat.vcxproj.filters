@@ -576,6 +576,12 @@
     <ClInclude Include="Config\Settings\DpiAwareness.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\FpsLimiter.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\ScopedThreadPriority.h">
+      <Filter>Header Files\Common</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -904,6 +910,9 @@
     </ClCompile>
     <ClCompile Include="Overlay\ButtonControl.cpp">
       <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\FpsLimiter.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

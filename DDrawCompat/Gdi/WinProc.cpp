@@ -6,6 +6,8 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
+#include <Common/ScopedThreadPriority.h>
+#include <Common/Time.h>
 #include <Config/Config.h>
 #include <Dll/Dll.h>
 #include <DDraw/DirectDraw.h>
@@ -28,6 +30,16 @@
 
 namespace
 {
+	class ScopedIncrement
+	{
+	public:
+		ScopedIncrement(unsigned& num) : m_num(num) { ++m_num; }
+		~ScopedIncrement() { --m_num; }
+
+	private:
+		unsigned& m_num;
+	};
+
 	struct WindowProc
 	{
 		WNDPROC wndProcA;
@@ -42,6 +54,10 @@ namespace
 
 	thread_local unsigned g_inCreateDialog = 0;
 	thread_local unsigned g_inMessageBox = 0;
+	thread_local unsigned g_inWindowProc = 0;
+	thread_local long long g_qpcWaitEnd = 0;
+	thread_local bool g_isFrameStarted = false;
+	thread_local bool g_waiting = false;
 
 	WindowProc getWindowProc(HWND hwnd);
 	bool isUser32ScrollBar(HWND hwnd);
@@ -68,6 +84,7 @@ namespace
 		decltype(&CallWindowProcA) callWindowProc, WNDPROC wndProc)
 	{
 		LOG_FUNC("ddcWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
+		ScopedIncrement inc(g_inWindowProc);
 
 		switch (uMsg)
 		{
@@ -388,7 +405,53 @@ namespace
 		decltype(&PeekMessageA) origPeekMessage)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
-		return origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+		BOOL result = origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+		if (!g_isFrameStarted || Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get())
+		{
+			return result;
+		}
+
+		auto qpcNow = Time::queryPerformanceCounter();
+		if (qpcNow - g_qpcWaitEnd >= 0)
+		{
+			if (!g_waiting)
+			{
+				g_qpcWaitEnd = qpcNow;
+			}
+			g_isFrameStarted = false;
+			g_waiting = false;
+			return result;
+		}
+
+		g_waiting = true;
+		if (result)
+		{
+			return result;
+		}
+
+		Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
+		while (Time::qpcToMs(g_qpcWaitEnd - qpcNow) > 0)
+		{
+			Time::waitForNextTick();
+			if (origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg))
+			{
+				return TRUE;
+			}
+			qpcNow = Time::queryPerformanceCounter();
+		}
+
+		while (g_qpcWaitEnd - qpcNow > 0)
+		{
+			if (origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg))
+			{
+				return TRUE;
+			}
+			qpcNow = Time::queryPerformanceCounter();
+		}
+
+		g_isFrameStarted = false;
+		g_waiting = false;
+		return result;
 	}
 
 	BOOL WINAPI peekMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax, UINT wRemoveMsg)
@@ -653,6 +716,54 @@ namespace Gdi
 			}
 
 			Gdi::Window::updateAll();
+		}
+		
+		void startFrame()
+		{
+			if (Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get() || g_inWindowProc)
+			{
+				return;
+			}
+
+			auto fps = Config::fpsLimiter.getParam();
+			if (0 == fps)
+			{
+				fps = 1000;
+			}
+
+			if (!g_isFrameStarted)
+			{
+				g_qpcWaitEnd += Time::g_qpcFrequency / fps;
+				g_isFrameStarted = true;
+				return;
+			}
+
+			if (!g_waiting)
+			{
+				return;
+			}
+
+			g_qpcWaitEnd += Time::g_qpcFrequency / fps;
+			g_waiting = false;
+
+			auto qpcNow = Time::queryPerformanceCounter();
+			if (qpcNow - g_qpcWaitEnd >= 0)
+			{
+				return;
+			}
+
+			Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
+			while (Time::qpcToMs(g_qpcWaitEnd - qpcNow) > 0)
+			{
+				Time::waitForNextTick();
+				DDraw::RealPrimarySurface::flush();
+				qpcNow = Time::queryPerformanceCounter();
+			}
+
+			while (g_qpcWaitEnd - qpcNow > 0)
+			{
+				qpcNow = Time::queryPerformanceCounter();
+			}
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
