@@ -105,37 +105,6 @@ namespace
 		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
 	}
 
-	HRESULT WINAPI restoreSurfaceLostFlag(
-		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
-	{
-		auto& surfacesToRestore = *static_cast<std::set<DDRAWI_DDRAWSURFACE_LCL*>*>(lpContext);
-		auto lcl = DDraw::DirectDrawSurface::getInt(*lpDDSurface).lpLcl;
-		auto it = surfacesToRestore.find(lcl);
-		if (it != surfacesToRestore.end())
-		{
-			lcl->dwFlags &= ~DDRAWISURF_INVALID;
-			surfacesToRestore.erase(it);
-		}
-		return DDENUMRET_OK;
-	}
-
-	HRESULT WINAPI setSurfaceLostFlag(
-		LPDIRECTDRAWSURFACE7 lpDDSurface, LPDDSURFACEDESC2 /*lpDDSurfaceDesc*/, LPVOID lpContext)
-	{
-		auto& surfacesToRestore = *static_cast<std::set<void*>*>(lpContext);
-		auto lcl = DDraw::DirectDrawSurface::getInt(*lpDDSurface).lpLcl;
-		if (!(lcl->dwFlags & DDRAWISURF_INVALID))
-		{
-			auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSurface));
-			if (resource && !resource->getOrigDesc().Flags.MatchGdiPrimary)
-			{
-				lcl->dwFlags |= DDRAWISURF_INVALID;
-				surfacesToRestore.insert(lcl);
-			}
-		}
-		return DDENUMRET_OK;
-	}
-
 	template <typename Vtable>
 	constexpr void setCompatVtable(Vtable& vtable)
 	{
@@ -211,18 +180,27 @@ namespace DDraw
 
 			DDraw::ScopedThreadLock lock;
 			std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
-			TagSurface::forEachDirectDraw([&](CompatRef<IDirectDraw7> dd)
+			DDraw::Surface::enumSurfaces([&](const Surface& surface)
 				{
-					dd->EnumSurfaces(&dd, DDENUMSURFACES_DOESEXIST | DDENUMSURFACES_ALL, nullptr,
-						&surfacesToRestore, &setSurfaceLostFlag);
+					auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
+					if (!(lcl->dwFlags & DDRAWISURF_INVALID))
+					{
+						lcl->dwFlags |= DDRAWISURF_INVALID;
+						surfacesToRestore.insert(lcl);
+					}
 				});
 
 			LRESULT result = callOrigWndProc();
 
-			TagSurface::forEachDirectDraw([&](CompatRef<IDirectDraw7> dd)
+			DDraw::Surface::enumSurfaces([&](const Surface& surface)
 				{
-					dd->EnumSurfaces(&dd, DDENUMSURFACES_DOESEXIST | DDENUMSURFACES_ALL, nullptr,
-						&surfacesToRestore, &restoreSurfaceLostFlag);
+					auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
+					auto it = surfacesToRestore.find(lcl);
+					if (it != surfacesToRestore.end())
+					{
+						lcl->dwFlags &= ~DDRAWISURF_INVALID;
+						surfacesToRestore.erase(it);
+					}
 				});
 
 			if (isActivated)

@@ -1,3 +1,5 @@
+#include <set>
+
 #include <initguid.h>
 
 #include <Common/CompatPtr.h>
@@ -14,6 +16,8 @@ DEFINE_GUID(IID_CompatSurfacePrivateData,
 
 namespace
 {
+	std::set<DDraw::Surface*> g_surfaces;
+
 	void heapFree(void* p)
 	{
 		HeapFree(GetProcessHeap(), 0, p);
@@ -48,11 +52,13 @@ namespace DDraw
 		, m_sizeOverride{}
 		, m_sysMemBuffer(nullptr, &heapFree)
 	{
+		g_surfaces.insert(this);
 	}
 
 	Surface::~Surface()
 	{
 		DirectDrawClipper::setClipper(*this, nullptr);
+		g_surfaces.erase(this);
 	}
 
 	void* Surface::alignBuffer(void* buffer)
@@ -131,6 +137,14 @@ namespace DDraw
 		m_impl3.reset(new SurfaceImpl<IDirectDrawSurface3>(this));
 		m_impl4.reset(new SurfaceImpl<IDirectDrawSurface4>(this));
 		m_impl7.reset(new SurfaceImpl<IDirectDrawSurface7>(this));
+	}
+
+	void Surface::enumSurfaces(const std::function<void(Surface&)>& callback)
+	{
+		for (auto surface : g_surfaces)
+		{
+			callback(*surface);
+		}
 	}
 
 	void Surface::fixAlignment(CompatRef<IDirectDrawSurface7> surface)

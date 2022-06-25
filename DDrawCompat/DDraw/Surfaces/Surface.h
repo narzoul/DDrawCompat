@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <memory>
 #include <vector>
 
@@ -30,6 +31,8 @@ namespace DDraw
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
 		static HRESULT create(
 			CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData);
+
+		static void enumSurfaces(const std::function<void(Surface&)>& callback);
 
 		template <typename TSurface>
 		static Surface* getSurface(TSurface& dds);

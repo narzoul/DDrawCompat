@@ -56,7 +56,7 @@ namespace D3dDdi
 		}
 
 		s_inCreateSurface = true;
-		HRESULT result = dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		HRESULT result = dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		s_inCreateSurface = false;
 		if (FAILED(result))
 		{

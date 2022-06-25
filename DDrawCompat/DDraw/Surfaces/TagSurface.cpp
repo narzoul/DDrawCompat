@@ -67,18 +67,6 @@ namespace DDraw
 		return nullptr;
 	}
 
-	void TagSurface::forEachDirectDraw(std::function<void(CompatRef<IDirectDraw7>)> callback)
-	{
-		for (auto& ddObj : g_ddObjects)
-		{
-			DDRAWI_DIRECTDRAW_INT intf = {};
-			intf.lpVtbl = &CompatVtable<IDirectDraw7Vtbl>::s_origVtable;
-			intf.lpLcl = ddObj.first;
-			intf.dwIntRefCnt = 1;
-			callback(CompatRef<IDirectDraw7>(reinterpret_cast<IDirectDraw7&>(intf)));
-		}
-	}
-
 	TagSurface* TagSurface::get(DDRAWI_DIRECTDRAW_LCL* ddLcl)
 	{
 		auto it = g_ddObjects.find(ddLcl);

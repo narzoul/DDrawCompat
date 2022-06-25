@@ -193,18 +193,6 @@ namespace DDraw
 		{
 			restoreOrigCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
 		}
-		else if (DDERR_SURFACELOST == result)
-		{
-			TSurfaceDesc desc = {};
-			desc.dwSize = sizeof(desc);
-			if (SUCCEEDED(getOrigVtable(This).GetSurfaceDesc(This, &desc)) && !(desc.dwFlags & DDSD_HEIGHT))
-			{
-				// Fixes missing handling for lost vertex buffers in Messiah
-				getOrigVtable(This).Restore(This);
-				// Still, pass back DDERR_SURFACELOST to the application in case it handles it
-			}
-		}
-
 		return result;
 	}
 

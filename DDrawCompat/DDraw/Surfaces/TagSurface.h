@@ -2,7 +2,6 @@
 
 #include <ddraw.h>
 #include <ddrawi.h>
-#include <functional>
 
 #include <Common/CompatRef.h>
 #include <DDraw/Surfaces/Surface.h>
@@ -20,7 +19,6 @@ namespace DDraw
 		static TagSurface* findFullscreenWindow(HWND hwnd);
 
 		static bool doesFullscreenDirectDrawExist();
-		static void forEachDirectDraw(std::function<void(CompatRef<IDirectDraw7>)> callback);
 
 		void setFullscreenWindow(HWND hwnd);
 		LONG setWindowStyle(LONG style);
