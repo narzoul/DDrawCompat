@@ -68,6 +68,7 @@ namespace
 	void onUninitMenuPopup(HMENU menu);
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp);
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp);
+	LONG WINAPI setWindowLongA(HWND hWnd, int nIndex, LONG dwNewLong);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
 
 	template <auto func, typename Result, typename... Params>
@@ -193,6 +194,30 @@ namespace
 	LRESULT CALLBACK ddcWindowProcW(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		return ddcWindowProc(hwnd, uMsg, wParam, lParam, CallWindowProcW, getWindowProc(hwnd).wndProcW);
+	}
+
+	LONG WINAPI ddrawSetWindowLongA(HWND hWnd, int nIndex, LONG dwNewLong)
+	{
+		LOG_FUNC("ddrawSetWindowLongA", hWnd, nIndex, dwNewLong);
+		if (GWL_WNDPROC == nIndex)
+		{
+			return setWindowLongA(hWnd, GWL_WNDPROC, dwNewLong);
+		}
+
+		if (GWL_STYLE == nIndex)
+		{
+			auto style = CALL_ORIG_FUNC(GetWindowLongA)(hWnd, GWL_STYLE);
+			if (style & WS_CLIPCHILDREN)
+			{
+				dwNewLong = style | WS_CLIPCHILDREN;
+				if (dwNewLong == style)
+				{
+					return LOG_RESULT(style);
+				}
+			}
+		}
+
+		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowLongA)(hWnd, nIndex, dwNewLong));
 	}
 
 	BOOL WINAPI getMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
@@ -669,6 +694,8 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "SetWindowLongA", ddrawSetWindowLongA);
 
 			SetWinEventHook(EVENT_OBJECT_CREATE, EVENT_OBJECT_CREATE,
 				Dll::g_currentModule, &winEventProc, GetCurrentProcessId(), 0, WINEVENT_INCONTEXT);
