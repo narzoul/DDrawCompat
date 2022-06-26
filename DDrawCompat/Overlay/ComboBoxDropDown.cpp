@@ -22,8 +22,15 @@ namespace Overlay
 	RECT ComboBoxDropDown::calculateRect(ComboBoxControl& parent, DWORD itemCount)
 	{
 		const RECT parentRect = parent.getRect();
-		return { parentRect.left, parentRect.bottom, parentRect.right,
+		RECT rect = { parentRect.left, parentRect.bottom, parentRect.right,
 			parentRect.bottom + static_cast<int>(itemCount) * ARROW_SIZE + 4 };
+
+		const RECT rootWindowRect = static_cast<const Window&>(parent.getRoot()).getRect();
+		if (rect.bottom > rootWindowRect.bottom - rootWindowRect.top)
+		{
+			OffsetRect(&rect, 0, parentRect.top - rect.bottom);
+		}
+		return rect;
 	}
 
 	RECT ComboBoxDropDown::calculateRect(const RECT& /*monitorRect*/) const
