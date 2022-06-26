@@ -14,6 +14,7 @@ namespace Config
 	Settings::DisplayRefreshRate displayRefreshRate;
 	Settings::DisplayResolution displayResolution;
 	Settings::DpiAwareness dpiAwareness;
+	Settings::FontAntialiasing fontAntialiasing;
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;

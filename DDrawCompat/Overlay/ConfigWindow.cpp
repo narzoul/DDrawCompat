@@ -17,7 +17,7 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 380 }, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 405 }, Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -31,6 +31,7 @@ namespace Overlay
 		addControl(Config::bltFilter);
 		addControl(Config::antialiasing);
 		addControl(Config::displayFilter);
+		addControl(Config::fontAntialiasing);
 		addControl(Config::fpsLimiter);
 		addControl(Config::renderColorDepth);
 		addControl(Config::resolutionScale);

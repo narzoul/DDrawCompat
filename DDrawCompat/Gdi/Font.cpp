@@ -1,5 +1,6 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Config/Config.h>
 #include <Gdi/Font.h>
 
 namespace
@@ -45,7 +46,8 @@ namespace Gdi
 	{
 		Mapper::Mapper(HDC dc) : m_dc(dc), m_origFont(nullptr)
 		{
-			if (!dc || g_isFontSmoothingEnabled)
+			if (!dc || Config::Settings::FontAntialiasing::ON == Config::fontAntialiasing.get() ||
+				g_isFontSmoothingEnabled && Config::Settings::FontAntialiasing::APP == Config::fontAntialiasing.get())
 			{
 				return;
 			}

@@ -12,6 +12,7 @@
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/DpiAwareness.h>
+#include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
@@ -42,6 +43,7 @@ namespace Config
 	extern Settings::DisplayRefreshRate displayRefreshRate;
 	extern Settings::DisplayResolution displayResolution;
 	extern Settings::DpiAwareness dpiAwareness;
+	extern Settings::FontAntialiasing fontAntialiasing;
 	extern Settings::ForceD3D9On12 forceD3D9On12;
 	extern Settings::FpsLimiter fpsLimiter;
 	extern Settings::FullscreenMode fullscreenMode;
