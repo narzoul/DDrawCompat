@@ -39,7 +39,6 @@ namespace
 
 	void onRelease();
 
-	CompatWeakPtr<IDirectDraw7> g_defaultPrimaryDD;
 	CompatWeakPtr<IDirectDrawSurface7> g_defaultPrimary;
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
@@ -113,46 +112,53 @@ namespace
 			return TRUE;
 		}
 
-		CompatPtr<IDirectDraw7> dd;
-		if (FAILED(CALL_ORIG_PROC(DirectDrawCreateEx)(
-			lpGUID, reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr)))
+		auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
+		LOG_DEBUG << "Creating " << (tagSurface ? "fullscreen" : "windowed") << " default primary";
+
+		if (tagSurface)
 		{
-			return FALSE;
+			DDSURFACEDESC desc = {};
+			desc.dwSize = sizeof(desc);
+			desc.dwFlags = DDSD_CAPS;
+			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+
+			CompatPtr<IDirectDraw> dd(tagSurface->getDD());
+			CompatPtr<IDirectDrawSurface> primary;
+			dd.get()->lpVtbl->CreateSurface(dd, &desc, &primary.getRef(), nullptr);
+			g_defaultPrimary = CompatPtr<IDirectDrawSurface7>(primary).detach();
+		}
+		else
+		{
+			CompatPtr<IDirectDraw7> dd;
+			if (FAILED(CALL_ORIG_PROC(DirectDrawCreateEx)(
+				lpGUID, reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr)))
+			{
+				return FALSE;
+			}
+
+			if (FAILED(dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
+			{
+				return FALSE;
+			}
+
+			DDSURFACEDESC2 desc = {};
+			desc.dwSize = sizeof(desc);
+			desc.dwFlags = DDSD_CAPS;
+			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+			dd.get()->lpVtbl->CreateSurface(dd, &desc, &g_defaultPrimary.getRef(), nullptr);
 		}
 
-		if (FAILED(dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-		{
-			return FALSE;
-		}
-
-		CompatPtr<IDirectDrawSurface7> primary;
-		DDSURFACEDESC2 desc = {};
-		desc.dwSize = sizeof(desc);
-		desc.dwFlags = DDSD_CAPS;
-		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-		if (FAILED(dd.get()->lpVtbl->CreateSurface(dd, &desc, &primary.getRef(), nullptr)))
-		{
-			return FALSE;
-		}
-
-		g_defaultPrimary = primary.detach();
-		g_defaultPrimaryDD = dd.detach();
-		return FALSE;
+		return nullptr != g_defaultPrimary;
 	}
 
 	void createDefaultPrimary()
 	{
-		if (g_frontBuffer || g_defaultPrimary && SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)))
+		if (g_defaultPrimary ? SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)) : g_frontBuffer)
 		{
 			return;
 		}
 
 		DDraw::RealPrimarySurface::destroyDefaultPrimary();
-
-		if (DDraw::TagSurface::doesFullscreenDirectDrawExist())
-		{
-			return;
-		}
 
 		auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
 		if (0 == dm.diff.cx && 0 == dm.diff.cy)
@@ -270,6 +276,7 @@ namespace
 			g_presentationWindow = nullptr;
 		}
 
+		g_defaultPrimary = nullptr;
 		g_frontBuffer = nullptr;
 		g_lastFlipSurface = nullptr;
 		g_windowedBackBuffer.release();
@@ -425,8 +432,6 @@ namespace
 			}
 
 			DDraw::ScopedThreadLock lock;
-			createDefaultPrimary();
-			updatePresentationWindowPos();
 			msUntilUpdateReady = DDraw::RealPrimarySurface::flush();
 		}
 	}
@@ -509,8 +514,11 @@ namespace DDraw
 
 	void RealPrimarySurface::destroyDefaultPrimary()
 	{
-		g_defaultPrimary.release();
-		g_defaultPrimaryDD.release();
+		if (g_defaultPrimary)
+		{
+			LOG_DEBUG << "Destroying default primary";
+			g_defaultPrimary.release();
+		}
 	}
 
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
@@ -584,6 +592,9 @@ namespace DDraw
 				return -1;
 			}
 		}
+
+		createDefaultPrimary();
+		updatePresentationWindowPos();
 
 		auto src(g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : DDraw::PrimarySurface::getPrimary());
 		RECT emptyRect = {};

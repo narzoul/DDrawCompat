@@ -13,17 +13,20 @@ namespace DDraw
 {
 	TagSurface::TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl)
 		: Surface(origCaps)
-		, m_ddLcl(ddLcl)
+		, m_ddInt{}
 		, m_fullscreenWindow(nullptr)
 		, m_fullscreenWindowStyle(0)
 		, m_fullscreenWindowExStyle(0)
 	{
+		m_ddInt.lpVtbl = &CompatVtable<IDirectDraw>::s_origVtable;
+		m_ddInt.lpLcl = ddLcl;
+		m_ddInt.dwIntRefCnt = 1;
 	}
 
 	TagSurface::~TagSurface()
 	{
 		setFullscreenWindow(nullptr);
-		g_ddObjects.erase(m_ddLcl);
+		g_ddObjects.erase(m_ddInt.lpLcl);
 	}
 
 	HRESULT TagSurface::create(CompatRef<IDirectDraw> dd)
@@ -43,23 +46,12 @@ namespace DDraw
 		return Surface::create(dd, desc, surface, std::move(privateData));
 	}
 
-	bool TagSurface::doesFullscreenDirectDrawExist()
-	{
-		for (auto& pair : g_ddObjects)
-		{
-			if (pair.second->m_fullscreenWindow)
-			{
-				return true;
-			}
-		}
-		return false;
-	}
-
 	TagSurface* TagSurface::findFullscreenWindow(HWND hwnd)
 	{
 		for (auto& pair : g_ddObjects)
 		{
-			if (hwnd == pair.second->m_fullscreenWindow)
+			if (pair.second->m_fullscreenWindow &&
+				(!hwnd || hwnd == pair.second->m_fullscreenWindow))
 			{
 				return pair.second;
 			}
@@ -91,6 +83,11 @@ namespace DDraw
 			return nullptr;
 		}
 		return g_ddObjects[ddLcl];
+	}
+
+	CompatPtr<IDirectDraw7> TagSurface::getDD()
+	{
+		return CompatPtr<IDirectDraw7>::from(reinterpret_cast<IDirectDraw*>(&m_ddInt));
 	}
 
 	void TagSurface::setFullscreenWindow(HWND hwnd)

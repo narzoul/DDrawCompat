@@ -14,6 +14,10 @@
 
 namespace
 {
+	typedef void (WINAPI* SurfaceFlipNotifyFunc)(void*);
+	SurfaceFlipNotifyFunc g_origSurfaceFlipNotify = nullptr;
+	SurfaceFlipNotifyFunc g_origSurfaceFlipNotify7 = nullptr;
+
 	void hookDirect3dDevice(CompatRef<IDirect3D3> d3d, CompatRef<IDirectDrawSurface4> renderTarget);
 	void hookDirect3dExecuteBuffer(CompatRef<IDirect3DDevice> dev);
 	void hookDirect3dLight(CompatRef<IDirect3D3> d3d);
@@ -220,6 +224,16 @@ namespace
 		Direct3d::Direct3dViewport::hookVtable(*CompatPtr<IDirect3DViewport2>(viewport).get()->lpVtbl);
 		Direct3d::Direct3dViewport::hookVtable(*CompatPtr<IDirect3DViewport3>(viewport).get()->lpVtbl);
 	}
+
+	template <auto& origSurfaceFlipNotify>
+	void WINAPI surfaceFlipNotify(void* ptr)
+	{
+		LOG_FUNC("SurfaceFlipNotify", ptr);
+		if (ptr)
+		{
+			origSurfaceFlipNotify(ptr);
+		}
+	}
 }
 
 namespace Direct3d
@@ -233,5 +247,10 @@ namespace Direct3d
 			hookDirect3d(*dd, *renderTarget4);
 			hookDirect3d7(*dd7);
 		}
+
+		Compat::hookFunction("d3dim", "SurfaceFlipNotify", reinterpret_cast<void*&>(g_origSurfaceFlipNotify),
+			surfaceFlipNotify<g_origSurfaceFlipNotify>);
+		Compat::hookFunction("d3dim700", "SurfaceFlipNotify", reinterpret_cast<void*&>(g_origSurfaceFlipNotify7),
+			surfaceFlipNotify<g_origSurfaceFlipNotify7>);
 	}
 }

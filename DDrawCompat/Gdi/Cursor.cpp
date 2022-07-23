@@ -180,6 +180,7 @@ namespace Gdi
 
 		void setEmulated(bool isEmulated)
 		{
+			LOG_FUNC("Cursor::setEmulated", isEmulated);
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (isEmulated == g_isEmulated)
 			{
@@ -202,6 +203,7 @@ namespace Gdi
 
 		void setMonitorClipRect(const RECT& rect)
 		{
+			LOG_FUNC("Cursor::setMonitorClipRect", rect);
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (IsRectEmpty(&rect))
 			{
