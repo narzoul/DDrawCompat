@@ -293,12 +293,9 @@ namespace
 		g_clipper.release();
 		CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
 		g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
-
-		const bool isFlippable = 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP);
 		g_surfaceDesc = desc;
-		g_isFullscreen = isFlippable;
 
-		if (isFlippable)
+		if (0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP))
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
@@ -341,7 +338,7 @@ namespace
 				Input::updateCursor();
 			});
 
-		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
+		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost() || FAILED(src->IsLost(src)))
 		{
 			Gdi::Window::present(nullptr);
 			return;
@@ -381,12 +378,16 @@ namespace
 		bool isFullscreen = false;
 		if (SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
 		{
-			HWND foregroundWindow = GetForegroundWindow();
-			if (foregroundWindow)
+			auto primary(DDraw::PrimarySurface::getPrimary());
+			if (primary && SUCCEEDED(primary->IsLost(primary)))
 			{
-				DWORD pid = 0;
-				GetWindowThreadProcessId(foregroundWindow, &pid);
-				isFullscreen = GetCurrentProcessId() == pid && Gdi::Window::hasFullscreenWindow();
+				HWND foregroundWindow = GetForegroundWindow();
+				if (foregroundWindow)
+				{
+					DWORD pid = 0;
+					GetWindowThreadProcessId(foregroundWindow, &pid);
+					isFullscreen = GetCurrentProcessId() == pid && Gdi::Window::hasFullscreenWindow();
+				}
 			}
 		}
 
@@ -446,11 +447,13 @@ namespace DDraw
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 		desc.dwBackBufferCount = 2;
 
+		g_isFullscreen = true;
 		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
 		if (DDERR_NOEXCLUSIVEMODE == result)
 		{
+			g_isFullscreen = false;
 			desc.dwFlags = DDSD_CAPS;
 			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 			desc.dwBackBufferCount = 0;

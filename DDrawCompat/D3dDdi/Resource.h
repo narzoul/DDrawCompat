@@ -40,7 +40,7 @@ namespace D3dDdi
 		void onDestroyResource(HANDLE resource);
 		Resource& prepareForBltSrc(const D3DDDIARG_BLT& data);
 		Resource& prepareForBltDst(D3DDDIARG_BLT& data);
-		Resource& prepareForBltDst(HANDLE& resource, UINT& subResourceIndex, RECT& rect);
+		Resource& prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect);
 		void prepareForCpuRead(UINT subResourceIndex);
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);

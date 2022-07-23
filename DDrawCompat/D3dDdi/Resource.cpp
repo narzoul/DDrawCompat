@@ -478,6 +478,11 @@ namespace D3dDdi
 			}
 		}
 
+		if (D3DDDIFMT_P8 == m_fixedData.Format)
+		{
+			data.Color <<= 16;
+		}
+
 		prepareForBltDst(data.hResource, data.SubResourceIndex, data.DstRect);
 		return LOG_RESULT(m_device.getOrigVtable().pfnColorFill(m_device, &data));
 	}
@@ -924,7 +929,7 @@ namespace D3dDdi
 		return prepareForBltDst(data.hDstResource, data.DstSubResourceIndex, data.DstRect);
 	}
 
-	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT& subResourceIndex, RECT& rect)
+	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect)
 	{
 		if (m_lockResource)
 		{
@@ -1240,6 +1245,8 @@ namespace D3dDdi
 		{
 			return;
 		}
+
+		DDraw::PrimarySurface::updatePalette();
 
 		if (isFullscreen)
 		{

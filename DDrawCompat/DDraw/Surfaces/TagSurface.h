@@ -20,6 +20,7 @@ namespace DDraw
 
 		static bool doesFullscreenDirectDrawExist();
 
+		bool isFullscreen() const { return m_fullscreenWindow; }
 		void setFullscreenWindow(HWND hwnd);
 		LONG setWindowStyle(LONG style);
 		LONG setWindowExStyle(LONG exStyle);

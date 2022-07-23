@@ -255,6 +255,10 @@ namespace DDraw
 	{
 		if (!s_palette)
 		{
+			if (DDraw::RealPrimarySurface::isFullscreen())
+			{
+				Gdi::Palette::setHardwarePalette(Gdi::Palette::getSystemPalette().data());
+			}
 			return;
 		}
 

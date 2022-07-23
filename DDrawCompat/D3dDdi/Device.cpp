@@ -48,8 +48,9 @@ namespace D3dDdi
 
 	HRESULT Device::createPrivateResource(D3DDDIARG_CREATERESOURCE2& data)
 	{
-		const bool isPalettizedOffScreen = D3DDDIFMT_P8 == data.Format && !data.Flags.Texture;
-		if (isPalettizedOffScreen)
+		const bool isPalettized = D3DDDIFMT_P8 == data.Format;
+		const bool isTexture = data.Flags.Texture;
+		if (isPalettized)
 		{
 			data.Format = D3DDDIFMT_L8;
 			data.Flags.Texture = 1;
@@ -59,10 +60,10 @@ namespace D3dDdi
 			? m_origVtable.pfnCreateResource2(m_device, &data)
 			: m_origVtable.pfnCreateResource(m_device, reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
 
-		if (isPalettizedOffScreen)
+		if (isPalettized)
 		{
 			data.Format = D3DDDIFMT_P8;
-			data.Flags.Texture = 0;
+			data.Flags.Texture = isTexture;
 		}
 
 		return result;
@@ -114,6 +115,7 @@ namespace D3dDdi
 
 	void Device::setGdiResourceHandle(HANDLE resource)
 	{
+		LOG_FUNC("Device::setGdiResourceHandle", resource);
 		ScopedCriticalSection lock;
 		if ((!resource && !g_gdiResource) ||
 			(g_gdiResource && resource == *g_gdiResource))

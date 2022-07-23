@@ -21,6 +21,7 @@ namespace Gdi
 	{
 		HWND create(HWND owner)
 		{
+			LOG_FUNC("PresentationWindow::create", owner);
 			HWND presentationWindow = nullptr;
 			GuiThread::execute([&]()
 				{
@@ -40,7 +41,7 @@ namespace Gdi
 						CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
 					}
 				});
-			return presentationWindow;
+			return LOG_RESULT(presentationWindow);
 		}
 
 		void installHooks()

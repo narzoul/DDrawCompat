@@ -3,6 +3,7 @@
 #include <Config/Config.h>
 #include <Common/ScopedCriticalSection.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -270,6 +271,8 @@ namespace Gdi
 
 				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
 				prevIsFullscreen = g_isFullscreen;
+
+				auto gdiResource = D3dDdi::Device::getGdiResource();
 				D3dDdi::Device::setGdiResourceHandle(nullptr);
 
 				if (g_isFullscreen)
@@ -306,6 +309,11 @@ namespace Gdi
 				for (auto& dc : g_dcs)
 				{
 					SelectObject(dc.first, createDib(dc.second.useDefaultPalette));
+				}
+
+				if (gdiResource && DDraw::PrimarySurface::getPrimary())
+				{
+					D3dDdi::Device::setGdiResourceHandle(*gdiResource);
 				}
 			}
 
