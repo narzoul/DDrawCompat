@@ -52,6 +52,12 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::create", &dd, desc, surface);
 		DDraw::RealPrimarySurface::destroyDefaultPrimary();
+		if (g_primarySurface)
+		{
+			LOG_ONCE("Warning: suppressed an attempt to create multiple primary surfaces");
+			return LOG_RESULT(DDERR_UNSUPPORTED);
+		}
+
 		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
 		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;

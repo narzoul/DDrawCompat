@@ -18,6 +18,7 @@ namespace DDraw
 		, m_fullscreenWindowStyle(0)
 		, m_fullscreenWindowExStyle(0)
 	{
+		LOG_FUNC("TagSurface::TagSurface", Compat::hex(origCaps), ddLcl);
 		m_ddInt.lpVtbl = &CompatVtable<IDirectDraw>::s_origVtable;
 		m_ddInt.lpLcl = ddLcl;
 		m_ddInt.dwIntRefCnt = 1;
@@ -25,6 +26,7 @@ namespace DDraw
 
 	TagSurface::~TagSurface()
 	{
+		LOG_FUNC("TagSurface::~TagSurface", m_ddInt.lpLcl);
 		setFullscreenWindow(nullptr);
 		g_ddObjects.erase(m_ddInt.lpLcl);
 	}
