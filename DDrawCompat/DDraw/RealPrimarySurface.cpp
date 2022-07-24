@@ -50,6 +50,7 @@ namespace
 
 	bool g_isFullscreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
+	DDraw::TagSurface* g_tagSurface = nullptr;
 
 	Compat::CriticalSection g_presentCs;
 	bool g_isDelayedFlipPending = false;
@@ -169,22 +170,9 @@ namespace
 		CALL_ORIG_PROC(DirectDrawEnumerateExA)(createDefaultPrimaryEnum, &dm.deviceName, DDENUM_ATTACHEDSECONDARYDEVICES);
 	}
 
-	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DDRAWI_DIRECTDRAW_LCL* ddLcl, DWORD width, DWORD height)
+	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DWORD width, DWORD height)
 	{
-		if (!ddLcl)
-		{
-			LOG_INFO << "ERROR: createWindowedBackBuffer: ddLcl is null";
-			return nullptr;
-		}
-
-		auto tagSurface = DDraw::TagSurface::get(ddLcl);
-		if (!tagSurface)
-		{
-			LOG_INFO << "ERROR: createWindowedBackBuffer: TagSurface not found";
-			return nullptr;
-		}
-
-		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*tagSurface->getDDS());
+		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*g_tagSurface->getDDS());
 		if (!resource)
 		{
 			LOG_INFO << "ERROR: createWindowedBackBuffer: driver resource handle not found";
@@ -283,6 +271,7 @@ namespace
 		g_clipper.release();
 		g_isFullscreen = false;
 		g_surfaceDesc = {};
+		g_tagSurface = nullptr;
 
 		DDraw::RealPrimarySurface::updateDevicePresentationWindowPos();
 		g_devicePresentationWindow = nullptr;
@@ -439,21 +428,20 @@ namespace
 
 namespace DDraw
 {
-	template <typename DirectDraw>
-	HRESULT RealPrimarySurface::create(CompatRef<DirectDraw> dd)
+	HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw> dd)
 	{
 		LOG_FUNC("RealPrimarySurface::create", &dd);
 		DDraw::ScopedThreadLock lock;
 		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
 
-		typename Types<DirectDraw>::TSurfaceDesc desc = {};
+		DDSURFACEDESC desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 		desc.dwBackBufferCount = 2;
 
 		g_isFullscreen = true;
-		CompatPtr<typename Types<DirectDraw>::TCreatedSurface> surface;
+		CompatPtr<IDirectDrawSurface> surface;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
 		if (DDERR_NOEXCLUSIVEMODE == result)
@@ -472,13 +460,23 @@ namespace DDraw
 			return result;
 		}
 
+		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
+		g_tagSurface = DDraw::TagSurface::get(ddLcl);
+		if (!g_tagSurface)
+		{
+			LOG_INFO << "ERROR: TagSurface not found";
+			g_monitorRect = {};
+			return DDERR_GENERIC;
+		}
+
 		if (0 == desc.dwBackBufferCount)
 		{
-			g_windowedBackBuffer = createWindowedBackBuffer(DDraw::DirectDraw::getInt(dd.get()).lpLcl,
+			g_windowedBackBuffer = createWindowedBackBuffer(
 				g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top).detach();
 			if (!g_windowedBackBuffer)
 			{
 				g_monitorRect = {};
+				g_tagSurface = nullptr;
 				return DDERR_GENERIC;
 			}
 		}
@@ -506,11 +504,6 @@ namespace DDraw
 
 		return DD_OK;
 	}
-
-	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw>);
-	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw2>);
-	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw4>);
-	template HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw7>);
 
 	void RealPrimarySurface::destroyDefaultPrimary()
 	{
@@ -594,6 +587,10 @@ namespace DDraw
 		}
 
 		createDefaultPrimary();
+		if (!g_defaultPrimary && g_frontBuffer && FAILED(g_frontBuffer->IsLost(g_frontBuffer)))
+		{
+			restore();
+		}
 		updatePresentationWindowPos();
 
 		auto src(g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : DDraw::PrimarySurface::getPrimary());
@@ -678,12 +675,21 @@ namespace DDraw
 	HRESULT RealPrimarySurface::restore()
 	{
 		DDraw::ScopedThreadLock lock;
-		HRESULT result = g_frontBuffer->Restore(g_frontBuffer);
-		if (SUCCEEDED(result))
+		if (g_defaultPrimary)
 		{
-			onRestore();
+			destroyDefaultPrimary();
+			createDefaultPrimary();
+			return DD_OK;
 		}
-		return result;
+
+		auto dd(g_tagSurface->getDD());
+		if (g_isFullscreen && FAILED(dd->TestCooperativeLevel(dd)))
+		{
+			return DDERR_NOEXCLUSIVEMODE;
+		}
+
+		release();
+		return create(*CompatPtr<IDirectDraw>::from(dd.get()));
 	}
 
 	void RealPrimarySurface::scheduleUpdate()

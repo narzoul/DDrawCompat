@@ -63,7 +63,7 @@ namespace DDraw
 		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;
 		g_monitorRect.bottom = g_monitorRect.top + dm.dwHeight;
 
-		HRESULT result = RealPrimarySurface::create(dd);
+		HRESULT result = RealPrimarySurface::create(*CompatPtr<IDirectDraw>::from(&dd));
 		if (FAILED(result))
 		{
 			return LOG_RESULT(result);

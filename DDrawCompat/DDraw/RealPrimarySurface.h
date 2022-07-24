@@ -12,9 +12,7 @@ namespace DDraw
 	class RealPrimarySurface
 	{
 	public:
-		template <typename DirectDraw>
-		static HRESULT create(CompatRef<DirectDraw> dd);
-
+		static HRESULT create(CompatRef<IDirectDraw> dd);
 		static void destroyDefaultPrimary();
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static int flush();

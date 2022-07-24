@@ -91,8 +91,7 @@ namespace
 					tagSurface->setFullscreenWindow(isFullscreen ? hWnd : nullptr);
 					if (DDraw::RealPrimarySurface::getSurface())
 					{
-						DDraw::RealPrimarySurface::release();
-						DDraw::RealPrimarySurface::create(CompatRef<TDirectDraw>(*This));
+						DDraw::RealPrimarySurface::restore();
 					}
 				}
 			}

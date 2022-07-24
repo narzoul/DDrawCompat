@@ -244,7 +244,8 @@ namespace DDraw
 		HRESULT result = IsLost(This);
 		if (FAILED(result))
 		{
-			result = RealPrimarySurface::restore();
+			auto realPrimary = RealPrimarySurface::getSurface();
+			result = SUCCEEDED(realPrimary->IsLost(realPrimary)) ? DD_OK : RealPrimarySurface::restore();
 			if (SUCCEEDED(result))
 			{
 				return SurfaceImpl::Restore(This);
