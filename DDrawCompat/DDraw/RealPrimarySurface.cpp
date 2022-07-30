@@ -372,18 +372,14 @@ namespace
 		}
 
 		bool isFullscreen = false;
-		if (SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
+		if (SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)) && DDraw::PrimarySurface::getPrimary())
 		{
-			auto primary(DDraw::PrimarySurface::getPrimary());
-			if (primary && SUCCEEDED(primary->IsLost(primary)))
+			HWND foregroundWindow = GetForegroundWindow();
+			if (foregroundWindow)
 			{
-				HWND foregroundWindow = GetForegroundWindow();
-				if (foregroundWindow)
-				{
-					DWORD pid = 0;
-					GetWindowThreadProcessId(foregroundWindow, &pid);
-					isFullscreen = GetCurrentProcessId() == pid && Gdi::Window::hasFullscreenWindow();
-				}
+				DWORD pid = 0;
+				GetWindowThreadProcessId(foregroundWindow, &pid);
+				isFullscreen = GetCurrentProcessId() == pid && Gdi::Window::hasFullscreenWindow();
 			}
 		}
 
@@ -432,7 +428,8 @@ namespace DDraw
 	{
 		LOG_FUNC("RealPrimarySurface::create", &dd);
 		DDraw::ScopedThreadLock lock;
-		g_monitorRect = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).monitorInfo.rcMonitor;
+		g_monitorRect = Win32::DisplayMode::getMonitorInfo(
+			D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName).rcMonitor;
 
 		DDSURFACEDESC desc = {};
 		desc.dwSize = sizeof(desc);
@@ -593,7 +590,21 @@ namespace DDraw
 		}
 		updatePresentationWindowPos();
 
-		auto src(g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : DDraw::PrimarySurface::getPrimary());
+		auto primary(DDraw::PrimarySurface::getPrimary());
+		CompatWeakPtr<IDirectDrawSurface7> src;
+		if (g_isDelayedFlipPending)
+		{
+			src = g_lastFlipSurface->getDDS();
+		}
+		else if (primary && SUCCEEDED(primary->IsLost(primary)))
+		{
+			src = primary;
+		}
+		else
+		{
+			src = DDraw::PrimarySurface::getGdiPrimary();
+		}
+
 		RECT emptyRect = {};
 		HRESULT result = src ? src->BltFast(src, 0, 0, src, &emptyRect, DDBLTFAST_WAIT) : DD_OK;
 		if (DDERR_SURFACEBUSY == result || DDERR_LOCKEDSURFACES == result)

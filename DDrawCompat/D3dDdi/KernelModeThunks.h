@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <Windows.h>
 #include <winternl.h>
 #include <d3dkmthk.h>
@@ -17,7 +19,7 @@ namespace D3dDdi
 			UINT adapter;
 			UINT vidPnSourceId;
 			LUID luid;
-			MONITORINFOEXW monitorInfo;
+			std::wstring deviceName;
 		};
 
 		void fixPresent(D3DKMT_PRESENT& data);

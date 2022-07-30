@@ -37,7 +37,7 @@ namespace D3dDdi
 		, m_runtimeVersion(data.Version)
 		, m_driverVersion(data.DriverVersion)
 		, m_luid(KernelModeThunks::getLastOpenAdapterInfo().luid)
-		, m_deviceName(KernelModeThunks::getLastOpenAdapterInfo().monitorInfo.szDevice)
+		, m_deviceName(KernelModeThunks::getLastOpenAdapterInfo().deviceName)
 		, m_repository{}
 	{
 	}

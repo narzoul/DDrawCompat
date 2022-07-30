@@ -139,27 +139,13 @@ namespace
 		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
 
-	BOOL CALLBACK findMonitorInfo(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
-	{
-		MONITORINFOEXW mi = {};
-		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
-		if (0 == wcscmp(reinterpret_cast<MONITORINFOEXW*>(dwData)->szDevice, mi.szDevice))
-		{
-			*reinterpret_cast<MONITORINFOEXW*>(dwData) = mi;
-			return FALSE;
-		}
-		return TRUE;
-	}
-
 	D3dDdi::KernelModeThunks::AdapterInfo getAdapterInfo(const std::string& deviceName, const D3DKMT_OPENADAPTERFROMHDC& data)
 	{
 		D3dDdi::KernelModeThunks::AdapterInfo adapterInfo = {};
 		adapterInfo.adapter = data.hAdapter;
 		adapterInfo.vidPnSourceId = data.VidPnSourceId;
 		adapterInfo.luid = data.AdapterLuid;
-		wcscpy_s(adapterInfo.monitorInfo.szDevice, std::wstring(deviceName.begin(), deviceName.end()).c_str());
-		EnumDisplayMonitors(nullptr, nullptr, findMonitorInfo, reinterpret_cast<LPARAM>(&adapterInfo.monitorInfo));
+		adapterInfo.deviceName = std::wstring(deviceName.begin(), deviceName.end());
 		return adapterInfo;
 	}
 
@@ -266,8 +252,6 @@ namespace
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
 		NTSTATUS result = 0;
 		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
-		DDraw::RealPrimarySurface::setUpdateReady();
-		DDraw::RealPrimarySurface::flush();
 		if (g_isExclusiveFullscreen || D3DDDI_GAMMARAMP_RGB256x3x16 != pData->Type || !pData->pGammaRampRgb256x3x16)
 		{
 			D3dDdi::ShaderBlitter::resetGammaRamp();

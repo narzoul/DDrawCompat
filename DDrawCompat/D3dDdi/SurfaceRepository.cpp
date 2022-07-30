@@ -273,7 +273,8 @@ namespace D3dDdi
 
 	const SurfaceRepository::Surface& SurfaceRepository::getTempTexture(DWORD width, DWORD height, const DDPIXELFORMAT& pf)
 	{
-		return getTempSurface(m_textures[pf], width, height, pf, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		return getTempSurface(m_textures[pf], width, height, pf,
+			(pf.dwRGBBitCount > 8 ? DDSCAPS_TEXTURE : 0) | DDSCAPS_VIDEOMEMORY);
 	}
 
 	bool SurfaceRepository::isLost(Surface& surface)

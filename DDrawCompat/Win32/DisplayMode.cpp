@@ -73,7 +73,6 @@ namespace
 	std::wstring getDeviceName(const Char* deviceName);
 
 	HMONITOR getMonitorFromDc(HDC dc);
-	MONITORINFO getMonitorInfo(const std::wstring& deviceName);
 
 	template <typename Char>
 	std::map<SIZE, std::set<DWORD>> getSupportedDisplayModeMap(const Char* deviceName, DWORD flags);
@@ -224,7 +223,7 @@ namespace
 				g_emulatedDisplayMode.refreshRate = currDevMode.dmDisplayFrequency;
 
 				g_emulatedDisplayMode.deviceName = getDeviceName(lpszDeviceName);
-				g_emulatedDisplayMode.rect = getMonitorInfo(g_emulatedDisplayMode.deviceName).rcMonitor;
+				g_emulatedDisplayMode.rect = Win32::DisplayMode::getMonitorInfo(g_emulatedDisplayMode.deviceName).rcMonitor;
 				g_emulatedDisplayMode.rect.right = g_emulatedDisplayMode.rect.left + emulatedResolution.cx;
 				g_emulatedDisplayMode.rect.bottom = g_emulatedDisplayMode.rect.top + emulatedResolution.cy;
 				g_emulatedDisplayMode.diff.cx = emulatedResolution.cx - currDevMode.dmPelsWidth;
@@ -542,14 +541,6 @@ namespace
 		return TRUE;
 	}
 
-	MONITORINFO getMonitorInfo(const std::wstring& deviceName)
-	{
-		MONITORINFOEXW mi = {};
-		wcscpy_s(mi.szDevice, deviceName.c_str());
-		EnumDisplayMonitors(nullptr, nullptr, &getMonitorInfoEnum, reinterpret_cast<LPARAM>(&mi));
-		return mi;
-	}
-
 	BOOL WINAPI getMonitorInfoA(HMONITOR hMonitor, LPMONITORINFO lpmi)
 	{
 		LOG_FUNC("GetMonitorInfoA", hMonitor, lpmi);
@@ -737,6 +728,14 @@ namespace Win32
 		{
 			Compat::ScopedSrwLockShared lock(g_srwLock);
 			return g_emulatedDisplayMode;
+		}
+
+		MONITORINFOEXW getMonitorInfo(const std::wstring& deviceName)
+		{
+			MONITORINFOEXW mi = {};
+			wcscpy_s(mi.szDevice, deviceName.c_str());
+			EnumDisplayMonitors(nullptr, nullptr, &getMonitorInfoEnum, reinterpret_cast<LPARAM>(&mi));
+			return mi;
 		}
 
 		ULONG queryDisplaySettingsUniqueness()

@@ -27,6 +27,7 @@ namespace Win32
 
 		DWORD getBpp();
 		EmulatedDisplayMode getEmulatedDisplayMode();
+		MONITORINFOEXW getMonitorInfo(const std::wstring& deviceName);
 		ULONG queryDisplaySettingsUniqueness();
 
 		void installHooks();
