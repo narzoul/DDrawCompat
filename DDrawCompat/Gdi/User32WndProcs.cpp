@@ -202,31 +202,26 @@ namespace
 
 		case WM_SETCURSOR:
 		{
-			if (!Gdi::Cursor::isEmulated())
-			{
-				return origDefWindowProc(hwnd, msg, wParam, lParam);
-			}
-
 			switch (LOWORD(lParam))
 			{
 			case HTLEFT:
 			case HTRIGHT:
-				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZEWE));
+				SetCursor(LoadCursor(nullptr, IDC_SIZEWE));
 				return TRUE;
 
 			case HTTOP:
 			case HTBOTTOM:
-				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENS));
+				SetCursor(LoadCursor(nullptr, IDC_SIZENS));
 				return TRUE;
 
 			case HTTOPLEFT:
 			case HTBOTTOMRIGHT:
-				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENWSE));
+				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
 				return TRUE;
 
 			case HTBOTTOMLEFT:
 			case HTTOPRIGHT:
-				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_SIZENESW));
+				SetCursor(LoadCursor(nullptr, IDC_SIZENESW));
 				return TRUE;
 			}
 
@@ -246,7 +241,7 @@ namespace
 			}
 			else
 			{
-				Gdi::Cursor::setCursor(LoadCursor(nullptr, IDC_ARROW));
+				SetCursor(LoadCursor(nullptr, IDC_ARROW));
 			}
 			return FALSE;
 		}

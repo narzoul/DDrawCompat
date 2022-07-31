@@ -171,6 +171,10 @@ namespace
 			onDestroyWindow(hwnd);
 			break;
 
+		case WM_SETCURSOR:
+			SetCursor(CALL_ORIG_FUNC(GetCursor)());
+			break;
+
 		case WM_STYLECHANGED:
 			if (Gdi::Window::isTopLevelWindow(hwnd))
 			{

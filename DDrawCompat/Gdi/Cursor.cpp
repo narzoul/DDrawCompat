@@ -9,8 +9,10 @@
 
 namespace
 {
+	const HCURSOR INVALID_CURSOR = static_cast<HCURSOR>(INVALID_HANDLE_VALUE);
+
 	RECT g_clipRect = {};
-	HCURSOR g_cursor = nullptr;
+	HCURSOR g_cursor = INVALID_CURSOR;
 	bool g_isEmulated = false;
 	RECT g_monitorClipRect = {};
 	HCURSOR g_nullCursor = nullptr;
@@ -52,7 +54,7 @@ namespace
 	{
 		LOG_FUNC("GetCursor");
 		Compat::ScopedCriticalSection lock(g_cs);
-		return LOG_RESULT(g_isEmulated ? g_cursor : CALL_ORIG_FUNC(GetCursor)());
+		return LOG_RESULT(g_cursor != INVALID_CURSOR ? g_cursor : CALL_ORIG_FUNC(GetCursor)());
 	}
 
 	BOOL WINAPI getCursorInfo(PCURSORINFO pci)
@@ -86,8 +88,7 @@ namespace
 
 	HCURSOR WINAPI setCursor(HCURSOR hCursor)
 	{
-		LOG_FUNC("SetCursor", hCursor);
-		return LOG_RESULT(Gdi::Cursor::setCursor(hCursor));
+		return Gdi::Cursor::setCursor(hCursor);
 	}
 
 	void updateClipRect()
@@ -163,19 +164,17 @@ namespace Gdi
 
 		HCURSOR setCursor(HCURSOR cursor)
 		{
+			LOG_FUNC("SetCursor", cursor);
 			Compat::ScopedCriticalSection lock(g_cs);
-			if (!g_isEmulated)
+			if (cursor == g_nullCursor)
 			{
-				return CALL_ORIG_FUNC(SetCursor)(cursor);
+				return LOG_RESULT(g_cursor);
 			}
 
-			HCURSOR prevCursor = g_cursor;
-			if (cursor != g_nullCursor)
-			{
-				g_cursor = cursor;
-				CALL_ORIG_FUNC(SetCursor)(cursor ? g_nullCursor : nullptr);
-			}
-			return prevCursor;
+			HCURSOR prevCursor = g_cursor != INVALID_CURSOR ? g_cursor : CALL_ORIG_FUNC(GetCursor)();
+			g_cursor = cursor;
+			CALL_ORIG_FUNC(SetCursor)(g_isEmulated && cursor ? g_nullCursor : cursor);
+			return LOG_RESULT(prevCursor);
 		}
 
 		void setEmulated(bool isEmulated)
@@ -190,15 +189,9 @@ namespace Gdi
 			g_isEmulated = isEmulated;
 			g_prevCursorInfo = {};
 
-			if (isEmulated)
-			{
-				setCursor(CALL_ORIG_FUNC(GetCursor)());
-			}
-			else
-			{
-				CALL_ORIG_FUNC(SetCursor)(g_cursor);
-				g_cursor = nullptr;
-			}
+			POINT pos = {};
+			GetCursorPos(&pos);
+			SetCursorPos(pos.x, pos.y);
 		}
 
 		void setMonitorClipRect(const RECT& rect)
