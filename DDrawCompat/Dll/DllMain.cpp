@@ -26,6 +26,7 @@
 #include <Win32/Registry.h>
 #include <Win32/Thread.h>
 #include <Win32/Version.h>
+#include <Win32/Winmm.h>
 
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
@@ -289,9 +290,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::MemoryManagement::installHooks();
 		Win32::Thread::installHooks();
 		Win32::Version::installHooks();
+		Win32::Winmm::installHooks();
 		Compat::closeDbgEng();
 
-		timeBeginPeriod(1);
+		CALL_ORIG_FUNC(timeBeginPeriod)(1);
 		setDpiAwareness();
 		SetThemeAppProperties(0);
 		Time::init();

@@ -293,6 +293,7 @@
     <ClInclude Include="Win32\Registry.h" />
     <ClInclude Include="Win32\Thread.h" />
     <ClInclude Include="Win32\Version.h" />
+    <ClInclude Include="Win32\Winmm.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\Log.cpp" />
@@ -405,6 +406,7 @@
     <ClCompile Include="Win32\Registry.cpp" />
     <ClCompile Include="Win32\Thread.cpp" />
     <ClCompile Include="Win32\Version.cpp" />
+    <ClCompile Include="Win32\Winmm.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc" />
