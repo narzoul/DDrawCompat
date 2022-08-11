@@ -170,9 +170,9 @@ namespace
 		CALL_ORIG_PROC(DirectDrawEnumerateExA)(createDefaultPrimaryEnum, &dm.deviceName, DDENUM_ATTACHEDSECONDARYDEVICES);
 	}
 
-	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DWORD width, DWORD height)
+	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DDraw::TagSurface& tagSurface, DWORD width, DWORD height)
 	{
-		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*g_tagSurface->getDDS());
+		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*tagSurface.getDDS());
 		if (!resource)
 		{
 			LOG_INFO << "ERROR: createWindowedBackBuffer: driver resource handle not found";
@@ -428,6 +428,7 @@ namespace DDraw
 	{
 		LOG_FUNC("RealPrimarySurface::create", &dd);
 		DDraw::ScopedThreadLock lock;
+		auto prevMonitorRect = g_monitorRect;
 		g_monitorRect = Win32::DisplayMode::getMonitorInfo(
 			D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName).rcMonitor;
 
@@ -437,6 +438,7 @@ namespace DDraw
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 		desc.dwBackBufferCount = 2;
 
+		auto prevIsFullscreen = g_isFullscreen;
 		g_isFullscreen = true;
 		CompatPtr<IDirectDrawSurface> surface;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
@@ -453,31 +455,34 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			LOG_INFO << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
-			g_monitorRect = {};
+			g_monitorRect = prevMonitorRect;
+			g_isFullscreen = prevIsFullscreen;
 			return result;
 		}
 
 		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
-		g_tagSurface = DDraw::TagSurface::get(ddLcl);
-		if (!g_tagSurface)
+		auto tagSurface = DDraw::TagSurface::get(ddLcl);
+		if (!tagSurface)
 		{
 			LOG_INFO << "ERROR: TagSurface not found";
-			g_monitorRect = {};
+			g_monitorRect = prevMonitorRect;
+			g_isFullscreen = prevIsFullscreen;
 			return DDERR_GENERIC;
 		}
 
 		if (0 == desc.dwBackBufferCount)
 		{
-			g_windowedBackBuffer = createWindowedBackBuffer(
+			g_windowedBackBuffer = createWindowedBackBuffer(*tagSurface,
 				g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top).detach();
 			if (!g_windowedBackBuffer)
 			{
-				g_monitorRect = {};
-				g_tagSurface = nullptr;
+				g_monitorRect = prevMonitorRect;
+				g_isFullscreen = prevIsFullscreen;
 				return DDERR_GENERIC;
 			}
 		}
 
+		g_tagSurface = tagSurface;
 		g_frontBuffer = CompatPtr<IDirectDrawSurface7>::from(surface.get()).detach();
 		g_frontBuffer->SetPrivateData(g_frontBuffer, IID_IReleaseNotifier,
 			&g_releaseNotifier, sizeof(&g_releaseNotifier), DDSPD_IUNKNOWNPOINTER);

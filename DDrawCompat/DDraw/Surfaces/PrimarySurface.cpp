@@ -90,23 +90,18 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::create", &dd, desc, surface);
 		DDraw::RealPrimarySurface::destroyDefaultPrimary();
-		if (g_primarySurface)
-		{
-			LOG_ONCE("Warning: suppressed an attempt to create multiple primary surfaces");
-			return LOG_RESULT(DDERR_UNSUPPORTED);
-		}
 
 		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
-		g_deviceName = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName;
-		g_monitorRect = Win32::DisplayMode::getMonitorInfo(g_deviceName).rcMonitor;
+		auto deviceName = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName;
+		auto prevMonitorRect = g_monitorRect;
+		g_monitorRect = Win32::DisplayMode::getMonitorInfo(deviceName).rcMonitor;
 		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;
 		g_monitorRect.bottom = g_monitorRect.top + dm.dwHeight;
 
 		HRESULT result = RealPrimarySurface::create(*CompatPtr<IDirectDraw>::from(&dd));
 		if (FAILED(result))
 		{
-			g_deviceName.clear();
-			g_monitorRect = {};
+			g_monitorRect = prevMonitorRect;
 			return LOG_RESULT(result);
 		}
 
@@ -126,12 +121,12 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			LOG_INFO << "ERROR: Failed to create the compat primary surface: " << Compat::hex(result);
-			g_deviceName.clear();
-			g_monitorRect = {};
+			g_monitorRect = prevMonitorRect;
 			RealPrimarySurface::release();
 			return LOG_RESULT(result);
 		}
 
+		g_deviceName = deviceName;
 		g_origCaps = origCaps;
 		g_deviceWindow = *DDraw::DirectDraw::getDeviceWindowPtr(dd.get());
 		g_gdiPrimarySurface = createGdiPrimarySurface(*CompatPtr<IDirectDraw>::from(&dd)).detach();
