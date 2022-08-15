@@ -1,5 +1,3 @@
-#include <cctype>
-
 #include <Common/Log.h>
 #include <D3dDdi/Log/CommonLog.h>
 
@@ -38,17 +36,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDI_RATIONAL& val)
 
 std::ostream& operator<<(std::ostream& os, D3DDDIFORMAT val)
 {
-	bool isFourCc = true;
-	for (UINT i = 0; i < 4; ++i)
-	{
-		if (!isalnum(reinterpret_cast<const char*>(&val)[i]))
-		{
-			isFourCc = false;
-			break;
-		}
-	}
-
-	if (isFourCc)
+	if (val > 0xFF)
 	{
 		return os << "FOURCC(" << std::string(reinterpret_cast<const char*>(&val), sizeof(val)) << ')';
 	}

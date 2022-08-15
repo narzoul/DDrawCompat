@@ -956,6 +956,9 @@
     <FxCompile Include="Shaders\LockRef.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\ColorKey.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="arrow.bmp">

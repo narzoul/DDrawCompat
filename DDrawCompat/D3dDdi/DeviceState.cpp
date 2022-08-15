@@ -638,6 +638,10 @@ namespace D3dDdi
 		m_device.flushPrimitives();
 		m_device.getOrigVtable().pfnSetRenderTarget(m_device, &renderTarget);
 		m_current.renderTarget = renderTarget;
+		m_current.pixelShader = DELETED_RESOURCE;
+		m_current.vertexShaderDecl = DELETED_RESOURCE;
+		m_current.vertexShaderFunc = DELETED_RESOURCE;
+		m_changedStates |= CS_SHADER;
 		LOG_DS << renderTarget;
 	}
 
@@ -745,21 +749,9 @@ namespace D3dDdi
 		m_changedStates |= CS_STREAM_SOURCE;
 	}
 
-	void DeviceState::setTempTexture(UINT stage, HANDLE texture, const UINT* srcColorKey)
+	void DeviceState::setTempTexture(UINT stage, HANDLE texture)
 	{
-		if (srcColorKey)
-		{
-			m_current.textures[stage] = nullptr;
-			m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = 0;
-			m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = *srcColorKey + 1;
-			setTexture(stage, texture);
-			setTextureStageState({ stage, D3DDDITSS_TEXTURECOLORKEYVAL, *srcColorKey });
-		}
-		else
-		{
-			setTexture(stage, texture);
-		}
-
+		setTexture(stage, texture);
 		m_changedStates |= CS_TEXTURE_STAGE;
 		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
 	}
@@ -774,7 +766,6 @@ namespace D3dDdi
 
 	void DeviceState::setTempVertexShaderDecl(HANDLE decl)
 	{
-		m_current.vertexShaderDecl = DELETED_RESOURCE;
 		setVertexShaderDecl(decl);
 		m_changedStates |= CS_SHADER;
 	}
@@ -949,8 +940,6 @@ namespace D3dDdi
 		}
 
 		setRenderTarget(renderTarget);
-		m_current.vertexShaderFunc = DELETED_RESOURCE;
-		m_changedStates |= CS_SHADER;
 		m_device.setRenderTarget(m_app.renderTarget);
 		setDepthStencil(depthStencil);
 		setViewport(vp);

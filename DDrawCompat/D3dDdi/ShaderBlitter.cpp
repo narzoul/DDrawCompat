@@ -6,6 +6,7 @@
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Shaders/ColorKey.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
 #include <Shaders/GenBilinear.h>
@@ -23,6 +24,22 @@ namespace
 	bool g_isGammaRampDefault = true;
 	bool g_isGammaRampInvalidated = false;
 
+	D3dDdi::DeviceState::ShaderConstF getColorKeyAsFloat4(const UINT* colorKey)
+	{
+		std::array<float, 4> ck{};
+		if (colorKey)
+		{
+			ck[0] = ((*colorKey & 0xFF0000) >> 16) / 255.0f;
+			ck[1] = ((*colorKey & 0x00FF00) >> 8) / 255.0f;
+			ck[2] = ((*colorKey & 0x0000FF)) / 255.0f;
+		}
+		else
+		{
+			ck[0] = ck[1] = ck[2] = -1.0f;
+		}
+		return ck;
+	}
+
 	void setGammaValues(BYTE* ptr, USHORT* ramp)
 	{
 		for (UINT i = 0; i < 256; ++i)
@@ -36,6 +53,7 @@ namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
+		, m_psColorKey(createPixelShader(g_psColorKey))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
 		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
@@ -53,10 +71,10 @@ namespace D3dDdi
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		HANDLE pixelShader, UINT filter, const UINT* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
+		HANDLE pixelShader, UINT filter, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter, srcColorKey,
+			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter,
 			alpha, static_cast<HRGN>(srcRgn));
 
 		if (!m_vertexShaderDecl || !pixelShader)
@@ -92,7 +110,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, nullptr != alpha });
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, nullptr != srcColorKey });
+		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPING, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
@@ -111,7 +129,7 @@ namespace D3dDdi
 			state.setTempRenderState({ D3DDDIRS_BLENDFACTOR, blendFactor });
 		}
 
-		setTempTextureStage(0, srcResource, srcRect, filter, srcColorKey);
+		setTempTextureStage(0, srcResource, srcRect, filter);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, srgb });
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
@@ -367,11 +385,10 @@ namespace D3dDdi
 		g_isGammaRampInvalidated = !g_isGammaRampDefault;
 	}
 
-	void ShaderBlitter::setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
-		const UINT* srcColorKey)
+	void ShaderBlitter::setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter)
 	{
 		auto& state = m_device.getState();
-		state.setTempTexture(stage, texture, srcColorKey);
+		state.setTempTexture(stage, texture);
 		state.setTempTextureStageState({ stage, D3DDDITSS_TEXCOORDINDEX, stage });
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSU, D3DTADDRESS_CLAMP });
 		state.setTempTextureStageState({ stage, D3DDDITSS_ADDRESSV, D3DTADDRESS_CLAMP });
@@ -396,9 +413,18 @@ namespace D3dDdi
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		UINT filter, const UINT* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
+		UINT filter, const DeviceState::ShaderConstF* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			m_psTextureSampler.get(), filter, srcColorKey, alpha, srcRgn);
+		if (srcColorKey)
+		{
+			DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 31, 1 }, srcColorKey);
+			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				m_psColorKey.get(), filter, alpha, srcRgn);
+		}
+		else
+		{
+			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				m_psTextureSampler.get(), filter, alpha, srcRgn);
+		}
 	}
 }

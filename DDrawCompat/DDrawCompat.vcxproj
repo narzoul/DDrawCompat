@@ -415,6 +415,9 @@
     <None Include="genversion.ps1" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\ColorKey.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+    </FxCompile>
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />
     <FxCompile Include="Shaders\GenBilinear.hlsl" />

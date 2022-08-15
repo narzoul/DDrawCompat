@@ -117,7 +117,7 @@ namespace D3dDdi
 		void setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
 		void setTempStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
 		void setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
-		void setTempTexture(UINT stage, HANDLE texture, const UINT* srcColorKey = nullptr);
+		void setTempTexture(UINT stage, HANDLE texture);
 		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setTempVertexShaderDecl(HANDLE decl);
 		void setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport);

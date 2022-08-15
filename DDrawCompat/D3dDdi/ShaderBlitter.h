@@ -37,7 +37,7 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, RGBQUAD palette[256]);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			UINT filter, const UINT* srcColorKey = nullptr, const BYTE* alpha = nullptr,
+			UINT filter, const DeviceState::ShaderConstF* srcColorKey = nullptr, const BYTE* alpha = nullptr,
 			const Gdi::Region& srcRgn = nullptr);
 
 		static bool isGammaRampDefault();
@@ -55,8 +55,7 @@ namespace D3dDdi
 
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			HANDLE pixelShader, UINT filter, const UINT* srcColorKey = nullptr, const BYTE* alpha = nullptr,
-			const Gdi::Region& srcRgn = nullptr);
+			HANDLE pixelShader, UINT filter, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
@@ -67,11 +66,11 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
 		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
 		void drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight);
-		void setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
-			const UINT* srcColorKey = nullptr);
+		void setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter);
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
+		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
 		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;

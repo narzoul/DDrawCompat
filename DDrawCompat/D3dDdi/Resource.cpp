@@ -76,6 +76,7 @@ namespace
 		flags.NPatches = 1;
 		flags.Video = 1;
 		flags.CaptureBuffer = 1;
+		flags.MatchGdiPrimary = 1;
 		flags.Primary = 1;
 		flags.Texture = 1;
 		flags.CubeMap = 1;
@@ -472,7 +473,7 @@ namespace D3dDdi
 
 				DDraw::Blitter::colorFill(dstBuf, lockData.pitch,
 					data.DstRect.right - data.DstRect.left, data.DstRect.bottom - data.DstRect.top,
-					m_formatInfo.bytesPerPixel, colorConvert(m_formatInfo, data.Color));
+					m_formatInfo.bytesPerPixel, convertFrom32Bit(m_formatInfo, data.Color));
 
 				return LOG_RESULT(S_OK);
 			}
@@ -1180,13 +1181,14 @@ namespace D3dDdi
 			copySubResourceRegion(*texture.resource, 0, srcRect, *windowSurface.resource, 0, srcRect);
 			texture.resource->notifyLock(0);
 
+			DeviceState::ShaderConstF ck = {};
 			COLORREF colorKey = 0;
 			BYTE alpha = 0;
 			DWORD flags = 0;
 			GetLayeredWindowAttributes(layeredWindow.hwnd, &colorKey, &alpha, &flags);
 			if (flags & ULW_COLORKEY)
 			{
-				colorKey = ((colorKey & 0xFF) << 16) | (colorKey & 0xFF00) | ((colorKey & 0xFF0000) >> 16);
+				ck = convertToShaderConst(getFormatInfo(D3DDDIFMT_X8B8G8R8), colorKey);
 			}
 
 			if (layeredWindow.region)
@@ -1197,7 +1199,7 @@ namespace D3dDdi
 			Rect::transform(visibleRect, monitorRect, dstRect);
 
 			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect, D3DTEXF_POINT,
-				(flags & ULW_COLORKEY) ? reinterpret_cast<UINT*>(&colorKey) : nullptr,
+				(flags & ULW_COLORKEY) ? &ck : nullptr,
 				(flags & ULW_ALPHA) ? &alpha : nullptr,
 				layeredWindow.region);
 		}
@@ -1345,8 +1347,11 @@ namespace D3dDdi
 			std::swap(srcRect.top, srcRect.bottom);
 		}
 
+		auto ck = data.Flags.SrcColorKey
+			? convertToShaderConst(srcResource.m_formatInfo, data.ColorKey)
+			: DeviceState::ShaderConstF{};
 		m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
-			D3DTEXF_POINT, data.Flags.SrcColorKey ? &data.ColorKey : nullptr);
+			D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
 
 		if (!m_fixedData.Flags.RenderTarget)
 		{

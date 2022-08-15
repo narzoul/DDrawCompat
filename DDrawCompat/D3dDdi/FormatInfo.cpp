@@ -2,6 +2,14 @@
 
 namespace
 {
+	struct ArgbColor
+	{
+		BYTE blue;
+		BYTE green;
+		BYTE red;
+		BYTE alpha;
+	};
+
 	struct RgbFormatInfo : D3dDdi::FormatInfo
 	{
 		RgbFormatInfo(BYTE unusedBitCount, BYTE alphaBitCount, BYTE redBitCount, BYTE greenBitCount, BYTE blueBitCount)
@@ -21,6 +29,17 @@ namespace
 			bluePos = redBitCount + greenBitCount;
 		}
 	};
+
+	float getComponent(D3DCOLOR color, BYTE bitCount, BYTE pos)
+	{
+		if (0 == bitCount)
+		{
+			return 0;
+		}
+		const UINT max = (1 << bitCount) - 1;
+		const UINT mask = max << pos;
+		return static_cast<float>((color & mask) >> pos) / max;
+	}
 }
 
 namespace D3dDdi
@@ -40,27 +59,29 @@ namespace D3dDdi
 	{
 	}
 
-	D3DCOLOR colorConvert(const FormatInfo& dstFormatInfo, D3DCOLOR srcRgbaColor)
+	D3DCOLOR convertFrom32Bit(const FormatInfo& dstFormatInfo, D3DCOLOR srcColor)
 	{
-		struct ArgbColor
-		{
-			BYTE blue;
-			BYTE green;
-			BYTE red;
-			BYTE alpha;
-		};
-		
-		auto& srcColor = *reinterpret_cast<ArgbColor*>(&srcRgbaColor);
+		auto& src = *reinterpret_cast<ArgbColor*>(&srcColor);
 
-		BYTE alpha = srcColor.alpha >> (8 - dstFormatInfo.alphaBitCount);
-		BYTE red = srcColor.red >> (8 - dstFormatInfo.redBitCount);
-		BYTE green = srcColor.green >> (8 - dstFormatInfo.greenBitCount);
-		BYTE blue = srcColor.blue >> (8 - dstFormatInfo.blueBitCount);
+		BYTE alpha = src.alpha >> (8 - dstFormatInfo.alphaBitCount);
+		BYTE red = src.red >> (8 - dstFormatInfo.redBitCount);
+		BYTE green = src.green >> (8 - dstFormatInfo.greenBitCount);
+		BYTE blue = src.blue >> (8 - dstFormatInfo.blueBitCount);
 
 		return (alpha << dstFormatInfo.alphaPos) |
 			(red << dstFormatInfo.redPos) |
 			(green << dstFormatInfo.greenPos) |
 			(blue << dstFormatInfo.bluePos);
+	}
+
+	DeviceState::ShaderConstF convertToShaderConst(const FormatInfo& srcFormatInfo, D3DCOLOR srcColor)
+	{
+		return {
+			getComponent(srcColor, srcFormatInfo.redBitCount, srcFormatInfo.redPos),
+			getComponent(srcColor, srcFormatInfo.greenBitCount, srcFormatInfo.greenPos),
+			getComponent(srcColor, srcFormatInfo.blueBitCount, srcFormatInfo.bluePos),
+			getComponent(srcColor, srcFormatInfo.alphaBitCount, srcFormatInfo.alphaPos)
+		};
 	}
 
 	FormatInfo getFormatInfo(D3DDDIFORMAT format)
