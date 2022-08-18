@@ -76,34 +76,6 @@ namespace D3dDdi
 		return g_repositories.emplace(adapter.getLuid(), SurfaceRepository(adapter)).first->second;
 	}
 
-	Resource* SurfaceRepository::getBitmapResource(
-		Surface& surface, HBITMAP bitmap, const RECT& rect, const DDPIXELFORMAT& pf, DWORD caps)
-	{
-		DWORD width = rect.right - rect.left;
-		DWORD height = rect.bottom - rect.top;
-		auto resource = getSurface(surface, width, height, pf, caps).resource;
-		if (!resource)
-		{
-			return nullptr;
-		}
-
-		HDC srcDc = CreateCompatibleDC(nullptr);
-		HGDIOBJ prevBitmap = SelectObject(srcDc, bitmap);
-		HDC dstDc = nullptr;
-		PALETTEENTRY palette[256] = {};
-		palette[255] = { 0xFF, 0xFF, 0xFF };
-		KernelModeThunks::setDcPaletteOverride(palette);
-		surface.surface->GetDC(surface.surface, &dstDc);
-		KernelModeThunks::setDcPaletteOverride(nullptr);
-
-		CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, width, height, srcDc, rect.left, rect.top, SRCCOPY);
-
-		surface.surface->ReleaseDC(surface.surface, dstDc);
-		SelectObject(srcDc, prevBitmap);
-		DeleteDC(srcDc);
-		return resource;
-	}
-
 	SurfaceRepository::Cursor SurfaceRepository::getCursor(HCURSOR cursor)
 	{
 		if (isLost(m_cursorMaskTexture) || isLost(m_cursorColorTexture))
@@ -113,6 +85,7 @@ namespace D3dDdi
 			m_cursorColorTexture = {};
 		}
 
+		Cursor result = {};
 		if (cursor != m_cursor)
 		{
 			m_cursor = cursor;
@@ -121,52 +94,67 @@ namespace D3dDdi
 			{
 				return {};
 			}
+			m_cursorHotspot.x = iconInfo.xHotspot;
+			m_cursorHotspot.y = iconInfo.yHotspot;
 
 			BITMAP bm = {};
 			GetObject(iconInfo.hbmMask, sizeof(bm), &bm);
-
-			RECT rect = {};
-			SetRect(&rect, 0, 0, bm.bmWidth, bm.bmHeight);
+			m_cursorSize.cx = bm.bmWidth;
+			m_cursorSize.cy = bm.bmHeight;
 			if (!iconInfo.hbmColor)
 			{
-				rect.bottom /= 2;
+				m_cursorSize.cy /= 2;
 			}
 
-			getBitmapResource(m_cursorMaskTexture, iconInfo.hbmMask, rect,
-				DDraw::DirectDraw::getRgbPixelFormat(8), DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY);
-
-			if (iconInfo.hbmColor)
+			if (!getCursorImage(m_cursorColorTexture, cursor, m_cursorSize.cx, m_cursorSize.cy, DI_IMAGE))
 			{
-				getBitmapResource(m_cursorColorTexture, iconInfo.hbmColor, rect,
-					DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
-				DeleteObject(iconInfo.hbmColor);
+				return {};
 			}
-			else
+
+			if (hasAlpha(*m_cursorColorTexture.surface))
 			{
-				OffsetRect(&rect, 0, rect.bottom);
-				getBitmapResource(m_cursorColorTexture, iconInfo.hbmMask, rect,
-					DDraw::DirectDraw::getRgbPixelFormat(8), DDSCAPS_OFFSCREENPLAIN | DDSCAPS_VIDEOMEMORY);
+				m_cursorMaskTexture = {};
 			}
-			DeleteObject(iconInfo.hbmMask);
-
-			m_cursorMaskTexture.resource->prepareForGpuRead(0);
-			m_cursorColorTexture.resource->prepareForGpuRead(0);
-
-			m_cursorSize.cx = rect.right - rect.left;
-			m_cursorSize.cy = rect.bottom - rect.top;
-			m_cursorHotspot.x = iconInfo.xHotspot;
-			m_cursorHotspot.y = iconInfo.yHotspot;
+			else if (!getCursorImage(m_cursorMaskTexture, cursor, m_cursorSize.cx, m_cursorSize.cy, DI_MASK))
+			{
+				return {};
+			}
 		}
 
-		Cursor result = {};
 		result.cursor = m_cursor;
 		result.size = m_cursorSize;
 		result.hotspot = m_cursorHotspot;
-		result.maskTexture = m_cursorMaskTexture.resource;
 		result.colorTexture = m_cursorColorTexture.resource;
-		result.tempTexture = getSurface(m_cursorTempTexture, m_cursorSize.cx, m_cursorSize.cy,
-			DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
+		if (m_cursorMaskTexture.resource)
+		{
+			result.maskTexture = m_cursorMaskTexture.resource;
+			result.tempTexture = getSurface(m_cursorTempTexture, m_cursorSize.cx, m_cursorSize.cy,
+				DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
+			if (!result.tempTexture)
+			{
+				return {};
+			}
+		}
 		return result;
+	}
+
+	bool SurfaceRepository::getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags)
+	{
+		if (!getSurface(surface, width, height, getPixelFormat(D3DDDIFMT_A8R8G8B8),
+			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource)
+		{
+			return false;
+		}
+
+		HDC dc = nullptr;
+		if (FAILED(surface.surface->GetDC(surface.surface, &dc)))
+		{
+			return false;
+		}
+
+		CALL_ORIG_FUNC(DrawIconEx)(dc, 0, 0, cursor, width, height, 0, nullptr, flags);
+		surface.surface->ReleaseDC(surface.surface, dc);
+		return true;
 	}
 
 	Resource* SurfaceRepository::getGammaRampTexture()
@@ -275,6 +263,33 @@ namespace D3dDdi
 	{
 		return getTempSurface(m_textures[pf], width, height, pf,
 			(pf.dwRGBBitCount > 8 ? DDSCAPS_TEXTURE : 0) | DDSCAPS_VIDEOMEMORY);
+	}
+
+	bool SurfaceRepository::hasAlpha(CompatRef<IDirectDrawSurface7> surface)
+	{
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		if (FAILED(surface->Lock(&surface, nullptr, &desc, DDLOCK_WAIT, nullptr)))
+		{
+			return false;
+		}
+
+		for (UINT y = 0; y < desc.dwHeight; ++y)
+		{
+			const DWORD* p = reinterpret_cast<DWORD*>(static_cast<BYTE*>(desc.lpSurface) + y * desc.lPitch);
+			for (UINT x = 0; x < desc.dwWidth; ++x)
+			{
+				if (*p & 0xFF000000)
+				{
+					surface->Unlock(&surface, nullptr);
+					return true;
+				}
+				++p;
+			}
+		}
+
+		surface->Unlock(&surface, nullptr);
+		return false;
 	}
 
 	bool SurfaceRepository::isLost(Surface& surface)

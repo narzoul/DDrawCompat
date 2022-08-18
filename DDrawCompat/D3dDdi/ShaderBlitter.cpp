@@ -71,11 +71,11 @@ namespace D3dDdi
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		HANDLE pixelShader, UINT filter, const BYTE* alpha, const Gdi::Region& srcRgn)
+		HANDLE pixelShader, UINT filter, UINT flags, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
 			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter,
-			alpha, static_cast<HRGN>(srcRgn));
+			Compat::hex(flags), alpha, static_cast<HRGN>(srcRgn));
 
 		if (!m_vertexShaderDecl || !pixelShader)
 		{
@@ -108,7 +108,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_ALPHATESTENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CULLMODE, D3DCULL_NONE });
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, nullptr != alpha });
+		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, (flags & BLT_SRCALPHA) || alpha});
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
@@ -127,6 +127,13 @@ namespace D3dDdi
 
 			const D3DCOLOR blendFactor = (*alpha << 16) | (*alpha << 8) | *alpha;
 			state.setTempRenderState({ D3DDDIRS_BLENDFACTOR, blendFactor });
+		}
+		else if (flags & BLT_SRCALPHA)
+		{
+			const UINT D3DBLEND_SRCALPHA = 5;
+			const UINT D3DBLEND_INVSRCALPHA = 6;
+			state.setTempRenderState({ D3DDDIRS_SRCBLEND, D3DBLEND_SRCALPHA });
+			state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_INVSRCALPHA });
 		}
 
 		setTempTextureStage(0, srcResource, srcRect, filter);
@@ -198,7 +205,20 @@ namespace D3dDdi
 
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
 		auto cur = repo.getCursor(cursor);
-		auto xorTexture = repo.getLogicalXorTexture();
+		if (!cur.colorTexture)
+		{
+			return;
+		}
+
+		Resource* xorTexture = nullptr;
+		if (cur.maskTexture)
+		{
+			xorTexture = repo.getLogicalXorTexture();
+			if (!xorTexture)
+			{
+				return;
+			}
+		}
 
 		pt.x -= cur.hotspot.x;
 		pt.y -= cur.hotspot.y;
@@ -207,8 +227,7 @@ namespace D3dDdi
 		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
 		RECT clippedSrcRect = {};
 		IntersectRect(&clippedSrcRect, &srcRect, &monitorRect);
-
-		if (!cur.maskTexture || !cur.colorTexture || !cur.tempTexture || !xorTexture || IsRectEmpty(&clippedSrcRect))
+		if (IsRectEmpty(&clippedSrcRect))
 		{
 			return;
 		}
@@ -218,19 +237,27 @@ namespace D3dDdi
 
 		OffsetRect(&clippedSrcRect, -srcRect.left, -srcRect.top);
 
-		D3DDDIARG_BLT data = {};
-		data.hSrcResource = dstResource;
-		data.SrcSubResourceIndex = dstSubResourceIndex;
-		data.SrcRect = clippedDstRect;
-		data.hDstResource = *cur.tempTexture;
-		data.DstRect = clippedSrcRect;
-		m_device.getOrigVtable().pfnBlt(m_device, &data);
+		if (cur.maskTexture)
+		{
+			D3DDDIARG_BLT data = {};
+			data.hSrcResource = dstResource;
+			data.SrcSubResourceIndex = dstSubResourceIndex;
+			data.SrcRect = clippedDstRect;
+			data.hDstResource = *cur.tempTexture;
+			data.DstRect = clippedSrcRect;
+			m_device.getOrigVtable().pfnBlt(m_device, &data);
 
-		setTempTextureStage(1, *cur.maskTexture, clippedSrcRect, D3DTEXF_POINT);
-		setTempTextureStage(2, *cur.colorTexture, clippedSrcRect, D3DTEXF_POINT);
-		setTempTextureStage(3, *xorTexture, clippedSrcRect, D3DTEXF_POINT);
-		blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
-			m_psDrawCursor.get(), D3DTEXF_POINT);
+			setTempTextureStage(1, *cur.maskTexture, clippedSrcRect, D3DTEXF_POINT);
+			setTempTextureStage(2, *cur.colorTexture, clippedSrcRect, D3DTEXF_POINT);
+			setTempTextureStage(3, *xorTexture, clippedSrcRect, D3DTEXF_POINT);
+			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
+				m_psDrawCursor.get(), D3DTEXF_POINT);
+		}
+		else
+		{
+			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.colorTexture, 0, clippedSrcRect,
+				m_psTextureSampler.get(), D3DTEXF_POINT, BLT_SRCALPHA);
+		}
 	}
 
 	void ShaderBlitter::drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight)
@@ -419,12 +446,12 @@ namespace D3dDdi
 		{
 			DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 31, 1 }, srcColorKey);
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				m_psColorKey.get(), filter, alpha, srcRgn);
+				m_psColorKey.get(), filter, 0, alpha, srcRgn);
 		}
 		else
 		{
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				m_psTextureSampler.get(), filter, alpha, srcRgn);
+				m_psTextureSampler.get(), filter, 0, alpha, srcRgn);
 		}
 	}
 }

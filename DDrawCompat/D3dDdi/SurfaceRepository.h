@@ -6,6 +6,7 @@
 #include <ddraw.h>
 
 #include <Common/CompatPtr.h>
+#include <Common/CompatRef.h>
 #include <DDraw/Comparison.h>
 
 namespace D3dDdi
@@ -56,9 +57,10 @@ namespace D3dDdi
 
 		CompatPtr<IDirectDrawSurface7> createSurface(DWORD width, DWORD height,
 			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount);
-		Resource* getBitmapResource(Surface& surface, HBITMAP bitmap, const RECT& rect, const DDPIXELFORMAT& pf, DWORD caps);
+		bool getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags);
 		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps,
 			std::function<void(const DDSURFACEDESC2&)> initFunc);
+		bool hasAlpha(CompatRef<IDirectDrawSurface7> surface);
 		bool isLost(Surface& surface);
 
 		const Adapter& m_adapter;

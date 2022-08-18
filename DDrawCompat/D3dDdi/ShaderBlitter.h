@@ -45,6 +45,8 @@ namespace D3dDdi
 		static void setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp);
 
 	private:
+		const UINT BLT_SRCALPHA = 1;
+
 		struct Vertex
 		{
 			std::array<float, 2> xy;
@@ -54,8 +56,8 @@ namespace D3dDdi
 		};
 
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			HANDLE pixelShader, UINT filter, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader,
+			UINT filter, UINT flags = 0, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
