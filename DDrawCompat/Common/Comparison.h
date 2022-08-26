@@ -33,6 +33,11 @@ inline auto toTuple(const POINT& pt)
 	return std::make_tuple(pt.x, pt.y);
 }
 
+inline auto toTuple(const RGBQUAD& q)
+{
+	return std::make_tuple(q.rgbBlue, q.rgbGreen, q.rgbRed, q.rgbReserved);
+}
+
 inline auto toTuple(const SIZE& size)
 {
 	return std::make_tuple(size.cx, size.cy);

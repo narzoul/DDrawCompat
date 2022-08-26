@@ -131,7 +131,7 @@ namespace D3dDdi
 		const VertexDecl& getVertexDecl() const;
 		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }
 		bool isLocked() const { return m_isLocked; }
-		void onDestroyResource(D3dDdi::Resource* resource, HANDLE resourceHandle);
+		void onDestroyResource(Resource* resource, HANDLE resourceHandle);
 		void updateConfig();
 		void updateStreamSource();
 
@@ -159,6 +159,7 @@ namespace D3dDdi
 
 		UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value);
 		UINT mapTssValue(UINT stage, D3DDDITEXTURESTAGESTATETYPE state, UINT value);
+		void prepareTextures();
 
 		template <typename Data>
 		void removeResource(HANDLE resource, Data State::* data, HANDLE Data::* resourceMember,

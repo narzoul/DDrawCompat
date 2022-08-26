@@ -208,7 +208,7 @@ namespace D3dDdi
 
 	Resource* SurfaceRepository::getPaletteTexture()
 	{
-		return getSurface(m_paletteTexture, 256, 1, DDraw::DirectDraw::getRgbPixelFormat(32),
+		return getSurface(m_paletteTexture, 256, 1, getPixelFormat(D3DDDIFMT_A8R8G8B8),
 			DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 	}
 

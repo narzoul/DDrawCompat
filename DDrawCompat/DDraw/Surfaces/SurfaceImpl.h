@@ -31,6 +31,7 @@ namespace DDraw
 		virtual HRESULT Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags);
 		virtual HRESULT GetCaps(TSurface* This, TDdsCaps* lpDDSCaps);
 		virtual HRESULT GetDC(TSurface* This, HDC* lphDC);
+		virtual HRESULT GetPalette(TSurface* This, LPDIRECTDRAWPALETTE* lplpDDPalette);
 		virtual HRESULT GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc);
 		virtual HRESULT IsLost(TSurface* This);
 		virtual HRESULT Lock(TSurface* This, LPRECT lpDestRect, TSurfaceDesc* lpDDSurfaceDesc,
@@ -42,6 +43,8 @@ namespace DDraw
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette);
 		virtual HRESULT SetSurfaceDesc(TSurface* This, TSurfaceDesc* lpddsd, DWORD dwFlags);
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
+
+		virtual TSurface* getBltSrc(TSurface* src);
 
 	protected:
 		Surface* m_data;

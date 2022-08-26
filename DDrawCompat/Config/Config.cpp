@@ -19,6 +19,7 @@ namespace Config
 	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;
 	Settings::LogLevel logLevel;
+	Settings::PalettizedTextures palettizedTextures;
 	Settings::RemoveBorders removeBorders;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;

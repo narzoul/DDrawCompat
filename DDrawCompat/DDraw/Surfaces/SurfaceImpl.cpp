@@ -45,6 +45,12 @@ namespace
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 		}
 
+		auto srcSurface = DDraw::Surface::getSurface(*lpDDSrcSurface);
+		if (srcSurface)
+		{
+			lpDDSrcSurface = srcSurface->getImpl<TSurface>()->getBltSrc(lpDDSrcSurface);
+		}
+
 		auto dstDesc = getDesc(This);
 		if (!(dstDesc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE) || !(dstDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY))
 		{
@@ -135,6 +141,12 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	TSurface* SurfaceImpl<TSurface>::getBltSrc(TSurface* src)
+	{
+		return src;
+	}
+
+	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
 		HRESULT result = getOrigVtable(This).GetCaps(This, lpDDSCaps);
@@ -156,6 +168,12 @@ namespace DDraw
 			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
 		return result;
+	}
+
+	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::GetPalette(TSurface* This, LPDIRECTDRAWPALETTE* lplpDDPalette)
+	{
+		return getOrigVtable(This).GetPalette(This, lplpDDPalette);
 	}
 
 	template <typename TSurface>

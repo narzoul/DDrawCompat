@@ -1,7 +1,9 @@
 #pragma once
 
+#include <array>
 #include <map>
 #include <memory>
+#include <vector>
 
 #include <d3d.h>
 #include <d3dnthal.h>
@@ -44,11 +46,14 @@ namespace D3dDdi
 		HRESULT pfnOpenResource(D3DDDIARG_OPENRESOURCE* data);
 		HRESULT pfnPresent(const D3DDDIARG_PRESENT* data);
 		HRESULT pfnPresent1(D3DDDIARG_PRESENT1* data);
+		HRESULT pfnSetPalette(const D3DDDIARG_SETPALETTE* data);
 		HRESULT pfnUnlock(const D3DDDIARG_UNLOCK* data);
+		HRESULT pfnUpdatePalette(const D3DDDIARG_UPDATEPALETTE* data, const PALETTEENTRY* paletteData);
 
 		Adapter& getAdapter() const { return m_adapter; }
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
+		RGBQUAD* getPalette(UINT paletteHandle) { return m_palettes[paletteHandle].data(); }
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }
 		ShaderBlitter& getShaderBlitter() { return m_shaderBlitter; }
@@ -84,6 +89,8 @@ namespace D3dDdi
 		DrawPrimitive m_drawPrimitive;
 		DeviceState m_state;
 		ShaderBlitter m_shaderBlitter;
+		std::vector<std::array<RGBQUAD, 256>> m_palettes;
+		std::vector<UINT> m_paletteFlags;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

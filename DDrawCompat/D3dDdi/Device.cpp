@@ -359,6 +359,25 @@ namespace D3dDdi
 		return result;
 	}
 
+	HRESULT Device::pfnSetPalette(const D3DDDIARG_SETPALETTE* data)
+	{
+		flushPrimitives();
+		if (data->PaletteHandle >= m_palettes.size())
+		{
+			m_palettes.resize(data->PaletteHandle + 1);
+			m_paletteFlags.resize(data->PaletteHandle + 1);
+		}
+
+		m_paletteFlags[data->PaletteHandle] = data->PaletteFlags;
+
+		auto it = m_resources.find(data->hResource);
+		if (it != m_resources.end())
+		{
+		it->second->setPaletteHandle(data->PaletteHandle);
+		}
+		return S_OK;
+	}
+
 	HRESULT Device::pfnUnlock(const D3DDDIARG_UNLOCK* data)
 	{
 		flushPrimitives();
@@ -368,6 +387,35 @@ namespace D3dDdi
 			return it->second->unlock(*data);
 		}
 		return m_origVtable.pfnUnlock(m_device, data);
+	}
+
+	HRESULT Device::pfnUpdatePalette(const D3DDDIARG_UPDATEPALETTE* data, const PALETTEENTRY* paletteData)
+	{
+		LOG_DEBUG << Compat::array(reinterpret_cast<const HANDLE*>(paletteData), data->NumEntries);
+		flushPrimitives();
+		if (data->PaletteHandle >= m_palettes.size())
+		{
+			m_palettes.resize(data->PaletteHandle + 1);
+		}
+
+		const bool useAlpha = m_paletteFlags[data->PaletteHandle] & D3DDDISETPALETTE_ALPHA;
+		for (UINT i = 0; i < data->NumEntries; ++i)
+		{
+			auto& rgbQuad = m_palettes[data->PaletteHandle][data->StartIndex + i];
+			rgbQuad.rgbReserved = useAlpha ? paletteData[i].peFlags : 0xFF;
+			rgbQuad.rgbRed = paletteData[i].peRed;
+			rgbQuad.rgbGreen = paletteData[i].peGreen;
+			rgbQuad.rgbBlue = paletteData[i].peBlue;
+		}
+
+		for (auto& resourcePair : m_resources)
+		{
+			if (resourcePair.second->getPaletteHandle() == data->PaletteHandle)
+			{
+				resourcePair.second->invalidatePalettizedTexture();
+			}
+		}
+		return S_OK;
 	}
 
 	void Device::updateAllConfig()

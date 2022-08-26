@@ -14,6 +14,7 @@
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
+#include <DDraw/Surfaces/PalettizedTexture.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
@@ -32,6 +33,14 @@ namespace
 		if (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
 		{
 			return DDraw::PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
+		}
+		else if (Config::palettizedTextures.get() &&
+			(lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_TEXTURE) &&
+			!(lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) &&
+			(lpDDSurfaceDesc->dwFlags & DDSD_PIXELFORMAT) &&
+			(DDPF_RGB | DDPF_PALETTEINDEXED8) == lpDDSurfaceDesc->ddpfPixelFormat.dwFlags)
+		{
+			return DDraw::PalettizedTexture::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 		else
 		{

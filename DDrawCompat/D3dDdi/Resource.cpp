@@ -118,10 +118,14 @@ namespace D3dDdi
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
 		, m_scaledSize{}
+		, m_palettizedTexture(nullptr)
+		, m_paletteHandle(0)
+		, m_paletteColorKeyIndex(-1)
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
 		, m_isClampable(true)
 		, m_isPrimary(false)
+		, m_isPalettizedTextureUpToDate(false)
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -888,6 +892,10 @@ namespace D3dDdi
 			return bltLock(data);
 		}
 
+		if (!data.Flags.ReadOnly)
+		{
+			m_isPalettizedTextureUpToDate = false;
+		}
 		return m_device.getOrigVtable().pfnLock(m_device, &data);
 	}
 
@@ -932,6 +940,7 @@ namespace D3dDdi
 
 	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect)
 	{
+		m_isPalettizedTextureUpToDate = false;
 		if (m_lockResource)
 		{
 			loadFromLockRefResource(subResourceIndex);
@@ -1272,6 +1281,18 @@ namespace D3dDdi
 		}
 	}
 
+	void Resource::setPaletteHandle(UINT paletteHandle)
+	{
+		m_paletteHandle = paletteHandle;
+		m_isPalettizedTextureUpToDate = false;
+	}
+
+	void Resource::setPalettizedTexture(Resource& resource)
+	{
+		m_palettizedTexture = &resource;
+		resource.m_isPalettizedTextureUpToDate = false;
+	}
+
 	HRESULT Resource::shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource)
 	{
 		LOG_FUNC("Resource::shaderBlt", data, srcResource);
@@ -1461,5 +1482,44 @@ namespace D3dDdi
 				}
 			}
 		}
+	}
+
+	void Resource::updatePalettizedTexture(UINT stage)
+	{
+		if (!m_palettizedTexture)
+		{
+			return;
+		}
+
+		auto& appState = m_device.getState().getAppState();
+		int paletteColorKeyIndex = appState.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY]
+			? -1 : appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
+
+		if (m_palettizedTexture->m_isPalettizedTextureUpToDate &&
+			(-1 == paletteColorKeyIndex || paletteColorKeyIndex == m_paletteColorKeyIndex))
+		{
+			return;
+		}
+
+		auto palettePtr = m_device.getPalette(m_palettizedTexture->m_paletteHandle);
+		if (paletteColorKeyIndex >= 0)
+		{
+			static RGBQUAD palette[256] = {};
+			memcpy(palette, m_device.getPalette(m_palettizedTexture->m_paletteHandle), sizeof(palette));
+			for (int i = 0; i < 256; ++i)
+			{
+				if (i != paletteColorKeyIndex && palette[i] == palette[paletteColorKeyIndex])
+				{
+					palette[i].rgbBlue += 0xFF == palette[i].rgbBlue ? -1 : 1;
+				}
+			}
+			palettePtr = palette;
+		}
+
+		auto rect = getRect(0);
+		m_device.getShaderBlitter().palettizedBlt(*this, 0, rect, *m_palettizedTexture, 0, rect, palettePtr);
+
+		m_palettizedTexture->m_isPalettizedTextureUpToDate = true;
+		m_paletteColorKeyIndex = paletteColorKeyIndex;
 	}
 }

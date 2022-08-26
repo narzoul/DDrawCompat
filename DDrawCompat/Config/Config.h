@@ -17,6 +17,7 @@
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/LogLevel.h>
+#include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/RemoveBorders.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
@@ -48,6 +49,7 @@ namespace Config
 	extern Settings::FpsLimiter fpsLimiter;
 	extern Settings::FullscreenMode fullscreenMode;
 	extern Settings::LogLevel logLevel;
+	extern Settings::PalettizedTextures palettizedTextures;
 	extern Settings::RemoveBorders removeBorders;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;

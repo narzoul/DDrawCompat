@@ -79,8 +79,8 @@ namespace DDraw
 		if (SUCCEEDED(dds->SetPrivateData(&dds, IID_CompatSurfacePrivateData,
 			privateData.get(), sizeof(privateData.get()), DDSPD_IUNKNOWNPOINTER)))
 		{
-			privateData->createImpl();
 			privateData->m_surface = &dds;
+			privateData->createImpl();
 			privateData.release();
 		}
 	}

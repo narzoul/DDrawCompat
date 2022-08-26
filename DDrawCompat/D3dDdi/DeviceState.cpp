@@ -230,6 +230,8 @@ namespace D3dDdi
 			return;
 		}
 
+		prepareTextures();
+
 		if (m_changedStates & CS_RENDER_STATE)
 		{
 			updateRenderStates();
@@ -257,6 +259,10 @@ namespace D3dDdi
 
 	Resource* DeviceState::getTextureResource(UINT stage)
 	{
+		if (!m_app.textures[stage])
+		{
+			return nullptr;
+		}
 		if (!m_textureResource[stage] || *m_textureResource[stage] != m_app.textures[stage])
 		{
 			m_textureResource[stage] = m_device.getResource(m_app.textures[stage]);
@@ -336,7 +342,7 @@ namespace D3dDdi
 		return value;
 	}
 
-	void DeviceState::onDestroyResource(D3dDdi::Resource* resource, HANDLE resourceHandle)
+	void DeviceState::onDestroyResource(Resource* resource, HANDLE resourceHandle)
 	{
 		for (UINT i = 0; i < m_current.textures.size(); ++i)
 		{
@@ -572,6 +578,18 @@ namespace D3dDdi
 		m_app.wInfo = *data;
 		m_changedStates |= CS_RENDER_TARGET;
 		return S_OK;
+	}
+
+	void DeviceState::prepareTextures()
+	{
+		for (UINT stage = 0; stage < m_app.textures.size(); ++stage)
+		{
+			auto resource = getTextureResource(stage);
+			if (resource)
+			{
+				resource->updatePalettizedTexture(stage);
+			}
+		}
 	}
 
 	template <typename Data>
@@ -985,6 +1003,13 @@ namespace D3dDdi
 
 	void DeviceState::updateTextureColorKey(UINT stage)
 	{
+		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
+		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
+		if (!m_app.textures[stage])
+		{
+			return;
+		}
+
 		D3DDDIARG_TEXTURESTAGESTATE tss = {};
 		tss.Stage = stage;
 
@@ -998,14 +1023,18 @@ namespace D3dDdi
 		{
 			tss.State = D3DDDITSS_TEXTURECOLORKEYVAL;
 			tss.Value = m_app.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
+			auto resource = getTextureResource(stage);
+			if (resource && resource->getPalettizedTexture())
+			{
+				tss.Value = reinterpret_cast<DWORD&>(
+					m_device.getPalette(resource->getPalettizedTexture()->getPaletteHandle())[tss.Value]);
+			}
 			m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = tss.Value;
 			m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
 		}
 
 		m_device.flushPrimitives();
 		m_device.getOrigVtable().pfnSetTextureStageState(m_device, &tss);
-		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
-		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
 		LOG_DS << tss;
 	}
 
@@ -1013,21 +1042,11 @@ namespace D3dDdi
 	{
 		for (UINT stage = 0; stage <= m_maxChangedTextureStage; ++stage)
 		{
-			if (setTexture(stage, m_app.textures[stage]))
-			{
-				updateTextureColorKey(stage);
-			}
-			else if (m_changedTextureStageStates[stage].test(D3DDDITSS_DISABLETEXTURECOLORKEY) ||
+			if (setTexture(stage, m_app.textures[stage]) ||
+				m_changedTextureStageStates[stage].test(D3DDDITSS_DISABLETEXTURECOLORKEY) ||
 				m_changedTextureStageStates[stage].test(D3DDDITSS_TEXTURECOLORKEYVAL))
 			{
-				if (m_app.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] !=
-					m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] ||
-					!m_app.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] &&
-					m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] !=
-					m_app.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
-				{
-					updateTextureColorKey(stage);
-				}
+				updateTextureColorKey(stage);
 			}
 
 			m_changedTextureStageStates[stage].forEach([&](UINT stateIndex)

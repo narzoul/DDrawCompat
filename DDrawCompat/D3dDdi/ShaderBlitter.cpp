@@ -94,6 +94,7 @@ namespace D3dDdi
 		}
 
 		auto& state = m_device.getState();
+		state.setSpriteMode(false);
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
 		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
 		state.setTempPixelShader(pixelShader);

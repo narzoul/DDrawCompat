@@ -30,7 +30,10 @@ namespace D3dDdi
 		Device& getDevice() const { return m_device; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
+		UINT getPaletteHandle() const { return m_paletteHandle; }
+		Resource* getPalettizedTexture() { return m_palettizedTexture; }
 		bool isClampable() const { return m_isClampable; }
+		void invalidatePalettizedTexture() { m_isPalettizedTextureUpToDate = false; }
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
@@ -50,8 +53,11 @@ namespace D3dDdi
 		void setAsGdiResource(bool isGdiResource);
 		void setAsPrimary();
 		void setFullscreenMode(bool isFullscreen);
+		void setPaletteHandle(UINT paletteHandle);
+		void setPalettizedTexture(Resource& resource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
+		void updatePalettizedTexture(UINT stage);
 
 	private:
 		class Data : public D3DDDIARG_CREATERESOURCE2
@@ -125,9 +131,13 @@ namespace D3dDdi
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
 		SIZE m_scaledSize;
+		Resource* m_palettizedTexture;
+		UINT m_paletteHandle;
+		int m_paletteColorKeyIndex;
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;
 		bool m_isPrimary;
+		bool m_isPalettizedTextureUpToDate;
 	};
 }

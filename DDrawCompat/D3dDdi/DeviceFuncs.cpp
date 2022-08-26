@@ -64,7 +64,9 @@ namespace
 		SET_DEVICE_FUNC(pfnOpenResource);
 		SET_DEVICE_FUNC(pfnPresent);
 		SET_DEVICE_FUNC(pfnPresent1);
+		SET_DEVICE_FUNC(pfnSetPalette);
 		SET_DEVICE_FUNC(pfnUnlock);
+		SET_DEVICE_FUNC(pfnUpdatePalette);
 
 		SET_DEVICE_STATE_FUNC(pfnCreateVertexShaderDecl);
 		SET_DEVICE_STATE_FUNC(pfnDeletePixelShader);
@@ -96,12 +98,10 @@ namespace
 		SET_FLUSH_PRIMITIVES_FUNC(pfnDiscard);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnGenerateMipSubLevels);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnSetClipPlane);
-		SET_FLUSH_PRIMITIVES_FUNC(pfnSetPalette);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnSetScissorRect);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnStateSet);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnTexBlt);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnTexBlt1);
-		SET_FLUSH_PRIMITIVES_FUNC(pfnUpdatePalette);
 	}
 }
 

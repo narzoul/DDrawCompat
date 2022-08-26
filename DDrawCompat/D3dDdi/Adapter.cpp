@@ -266,6 +266,27 @@ namespace D3dDdi
 			{
 				caps.dwDeviceZBufferBitDepth = getInfo().supportedZBufferBitDepths;
 			}
+			if (Config::palettizedTextures.get())
+			{
+				caps.dpcTriCaps.dwTextureCaps |= D3DPTEXTURECAPS_ALPHAPALETTE;
+			}
+			break;
+		}
+
+		case D3DDDICAPS_GETFORMATDATA:
+		{
+			if (Config::palettizedTextures.get())
+			{
+				UINT count = pData->DataSize / sizeof(FORMATOP);
+				auto formatOp = static_cast<FORMATOP*>(pData->pData);
+				for (UINT i = 0; i < count; ++i)
+				{
+					if (D3DDDIFMT_P8 == formatOp[i].Format)
+					{
+						formatOp[i].Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
+					}
+				}
+			}
 			break;
 		}
 		}

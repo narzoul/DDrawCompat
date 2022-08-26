@@ -218,6 +218,14 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETDEPTHSTENCIL& val)
 		<< val.hZBuffer;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETPALETTE& val)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(val.PaletteHandle)
+		<< Compat::hex(val.PaletteFlags)
+		<< val.hResource;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETPIXELSHADERCONST& val)
 {
 	return Compat::LogStruct(os)
@@ -270,6 +278,14 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val)
 		<< val.hResource
 		<< val.SubResourceIndex
 		<< Compat::hex(val.Flags.Value);
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UPDATEPALETTE& val)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(val.PaletteHandle)
+		<< val.StartIndex
+		<< val.NumEntries;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VIEWPORTINFO& val)
