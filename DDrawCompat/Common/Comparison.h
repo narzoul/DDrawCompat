@@ -23,6 +23,12 @@ std::enable_if_t<std::is_class_v<T> && std::is_trivial_v<T>, bool> operator<(con
 	return toTuple(left) < toTuple(right);
 }
 
+inline auto toTuple(const GUID& guid)
+{
+	const auto data4 = *reinterpret_cast<const unsigned long long*>(&guid.Data4);
+	return std::make_tuple(guid.Data1, guid.Data2, guid.Data3, data4);
+}
+
 inline auto toTuple(const LUID& luid)
 {
 	return std::make_tuple(luid.LowPart, luid.HighPart);
@@ -36,6 +42,11 @@ inline auto toTuple(const POINT& pt)
 inline auto toTuple(const RGBQUAD& q)
 {
 	return std::make_tuple(q.rgbBlue, q.rgbGreen, q.rgbRed, q.rgbReserved);
+}
+
+inline auto toTuple(const RECT& rect)
+{
+	return std::make_tuple(rect.left, rect.top, rect.right, rect.bottom);
 }
 
 inline auto toTuple(const SIZE& size)

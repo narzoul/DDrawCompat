@@ -35,6 +35,7 @@ namespace D3dDdi
 		HRESULT pfnColorFill(const D3DDDIARG_COLORFILL* data);
 		HRESULT pfnCreateResource(D3DDDIARG_CREATERESOURCE* data);
 		HRESULT pfnCreateResource2(D3DDDIARG_CREATERESOURCE2* data);
+		HRESULT pfnDepthFill(const D3DDDIARG_DEPTHFILL* data);
 		HRESULT pfnDestroyDevice();
 		HRESULT pfnDestroyResource(HANDLE resource);
 		HRESULT pfnDrawIndexedPrimitive2(const D3DDDIARG_DRAWINDEXEDPRIMITIVE2* data,
@@ -61,6 +62,7 @@ namespace D3dDdi
 		HRESULT createPrivateResource(D3DDDIARG_CREATERESOURCE2& data);
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
 		void prepareForGpuWrite();
+		void setDepthStencil(HANDLE resource);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
 		void waitForIdle();
@@ -83,6 +85,7 @@ namespace D3dDdi
 		HANDLE m_device;
 		HANDLE m_eventQuery;
 		std::map<HANDLE, std::unique_ptr<Resource>> m_resources;
+		Resource* m_depthStencil;
 		Resource* m_renderTarget;
 		UINT m_renderTargetSubResourceIndex;
 		HANDLE m_sharedPrimary;

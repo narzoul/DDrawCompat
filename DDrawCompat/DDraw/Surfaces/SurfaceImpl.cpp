@@ -13,6 +13,7 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <Direct3d/Direct3d.h>
 #include <Dll/Dll.h>
 #include <Gdi/WinProc.h>
 
@@ -217,13 +218,17 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
-		auto iid = (IID_IDirect3DRampDevice == riid) ? &IID_IDirect3DRGBDevice : &riid;
-		HRESULT result = getOrigVtable(This).QueryInterface(This, *iid, obp);
+		auto& iid = Direct3d::replaceDevice(riid);;
+		HRESULT result = getOrigVtable(This).QueryInterface(This, iid, obp);
 		if (DDERR_INVALIDOBJECT == result)
 		{
 			m_data->setSizeOverride(1, 1);
-			result = getOrigVtable(This).QueryInterface(This, *iid, obp);
+			result = getOrigVtable(This).QueryInterface(This, iid, obp);
 			m_data->setSizeOverride(0, 0);
+		}
+		if (SUCCEEDED(result))
+		{
+			Direct3d::onCreateDevice(iid, *m_data->m_surface);
 		}
 		return result;
 	}

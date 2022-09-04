@@ -84,6 +84,8 @@ namespace D3dDdi
 			bool isMsaaUpToDate;
 			bool isMsaaResolvedUpToDate;
 			bool isRefLocked;
+
+			LockData() { memset(this, 0, sizeof(*this)); }
 		};
 
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
@@ -100,7 +102,7 @@ namespace D3dDdi
 		void createGdiLockResource();
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
-		bool downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight);
+		void downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight, bool dryRun = false);
 		void fixResourceData();
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
@@ -115,6 +117,7 @@ namespace D3dDdi
 		void loadVidMemResource(UINT subResourceIndex);
 		void notifyLock(UINT subResourceIndex);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
+		void resolveMsaaDepthBuffer();
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
 
 		Device& m_device;
@@ -128,6 +131,7 @@ namespace D3dDdi
 		SurfaceRepository::Surface m_lockRefSurface;
 		SurfaceRepository::Surface m_msaaSurface;
 		SurfaceRepository::Surface m_msaaResolvedSurface;
+		SurfaceRepository::Surface m_nullSurface;
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
 		SIZE m_scaledSize;

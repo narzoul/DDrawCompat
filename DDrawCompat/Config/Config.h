@@ -21,6 +21,7 @@
 #include <Config/Settings/RemoveBorders.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
+#include <Config/Settings/SoftwareDevice.h>
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
@@ -53,6 +54,7 @@ namespace Config
 	extern Settings::RemoveBorders removeBorders;
 	extern Settings::RenderColorDepth renderColorDepth;
 	extern Settings::ResolutionScale resolutionScale;
+	extern Settings::SoftwareDevice softwareDevice;
 	extern Settings::SpriteDetection spriteDetection;
 	extern Settings::SpriteFilter spriteFilter;
 	extern Settings::SpriteTexCoord spriteTexCoord;

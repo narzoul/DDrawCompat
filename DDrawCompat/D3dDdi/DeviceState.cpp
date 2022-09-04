@@ -432,6 +432,7 @@ namespace D3dDdi
 	{
 		m_app.depthStencil = *data;
 		m_changedStates |= CS_RENDER_TARGET;
+		m_device.setDepthStencil(data->hZBuffer);
 		return S_OK;
 	}
 
@@ -469,6 +470,7 @@ namespace D3dDdi
 	{
 		m_app.renderTarget = *data;
 		m_changedStates |= CS_RENDER_TARGET;
+		m_device.setRenderTarget(*data);
 		return S_OK;
 	}
 
@@ -751,7 +753,6 @@ namespace D3dDdi
 	void DeviceState::setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget)
 	{
 		setRenderTarget(renderTarget);
-		m_device.setRenderTarget({});
 		m_changedStates |= CS_RENDER_TARGET;
 	}
 
@@ -958,7 +959,6 @@ namespace D3dDdi
 		}
 
 		setRenderTarget(renderTarget);
-		m_device.setRenderTarget(m_app.renderTarget);
 		setDepthStencil(depthStencil);
 		setViewport(vp);
 

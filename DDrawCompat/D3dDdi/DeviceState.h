@@ -127,6 +127,7 @@ namespace D3dDdi
 		void disableTextureClamp(UINT stage);
 		void flush();
 		const State& getAppState() const { return m_app; }
+		const State& getCurrentState() const { return m_current; }
 		Resource* getTextureResource(UINT stage);
 		const VertexDecl& getVertexDecl() const;
 		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }

@@ -1,8 +1,10 @@
 #include <set>
-#include <type_traits>
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
+#include <Config/Config.h>
+#include <D3dDdi/Device.h>
+#include <DDraw/DirectDrawSurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3d.h>
@@ -20,25 +22,26 @@ namespace
 		TDirect3dDevice** lplpD3DDevice,
 		Params... params)
 	{
-		auto iid = (IID_IDirect3DRampDevice == rclsid) ? &IID_IDirect3DRGBDevice : &rclsid;
-		HRESULT result = getOrigVtable(This).CreateDevice(This, *iid, lpDDS, lplpD3DDevice, params...);
+		auto& iid = Direct3d::replaceDevice(rclsid);
+		HRESULT result = getOrigVtable(This).CreateDevice(This, iid, lpDDS, lplpD3DDevice, params...);
 		if (DDERR_INVALIDOBJECT == result && lpDDS)
 		{
 			auto surface = DDraw::Surface::getSurface(*lpDDS);
 			if (surface)
 			{
 				surface->setSizeOverride(1, 1);
-				result = getOrigVtable(This).CreateDevice(This, *iid, lpDDS, lplpD3DDevice, params...);
+				result = getOrigVtable(This).CreateDevice(This, iid, lpDDS, lplpD3DDevice, params...);
 				surface->setSizeOverride(0, 0);
 			}
 		}
 
-		if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
+		if (SUCCEEDED(result))
 		{
-			if (SUCCEEDED(result))
+			if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
 			{
 				Direct3d::Direct3dDevice::hookVtable(*(*lplpD3DDevice)->lpVtbl);
 			}
+			Direct3d::onCreateDevice(iid, *CompatPtr<IDirectDrawSurface7>::from(lpDDS));
 		}
 		return result;
 	}
@@ -74,6 +77,52 @@ namespace
 
 namespace Direct3d
 {
+	void onCreateDevice(const IID& iid, IDirectDrawSurface7& surface)
+	{
+		if (IID_IDirect3DHALDevice == iid || IID_IDirect3DTnLHalDevice == iid)
+		{
+			auto device = D3dDdi::Device::findDeviceByResource(
+				DDraw::DirectDrawSurface::getDriverResourceHandle(surface));
+			if (device)
+			{
+				device->getState().flush();
+			}
+		}
+	}
+
+	const IID& replaceDevice(const IID& iid)
+	{
+		if (IID_IDirect3DRampDevice != iid &&
+			IID_IDirect3DRGBDevice != iid &&
+			IID_IDirect3DHALDevice != iid &&
+			IID_IDirect3DMMXDevice != iid &&
+			IID_IDirect3DRefDevice != iid &&
+			IID_IDirect3DNullDevice != iid &&
+			IID_IDirect3DTnLHalDevice != iid)
+		{
+			return iid;
+		}
+
+		auto mappedDeviceType = &iid;
+		if (Config::softwareDevice.get() &&
+			(IID_IDirect3DRampDevice == iid || IID_IDirect3DMMXDevice == iid || IID_IDirect3DRGBDevice == iid))
+		{
+			mappedDeviceType = Config::softwareDevice.get();
+		}
+
+		static std::set<IID> usedDeviceTypes;
+		if (usedDeviceTypes.insert(iid).second)
+		{
+			Compat::Log log(Config::Settings::LogLevel::INFO);
+			log << "Using Direct3D device type: " << iid;
+			if (iid != *mappedDeviceType)
+			{
+				log << " (mapped to " << *mappedDeviceType << ')';
+			}
+		}
+		return *mappedDeviceType;
+	}
+
 	namespace Direct3d
 	{
 		template <typename Vtable>

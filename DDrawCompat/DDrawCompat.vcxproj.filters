@@ -597,6 +597,9 @@
     <ClInclude Include="Config\Settings\PalettizedTextures.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SoftwareDevice.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -972,6 +975,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\ColorKey.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthBlt.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

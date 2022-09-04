@@ -51,6 +51,7 @@ namespace D3dDdi
 
 		static SurfaceRepository& get(const Adapter& adapter);
 		static bool inCreateSurface() { return s_inCreateSurface; }
+		static void enableSurfaceCheck(bool enable);
 
 	private:
 		SurfaceRepository(const Adapter& adapter);

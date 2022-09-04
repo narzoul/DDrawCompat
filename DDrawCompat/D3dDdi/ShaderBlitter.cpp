@@ -7,6 +7,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Shaders/ColorKey.h>
+#include <Shaders/DepthBlt.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
 #include <Shaders/GenBilinear.h>
@@ -54,6 +55,7 @@ namespace D3dDdi
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
 		, m_psColorKey(createPixelShader(g_psColorKey))
+		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
 		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
@@ -74,7 +76,7 @@ namespace D3dDdi
 		HANDLE pixelShader, UINT filter, UINT flags, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, srcSubResourceIndex, pixelShader, filter,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader, filter,
 			Compat::hex(flags), alpha, static_cast<HRGN>(srcRgn));
 
 		if (!m_vertexShaderDecl || !pixelShader)
@@ -95,14 +97,14 @@ namespace D3dDdi
 
 		auto& state = m_device.getState();
 		state.setSpriteMode(false);
-		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
-		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
-		state.setTempPixelShader(pixelShader);
 		state.setTempRenderTarget({ 0, dstResource, dstSubResourceIndex });
 		state.setTempDepthStencil({ nullptr });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
+		state.setTempPixelShader(pixelShader);
+		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
 
+		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
 		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_FALSE });
 		state.setTempRenderState({ D3DDDIRS_FILLMODE, D3DFILL_SOLID });
 		state.setTempRenderState({ D3DDDIRS_ZWRITEENABLE, FALSE });
@@ -259,6 +261,56 @@ namespace D3dDdi
 			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.colorTexture, 0, clippedSrcRect,
 				m_psTextureSampler.get(), D3DTEXF_POINT, BLT_SRCALPHA);
 		}
+	}
+
+	void ShaderBlitter::depthBlt(const Resource& dstResource, const RECT& dstRect,
+		const Resource& srcResource, const RECT& srcRect, const Resource& nullResource)
+	{
+		LOG_FUNC("ShaderBlitter::depthBlt", static_cast<HANDLE>(dstResource), dstRect,
+			static_cast<HANDLE>(srcResource), srcRect, static_cast<HANDLE>(nullResource));
+
+		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
+		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
+
+		auto& state = m_device.getState();
+		state.setSpriteMode(false);
+		state.setTempRenderTarget({ 0, nullResource, 0 });
+		state.setTempDepthStencil({ dstResource });
+		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
+		state.setTempZRange({ 0, 1 });
+		state.setTempPixelShader(m_psDepthBlt.get());
+		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
+
+		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
+		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_TRUE });
+		state.setTempRenderState({ D3DDDIRS_ZFUNC, D3DCMP_ALWAYS });
+		state.setTempRenderState({ D3DDDIRS_FILLMODE, D3DFILL_SOLID });
+		state.setTempRenderState({ D3DDDIRS_ZWRITEENABLE, TRUE });
+		state.setTempRenderState({ D3DDDIRS_ALPHATESTENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CULLMODE, D3DCULL_NONE });
+		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, TRUE });
+		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CLIPPING, FALSE });
+		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
+		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
+		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0 });
+
+		const UINT D3DBLEND_ZERO = 1;
+		const UINT D3DBLEND_ONE = 2;
+		state.setTempRenderState({ D3DDDIRS_SRCBLEND, D3DBLEND_ZERO });
+		state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_ONE });
+
+		setTempTextureStage(0, srcResource, srcRect, D3DTEXF_POINT);
+		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
+
+		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
+
+		DeviceState::TempStateLock lock(state);
+		drawRect(srcRect, Rect::toRectF(dstRect), srcSurface.Width, srcSurface.Height);
+		m_device.flushPrimitives();
 	}
 
 	void ShaderBlitter::drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight)

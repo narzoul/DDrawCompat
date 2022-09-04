@@ -16,6 +16,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_COLORFILL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE2& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEVERTEXSHADERDECL& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DEPTHFILL& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE2& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWPRIMITIVE& val);

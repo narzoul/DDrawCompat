@@ -9,6 +9,7 @@
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceCallbacks.h>
 #include <D3dDdi/DeviceFuncs.h>
+#include <D3dDdi/FormatInfo.h>
 #include <D3dDdi/KernelModeThunks.h>
 
 namespace
@@ -55,12 +56,17 @@ namespace D3dDdi
 		info.formatOps = getFormatOps();
 		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.formatOps);
 
+		info.isMsaaDepthResolveSupported =
+			info.formatOps.find(FOURCC_RESZ) != info.formatOps.end() &&
+			info.formatOps.find(FOURCC_INTZ) != info.formatOps.end() &&
+			info.formatOps.find(FOURCC_NULL) != info.formatOps.end();
+
 		LOG_INFO << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
 		LOG_INFO << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
-		LOG_DEBUG << "Supported resource formats:";
+		LOG_INFO << "Supported resource formats:";
 		for (const auto& formatOp : info.formatOps)
 		{
-			LOG_DEBUG << "  " << formatOp.second;
+			LOG_INFO << "  " << formatOp.second;
 		} 
 
 		return info;

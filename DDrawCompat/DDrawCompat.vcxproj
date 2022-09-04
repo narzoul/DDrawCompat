@@ -180,6 +180,7 @@
     <ClInclude Include="Config\Settings\RemoveBorders.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
+    <ClInclude Include="Config\Settings\SoftwareDevice.h" />
     <ClInclude Include="Config\Settings\SpriteDetection.h" />
     <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />
@@ -422,6 +423,9 @@
   <ItemGroup>
     <FxCompile Include="Shaders\ColorKey.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthBlt.hlsl">
+      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
     </FxCompile>
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />

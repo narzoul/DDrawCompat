@@ -28,6 +28,7 @@ namespace D3dDdi
 		, m_adapter(adapter)
 		, m_device(device)
 		, m_eventQuery(nullptr)
+		, m_depthStencil(nullptr)
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
 		, m_sharedPrimary(nullptr)
@@ -107,10 +108,19 @@ namespace D3dDdi
 
 	void Device::prepareForGpuWrite()
 	{
+		if (m_depthStencil)
+		{
+			m_depthStencil->prepareForGpuWrite(0);
+		}
 		if (m_renderTarget)
 		{
 			m_renderTarget->prepareForGpuWrite(m_renderTargetSubResourceIndex);
 		}
+	}
+
+	void Device::setDepthStencil(HANDLE resource)
+	{
+		m_depthStencil = getResource(resource);
 	}
 
 	void Device::setGdiResourceHandle(HANDLE resource)
@@ -166,19 +176,16 @@ namespace D3dDdi
 	HRESULT Device::pfnClear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect)
 	{
 		flushPrimitives();
-		if (data->Flags & D3DCLEAR_TARGET)
-		{
-			setRenderTarget(m_state.getAppState().renderTarget);
-			prepareForGpuWrite();
-		}
+		prepareForGpuWrite();
 		m_state.flush();
 
-		if (m_renderTarget && rect)
+		if ((m_renderTarget || m_depthStencil) && rect)
 		{
 			std::vector<RECT> scaledRect(rect, rect + numRect);
+			auto resource = m_renderTarget ? m_renderTarget : m_depthStencil;
 			for (UINT i = 0; i < numRect; ++i)
 			{
-				m_renderTarget->scaleRect(scaledRect[i]);
+				resource->scaleRect(scaledRect[i]);
 			}
 			return m_origVtable.pfnClear(m_device, data, numRect, scaledRect.data());
 		}
@@ -188,6 +195,7 @@ namespace D3dDdi
 
 	HRESULT Device::pfnColorFill(const D3DDDIARG_COLORFILL* data)
 	{
+		flushPrimitives();
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
@@ -226,6 +234,30 @@ namespace D3dDdi
 		}
 	}
 
+	HRESULT Device::pfnDepthFill(const D3DDDIARG_DEPTHFILL* data)
+	{
+		flushPrimitives();
+		auto resource = getResource(data->hResource);
+		auto customResource = resource->getCustomResource();
+		auto fi = getFormatInfo(resource->getFixedDesc().Format);
+		resource->prepareForGpuWrite(0);
+
+		m_state.setTempDepthStencil({ customResource ? *customResource : *resource });
+
+		RECT rect = data->DstRect;
+		resource->scaleRect(rect);
+
+		D3DDDIARG_CLEAR clear = {};
+		clear.Flags = D3DCLEAR_ZBUFFER;
+		clear.FillDepth = getComponentAsFloat(data->Depth, fi.depth);
+		if (0 != fi.stencil.bitCount)
+		{
+			clear.Flags |= D3DCLEAR_STENCIL;
+			clear.FillStencil = getComponent(data->Depth, fi.stencil);
+		}
+		return m_origVtable.pfnClear(m_device, &clear, 1, &rect);
+	}
+
 	HRESULT Device::pfnDestroyDevice()
 	{
 		auto device = m_device;
@@ -245,6 +277,15 @@ namespace D3dDdi
 		if (resource == m_sharedPrimary)
 		{
 			D3DKMTReleaseProcessVidPnSourceOwners(GetCurrentProcess());
+		}
+
+		if (m_renderTarget && resource == *m_renderTarget)
+		{
+			m_renderTarget = nullptr;
+		}
+		else if (m_depthStencil && resource == *m_depthStencil)
+		{
+			m_depthStencil = nullptr;
 		}
 
 		HRESULT result = m_origVtable.pfnDestroyResource(m_device, resource);
@@ -373,7 +414,7 @@ namespace D3dDdi
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
 		{
-		it->second->setPaletteHandle(data->PaletteHandle);
+			it->second->setPaletteHandle(data->PaletteHandle);
 		}
 		return S_OK;
 	}

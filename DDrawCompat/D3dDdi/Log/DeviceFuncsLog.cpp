@@ -110,6 +110,15 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEVERTEXSHADERDEC
 		<< val.ShaderHandle;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DEPTHFILL& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hResource
+		<< val.SubResourceIndex
+		<< val.DstRect
+		<< Compat::hex(val.Depth);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DRAWINDEXEDPRIMITIVE& val)
 {
 	return Compat::LogStruct(os)

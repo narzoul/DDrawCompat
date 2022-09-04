@@ -16,6 +16,7 @@
 namespace
 {
 	std::map<LUID, D3dDdi::SurfaceRepository> g_repositories;
+	bool g_enableSurfaceCheck = true;
 }
 
 namespace D3dDdi
@@ -64,6 +65,11 @@ namespace D3dDdi
 			return nullptr;
 		}
 		return surface;
+	}
+
+	void SurfaceRepository::enableSurfaceCheck(bool enable)
+	{
+		g_enableSurfaceCheck = enable;
 	}
 
 	SurfaceRepository& SurfaceRepository::get(const Adapter& adapter)
@@ -215,6 +221,11 @@ namespace D3dDdi
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
 		const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount)
 	{
+		if (!g_enableSurfaceCheck)
+		{
+			return surface;
+		}
+
 		if (surface.surface && (surface.width != width || surface.height != height ||
 			0 != memcmp(&surface.pixelFormat, &pf, sizeof(pf)) || isLost(surface)))
 		{

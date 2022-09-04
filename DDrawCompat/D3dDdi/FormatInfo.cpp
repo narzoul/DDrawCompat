@@ -15,8 +15,8 @@ namespace
 		RgbFormatInfo(BYTE unusedBitCount, BYTE alphaBitCount, BYTE redBitCount, BYTE greenBitCount, BYTE blueBitCount)
 			: FormatInfo(unusedBitCount, alphaBitCount, redBitCount, greenBitCount, blueBitCount)
 		{
-			redPos = greenBitCount + blueBitCount;
-			greenPos = blueBitCount;
+			red.pos = greenBitCount + blueBitCount;
+			green.pos = blueBitCount;
 		}
 	};
 
@@ -25,37 +25,67 @@ namespace
 		BgrFormatInfo(BYTE unusedBitCount, BYTE alphaBitCount, BYTE blueBitCount, BYTE greenBitCount, BYTE redBitCount)
 			: FormatInfo(unusedBitCount, alphaBitCount, redBitCount, greenBitCount, blueBitCount)
 		{
-			greenPos = redBitCount;
-			bluePos = redBitCount + greenBitCount;
+			green.pos = redBitCount;
+			blue.pos = redBitCount + greenBitCount;
 		}
 	};
 
-	float getComponent(D3DCOLOR color, BYTE bitCount, BYTE pos)
+	struct DxsFormatInfo : D3dDdi::FormatInfo
 	{
-		if (0 == bitCount)
+		DxsFormatInfo(BYTE depthBitCount, BYTE unusedBitCount, BYTE stencilBitCount)
+			: FormatInfo(unusedBitCount, depthBitCount, stencilBitCount)
 		{
-			return 0;
+			depth.pos = unusedBitCount + stencilBitCount;
+			unused.pos = stencilBitCount;
 		}
-		const UINT max = (1 << bitCount) - 1;
-		const UINT mask = max << pos;
-		return static_cast<float>((color & mask) >> pos) / max;
+	};
+
+	struct XsdFormatInfo : D3dDdi::FormatInfo
+	{
+		XsdFormatInfo(BYTE unusedBitCount, BYTE stencilBitCount, BYTE depthBitCount)
+			: FormatInfo(unusedBitCount, depthBitCount, stencilBitCount)
+		{
+			unused.pos = stencilBitCount + depthBitCount;
+			stencil.pos = depthBitCount;
+		}
+	};
+
+	DWORD getMask(const D3dDdi::FormatInfo::Component& component)
+	{
+		return ((1 << component.bitCount) - 1) << component.pos;
 	}
 }
 
 namespace D3dDdi
 {
+	FormatInfo::FormatInfo()
+	{
+		memset(this, 0, sizeof(*this));
+	}
+
 	FormatInfo::FormatInfo(BYTE unusedBitCount, BYTE alphaBitCount, BYTE redBitCount, BYTE greenBitCount, BYTE blueBitCount)
 		: bitsPerPixel(unusedBitCount + alphaBitCount + redBitCount + greenBitCount + blueBitCount)
 		, bytesPerPixel((bitsPerPixel + 7) / 8)
-		, unusedBitCount(unusedBitCount)
-		, alphaBitCount(alphaBitCount)
-		, alphaPos(redBitCount + greenBitCount + blueBitCount)
-		, redBitCount(redBitCount)
-		, redPos(0)
-		, greenBitCount(greenBitCount)
-		, greenPos(0)
-		, blueBitCount(blueBitCount)
-		, bluePos(0)
+		, unused{ unusedBitCount, static_cast<BYTE>(alphaBitCount + redBitCount + greenBitCount + blueBitCount) }
+		, alpha{ alphaBitCount, static_cast<BYTE>(redBitCount + greenBitCount + blueBitCount) }
+		, red{ redBitCount, 0 }
+		, green{ greenBitCount, 0 }
+		, blue{ blueBitCount, 0 }
+		, depth{}
+		, stencil{}
+	{
+	}
+
+	FormatInfo::FormatInfo(BYTE unusedBitCount, BYTE depthBitCount, BYTE stencilBitCount)
+		: bitsPerPixel(unusedBitCount + depthBitCount + stencilBitCount)
+		, bytesPerPixel((bitsPerPixel + 7) / 8)
+		, unused{ unusedBitCount, 0 }
+		, alpha{}
+		, red{}
+		, green{}
+		, blue{}
+		, depth{ depthBitCount, 0 }
+		, stencil{ stencilBitCount, 0 }
 	{
 	}
 
@@ -63,25 +93,41 @@ namespace D3dDdi
 	{
 		auto& src = *reinterpret_cast<ArgbColor*>(&srcColor);
 
-		BYTE alpha = src.alpha >> (8 - dstFormatInfo.alphaBitCount);
-		BYTE red = src.red >> (8 - dstFormatInfo.redBitCount);
-		BYTE green = src.green >> (8 - dstFormatInfo.greenBitCount);
-		BYTE blue = src.blue >> (8 - dstFormatInfo.blueBitCount);
+		BYTE alpha = src.alpha >> (8 - dstFormatInfo.alpha.bitCount);
+		BYTE red = src.red >> (8 - dstFormatInfo.red.bitCount);
+		BYTE green = src.green >> (8 - dstFormatInfo.green.bitCount);
+		BYTE blue = src.blue >> (8 - dstFormatInfo.blue.bitCount);
 
-		return (alpha << dstFormatInfo.alphaPos) |
-			(red << dstFormatInfo.redPos) |
-			(green << dstFormatInfo.greenPos) |
-			(blue << dstFormatInfo.bluePos);
+		return (alpha << dstFormatInfo.alpha.pos) |
+			(red << dstFormatInfo.red.pos) |
+			(green << dstFormatInfo.green.pos) |
+			(blue << dstFormatInfo.blue.pos);
 	}
 
 	DeviceState::ShaderConstF convertToShaderConst(const FormatInfo& srcFormatInfo, D3DCOLOR srcColor)
 	{
 		return {
-			getComponent(srcColor, srcFormatInfo.redBitCount, srcFormatInfo.redPos),
-			getComponent(srcColor, srcFormatInfo.greenBitCount, srcFormatInfo.greenPos),
-			getComponent(srcColor, srcFormatInfo.blueBitCount, srcFormatInfo.bluePos),
-			getComponent(srcColor, srcFormatInfo.alphaBitCount, srcFormatInfo.alphaPos)
+			getComponentAsFloat(srcColor, srcFormatInfo.red),
+			getComponentAsFloat(srcColor, srcFormatInfo.green),
+			getComponentAsFloat(srcColor, srcFormatInfo.blue),
+			getComponentAsFloat(srcColor, srcFormatInfo.alpha)
 		};
+	}
+
+	DWORD getComponent(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component)
+	{
+		return (color & getMask(component)) >> component.pos;
+	}
+
+	float getComponentAsFloat(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component)
+	{
+		if (0 == component.bitCount)
+		{
+			return 0;
+		}
+		const UINT max = (1 << component.bitCount) - 1;
+		const UINT mask = max << component.pos;
+		return static_cast<float>((color & mask) >> component.pos) / max;
 	}
 
 	FormatInfo getFormatInfo(D3DDDIFORMAT format)
@@ -109,6 +155,17 @@ namespace D3dDdi
 		case D3DDDIFMT_A8B8G8R8:	return BgrFormatInfo(0, 8, 8, 8, 8);
 		case D3DDDIFMT_X8B8G8R8:	return BgrFormatInfo(8, 0, 8, 8, 8);
 
+		case D3DDDIFMT_D32:			return DxsFormatInfo(32, 0, 0);
+		case D3DDDIFMT_D15S1:		return DxsFormatInfo(15, 0, 1);
+		case D3DDDIFMT_D24S8:		return DxsFormatInfo(24, 0, 8);
+		case D3DDDIFMT_D24X8:		return DxsFormatInfo(24, 8, 0);
+		case D3DDDIFMT_D24X4S4:		return DxsFormatInfo(24, 4, 4);
+		case D3DDDIFMT_D16:			return DxsFormatInfo(16, 0, 0);
+		case D3DDDIFMT_S1D15:		return XsdFormatInfo(0, 1, 15);
+		case D3DDDIFMT_S8D24:		return XsdFormatInfo(0, 8, 24);
+		case D3DDDIFMT_X8D24:		return XsdFormatInfo(8, 0, 24);
+		case D3DDDIFMT_X4S4D24:		return XsdFormatInfo(4, 4, 24);
+
 		default:
 			return FormatInfo();
 		}
@@ -124,18 +181,34 @@ namespace D3dDdi
 
 		DDPIXELFORMAT pf = {};
 		pf.dwSize = sizeof(pf);
-		pf.dwRGBBitCount = info.bitsPerPixel;
-		if (0 != pf.dwRGBBitCount)
+		if (0 != info.depth.bitCount)
 		{
-			pf.dwFlags = DDPF_RGB;
-			pf.dwRBitMask = (0xFF >> (8 - info.redBitCount)) << info.redPos;
-			pf.dwGBitMask = (0xFF >> (8 - info.greenBitCount)) << info.greenPos;
-			pf.dwBBitMask = (0xFF >> (8 - info.blueBitCount)) << info.bluePos;
+			pf.dwFlags = DDPF_ZBUFFER;
+			pf.dwZBufferBitDepth = info.depth.bitCount;
+			pf.dwZBitMask = getMask(info.depth);
+			if (0 != info.stencil.bitCount)
+			{
+				pf.dwFlags |= DDPF_STENCILBUFFER;
+				pf.dwZBufferBitDepth += info.stencil.bitCount;
+				pf.dwStencilBitDepth = info.stencil.bitCount;
+				pf.dwStencilBitMask = getMask(info.stencil);
+			}
 		}
-		if (0 != info.alphaBitCount)
+		else
 		{
-			pf.dwFlags |= (0 == pf.dwFlags) ? DDPF_ALPHA : DDPF_ALPHAPIXELS;
-			pf.dwRGBAlphaBitMask = (0xFF >> (8 - info.alphaBitCount)) << info.alphaPos;
+			pf.dwRGBBitCount = info.bitsPerPixel;
+			if (info.bitsPerPixel > info.alpha.bitCount)
+			{
+				pf.dwFlags = DDPF_RGB;
+				pf.dwRBitMask = getMask(info.red);;
+				pf.dwGBitMask = getMask(info.green);
+				pf.dwBBitMask = getMask(info.blue);
+			}
+			if (0 != info.alpha.bitCount)
+			{
+				pf.dwFlags |= (0 == pf.dwFlags) ? DDPF_ALPHA : DDPF_ALPHAPIXELS;
+				pf.dwRGBAlphaBitMask = getMask(info.alpha);
+			}
 		}
 		return pf;
 	}

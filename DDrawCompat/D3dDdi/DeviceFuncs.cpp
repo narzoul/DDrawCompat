@@ -54,6 +54,7 @@ namespace
 		SET_DEVICE_FUNC(pfnColorFill);
 		SET_DEVICE_FUNC(pfnCreateResource);
 		SET_DEVICE_FUNC(pfnCreateResource2);
+		SET_DEVICE_FUNC(pfnDepthFill);
 		SET_DEVICE_FUNC(pfnDestroyDevice);
 		SET_DEVICE_FUNC(pfnDestroyResource);
 		SET_DEVICE_FUNC(pfnDrawIndexedPrimitive2);
@@ -94,7 +95,6 @@ namespace
 
 		SET_FLUSH_PRIMITIVES_FUNC(pfnBufBlt);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnBufBlt1);
-		SET_FLUSH_PRIMITIVES_FUNC(pfnDepthFill);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnDiscard);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnGenerateMipSubLevels);
 		SET_FLUSH_PRIMITIVES_FUNC(pfnSetClipPlane);

@@ -20,6 +20,7 @@ namespace D3dDdi
 			D3DNTHAL_D3DEXTENDEDCAPS d3dExtendedCaps;
 			std::map<D3DDDIFORMAT, FORMATOP> formatOps;
 			DWORD supportedZBufferBitDepths;
+			bool isMsaaDepthResolveSupported;
 		};
 
 		Adapter(const D3DDDIARG_OPENADAPTER& data);

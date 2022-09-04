@@ -454,14 +454,10 @@ namespace D3dDdi
 	HRESULT DrawPrimitive::draw(D3DDDIARG_DRAWPRIMITIVE data, const UINT* flagBuffer)
 	{
 		auto& state = m_device.getState();
-		if (!state.isLocked())
-		{
-			state.updateStreamSource();
-		}
-
 		auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		if (!state.isLocked())
 		{
+			state.updateStreamSource();
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 			{
 				bool spriteMode = isSprite(data.VStart, 0, 1, 2);
@@ -475,7 +471,6 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
-			m_device.setRenderTarget(state.getAppState().renderTarget);
 			m_device.prepareForGpuWrite();
 			state.flush();
 		}
@@ -533,7 +528,6 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
-			m_device.setRenderTarget(state.getAppState().renderTarget);
 			m_device.prepareForGpuWrite();
 			state.flush();
 		}
@@ -644,7 +638,10 @@ namespace D3dDdi
 		}
 
 		LOG_DEBUG << "Flushing " << m_batched.primitiveCount << " primitives of type " << m_batched.primitiveType;
-		m_device.prepareForGpuWrite();
+		if (!m_device.getState().isLocked())
+		{
+			m_device.prepareForGpuWrite();
+		}
 		return m_batched.indices.empty() ? flush(flagBuffer) : flushIndexed(flagBuffer);
 	}
 

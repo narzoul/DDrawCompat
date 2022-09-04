@@ -26,6 +26,8 @@ namespace D3dDdi
 
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
+		void depthBlt(const Resource& dstResource, const RECT& dstRect,
+			const Resource& srcResource, const RECT& srcRect, const Resource& nullResource);
 		void gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect);
 		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -73,6 +75,7 @@ namespace D3dDdi
 
 		Device& m_device;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
 		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
