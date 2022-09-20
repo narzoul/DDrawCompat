@@ -22,8 +22,28 @@ namespace
 	ULONG64 g_debugBase = 0;
 	bool g_isDbgEngInitialized = false;
 
+	LONG WINAPI dbgEngWinVerifyTrust(HWND hwnd, GUID* pgActionID, LPVOID pWVTData);
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
 	bool initDbgEng();
+
+	FARPROC WINAPI dbgEngGetProcAddress(HMODULE hModule, LPCSTR lpProcName)
+	{
+		LOG_FUNC("dbgEngGetProcAddress", hModule, lpProcName);
+		if (0 == strcmp(lpProcName, "WinVerifyTrust"))
+		{
+			return LOG_RESULT(reinterpret_cast<FARPROC>(&dbgEngWinVerifyTrust));
+		}
+		return LOG_RESULT(GetProcAddress(hModule, lpProcName));
+	}
+
+	LONG WINAPI dbgEngWinVerifyTrust(
+		[[maybe_unused]] HWND hwnd,
+		[[maybe_unused]] GUID* pgActionID,
+		[[maybe_unused]] LPVOID pWVTData)
+	{
+		LOG_FUNC("dbgEngWinVerifyTrust", hwnd, pgActionID, pWVTData);
+		return LOG_RESULT(0);
+	}
 
 	FARPROC* findProcAddressInIat(HMODULE module, const char* procName)
 	{
@@ -207,6 +227,8 @@ namespace
 			return 0 != g_debugBase;
 		}
 		g_isDbgEngInitialized = true;
+
+		Compat::hookIatFunction(GetModuleHandle("dbgeng"), "GetProcAddress", dbgEngGetProcAddress);
 
 		HRESULT result = S_OK;
 		if (FAILED(result = DebugCreate(IID_IDebugClient4, reinterpret_cast<void**>(&g_debugClient))) ||
