@@ -400,10 +400,28 @@ namespace D3dDdi
 
 		Resource& dstRes = prepareForBltDst(data);
 
+		if (!m_fixedData.Flags.ZBuffer)
+		{
+			if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
+				D3DDDIPOOL_SYSTEMMEM != srcResource.m_fixedData.Pool &&
+				Config::Settings::BltFilter::BILINEAR == Config::bltFilter.get())
+			{
+				data.Flags.Linear = 1;
+			}
+			else
+			{
+				data.Flags.Point = 1;
+			}
+		}
+
 		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
 			(m_fixedData.Flags.ZBuffer && &dstRes == m_msaaSurface.resource && m_nullSurface.resource ||
-				m_fixedData.Flags.RenderTarget || data.Flags.SrcColorKey ||
-				data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown) &&
+				m_fixedData.Flags.RenderTarget ||
+				!m_fixedData.Flags.ZBuffer && (
+					data.Flags.SrcColorKey ||
+					data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
+					data.DstRect.right - data.DstRect.left != data.SrcRect.right - data.SrcRect.left ||
+					data.DstRect.bottom - data.DstRect.top != data.SrcRect.bottom - data.SrcRect.top)) &&
 			SUCCEEDED(shaderBlt(data, dstRes, *srcRes)))
 		{
 			return S_OK;
@@ -416,21 +434,6 @@ namespace D3dDdi
 			data.hSrcResource = *this;
 			data.SrcSubResourceIndex = data.DstSubResourceIndex;
 			data.SrcRect = r;
-		}
-
-		auto bltFilter = Config::bltFilter.get();
-		if (Config::Settings::BltFilter::NATIVE != bltFilter &&
-			D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-			D3DDDIPOOL_SYSTEMMEM != srcResource.m_fixedData.Pool)
-		{
-			if (Config::Settings::BltFilter::POINT == bltFilter)
-			{
-				data.Flags.Point = 1;
-			}
-			else
-			{
-				data.Flags.Linear = 1;
-			}
 		}
 
 		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
@@ -762,7 +765,8 @@ namespace D3dDdi
 
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
-		if (!m_fixedData.Flags.Texture)
+		if (!m_fixedData.Flags.Texture &&
+			(!m_isPrimary || m_fixedData.Flags.RenderTarget))
 		{
 			return m_device.getAdapter().getMultisampleConfig(m_fixedData.Format);
 		}
@@ -894,7 +898,23 @@ namespace D3dDdi
 		else
 		{
 			loadVidMemResource(subResourceIndex);
-			copySubResource(*m_msaaResolvedSurface.resource, *this, subResourceIndex);
+			const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
+				static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
+			if (m_fixedData.Flags.ZBuffer || !isScaled)
+			{
+				copySubResource(*m_msaaResolvedSurface.resource, *this, subResourceIndex);
+			}
+			else
+			{
+				D3DDDIARG_BLT blt = {};
+				blt.hSrcResource = *this;
+				blt.SrcSubResourceIndex = subResourceIndex;
+				blt.SrcRect = getRect(subResourceIndex);
+				blt.hDstResource = *m_msaaResolvedSurface.resource;
+				blt.DstSubResourceIndex = subResourceIndex;
+				blt.DstRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
+				shaderBlt(blt, *m_msaaResolvedSurface.resource , *this);
+			}
 		}
 		m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
 	}
@@ -924,7 +944,23 @@ namespace D3dDdi
 			if (!m_fixedData.Flags.RenderTarget ||
 				Config::Settings::ResolutionScaleFilter::POINT == Config::resolutionScaleFilter.get())
 			{
-				copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
+				const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
+					static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
+				if (m_fixedData.Flags.ZBuffer || !isScaled)
+				{
+					copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
+				}
+				else
+				{
+					D3DDDIARG_BLT blt = {};
+					blt.hSrcResource = *m_msaaResolvedSurface.resource;
+					blt.SrcSubResourceIndex = subResourceIndex;
+					blt.SrcRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
+					blt.hDstResource = *this;
+					blt.DstSubResourceIndex = subResourceIndex;
+					blt.DstRect = getRect(subResourceIndex);
+					shaderBlt(blt, *this, *m_msaaResolvedSurface.resource);
+				}
 				return;
 			}
 
@@ -1154,6 +1190,7 @@ namespace D3dDdi
 				!srcResource->m_fixedData.Flags.RenderTarget)
 			{
 				srcResource->m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate = false;
+				srcResource->m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate = false;
 			}
 
 			srcResource = &srcResource->prepareForGpuRead(data.SrcSubResourceIndex);
@@ -1496,7 +1533,7 @@ namespace D3dDdi
 		else
 		{
 			m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
-				D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
+				data.Flags.Linear ? D3DTEXF_LINEAR : D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
 		}
 
 		if (!m_fixedData.Flags.RenderTarget)
