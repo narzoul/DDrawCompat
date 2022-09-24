@@ -20,8 +20,8 @@ namespace Overlay
 	public:
 		static const int PARAM_LABEL_WIDTH = 70;
 		static const int PARAM_CONTROL_WIDTH = 241;
-		static const int SETTING_LABEL_WIDTH = 120;
-		static const int SETTING_CONTROL_WIDTH = 151;
+		static const int SETTING_LABEL_WIDTH = 130;
+		static const int SETTING_CONTROL_WIDTH = 141;
 		static const int TOTAL_WIDTH =
 			SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH + PARAM_LABEL_WIDTH + PARAM_CONTROL_WIDTH + BORDER;
 

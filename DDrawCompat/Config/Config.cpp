@@ -23,6 +23,7 @@ namespace Config
 	Settings::RemoveBorders removeBorders;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
+	Settings::ResolutionScaleFilter resolutionScaleFilter;
 	Settings::SoftwareDevice softwareDevice;
 	Settings::SpriteDetection spriteDetection;
 	Settings::SpriteFilter spriteFilter;

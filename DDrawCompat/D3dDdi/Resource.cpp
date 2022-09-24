@@ -921,7 +921,8 @@ namespace D3dDdi
 		if (m_lockData[subResourceIndex].isMsaaUpToDate || m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 		{
 			loadMsaaResolvedResource(subResourceIndex);
-			if (!m_fixedData.Flags.RenderTarget)
+			if (!m_fixedData.Flags.RenderTarget ||
+				Config::Settings::ResolutionScaleFilter::POINT == Config::resolutionScaleFilter.get())
 			{
 				copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
 				return;
