@@ -416,11 +416,6 @@ namespace D3dDdi
 
 		void installHooks()
 		{
-			g_origSubmitPresentBltToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentBltToHwQueue)>(
-				GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTSubmitPresentBltToHwQueue"));
-			g_origSubmitPresentToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentToHwQueue)>(
-				GetProcAddress(GetModuleHandle("gdi32"), "D3DKMTSubmitPresentToHwQueue"));
-
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "CreateDCA", ddrawCreateDcA);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCloseAdapter", closeAdapter);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTCreateDCFromMemory", createDcFromMemory);
@@ -431,7 +426,21 @@ namespace D3dDdi
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTReleaseProcessVidPnSourceOwners", releaseProcessVidPnSourceOwners);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetGammaRamp", setGammaRamp);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetVidPnSourceOwner", setVidPnSourceOwner);
-			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentToHwQueue", submitPresentToHwQueue);
+
+			auto gdi32 = GetModuleHandle("gdi32");
+			g_origSubmitPresentBltToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentBltToHwQueue)>(
+				GetProcAddress(gdi32, "D3DKMTSubmitPresentBltToHwQueue"));
+			if (g_origSubmitPresentBltToHwQueue)
+			{
+				Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentBltToHwQueue", submitPresentBltToHwQueue);
+			}
+
+			g_origSubmitPresentToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentToHwQueue)>(
+				GetProcAddress(gdi32, "D3DKMTSubmitPresentToHwQueue"));
+			if (g_origSubmitPresentToHwQueue)
+			{
+				Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentToHwQueue", submitPresentToHwQueue);
+			}
 
 			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}

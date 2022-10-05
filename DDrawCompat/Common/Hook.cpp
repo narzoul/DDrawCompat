@@ -70,12 +70,13 @@ namespace
 			auto origThunk = reinterpret_cast<PIMAGE_THUNK_DATA>(moduleBase + desc->OriginalFirstThunk);
 			while (0 != thunk->u1.AddressOfData && 0 != origThunk->u1.AddressOfData)
 			{
-				auto origImport = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(
-					moduleBase + origThunk->u1.AddressOfData);
-
-				if (0 == strcmp(origImport->Name, procName))
+				if (!(origThunk->u1.Ordinal & IMAGE_ORDINAL_FLAG))
 				{
-					return reinterpret_cast<FARPROC*>(&thunk->u1.Function);
+					auto origImport = reinterpret_cast<PIMAGE_IMPORT_BY_NAME>(moduleBase + origThunk->u1.AddressOfData);
+					if (0 == strcmp(origImport->Name, procName))
+					{
+						return reinterpret_cast<FARPROC*>(&thunk->u1.Function);
+					}
 				}
 
 				++thunk;
