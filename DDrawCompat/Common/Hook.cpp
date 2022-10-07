@@ -186,33 +186,42 @@ namespace
 			return;
 		}
 
-		unsigned totalInstructionSize = 0;
-		while (totalInstructionSize < 5)
+		const DWORD trampolineSize = 32;
+		BYTE* trampoline = static_cast<BYTE*>(
+			VirtualAlloc(nullptr, trampolineSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
+		BYTE* src = targetFunc;
+		BYTE* dst = trampoline;
+		while (src - targetFunc < 5)
 		{
-			unsigned instructionSize = getInstructionSize(targetFunc + totalInstructionSize);
+			unsigned instructionSize = getInstructionSize(src);
 			if (0 == instructionSize)
 			{
 				return;
 			}
-			totalInstructionSize += instructionSize;
+
+			memcpy(dst, src, instructionSize);
+			if (0xE8 == *src && 5 == instructionSize)
+			{
+				*reinterpret_cast<int*>(dst + 1) += src - dst;
+			}
+
+			src += instructionSize;
+			dst += instructionSize;
 		}
 
 		LOG_DEBUG << "Hooking function: " << funcName
-			<< " (" << oss.str() << Compat::hexDump(targetFunc, totalInstructionSize) << ')';
+			<< " (" << oss.str() << Compat::hexDump(targetFunc, src - targetFunc) << ')';
 
-		BYTE* trampoline = static_cast<BYTE*>(
-			VirtualAlloc(nullptr, totalInstructionSize + 5, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
-		memcpy(trampoline, targetFunc, totalInstructionSize);
-		trampoline[totalInstructionSize] = 0xE9;
-		reinterpret_cast<int&>(trampoline[totalInstructionSize + 1]) = targetFunc - (trampoline + 5);
+		*dst = 0xE9;
+		*reinterpret_cast<int*>(dst + 1) = src - (dst + 5);
 		DWORD oldProtect = 0;
-		VirtualProtect(trampoline, totalInstructionSize + 5, PAGE_EXECUTE_READ, &oldProtect);
+		VirtualProtect(trampoline, trampolineSize, PAGE_EXECUTE_READ, &oldProtect);
 
-		VirtualProtect(targetFunc, totalInstructionSize, PAGE_EXECUTE_READWRITE, &oldProtect);
+		VirtualProtect(targetFunc, src - targetFunc, PAGE_EXECUTE_READWRITE, &oldProtect);
 		targetFunc[0] = 0xE9;
-		reinterpret_cast<int&>(targetFunc[1]) = static_cast<BYTE*>(newFuncPtr) - (targetFunc + 5);
-		memset(targetFunc + 5, 0xCC, totalInstructionSize - 5);
-		VirtualProtect(targetFunc, totalInstructionSize, PAGE_EXECUTE_READ, &oldProtect);
+		*reinterpret_cast<int*>(targetFunc + 1) = static_cast<BYTE*>(newFuncPtr) - (targetFunc + 5);
+		memset(targetFunc + 5, 0xCC, src - targetFunc - 5);
+		VirtualProtect(targetFunc, src - targetFunc, PAGE_EXECUTE_READ, &oldProtect);
 
 		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
 
