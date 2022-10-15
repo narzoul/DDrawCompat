@@ -150,7 +150,8 @@ namespace DDraw
 			auto it = g_surfaceToClipperData.find(&surface);
 			if (it != g_surfaceToClipperData.end())
 			{
-				auto [prevClipper, prevClipperData] = *it->second;
+				auto prevClipper = it->second->first;
+				auto& prevClipperData = it->second->second;
 				if (prevClipper == clipper)
 				{
 					return;
