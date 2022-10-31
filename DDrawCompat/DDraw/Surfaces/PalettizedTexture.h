@@ -11,7 +11,7 @@ namespace DDraw
 	class PalettizedTexture : public Surface
 	{
 	public:
-		PalettizedTexture(DWORD origCaps) : Surface(origCaps) {}
+		PalettizedTexture(DWORD origFlags, DWORD origCaps) : Surface(origFlags, origCaps) {}
 		virtual ~PalettizedTexture() override;
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>

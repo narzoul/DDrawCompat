@@ -106,6 +106,8 @@ namespace DDraw
 		}
 
 		const DWORD origCaps = desc.ddsCaps.dwCaps;
+		auto privateData(std::make_unique<PrimarySurface>(desc.dwFlags, origCaps));
+		auto data = privateData.get();
 
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
 		desc.dwWidth = dm.dwWidth;
@@ -115,8 +117,6 @@ namespace DDraw
 		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
 		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
 
-		auto privateData(std::make_unique<PrimarySurface>(origCaps));
-		auto data = privateData.get();
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))
 		{

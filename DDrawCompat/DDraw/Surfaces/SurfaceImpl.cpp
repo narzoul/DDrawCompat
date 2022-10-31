@@ -189,7 +189,14 @@ namespace DDraw
 				lpDDSurfaceDesc->dwHeight = m_data->m_sizeOverride.cy;
 				m_data->m_sizeOverride = {};
 			}
+
 			restoreOrigCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
+
+			if ((m_data->m_origFlags & DDSD_MIPMAPCOUNT) && !(lpDDSurfaceDesc->dwFlags & DDSD_MIPMAPCOUNT))
+			{
+				lpDDSurfaceDesc->dwFlags |= DDSD_MIPMAPCOUNT;
+				lpDDSurfaceDesc->dwMipMapCount = 1;
+			}
 		}
 		return result;
 	}
@@ -299,10 +306,7 @@ namespace DDraw
 	template <typename TSurface>
 	void SurfaceImpl<TSurface>::restoreOrigCaps(DWORD& caps)
 	{
-		if (m_data->m_origCaps & DDSCAPS_3DDEVICE)
-		{
-			caps |= DDSCAPS_3DDEVICE;
-		}
+		caps |= m_data->m_origCaps & (DDSCAPS_3DDEVICE | DDSCAPS_MIPMAP | DDSCAPS_COMPLEX);
 	}
 
 	template SurfaceImpl<IDirectDrawSurface>;

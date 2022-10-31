@@ -22,21 +22,22 @@ namespace DDraw
 		auto dd1(CompatPtr<IDirectDraw>::from(&dd));
 		CompatPtr<IDirectDrawSurface> palettizedSurface;
 		HRESULT result = Surface::create<IDirectDraw>(*dd1, d, palettizedSurface.getRef(),
-			std::make_unique<DDraw::Surface>(desc.ddsCaps.dwCaps));
+			std::make_unique<DDraw::Surface>(desc.dwFlags, desc.ddsCaps.dwCaps));
 		if (FAILED(result))
 		{
 			return LOG_RESULT(result);
 		}
-
-		auto privateData(std::make_unique<PalettizedTexture>(desc.ddsCaps.dwCaps));
-		auto data = privateData.get();
-		data->m_palettizedSurface = palettizedSurface;
 
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS |
 			(desc.dwFlags & (DDSD_CKSRCBLT | DDSD_CKDESTBLT));
 		desc.ddpfPixelFormat = D3dDdi::getPixelFormat(D3DDDIFMT_A8R8G8B8);
 		desc.ddsCaps = {};
 		desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY;
+
+		auto privateData(std::make_unique<PalettizedTexture>(desc.dwFlags, desc.ddsCaps.dwCaps));
+		auto data = privateData.get();
+		data->m_palettizedSurface = palettizedSurface;
+
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))
 		{

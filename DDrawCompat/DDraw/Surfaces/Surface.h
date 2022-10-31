@@ -23,7 +23,7 @@ namespace DDraw
 		virtual ULONG STDMETHODCALLTYPE AddRef();
 		virtual ULONG STDMETHODCALLTYPE Release();
 
-		Surface(DWORD origCaps);
+		Surface(DWORD origFlags, DWORD origCaps);
 		virtual ~Surface();
 
 		static void* alignBuffer(void* buffer);
@@ -65,6 +65,7 @@ namespace DDraw
 		template <typename TDirectDrawSurface>
 		friend class SurfaceImpl;
 
+		DWORD m_origFlags;
 		DWORD m_origCaps;
 		DWORD m_refCount;
 		SIZE m_sizeOverride;

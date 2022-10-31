@@ -69,7 +69,7 @@ namespace
 		}
 
 		return DDraw::Surface::create<TDirectDraw>(
-			*This, desc, *lplpDDSurface, std::make_unique<DDraw::Surface>(desc.ddsCaps.dwCaps));
+			*This, desc, *lplpDDSurface, std::make_unique<DDraw::Surface>(desc.dwFlags, desc.ddsCaps.dwCaps));
 	}
 
 	template <typename TDirectDraw>

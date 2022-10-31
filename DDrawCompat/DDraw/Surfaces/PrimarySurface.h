@@ -11,7 +11,7 @@ namespace DDraw
 	class PrimarySurface : public Surface
 	{
 	public:
-		PrimarySurface(DWORD origCaps) : Surface(origCaps) {}
+		PrimarySurface(DWORD origFlags, DWORD origCaps) : Surface(origFlags, origCaps) {}
 		virtual ~PrimarySurface();
 
 		template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>

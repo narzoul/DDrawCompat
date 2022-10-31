@@ -11,14 +11,14 @@ namespace
 
 namespace DDraw
 {
-	TagSurface::TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl)
-		: Surface(origCaps)
+	TagSurface::TagSurface(DWORD origFlags, DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl)
+		: Surface(origFlags, origCaps)
 		, m_ddInt{}
 		, m_fullscreenWindow(nullptr)
 		, m_fullscreenWindowStyle(0)
 		, m_fullscreenWindowExStyle(0)
 	{
-		LOG_FUNC("TagSurface::TagSurface", Compat::hex(origCaps), ddLcl);
+		LOG_FUNC("TagSurface::TagSurface", Compat::hex(origFlags), Compat::hex(origCaps), ddLcl);
 		m_ddInt.lpVtbl = &CompatVtable<IDirectDraw>::s_origVtable;
 		m_ddInt.lpLcl = ddLcl;
 		m_ddInt.dwIntRefCnt = 1;
@@ -41,7 +41,7 @@ namespace DDraw
 		desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 
 		auto ddLcl = DDraw::DirectDraw::getInt(dd.get()).lpLcl;
-		auto privateData(std::make_unique<TagSurface>(desc.ddsCaps.dwCaps, ddLcl));
+		auto privateData(std::make_unique<TagSurface>(desc.dwFlags, desc.ddsCaps.dwCaps, ddLcl));
 		g_ddObjects[ddLcl] = privateData.get();
 
 		IDirectDrawSurface* surface = nullptr;

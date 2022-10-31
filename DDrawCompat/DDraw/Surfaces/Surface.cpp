@@ -46,8 +46,9 @@ namespace DDraw
 		return refCount;
 	}
 
-	Surface::Surface(DWORD origCaps)
-		: m_origCaps(origCaps)
+	Surface::Surface(DWORD origFlags, DWORD origCaps)
+		: m_origFlags(origFlags)
+		, m_origCaps(origCaps)
 		, m_refCount(0)
 		, m_sizeOverride{}
 		, m_sysMemBuffer(nullptr, &heapFree)
@@ -96,6 +97,12 @@ namespace DDraw
 			desc.ddsCaps.dwCaps &= ~DDSCAPS_3DDEVICE;
 		}
 
+		if ((desc.dwFlags & DDSD_MIPMAPCOUNT) && 1 == desc.dwMipMapCount)
+		{
+			desc.dwFlags &= ~DDSD_MIPMAPCOUNT;
+			desc.ddsCaps.dwCaps &= ~(DDSCAPS_COMPLEX | DDSCAPS_MIPMAP);
+		}
+
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
 		if (FAILED(result))
 		{
@@ -108,7 +115,7 @@ namespace DDraw
 			auto attachedSurfaces(DirectDrawSurface::getAllAttachedSurfaces(*surface7));
 			for (DWORD i = 0; i < attachedSurfaces.size(); ++i)
 			{
-				attach(*attachedSurfaces[i], std::make_unique<Surface>(privateData->m_origCaps));
+				attach(*attachedSurfaces[i], std::make_unique<Surface>(privateData->m_origFlags, privateData->m_origCaps));
 			}
 		}
 		else if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) && !(desc.dwFlags & DDSD_LPSURFACE))

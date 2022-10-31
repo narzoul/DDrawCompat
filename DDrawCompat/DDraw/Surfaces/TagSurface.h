@@ -11,7 +11,7 @@ namespace DDraw
 	class TagSurface : public Surface
 	{
 	public:
-		TagSurface(DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl);
+		TagSurface(DWORD origFlags, DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl);
 		virtual ~TagSurface() override;
 
 		static TagSurface* get(DDRAWI_DIRECTDRAW_LCL* ddLcl);
