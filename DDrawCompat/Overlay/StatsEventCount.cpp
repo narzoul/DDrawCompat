@@ -1,0 +1,37 @@
+#pragma once
+
+#include <Overlay/StatsEventCount.h>
+
+StatsEventCount::StatsEventCount()
+	: m_sampleCounts(TICKS_PER_SEC)
+	, m_sampleCount(0)
+	, m_totalSampleCount(0)
+{
+}
+
+void StatsEventCount::add(TickCount tickCount)
+{
+	setTickCount(tickCount);
+	m_sampleCount++;
+}
+
+void StatsEventCount::finalize(SampleCount& sampleCount, Stat& sum, Stat& min, Stat& max)
+{
+	const uint32_t index = getCurrentTickCount() % TICKS_PER_SEC;
+	m_totalSampleCount += m_sampleCount;
+	m_totalSampleCount -= m_sampleCounts[index];
+	m_sampleCounts[index] = m_sampleCount;
+	m_sampleCount = 0;
+
+	sum = m_totalSampleCount;
+	min = m_totalSampleCount;
+	max = m_totalSampleCount;
+	sampleCount = 1;
+}
+
+void StatsEventCount::resetTickCount()
+{
+	std::fill(m_sampleCounts.begin(), m_sampleCounts.end(), 0);
+	m_sampleCount = 0;
+	m_totalSampleCount = 0;
+}

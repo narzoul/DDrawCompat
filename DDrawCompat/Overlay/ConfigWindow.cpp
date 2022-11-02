@@ -1,7 +1,6 @@
 #include <fstream>
 #include <sstream>
 
-#include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Config/Config.h>
 #include <Gdi/GuiThread.h>
@@ -17,7 +16,7 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 430 }, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 430 }, WS_BORDER, Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -186,6 +185,7 @@ namespace Overlay
 		if (isVisible != Window::isVisible())
 		{
 			Window::setVisible(isVisible);
+			Input::setCapture(isVisible ? this : nullptr);
 			setFocus(nullptr);
 		}
 	}

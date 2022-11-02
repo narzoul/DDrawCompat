@@ -9,6 +9,7 @@
 namespace Overlay
 {
 	class ConfigWindow;
+	class StatsWindow;
 }
 
 namespace Gdi
@@ -22,6 +23,7 @@ namespace Gdi
 		void setWindowRgn(HWND hwnd, Gdi::Region rgn);
 
 		Overlay::ConfigWindow* getConfigWindow();
+		Overlay::StatsWindow* getStatsWindow();
 
 		template <typename Func>
 		void execute(const Func& func) { executeFunc(std::cref(func)); }

@@ -12,6 +12,7 @@
 #include <Gdi/Region.h>
 #include <Gdi/WinProc.h>
 #include <Overlay/ConfigWindow.h>
+#include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -20,6 +21,7 @@ namespace
 
 	unsigned g_threadId = 0;
 	Overlay::ConfigWindow* g_configWindow = nullptr;
+	Overlay::StatsWindow* g_statsWindow = nullptr;
 	HWND g_messageWindow = nullptr;
 	bool g_isReady = false;
 
@@ -77,6 +79,9 @@ namespace
 			LOG_INFO << "ERROR: Failed to create a message-only window";
 			return 0;
 		}
+
+		Overlay::StatsWindow statsWindow;
+		g_statsWindow = &statsWindow;
 
 		Overlay::ConfigWindow configWindow;
 		g_configWindow = &configWindow;
@@ -158,6 +163,11 @@ namespace Gdi
 		Overlay::ConfigWindow* getConfigWindow()
 		{
 			return g_configWindow;
+		}
+
+		Overlay::StatsWindow* getStatsWindow()
+		{
+			return g_statsWindow;
 		}
 
 		bool isGuiThreadWindow(HWND hwnd)

@@ -13,7 +13,7 @@ namespace Overlay
 	class Window : public Control
 	{
 	public:
-		Window(Window* parentWindow, const RECT& rect, const Input::HotKey& hotKey = {});
+		Window(Window* parentWindow, const RECT& rect, DWORD style, const Input::HotKey& hotKey = {});
 		virtual ~Window() override;
 
 		virtual RECT calculateRect(const RECT& monitorRect) const = 0;
@@ -29,6 +29,8 @@ namespace Overlay
 		HWND m_hwnd;
 		Window* m_parentWindow;
 		int m_transparency;
+
+		virtual HWND getTopmost() const;
 
 		void updatePos();
 

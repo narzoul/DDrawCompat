@@ -8,7 +8,7 @@
 namespace Overlay
 {
 	ComboBoxDropDown::ComboBoxDropDown(ComboBoxControl& parent, const std::vector<std::string>& values)
-		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()))
+		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()), WS_BORDER)
 		, m_parent(parent)
 	{
 		for (int i = 0; i < static_cast<int>(values.size()); ++i)
@@ -83,5 +83,6 @@ namespace Overlay
 	{
 		m_highlightedChild = nullptr;
 		Window::setVisible(visible);
+		Input::setCapture(visible ? this : m_parentWindow);
 	}
 }

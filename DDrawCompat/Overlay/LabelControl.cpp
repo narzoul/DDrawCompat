@@ -33,4 +33,13 @@ namespace Overlay
 			invalidate();
 		}
 	}
+
+	void LabelControl::setLabel(const std::string label)
+	{
+		if (m_label != label)
+		{
+			m_label = label;
+			invalidate();
+		}
+	}
 }

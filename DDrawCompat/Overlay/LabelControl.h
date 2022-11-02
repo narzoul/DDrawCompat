@@ -16,7 +16,7 @@ namespace Overlay
 		virtual void onLButtonDown(POINT pos) override;
 
 		const std::string& getLabel() const { return m_label; }
-		void setLabel(const std::string label) { m_label = label; }
+		void setLabel(const std::string label);
 		void setColor(COLORREF color);
 
 	private:

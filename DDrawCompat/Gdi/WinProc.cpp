@@ -26,6 +26,7 @@
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 #include <Overlay/ConfigWindow.h>
+#include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -141,18 +142,39 @@ namespace
 		switch (uMsg)
 		{
 		case WM_ACTIVATEAPP:
-			if (!wParam)
-			{
-				Gdi::GuiThread::execute([&]()
+			Gdi::GuiThread::execute([&]()
+				{
+					static bool hidden = false;
+					static bool configVisible = false;
+					static bool statsVisible = false;
+
+					auto configWindow = Gdi::GuiThread::getConfigWindow();
+					auto statsWindow = Gdi::GuiThread::getStatsWindow();
+					if (!wParam && !hidden)
 					{
-						auto configWindow = Gdi::GuiThread::getConfigWindow();
-						if (configWindow)
-						{
-							configWindow->setVisible(false);
-						}
+						configVisible = configWindow ? configWindow->isVisible() : false;
+						statsVisible = statsWindow ? statsWindow->isVisible() : false;
+						hidden = true;
+					}
+
+					if (configWindow)
+					{
+						configWindow->setVisible(wParam ? configVisible : false);
+					}
+					if (statsWindow)
+					{
+						statsWindow->setVisible(wParam ? statsVisible : false);
+					}
+
+					if (wParam)
+					{
+						hidden = false;
+					}
+					else
+					{
 						CALL_ORIG_FUNC(ClipCursor)(nullptr);
-					});
-			}
+					}
+				});
 			break;
 
 		case WM_CTLCOLORSCROLLBAR:

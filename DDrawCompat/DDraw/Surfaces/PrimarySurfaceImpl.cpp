@@ -10,8 +10,10 @@
 #include <DDraw/Surfaces/PrimarySurfaceImpl.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/Region.h>
 #include <Gdi/VirtualScreen.h>
+#include <Overlay/StatsWindow.h>
 
 namespace
 {
@@ -97,6 +99,11 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			bltToGdi(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_blit.add();
+			}
 			RealPrimarySurface::scheduleUpdate();
 			PrimarySurface::waitForIdle();
 		}
@@ -116,6 +123,11 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
 		{
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_blit.add();
+			}
 			RealPrimarySurface::scheduleUpdate();
 			PrimarySurface::waitForIdle();
 		}
@@ -156,6 +168,12 @@ namespace DDraw
 		if (FAILED(result))
 		{
 			return result;
+		}
+
+		auto statsWindow = Gdi::GuiThread::getStatsWindow();
+		if (statsWindow)
+		{
+			statsWindow->m_flip.add();
 		}
 
 		PrimarySurface::updateFrontResource();
@@ -233,6 +251,11 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_lock.add();
+			}
 			RealPrimarySurface::scheduleUpdate();
 		}
 		return result;
@@ -277,6 +300,11 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::Unlock(This, lpRect);
 		if (SUCCEEDED(result))
 		{
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_lock.add();
+			}
 			RealPrimarySurface::scheduleUpdate();
 		}
 		return result;

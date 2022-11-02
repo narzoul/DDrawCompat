@@ -45,8 +45,8 @@ namespace
 
 namespace Overlay
 {
-	Window::Window(Window* parentWindow, const RECT& rect, const Input::HotKey& hotKey)
-		: Control(nullptr, rect, WS_BORDER)
+	Window::Window(Window* parentWindow, const RECT& rect, DWORD style, const Input::HotKey& hotKey)
+		: Control(nullptr, rect, style)
 		, m_hwnd(Gdi::PresentationWindow::create(parentWindow ? parentWindow->m_hwnd : nullptr))
 		, m_parentWindow(parentWindow)
 		, m_transparency(25)
@@ -99,6 +99,11 @@ namespace Overlay
 	{
 	}
 
+	HWND Window::getTopmost() const
+	{
+		return DDraw::RealPrimarySurface::getTopmost();
+	}
+
 	void Window::invalidate()
 	{
 		m_invalid = true;
@@ -122,7 +127,6 @@ namespace Overlay
 		if (m_style & WS_VISIBLE)
 		{
 			updatePos();
-			Input::setCapture(this);
 		}
 		else
 		{
@@ -132,8 +136,8 @@ namespace Overlay
 				capture->setVisible(false);
 			}
 			ShowWindow(m_hwnd, SW_HIDE);
-			Input::setCapture(m_parentWindow);
 		}
+		DDraw::RealPrimarySurface::scheduleUpdate();
 	}
 
 	LRESULT CALLBACK Window::staticWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
@@ -213,7 +217,7 @@ namespace Overlay
 		m_rect = calculateRect({ monitorRect.left / m_scaleFactor, monitorRect.top / m_scaleFactor,
 			monitorRect.right / m_scaleFactor, monitorRect.bottom / m_scaleFactor });
 
-		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, DDraw::RealPrimarySurface::getTopmost(),
+		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, getTopmost(),
 			m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
 			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
 			SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);

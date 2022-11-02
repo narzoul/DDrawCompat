@@ -7,7 +7,8 @@ namespace D3dDdi
 	class ScopedCriticalSection : public Compat::ScopedCriticalSection
 	{
 	public:
-		ScopedCriticalSection() : Compat::ScopedCriticalSection(s_cs) {}
+		ScopedCriticalSection();
+		~ScopedCriticalSection();
 
 	private:
 		static Compat::CriticalSection s_cs;

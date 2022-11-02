@@ -603,6 +603,30 @@
     <ClInclude Include="Config\Settings\ResolutionScaleFilter.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Overlay\StatsWindow.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsControl.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsQueue.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsTimer.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsEventRate.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsEventTime.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsEventCount.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\StatsEventGroup.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -943,6 +967,30 @@
     </ClCompile>
     <ClCompile Include="DDraw\Surfaces\PalettizedTextureImpl.cpp">
       <Filter>Source Files\DDraw\Surfaces</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsWindow.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsControl.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsQueue.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsTimer.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsEventRate.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsEventTime.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsEventCount.cpp">
+      <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\StatsEventGroup.cpp">
+      <Filter>Source Files\Overlay</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

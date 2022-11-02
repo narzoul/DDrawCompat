@@ -16,6 +16,7 @@
 #include <Gdi/Window.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
+#include <Overlay/StatsWindow.h>
 
 namespace
 {
@@ -395,6 +396,15 @@ namespace Gdi
 			}
 
 			RECT wr = {};
+			auto statsWindow = GuiThread::getStatsWindow();
+			if (statsWindow && statsWindow->isVisible())
+			{
+				GetWindowRect(statsWindow->getWindow(), &wr);
+				auto visibleRegion(getWindowRegion(statsWindow->getWindow()));
+				visibleRegion.offset(wr.left, wr.top);
+				layeredWindows.push_back({ statsWindow->getWindow(), wr, visibleRegion });
+			}
+
 			auto configWindow = GuiThread::getConfigWindow();
 			if (configWindow && configWindow->isVisible())
 			{

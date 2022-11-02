@@ -31,6 +31,7 @@
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 #include <Overlay/ConfigWindow.h>
+#include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -319,6 +320,13 @@ namespace
 
 		Gdi::GuiThread::execute([]()
 			{
+				auto statsWindow = Gdi::GuiThread::getStatsWindow();
+				if (statsWindow)
+				{
+					statsWindow->m_present.add();
+					statsWindow->update();
+				}
+
 				auto configWindow = Gdi::GuiThread::getConfigWindow();
 				if (configWindow)
 				{
@@ -531,6 +539,11 @@ namespace DDraw
 		}
 		else
 		{
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow && statsWindow->isVisible())
+			{
+				statsWindow->updateStats();
+			}
 			updateNow(PrimarySurface::getPrimary());
 		}
 		g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + flipInterval;
@@ -555,6 +568,12 @@ namespace DDraw
 		if (static_cast<int>(vsyncCount - g_presentEndVsyncCount) < 0)
 		{
 			return -1;
+		}
+
+		auto statsWindow = Gdi::GuiThread::getStatsWindow();
+		if (statsWindow && statsWindow->isVisible())
+		{
+			statsWindow->updateStats();
 		}
 
 		{
