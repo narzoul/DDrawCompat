@@ -28,6 +28,7 @@ namespace Config
 	Settings::SpriteDetection spriteDetection;
 	Settings::SpriteFilter spriteFilter;
 	Settings::SpriteTexCoord spriteTexCoord;
+	Settings::StatsHotKey statsHotKey;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;

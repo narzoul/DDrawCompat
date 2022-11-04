@@ -627,6 +627,9 @@
     <ClInclude Include="Overlay\StatsEventGroup.h">
       <Filter>Header Files\Overlay</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\StatsHotKey.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

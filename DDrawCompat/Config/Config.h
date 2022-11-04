@@ -26,6 +26,7 @@
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
@@ -60,6 +61,7 @@ namespace Config
 	extern Settings::SpriteDetection spriteDetection;
 	extern Settings::SpriteFilter spriteFilter;
 	extern Settings::SpriteTexCoord spriteTexCoord;
+	extern Settings::StatsHotKey statsHotKey;
 	extern Settings::SupportedResolutions supportedResolutions;
 	extern Settings::TextureFilter textureFilter;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
