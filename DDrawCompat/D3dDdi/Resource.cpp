@@ -169,6 +169,7 @@ namespace D3dDdi
 				m_lockData[i].isVidMemUpToDate = true;
 				m_lockData[i].isMsaaUpToDate = m_msaaSurface.resource;
 				m_lockData[i].isMsaaResolvedUpToDate = m_msaaResolvedSurface.resource;
+				m_lockData[i].qpcLastCpuAccess = Time::queryPerformanceCounter();
 			}
 		}
 		else if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool && 0 != m_formatInfo.bytesPerPixel)
@@ -242,10 +243,9 @@ namespace D3dDdi
 				return presentationBlt(data, srcResource);
 			}
 
-			HRESULT result = bltViaCpu(data, *srcResource);
-			if (S_FALSE != result)
+			if (shouldBltViaCpu(data, *srcResource))
 			{
-				return result;
+				return bltViaCpu(data, *srcResource);
 			}
 
 			return bltViaGpu(data, *srcResource);
@@ -285,13 +285,6 @@ namespace D3dDdi
 
 	HRESULT Resource::bltViaCpu(D3DDDIARG_BLT data, Resource& srcResource)
 	{
-		if (m_fixedData.Format != srcResource.m_fixedData.Format ||
-			0 == m_formatInfo.bytesPerPixel ||
-			D3DDDIFMT_P8 != m_fixedData.Format && !m_isOversized && !srcResource.m_isOversized)
-		{
-			return S_FALSE;
-		}
-
 		D3DDDIARG_LOCK srcLock = {};
 		srcLock.hResource = data.hSrcResource;
 		srcLock.SubResourceIndex = data.SrcSubResourceIndex;
@@ -660,6 +653,7 @@ namespace D3dDdi
 				m_lockData[i].isMsaaUpToDate = m_msaaSurface.resource;
 				m_lockData[i].isMsaaResolvedUpToDate = m_msaaResolvedSurface.resource;
 				m_lockData[i].isRefLocked = false;
+				m_lockData[i].qpcLastCpuAccess = Time::queryPerformanceCounter();
 			}
 		}
 
@@ -928,6 +922,7 @@ namespace D3dDdi
 			notifyLock(subResourceIndex);
 			m_lockData[subResourceIndex].isSysMemUpToDate = true;
 		}
+		m_lockData[subResourceIndex].qpcLastCpuAccess = Time::queryPerformanceCounter();
 	}
 
 	void Resource::loadVidMemResource(UINT subResourceIndex)
@@ -1547,6 +1542,35 @@ namespace D3dDdi
 		}
 
 		return LOG_RESULT(S_OK);
+	}
+
+	bool Resource::shouldBltViaCpu(const D3DDDIARG_BLT& data, Resource& srcResource)
+	{
+		if (m_fixedData.Format != srcResource.m_fixedData.Format ||
+			0 == m_formatInfo.bytesPerPixel ||
+			m_fixedData.Flags.ZBuffer ||
+			D3DDDIPOOL_SYSTEMMEM != srcResource.m_fixedData.Pool && !srcResource.m_lockResource)
+		{
+			return false;
+		}
+
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
+			D3DDDIFMT_P8 == m_fixedData.Format ||
+			m_isOversized || srcResource.m_isOversized)
+		{
+			return true;
+		}
+
+		if (m_lockData.empty() ||
+			!m_lockData[data.DstSubResourceIndex].isSysMemUpToDate ||
+			Time::qpcToMs(Time::queryPerformanceCounter() - m_lockData[data.DstSubResourceIndex].qpcLastCpuAccess) > 200)
+		{
+			return false;
+		}
+
+		return Config::Settings::BltFilter::POINT == Config::bltFilter.get() ||
+			data.SrcRect.right - data.SrcRect.left == data.DstRect.right - data.DstRect.left &&
+			data.SrcRect.bottom - data.SrcRect.top == data.DstRect.bottom - data.DstRect.top;
 	}
 
 	HRESULT Resource::unlock(const D3DDDIARG_UNLOCK& data)

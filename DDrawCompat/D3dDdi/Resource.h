@@ -78,7 +78,7 @@ namespace D3dDdi
 			void* data;
 			UINT pitch;
 			UINT lockCount;
-			long long qpcLastForcedLock;
+			long long qpcLastCpuAccess;
 			bool isSysMemUpToDate;
 			bool isVidMemUpToDate;
 			bool isMsaaUpToDate;
@@ -119,6 +119,7 @@ namespace D3dDdi
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
 		void resolveMsaaDepthBuffer();
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
+		bool shouldBltViaCpu(const D3DDDIARG_BLT &data, Resource& srcResource);
 
 		Device& m_device;
 		HANDLE m_handle;
