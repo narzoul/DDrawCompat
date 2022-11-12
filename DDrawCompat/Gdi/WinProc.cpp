@@ -194,7 +194,7 @@ namespace
 			break;
 
 		case WM_SETCURSOR:
-			SetCursor(CALL_ORIG_FUNC(GetCursor)());
+			SetCursor(GetCursor());
 			break;
 
 		case WM_STYLECHANGED:

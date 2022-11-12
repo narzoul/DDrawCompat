@@ -225,7 +225,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
-		auto& iid = Direct3d::replaceDevice(riid);;
+		auto& iid = Direct3d::replaceDevice(riid);
 		HRESULT result = getOrigVtable(This).QueryInterface(This, iid, obp);
 		if (DDERR_INVALIDOBJECT == result)
 		{

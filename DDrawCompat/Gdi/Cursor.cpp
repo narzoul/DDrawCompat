@@ -54,7 +54,8 @@ namespace
 	{
 		LOG_FUNC("GetCursor");
 		Compat::ScopedCriticalSection lock(g_cs);
-		return LOG_RESULT(g_cursor != INVALID_CURSOR ? g_cursor : CALL_ORIG_FUNC(GetCursor)());
+		auto cursor = CALL_ORIG_FUNC(GetCursor)();
+		return LOG_RESULT(cursor == g_nullCursor ? g_cursor : cursor);
 	}
 
 	BOOL WINAPI getCursorInfo(PCURSORINFO pci)

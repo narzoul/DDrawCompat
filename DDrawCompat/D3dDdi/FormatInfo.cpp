@@ -200,7 +200,7 @@ namespace D3dDdi
 			if (info.bitsPerPixel > info.alpha.bitCount)
 			{
 				pf.dwFlags = DDPF_RGB;
-				pf.dwRBitMask = getMask(info.red);;
+				pf.dwRBitMask = getMask(info.red);
 				pf.dwGBitMask = getMask(info.green);
 				pf.dwBBitMask = getMask(info.blue);
 			}
