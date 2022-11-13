@@ -98,6 +98,18 @@ namespace
 	}
 }
 
+std::ostream& operator<<(std::ostream& os, const BITMAP& bm)
+{
+	return Compat::LogStruct(os)
+		<< bm.bmType
+		<< bm.bmWidth
+		<< bm.bmHeight
+		<< bm.bmWidthBytes
+		<< bm.bmPlanes
+		<< bm.bmBitsPixel
+		<< bm.bmBits;
+}
+
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis)
 {
 	return Compat::LogStruct(os)

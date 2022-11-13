@@ -269,13 +269,33 @@ namespace
 		return compatGdiDcFunc<origFunc, Result>(dc, params...);
 	}
 
+	HBITMAP WINAPI createBitmap(int nWidth, int nHeight, UINT nPlanes, UINT nBitCount, const VOID* lpBits)
+	{
+		LOG_FUNC("CreateBitmap", nWidth, nHeight, nPlanes, nBitCount, lpBits);
+		if (!g_disableDibRedirection && nWidth > 0 && nHeight > 0 && 1 == nPlanes && nBitCount >= 8)
+		{
+			HBITMAP bmp = Gdi::VirtualScreen::createOffScreenDib(nWidth, -nHeight, nBitCount);
+			if (bmp && lpBits)
+			{
+				SetBitmapBits(bmp, (nWidth * nBitCount + 15) / 16 * 2 * nHeight, lpBits);
+			}
+			return LOG_RESULT(bmp);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(CreateBitmap)(nWidth, nHeight, nPlanes, nBitCount, lpBits));
+	}
+
+	HBITMAP WINAPI createBitmapIndirect(const BITMAP* pbm)
+	{
+		LOG_FUNC("CreateBitmapIndirect", pbm);
+		return LOG_RESULT(createBitmap(pbm->bmWidth, pbm->bmHeight, pbm->bmPlanes, pbm->bmBitsPixel, pbm->bmBits));
+	}
+
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 	{
 		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
-		if (!g_disableDibRedirection && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && cx > 0 && cy > 0 && Gdi::isDisplayDc(hdc))
 		{
-			const bool useDefaultPalette = false;
-			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, cy, useDefaultPalette));
+			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, -cy, Win32::DisplayMode::getBpp()));
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(CreateCompatibleBitmap)(hdc, cx, cy));
 	}
@@ -287,9 +307,8 @@ namespace
 		const DWORD CBM_CREATDIB = 2;
 		if (!g_disableDibRedirection && !(fdwInit & CBM_CREATDIB) && lpbmih && Gdi::isDisplayDc(hdc))
 		{
-			const bool useDefaultPalette = false;
 			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(
-				lpbmi->bmiHeader.biWidth, lpbmi->bmiHeader.biHeight, useDefaultPalette);
+				lpbmi->bmiHeader.biWidth, lpbmi->bmiHeader.biHeight, Win32::DisplayMode::getBpp());
 			if (bitmap && lpbInit && lpbmi)
 			{
 				SetDIBits(hdc, bitmap, 0, std::abs(lpbmi->bmiHeader.biHeight), lpbInit, lpbmi, fuUsage);
@@ -302,12 +321,7 @@ namespace
 	HBITMAP WINAPI createDiscardableBitmap(HDC hdc, int nWidth, int nHeight)
 	{
 		LOG_FUNC("CreateDiscardableBitmap", hdc, nWidth, nHeight);
-		if (!g_disableDibRedirection && Gdi::isDisplayDc(hdc))
-		{
-			const bool useDefaultPalette = false;
-			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(nWidth, nHeight, useDefaultPalette));
-		}
-		return LOG_RESULT(CALL_ORIG_FUNC(createDiscardableBitmap)(hdc, nWidth, nHeight));
+		return LOG_RESULT(CALL_ORIG_FUNC(createCompatibleBitmap)(hdc, nWidth, nHeight));
 	}
 
 	BOOL WINAPI drawCaption(HWND hwnd, HDC hdc, const RECT* lprect, UINT flags)
@@ -361,6 +375,8 @@ namespace Gdi
 			// Bitmap functions
 			HOOK_GDI_DC_FUNCTION(msimg32, AlphaBlend);
 			HOOK_GDI_DC_FUNCTION(gdi32, BitBlt);
+			HOOK_FUNCTION(gdi32, CreateBitmap, createBitmap);
+			HOOK_FUNCTION(gdi32, CreateBitmapIndirect, createBitmapIndirect);
 			HOOK_FUNCTION(gdi32, CreateCompatibleBitmap, createCompatibleBitmap);
 			HOOK_FUNCTION(gdi32, CreateDIBitmap, createDIBitmap);
 			HOOK_FUNCTION(gdi32, CreateDiscardableBitmap, createDiscardableBitmap);

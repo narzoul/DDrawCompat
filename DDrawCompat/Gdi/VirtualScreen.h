@@ -12,7 +12,7 @@ namespace Gdi
 	{
 		HDC createDc(bool useDefaultPalette);
 		HBITMAP createDib(bool useDefaultPalette);
-		HBITMAP createOffScreenDib(LONG width, LONG height, bool useDefaultPalette);
+		HBITMAP createOffScreenDib(LONG width, LONG height, DWORD bpp);
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect);
 		void deleteDc(HDC dc);
 

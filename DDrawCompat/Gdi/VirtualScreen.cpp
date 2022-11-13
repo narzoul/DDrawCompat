@@ -71,7 +71,7 @@ namespace
 		return quad;
 	}
 
-	HBITMAP createDibSection(LONG width, LONG height, HANDLE section, bool useDefaultPalette)
+	HBITMAP createDibSection(LONG width, LONG height, DWORD bpp, HANDLE section, bool useDefaultPalette)
 	{
 		struct BITMAPINFO256 : public BITMAPINFO
 		{
@@ -83,10 +83,10 @@ namespace
 		bmi.bmiHeader.biWidth = width;
 		bmi.bmiHeader.biHeight = height;
 		bmi.bmiHeader.biPlanes = 1;
-		bmi.bmiHeader.biBitCount = static_cast<WORD>(g_bpp);
-		bmi.bmiHeader.biCompression = 8 == g_bpp ? BI_RGB : BI_BITFIELDS;
+		bmi.bmiHeader.biBitCount = static_cast<WORD>(bpp);
+		bmi.bmiHeader.biCompression = 8 == bpp ? BI_RGB : BI_BITFIELDS;
 
-		if (8 == g_bpp)
+		if (8 == bpp)
 		{
 			if (useDefaultPalette)
 			{
@@ -99,7 +99,7 @@ namespace
 		}
 		else
 		{
-			const auto pf = DDraw::DirectDraw::getRgbPixelFormat(g_bpp);
+			const auto pf = DDraw::DirectDraw::getRgbPixelFormat(bpp);
 			reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = pf.dwRBitMask;
 			reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = pf.dwGBitMask;
 			reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = pf.dwBBitMask;
@@ -149,13 +149,14 @@ namespace Gdi
 			{
 				return nullptr;
 			}
-			return createDibSection(g_width, -g_height, g_surfaceFileMapping, useDefaultPalette);
+			return createDibSection(g_width, -g_height, g_bpp, g_surfaceFileMapping, useDefaultPalette);
 		}
 
-		HBITMAP createOffScreenDib(LONG width, LONG height, bool useDefaultPalette)
+		HBITMAP createOffScreenDib(LONG width, LONG height, DWORD bpp)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			return createDibSection(width, height, nullptr, useDefaultPalette);
+			const bool useDefaultPalette = true;
+			return createDibSection(width, height, bpp, nullptr, useDefaultPalette);
 		}
 
 		CompatPtr<IDirectDrawSurface7> createSurface(const RECT& rect)

@@ -4,6 +4,7 @@
 
 #include <Windows.h>
 
+std::ostream& operator<<(std::ostream& os, const BITMAP& bm);
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis);
 std::ostream& operator<<(std::ostream& os, const COPYDATASTRUCT& cds);
 std::ostream& operator<<(std::ostream& os, const CREATESTRUCTA& cs);
