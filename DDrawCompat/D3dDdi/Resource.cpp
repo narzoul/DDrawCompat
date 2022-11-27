@@ -215,44 +215,41 @@ namespace D3dDdi
 			return S_OK;
 		}
 
-		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
+		if (!m_fixedData.Flags.MatchGdiPrimary && !isValidRect(data.DstSubResourceIndex, data.DstRect))
 		{
 			return S_OK;
 		}
 
 		DDraw::setBltSrc(data);
 		auto srcResource = m_device.getResource(data.hSrcResource);
-		if (srcResource)
+		if (!srcResource)
 		{
-			if (!srcResource->isValidRect(data.SrcSubResourceIndex, data.SrcRect))
-			{
-				return S_OK;
-			}
-
-			if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
-				D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
-			{
-				return m_device.getOrigVtable().pfnBlt(m_device, &data);
-			}
+			prepareForBltDst(data);
+			return m_device.getOrigVtable().pfnBlt(m_device, &data);
 		}
 
-		if (srcResource)
+		if (!srcResource->isValidRect(data.SrcSubResourceIndex, data.SrcRect))
 		{
-			if (m_fixedData.Flags.MatchGdiPrimary)
-			{
-				return presentationBlt(data, srcResource);
-			}
-
-			if (shouldBltViaCpu(data, *srcResource))
-			{
-				return bltViaCpu(data, *srcResource);
-			}
-
-			return bltViaGpu(data, *srcResource);
+			return S_OK;
 		}
-		
-		prepareForBltDst(data);
-		return m_device.getOrigVtable().pfnBlt(m_device, &data);
+
+		if (m_fixedData.Flags.MatchGdiPrimary)
+		{
+			return presentationBlt(data, srcResource);
+		}
+
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
+			D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
+		{
+			return m_device.getOrigVtable().pfnBlt(m_device, &data);
+		}
+
+		if (shouldBltViaCpu(data, *srcResource))
+		{
+			return bltViaCpu(data, *srcResource);
+		}
+
+		return bltViaGpu(data, *srcResource);
 	}
 
 	HRESULT Resource::bltLock(D3DDDIARG_LOCK& data)
