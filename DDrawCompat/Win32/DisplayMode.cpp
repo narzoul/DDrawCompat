@@ -696,7 +696,7 @@ namespace
 	{
 		DWORD pid = 0;
 		GetWindowThreadProcessId(hwnd, &pid);
-		if (GetCurrentProcessId() == pid && !Gdi::GuiThread::isGuiThreadWindow(hwnd))
+		if (GetCurrentProcessId() == pid)
 		{
 			SendNotifyMessage(hwnd, WM_DISPLAYCHANGE, 0, lParam);
 		}

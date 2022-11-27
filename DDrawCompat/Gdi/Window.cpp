@@ -152,13 +152,6 @@ namespace
 		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 	}
 
-	void presentOverlayWindow(CompatWeakPtr<IDirectDrawSurface7> dst, HWND hwnd, const RECT& monitorRect, HDC& dstDc)
-	{
-		RECT wr = {};
-		GetWindowRect(hwnd, &wr);
-		presentLayeredWindow(dst, hwnd, wr, monitorRect, dstDc);
-	}
-
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
 		const Gdi::Region& oldVisibleRegion, Gdi::Region& invalidatedRegion)
 	{
@@ -394,7 +387,12 @@ namespace Gdi
 					layeredWindows.push_back({ window.hwnd, window.windowRect, window.visibleRegion });
 				}
 			}
+			return layeredWindows;
+		}
 
+		std::vector<LayeredWindow> getVisibleOverlayWindows()
+		{
+			std::vector<LayeredWindow> layeredWindows;
 			RECT wr = {};
 			auto statsWindow = GuiThread::getStatsWindow();
 			if (statsWindow && statsWindow->isVisible())

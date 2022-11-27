@@ -14,7 +14,6 @@
 #include <Input/Input.h>
 #include <Overlay/Control.h>
 #include <Overlay/Window.h>
-#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -181,32 +180,28 @@ namespace Overlay
 
 	void Window::updatePos()
 	{
-		auto monitorRect = Win32::DisplayMode::getEmulatedDisplayMode().rect;
+		RECT monitorRect = DDraw::RealPrimarySurface::getMonitorRect();
 		if (IsRectEmpty(&monitorRect))
 		{
-			monitorRect = DDraw::PrimarySurface::getMonitorRect();
+			HMONITOR monitor = nullptr;
+			HWND foregroundWindow = GetForegroundWindow();
+			if (foregroundWindow)
+			{
+				monitor = MonitorFromWindow(foregroundWindow, MONITOR_DEFAULTTONEAREST);
+			}
+			else
+			{
+				monitor = MonitorFromPoint({ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
+			}
+
+			MONITORINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(monitor, &mi);
+			monitorRect = mi.rcMonitor;
+
 			if (IsRectEmpty(&monitorRect))
 			{
-				HMONITOR monitor = nullptr;
-				HWND foregroundWindow = GetForegroundWindow();
-				if (foregroundWindow)
-				{
-					monitor = MonitorFromWindow(foregroundWindow, MONITOR_DEFAULTTONEAREST);
-				}
-				else
-				{
-					monitor = MonitorFromPoint({ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
-				}
-
-				MONITORINFO mi = {};
-				mi.cbSize = sizeof(mi);
-				CALL_ORIG_FUNC(GetMonitorInfoA)(monitor, &mi);
-				monitorRect = mi.rcMonitor;
-
-				if (IsRectEmpty(&monitorRect))
-				{
-					monitorRect = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
-				}
+				monitorRect = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
 			}
 		}
 

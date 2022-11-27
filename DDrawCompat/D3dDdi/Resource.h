@@ -9,6 +9,7 @@
 #include <D3dDdi/FormatInfo.h>
 #include <D3dDdi/ResourceDeleter.h>
 #include <D3dDdi/SurfaceRepository.h>
+#include <Gdi/Window.h>
 
 namespace D3dDdi
 {
@@ -116,7 +117,8 @@ namespace D3dDdi
 		void loadSysMemResource(UINT subResourceIndex);
 		void loadVidMemResource(UINT subResourceIndex);
 		void notifyLock(UINT subResourceIndex);
-		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect);
+		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect,
+			std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect);
 		void resolveMsaaDepthBuffer();
 		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
 		bool shouldBltViaCpu(const D3DDDIARG_BLT &data, Resource& srcResource);

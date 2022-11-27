@@ -12,6 +12,7 @@
 #include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Input/Input.h>
+#include <Overlay/ConfigWindow.h>
 #include <Overlay/Window.h>
 
 namespace
@@ -46,7 +47,10 @@ namespace
 			BeginPaint(hwnd, &ps);
 			HDC dc = CreateCompatibleDC(nullptr);
 			HGDIOBJ origBmp = SelectObject(dc, g_bmpArrow);
-			CALL_ORIG_FUNC(BitBlt)(ps.hdc, 0, 0, g_bmpArrowSize.cx, g_bmpArrowSize.cy, dc, 0, 0, SRCCOPY);
+			RECT wr = {};
+			GetWindowRect(hwnd, &wr);
+			CALL_ORIG_FUNC(StretchBlt)(ps.hdc, 0, 0, wr.right - wr.left, wr.bottom - wr.top,
+				dc, 0, 0, g_bmpArrowSize.cx, g_bmpArrowSize.cy, SRCCOPY);
 			SelectObject(dc, origBmp);
 			DeleteDC(dc);
 			EndPaint(hwnd, &ps);
@@ -275,7 +279,7 @@ namespace Input
 
 			MONITORINFO mi = {};
 			mi.cbSize = sizeof(mi);
-			GetMonitorInfo(MonitorFromWindow(window->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromWindow(window->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
 			g_monitorRect = mi.rcMonitor;
 
 			if (!g_mouseHook)
@@ -306,9 +310,13 @@ namespace Input
 	{
 		Gdi::GuiThread::execute([]()
 			{
-				CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, DDraw::RealPrimarySurface::getTopmost(),
-					g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx, g_bmpArrowSize.cy,
-					SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING);
+				if (g_cursorWindow)
+				{
+					auto scaleFactor = Gdi::GuiThread::getConfigWindow()->getScaleFactor();
+					CALL_ORIG_FUNC(SetWindowPos)(g_cursorWindow, DDraw::RealPrimarySurface::getTopmost(),
+						g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx * scaleFactor, g_bmpArrowSize.cy * scaleFactor,
+						SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSENDCHANGING);
+				}
 			});
 	}
 }

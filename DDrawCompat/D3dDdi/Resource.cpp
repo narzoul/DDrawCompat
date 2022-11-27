@@ -1235,7 +1235,8 @@ namespace D3dDdi
 
 		if (!IsRectEmpty(&g_presentationRect))
 		{
-			presentLayeredWindows(*rt, rtIndex, rtRect);
+			presentLayeredWindows(*rt, rtIndex, rtRect,
+				Gdi::Window::getVisibleLayeredWindows(), DDraw::PrimarySurface::getMonitorRect());
 		}
 
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
@@ -1289,15 +1290,23 @@ namespace D3dDdi
 		}
 
 		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
+
+		if (!IsRectEmpty(&g_presentationRect))
+		{
+			auto dstRect = DDraw::RealPrimarySurface::getMonitorRect();
+			OffsetRect(&dstRect, -dstRect.left, -dstRect.top);
+			presentLayeredWindows(*this, data.DstSubResourceIndex, dstRect,
+				Gdi::Window::getVisibleOverlayWindows(), dstRect);
+		}
+
 		return LOG_RESULT(S_OK);
 	}
 
-	void Resource::presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect)
+	void Resource::presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect,
+		std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect)
 	{
 		auto& blitter = m_device.getShaderBlitter();
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
-		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
-		auto layeredWindows(Gdi::Window::getVisibleLayeredWindows());
 
 		for (auto& layeredWindow : layeredWindows)
 		{
@@ -1325,7 +1334,7 @@ namespace D3dDdi
 			ReleaseDC(layeredWindow.hwnd, srcDc);
 
 			copySubResourceRegion(*texture.resource, 0, srcRect, *windowSurface.resource, 0, srcRect);
-			texture.resource->notifyLock(0);
+			windowSurface.resource->notifyLock(0);
 
 			DeviceState::ShaderConstF ck = {};
 			COLORREF colorKey = 0;
