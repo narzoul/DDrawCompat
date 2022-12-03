@@ -27,6 +27,7 @@ namespace DDraw
 		static bool isLost();
 		static void release();
 		static HRESULT restore();
+		static void scheduleOverlayUpdate();
 		static void scheduleUpdate();
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setUpdateReady();

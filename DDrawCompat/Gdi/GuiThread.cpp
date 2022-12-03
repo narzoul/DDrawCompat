@@ -6,8 +6,6 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
-#include <Gdi/Caret.h>
-#include <Gdi/Cursor.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Region.h>
 #include <Gdi/WinProc.h>
@@ -101,16 +99,6 @@ namespace
 
 		return 0;
 	}
-
-	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
-	{
-		while (true)
-		{
-			Sleep(5);
-			Gdi::Caret::blink();
-			Gdi::Cursor::update();
-		}
-	}
 }
 
 namespace Gdi
@@ -194,7 +182,6 @@ namespace Gdi
 		void start()
 		{
 			Dll::createThread(messageWindowThreadProc, &g_threadId, THREAD_PRIORITY_TIME_CRITICAL, 0);
-			Dll::createThread(updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL, 0);
 		}
 	}
 }

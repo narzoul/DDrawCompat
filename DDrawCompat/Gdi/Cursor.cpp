@@ -235,7 +235,7 @@ namespace Gdi
 					(cursorInfo.hCursor != g_prevCursorInfo.hCursor || cursorInfo.ptScreenPos != g_prevCursorInfo.ptScreenPos))
 				{
 					g_prevCursorInfo = cursorInfo;
-					DDraw::RealPrimarySurface::scheduleUpdate();
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 				}
 			}
 		}

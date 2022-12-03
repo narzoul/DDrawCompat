@@ -521,7 +521,7 @@ namespace
 		BOOL result = CALL_ORIG_FUNC(SetLayeredWindowAttributes)(hwnd, crKey, bAlpha, dwFlags);
 		if (result && DDraw::RealPrimarySurface::isFullscreen())
 		{
-			DDraw::RealPrimarySurface::scheduleUpdate();
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 		}
 		return LOG_RESULT(result);
 	}

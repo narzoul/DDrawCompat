@@ -58,7 +58,7 @@ namespace
 		}
 
 		case WM_WINDOWPOSCHANGED:
-			DDraw::RealPrimarySurface::scheduleUpdate();
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			break;
 		}
 
@@ -121,6 +121,7 @@ namespace
 				cp.x = min(max(g_monitorRect.left, cp.x), g_monitorRect.right);
 				cp.y = min(max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
 				g_cursorPos = cp;
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			}
 
 			auto cp = getRelativeCursorPos();
@@ -140,7 +141,6 @@ namespace
 				break;
 			}
 
-			DDraw::RealPrimarySurface::scheduleUpdate();
 			return 1;
 		}
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);

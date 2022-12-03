@@ -155,7 +155,6 @@ namespace Overlay
 		if (m_parent && (m_style & WS_TABSTOP))
 		{
 			m_parent->m_highlightedChild = this;
-			invalidate();
 		}
 	}
 

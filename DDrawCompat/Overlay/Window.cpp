@@ -106,7 +106,7 @@ namespace Overlay
 	void Window::invalidate()
 	{
 		m_invalid = true;
-		DDraw::RealPrimarySurface::scheduleUpdate();
+		DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 	}
 
 	void Window::setTransparency(int transparency)
@@ -136,7 +136,7 @@ namespace Overlay
 			}
 			ShowWindow(m_hwnd, SW_HIDE);
 		}
-		DDraw::RealPrimarySurface::scheduleUpdate();
+		DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 	}
 
 	LRESULT CALLBACK Window::staticWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
