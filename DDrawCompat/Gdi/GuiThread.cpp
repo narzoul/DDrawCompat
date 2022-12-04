@@ -138,7 +138,7 @@ namespace Gdi
 
 		void destroyWindow(HWND hwnd)
 		{
-			execute([&]() { DestroyWindow(hwnd); });
+			PostMessage(hwnd, WM_CLOSE, 0, 0);
 		}
 
 		void executeFunc(const std::function<void()>& func)
