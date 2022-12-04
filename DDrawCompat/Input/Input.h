@@ -21,7 +21,7 @@ namespace Input
 	POINT getCursorPos();
 	HWND getCursorWindow();
 	void installHooks();
-	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context);
+	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context, bool onKeydown = true);
 	void setCapture(Overlay::Control* control);
 	void updateCursor();
 }

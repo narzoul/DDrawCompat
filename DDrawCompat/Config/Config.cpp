@@ -30,6 +30,7 @@ namespace Config
 	Settings::SpriteTexCoord spriteTexCoord;
 	Settings::StatsHotKey statsHotKey;
 	Settings::SupportedResolutions supportedResolutions;
+	Settings::TerminateHotKey terminateHotKey;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
 	Settings::VSync vSync;

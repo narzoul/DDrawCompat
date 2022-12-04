@@ -7,6 +7,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Config/Config.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/GuiThread.h>
@@ -21,6 +22,7 @@ namespace
 	{
 		std::function<void(void*)> action;
 		void* context;
+		bool onKeyDown;
 	};
 
 	HANDLE g_bmpArrow = nullptr;
@@ -93,7 +95,7 @@ namespace
 				{
 					if (hotkey.first.vk == llHook->vkCode && Input::areModifierKeysDown(hotkey.first.modifiers))
 					{
-						if (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam)
+						if (hotkey.second.onKeyDown == (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam))
 						{
 							hotkey.second.action(hotkey.second.context);
 						}
@@ -144,6 +146,12 @@ namespace
 			return 1;
 		}
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
+	}
+
+	void onTerminate(void* /*context*/)
+	{
+		LOG_INFO << "Terminating application via TerminateHotKey";
+		TerminateProcess(GetCurrentProcess(), 0);
 	}
 
 	void resetKeyboardHook()
@@ -251,13 +259,15 @@ namespace Input
 
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
+
+		registerHotKey(Config::terminateHotKey.get(), onTerminate, nullptr, false);
 	}
 
-	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context)
+	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context, bool onKeyDown)
 	{
 		if (0 != hotKey.vk)
 		{
-			g_hotKeys[hotKey] = { action, context };
+			g_hotKeys[hotKey] = { action, context, onKeyDown };
 			if (!g_keyboardHook)
 			{
 				resetKeyboardHook();

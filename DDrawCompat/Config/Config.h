@@ -28,6 +28,7 @@
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/SupportedResolutions.h>
+#include <Config/Settings/TerminateHotKey.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
 #include <Config/Settings/VSync.h>
@@ -63,6 +64,7 @@ namespace Config
 	extern Settings::SpriteTexCoord spriteTexCoord;
 	extern Settings::StatsHotKey statsHotKey;
 	extern Settings::SupportedResolutions supportedResolutions;
+	extern Settings::TerminateHotKey terminateHotKey;
 	extern Settings::TextureFilter textureFilter;
 	extern Settings::ThreadPriorityBoost threadPriorityBoost;
 	extern Settings::VSync vSync;

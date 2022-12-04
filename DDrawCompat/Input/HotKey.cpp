@@ -148,12 +148,27 @@ namespace
 		return names;
 	}();
 
+	const std::map<std::string, UINT> g_altKeyNames = {
+		{ "alt", VK_MENU },
+		{ "lalt", VK_LMENU },
+		{ "ralt", VK_RMENU },
+		{ "ctrl", VK_CONTROL },
+		{ "lctrl", VK_LCONTROL },
+		{ "rctrl", VK_RCONTROL }
+	};
+
 	bool areExcludedModifierKeysDown(const std::set<UINT>& modifiers, UINT either, UINT left, UINT right)
 	{
 		return modifiers.find(either) == modifiers.end() &&
 			modifiers.find(left) == modifiers.end() &&
 			modifiers.find(right) == modifiers.end() &&
 			(GetAsyncKeyState(either) & 0x8000);
+	}
+
+	UINT getKeyCode(const std::string& name, const std::map<std::string, UINT>& keyNames)
+	{
+		auto it = keyNames.find(name);
+		return it != keyNames.end() ? it->second : 0;
 	}
 
 	UINT getKeyCode(const std::string& name)
@@ -167,12 +182,22 @@ namespace
 			}
 		}
 
-		auto it = g_keyNames.find(name);
-		if (it == g_keyNames.end())
+		auto code = getKeyCode(name, g_altKeyNames);
+		if (0 == code)
 		{
-			throw Config::ParsingError("Invalid hotkey: '" + name + "'");
+			code = getKeyCode(name, g_keyNames);
+			if (0 == code)
+			{
+				throw Config::ParsingError("Invalid hotkey: '" + name + "'");
+			}
 		}
-		return it->second;
+		return code;
+	}
+
+	std::string getKeyName(UINT key, const std::map<std::string, UINT>& keyNames)
+	{
+		auto it = std::find_if(keyNames.begin(), keyNames.end(), [&](const auto& pair) { return pair.second == key; });
+		return it != keyNames.end() ? it->first : std::string();
 	}
 
 	std::string getKeyName(UINT key)
@@ -183,8 +208,12 @@ namespace
 			return std::string(1, static_cast<char>(std::tolower(key, std::locale())));
 		}
 
-		auto it = std::find_if(g_keyNames.begin(), g_keyNames.end(), [&](const auto& pair) { return pair.second == key; });
-		return it != g_keyNames.end() ? it->first : "none";
+		auto name(getKeyName(key, g_altKeyNames));
+		if (name.empty())
+		{
+			name = getKeyName(key, g_keyNames);
+		}
+		return name.empty() ? "none" : name;
 	}
 }
 
