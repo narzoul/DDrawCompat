@@ -9,6 +9,7 @@ namespace Config
 	Settings::BltFilter bltFilter;
 	Settings::ConfigHotKey configHotKey;
 	Settings::CpuAffinity cpuAffinity;
+	Settings::CpuAffinityRotation cpuAffinityRotation;
 	Settings::DesktopColorDepth desktopColorDepth;
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayRefreshRate displayRefreshRate;

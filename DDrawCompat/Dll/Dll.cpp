@@ -1,5 +1,6 @@
 #include <process.h>
 
+#include <Common/Hook.h>
 #include <Dll/Dll.h>
 
 namespace Dll
@@ -16,6 +17,7 @@ namespace Dll
 		if (thread)
 		{
 			SetThreadPriority(thread, priority);
+			CALL_ORIG_FUNC(SetThreadPriorityBoost)(thread, FALSE);
 		}
 		return thread;
 	}

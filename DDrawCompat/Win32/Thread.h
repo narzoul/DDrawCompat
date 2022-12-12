@@ -6,5 +6,6 @@ namespace Win32
 	{
 		void applyConfig();
 		void installHooks();
+		void rotateCpuAffinity();
 	}
 }

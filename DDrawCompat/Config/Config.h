@@ -7,6 +7,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/CpuAffinity.h>
+#include <Config/Settings/CpuAffinityRotation.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayRefreshRate.h>
@@ -43,6 +44,7 @@ namespace Config
 	extern Settings::BltFilter bltFilter;
 	extern Settings::ConfigHotKey configHotKey;
 	extern Settings::CpuAffinity cpuAffinity;
+	extern Settings::CpuAffinityRotation cpuAffinityRotation;
 	extern Settings::DesktopColorDepth desktopColorDepth;
 	extern Settings::DisplayFilter displayFilter;
 	extern Settings::DisplayRefreshRate displayRefreshRate;
