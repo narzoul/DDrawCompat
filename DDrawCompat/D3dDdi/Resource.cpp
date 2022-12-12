@@ -5,7 +5,10 @@
 #include <Common/Log.h>
 #include <Common/Rect.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/BltFilter.h>
+#include <Config/Settings/DisplayFilter.h>
+#include <Config/Settings/RenderColorDepth.h>
+#include <Config/Settings/ResolutionScaleFilter.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>

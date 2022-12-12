@@ -3,7 +3,7 @@
 #include <initguid.h>
 
 #include <Common/CompatPtr.h>
-#include <Config/Config.h>
+#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>

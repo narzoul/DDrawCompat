@@ -22,4 +22,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::SoftwareDevice softwareDevice;
 }

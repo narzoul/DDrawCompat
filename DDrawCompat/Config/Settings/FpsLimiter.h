@@ -19,4 +19,6 @@ namespace Config
 			virtual ParamInfo getParamInfo() const override;
 		};
 	}
+
+	extern Settings::FpsLimiter fpsLimiter;
 }

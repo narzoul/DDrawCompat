@@ -19,4 +19,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::FontAntialiasing fontAntialiasing;
 }

@@ -12,4 +12,6 @@ namespace Config
 			SpriteFilter();
 		};
 	}
+
+	extern Settings::SpriteFilter spriteFilter;
 }

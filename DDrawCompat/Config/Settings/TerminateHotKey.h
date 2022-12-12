@@ -12,4 +12,6 @@ namespace Config
 			TerminateHotKey() : HotKeySetting("TerminateHotKey", "ctrl+alt+end") {}
 		};
 	}
+
+	extern Settings::TerminateHotKey terminateHotKey;
 }

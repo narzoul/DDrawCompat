@@ -237,9 +237,6 @@
     <ClInclude Include="Win32\Registry.h">
       <Filter>Header Files\Win32</Filter>
     </ClInclude>
-    <ClInclude Include="Config\Config.h">
-      <Filter>Header Files\Config</Filter>
-    </ClInclude>
     <ClInclude Include="DDraw\Surfaces\Surface.h">
       <Filter>Header Files\DDraw\Surfaces</Filter>
     </ClInclude>

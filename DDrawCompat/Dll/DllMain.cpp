@@ -9,8 +9,9 @@
 #include <Common/Log.h>
 #include <Common/Path.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
 #include <Config/Parser.h>
+#include <Config/Settings/DpiAwareness.h>
+#include <Config/Settings/FullscreenMode.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>

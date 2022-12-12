@@ -3,7 +3,9 @@
 
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
-#include <Config/Config.h>
+#include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/PalettizedTextures.h>
+#include <Config/Settings/ResolutionScale.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/AdapterFuncs.h>
 #include <D3dDdi/Device.h>

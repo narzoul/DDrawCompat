@@ -18,4 +18,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::ResolutionScaleFilter resolutionScaleFilter;
 }

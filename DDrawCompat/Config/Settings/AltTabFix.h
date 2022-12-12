@@ -21,4 +21,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::AltTabFix altTabFix;
 }

@@ -152,7 +152,6 @@
     <ClInclude Include="Common\Hook.h" />
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
-    <ClInclude Include="Config\Config.h" />
     <ClInclude Include="Config\EnumSetting.h" />
     <ClInclude Include="Config\HotKeySetting.h" />
     <ClInclude Include="Config\ListSetting.h" />

@@ -1,8 +1,9 @@
 #include <set>
 
+#include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
-#include <Config/Config.h>
+#include <Config/Settings/SoftwareDevice.h>
 #include <D3dDdi/Device.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/ScopedThreadLock.h>

@@ -21,4 +21,6 @@ namespace Config
 			unsigned m_value;
 		};
 	}
+
+	extern Settings::CpuAffinity cpuAffinity;
 }

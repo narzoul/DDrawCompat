@@ -7,7 +7,7 @@
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/ForceD3D9On12.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/KernelModeThunksLog.h>

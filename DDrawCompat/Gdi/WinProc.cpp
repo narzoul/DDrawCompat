@@ -8,7 +8,8 @@
 #include <Common/ScopedSrwLock.h>
 #include <Common/ScopedThreadPriority.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/RemoveBorders.h>
 #include <Dll/Dll.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>

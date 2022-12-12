@@ -1,6 +1,6 @@
 #include <map>
 
-#include <Config/Config.h>
+#include <Config/Settings/RemoveBorders.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Surfaces/TagSurface.h>
 

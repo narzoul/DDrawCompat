@@ -1,6 +1,6 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Config/Config.h>
+#include <Config/Settings/FontAntialiasing.h>
 #include <Gdi/Font.h>
 
 namespace

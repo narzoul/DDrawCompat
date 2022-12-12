@@ -1,4 +1,9 @@
-#include <Config/Config.h>
+#include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/RenderColorDepth.h>
+#include <Config/Settings/ResolutionScale.h>
+#include <Config/Settings/SpriteFilter.h>
+#include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/TextureFilter.h>
 #include <Config/Setting.h>
 #include <D3dDdi/Device.h>
 #include <Overlay/ComboBoxControl.h>

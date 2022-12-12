@@ -2,7 +2,21 @@
 #include <sstream>
 
 #include <Common/Log.h>
-#include <Config/Config.h>
+#include <Config/Settings/AlternatePixelCenter.h>
+#include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/BltFilter.h>
+#include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/DisplayFilter.h>
+#include <Config/Settings/FontAntialiasing.h>
+#include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/RenderColorDepth.h>
+#include <Config/Settings/ResolutionScale.h>
+#include <Config/Settings/ResolutionScaleFilter.h>
+#include <Config/Settings/SpriteDetection.h>
+#include <Config/Settings/SpriteFilter.h>
+#include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/TextureFilter.h>
+#include <Config/Settings/VSync.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
@@ -27,8 +41,8 @@ namespace Overlay
 		m_captionCloseButton.reset(new ButtonControl(*this, r, "X", onClose));
 
 		addControl(Config::alternatePixelCenter);
-		addControl(Config::bltFilter);
 		addControl(Config::antialiasing);
+		addControl(Config::bltFilter);
 		addControl(Config::displayFilter);
 		addControl(Config::fontAntialiasing);
 		addControl(Config::fpsLimiter);

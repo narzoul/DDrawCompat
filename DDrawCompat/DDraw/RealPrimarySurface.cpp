@@ -7,7 +7,8 @@
 #include <Common/ScopedCriticalSection.h>
 #include <Common/ScopedThreadPriority.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Resource.h>

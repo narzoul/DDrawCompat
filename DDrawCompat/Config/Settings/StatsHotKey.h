@@ -12,4 +12,6 @@ namespace Config
 			StatsHotKey() : HotKeySetting("StatsHotKey", "shift+f12") {}
 		};
 	}
+
+	extern Settings::StatsHotKey statsHotKey;
 }

@@ -1,6 +1,9 @@
 #include <algorithm>
 
-#include <Config/Config.h>
+#include <Config/Settings/AlternatePixelCenter.h>
+#include <Config/Settings/SpriteFilter.h>
+#include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/TextureFilter.h>
 #include <Common/Log.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceState.h>

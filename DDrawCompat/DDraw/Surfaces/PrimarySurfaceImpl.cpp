@@ -1,5 +1,5 @@
 #include <Common/CompatPtr.h>
-#include <Config/Config.h>
+#include <Config/Settings/FpsLimiter.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDrawClipper.h>

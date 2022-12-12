@@ -19,4 +19,6 @@ namespace Config
 			void setValue(const std::string& value) override;
 		};
 	}
+
+	extern Settings::DisplayRefreshRate displayRefreshRate;
 }

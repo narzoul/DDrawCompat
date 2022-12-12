@@ -5,7 +5,6 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Config/Config.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>

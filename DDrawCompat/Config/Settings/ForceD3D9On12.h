@@ -15,4 +15,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::ForceD3D9On12 forceD3D9On12;
 }

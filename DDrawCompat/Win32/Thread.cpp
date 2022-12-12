@@ -8,7 +8,9 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/CpuAffinity.h>
+#include <Config/Settings/CpuAffinityRotation.h>
+#include <Config/Settings/ThreadPriorityBoost.h>
 #include <Dll/Dll.h>
 #include <Win32/Thread.h>
 

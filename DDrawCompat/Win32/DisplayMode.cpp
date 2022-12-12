@@ -10,7 +10,10 @@
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
-#include <Config/Config.h>
+#include <Config/Settings/DesktopColorDepth.h>
+#include <Config/Settings/DisplayRefreshRate.h>
+#include <Config/Settings/DisplayResolution.h>
+#include <Config/Settings/SupportedResolutions.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <Gdi/Gdi.h>

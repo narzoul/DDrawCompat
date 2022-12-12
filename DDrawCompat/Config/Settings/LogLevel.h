@@ -26,4 +26,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::LogLevel logLevel;
 }

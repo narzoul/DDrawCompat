@@ -1,7 +1,8 @@
 #include <algorithm>
 
 #include <Common/Log.h>
-#include <Config/Config.h>
+#include <Config/Settings/SpriteDetection.h>
+#include <Config/Settings/SpriteTexCoord.h>
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>

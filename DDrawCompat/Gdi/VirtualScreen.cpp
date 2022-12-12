@@ -1,6 +1,6 @@
 #include <map>
 
-#include <Config/Config.h>
+#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <Common/ScopedCriticalSection.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>

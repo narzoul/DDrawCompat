@@ -27,4 +27,6 @@ namespace Config
 			std::set<SIZE> m_resolutions;
 		};
 	}
+
+	extern Settings::SupportedResolutions supportedResolutions;
 }

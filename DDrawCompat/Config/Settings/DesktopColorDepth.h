@@ -17,4 +17,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::DesktopColorDepth desktopColorDepth;
 }

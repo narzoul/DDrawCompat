@@ -3,7 +3,6 @@
 
 #include <Common/CompatVtable.h>
 #include <Common/Time.h>
-#include <Config/Config.h>
 #include <DDraw/DirectDrawPalette.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>

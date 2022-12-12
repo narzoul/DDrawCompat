@@ -1,6 +1,5 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
-#include <Config/Config.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Resource.h>

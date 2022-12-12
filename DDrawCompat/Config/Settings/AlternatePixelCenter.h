@@ -15,4 +15,6 @@ namespace Config
 			}
 		};
 	}
+
+	extern Settings::AlternatePixelCenter alternatePixelCenter;
 }

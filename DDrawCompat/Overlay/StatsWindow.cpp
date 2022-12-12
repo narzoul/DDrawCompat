@@ -2,7 +2,7 @@
 #include <functional>
 
 #include <Common/Time.h>
-#include <Config/Config.h>
+#include <Config/Settings/StatsHotKey.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>

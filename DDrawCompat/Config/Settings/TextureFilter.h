@@ -18,4 +18,6 @@ namespace Config
 			UINT getMaxAnisotropy() const { return std::get<2>(m_value); }
 		};
 	}
+
+	extern Settings::TextureFilter textureFilter;
 }

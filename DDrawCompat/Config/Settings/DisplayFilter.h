@@ -17,4 +17,6 @@ namespace Config
 			virtual ParamInfo getParamInfo() const override;
 		};
 	}
+
+	extern Settings::DisplayFilter displayFilter;
 }

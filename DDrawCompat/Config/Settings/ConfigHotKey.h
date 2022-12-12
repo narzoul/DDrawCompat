@@ -12,4 +12,6 @@ namespace Config
 			ConfigHotKey() : HotKeySetting("ConfigHotKey", "shift+f11") {}
 		};
 	}
+
+	extern Settings::ConfigHotKey configHotKey;
 }

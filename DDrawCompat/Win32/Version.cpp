@@ -2,7 +2,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
-#include <Config/Config.h>
+#include <Config/Settings/WinVersionLie.h>
 
 #include <Win32/Version.h>
 
