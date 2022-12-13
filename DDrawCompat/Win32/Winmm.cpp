@@ -7,6 +7,19 @@
 
 namespace
 {
+	void disableTimerResolutionThrottling()
+	{
+		auto setProcessInformation = reinterpret_cast<decltype(&SetProcessInformation)>(
+			Compat::getProcAddress(GetModuleHandle("kernel32"), "SetProcessInformation"));
+		if (setProcessInformation)
+		{
+			PROCESS_POWER_THROTTLING_STATE ppts = {};
+			ppts.Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION;
+			ppts.ControlMask = 4; // PROCESS_POWER_THROTTLING_IGNORE_TIMER_RESOLUTION
+			setProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, &ppts, sizeof(ppts));
+		}
+	}
+
 	MMRESULT WINAPI TimeBeginPeriod(UINT uPeriod)
 	{
 		LOG_FUNC("timeBeginPeriod", uPeriod);
@@ -26,6 +39,8 @@ namespace Win32
 	{
 		void installHooks()
 		{
+			disableTimerResolutionThrottling();
+
 			if (Compat::getProcAddress(GetModuleHandle("kernel32"), "timeBeginPeriod"))
 			{
 				HOOK_FUNCTION(kernel32, timeBeginPeriod, TimeBeginPeriod);
