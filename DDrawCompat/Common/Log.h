@@ -4,6 +4,7 @@
 #include <fstream>
 #include <functional>
 #include <ostream>
+#include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
@@ -176,6 +177,14 @@ namespace Compat
 	const void* getOutPtr(const Array<Elem>& val)
 	{
 		return val.elem;
+	}
+
+	std::string getTrimmedTypeName(const std::string& typeName);
+
+	template <typename T>
+	std::string getTypeName()
+	{
+		return getTrimmedTypeName(typeid(T).name());
 	}
 
 	template <typename T>

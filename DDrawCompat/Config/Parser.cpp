@@ -209,6 +209,16 @@ namespace Config
 			return result;
 		}
 
+		std::string toupper(const std::string& str)
+		{
+			std::string result(str);
+			for (auto& c : result)
+			{
+				c = std::toupper(c, std::locale());
+			}
+			return result;
+		}
+
 		std::string trim(const std::string& str)
 		{
 			auto result(str);

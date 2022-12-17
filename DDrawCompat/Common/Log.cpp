@@ -16,6 +16,16 @@ namespace
 
 namespace Compat
 {
+	std::string getTrimmedTypeName(const std::string& typeName)
+	{
+		std::string prefix("struct ");
+		if (prefix == typeName.substr(0, prefix.length()))
+		{
+			return typeName.substr(prefix.length());
+		}
+		return typeName;
+	}
+
 	LogStream operator<<(LogStream os, const void* ptr)
 	{
 		if (ptr)

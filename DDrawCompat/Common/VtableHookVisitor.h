@@ -68,16 +68,6 @@ public:
 	}
 
 private:
-	static std::string getVtableTypeName()
-	{
-		std::string name = typeid(Vtable).name();
-		if (0 == name.find("struct "))
-		{
-			name = name.substr(name.find(" ") + 1);
-		}
-		return name;
-	}
-
 	template <auto memberPtr, typename Result, typename FirstParam, typename... Params>
 	static Result STDMETHODCALLTYPE hookFunc(FirstParam firstParam, Params... params)
 	{
@@ -107,4 +97,4 @@ template <auto memberPtr>
 std::string VtableHookVisitor<Vtable, Lock>::s_funcName;
 
 template <typename Vtable, typename Lock>
-std::string VtableHookVisitor<Vtable, Lock>::s_vtableTypeName(getVtableTypeName());
+std::string VtableHookVisitor<Vtable, Lock>::s_vtableTypeName(Compat::getTypeName<Vtable>());

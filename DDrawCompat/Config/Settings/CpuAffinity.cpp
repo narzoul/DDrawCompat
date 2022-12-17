@@ -59,6 +59,10 @@ namespace Config
 			unsigned result = 0;
 			for (const auto& value : values)
 			{
+				if ("app" == value || "all" == value)
+				{
+					throw ParsingError("'" + value + "' cannot be combined with other values");
+				}
 				auto num = Parser::parseInt(value, 1, 32);
 				result |= 1U << (num - 1);
 			}
