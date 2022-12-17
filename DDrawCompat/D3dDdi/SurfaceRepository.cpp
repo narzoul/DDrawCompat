@@ -12,6 +12,7 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawSurface.h>
+#include <DDraw/LogUsedResourceFormat.h>
 
 namespace
 {
@@ -56,6 +57,7 @@ namespace D3dDdi
 			desc.dwBackBufferCount = surfaceCount - 1;
 		}
 
+		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		s_inCreateSurface = true;
 		HRESULT result = dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 		s_inCreateSurface = false;

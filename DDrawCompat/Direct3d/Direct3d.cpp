@@ -6,6 +6,7 @@
 #include <Config/Settings/SoftwareDevice.h>
 #include <D3dDdi/Device.h>
 #include <DDraw/DirectDrawSurface.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <Direct3d/Direct3d.h>
@@ -23,6 +24,7 @@ namespace
 		TDirect3dDevice** lplpD3DDevice,
 		Params... params)
 	{
+		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		auto& iid = Direct3d::replaceDevice(rclsid);
 		HRESULT result = getOrigVtable(This).CreateDevice(This, iid, lpDDS, lplpD3DDevice, params...);
 		if (DDERR_INVALIDOBJECT == result && lpDDS)

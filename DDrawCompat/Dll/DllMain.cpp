@@ -15,6 +15,7 @@
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
@@ -72,6 +73,7 @@ namespace
 		static bool isAlreadyInstalled = false;
 		if (!isAlreadyInstalled)
 		{
+			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 			LOG_INFO << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks();
 			LOG_INFO << "Installing registry hooks";

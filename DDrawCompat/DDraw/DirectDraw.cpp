@@ -5,6 +5,7 @@
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
+#include <Common/Log.h>
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/SoftwareDevice.h>
@@ -15,6 +16,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PalettizedTexture.h>
@@ -32,6 +34,10 @@ namespace
 		{
 			return getOrigVtable(This).CreateSurface(This, lpDDSurfaceDesc, lplpDDSurface, pUnkOuter);
 		}
+
+		DDSURFACEDESC2 desc2 = {};
+		memcpy(&desc2, lpDDSurfaceDesc, sizeof(*lpDDSurfaceDesc));
+		DDraw::LogUsedResourceFormat logUsedResourceFormat(desc2, reinterpret_cast<IUnknown*&>(*lplpDDSurface));
 
 		if (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
 		{

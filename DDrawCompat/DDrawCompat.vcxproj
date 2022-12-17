@@ -228,6 +228,7 @@
     <ClInclude Include="DDraw\DirectDrawSurface.h" />
     <ClInclude Include="DDraw\Hooks.h" />
     <ClInclude Include="DDraw\Log.h" />
+    <ClInclude Include="DDraw\LogUsedResourceFormat.h" />
     <ClInclude Include="DDraw\ScopedThreadLock.h" />
     <ClInclude Include="DDraw\Surfaces\PalettizedTexture.h" />
     <ClInclude Include="DDraw\Surfaces\PalettizedTextureImpl.h" />
@@ -366,6 +367,7 @@
     <ClCompile Include="DDraw\Hooks.cpp" />
     <ClCompile Include="DDraw\IReleaseNotifier.cpp" />
     <ClCompile Include="DDraw\Log.cpp" />
+    <ClCompile Include="DDraw\LogUsedResourceFormat.cpp" />
     <ClCompile Include="DDraw\RealPrimarySurface.cpp" />
     <ClCompile Include="DDraw\Surfaces\PalettizedTexture.cpp" />
     <ClCompile Include="DDraw\Surfaces\PalettizedTextureImpl.cpp" />

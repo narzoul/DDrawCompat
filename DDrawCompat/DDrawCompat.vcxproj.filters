@@ -633,6 +633,9 @@
     <ClInclude Include="Config\Settings\CpuAffinityRotation.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="DDraw\LogUsedResourceFormat.h">
+      <Filter>Header Files\DDraw</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -997,6 +1000,9 @@
     </ClCompile>
     <ClCompile Include="Overlay\StatsEventGroup.cpp">
       <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="DDraw\LogUsedResourceFormat.cpp">
+      <Filter>Source Files\DDraw</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

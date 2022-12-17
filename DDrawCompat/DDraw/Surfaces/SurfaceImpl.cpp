@@ -9,6 +9,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/Surface.h>
@@ -225,6 +226,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
+		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		auto& iid = Direct3d::replaceDevice(riid);
 		HRESULT result = getOrigVtable(This).QueryInterface(This, iid, obp);
 		if (DDERR_INVALIDOBJECT == result)

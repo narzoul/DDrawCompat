@@ -6,6 +6,7 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDraw.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
@@ -176,6 +177,7 @@ namespace Gdi
 			primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
 			CompatPtr<IDirectDraw7> dd(ddUnk);
 
+			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 			CompatPtr<IDirectDrawSurface7> surface;
 			dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 			return surface;

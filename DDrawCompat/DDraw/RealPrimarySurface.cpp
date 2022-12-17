@@ -17,6 +17,7 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/IReleaseNotifier.h>
+#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
@@ -120,6 +121,7 @@ namespace
 		auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
 		LOG_DEBUG << "Creating " << (tagSurface ? "fullscreen" : "windowed") << " default primary";
 
+		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		if (tagSurface)
 		{
 			DDSURFACEDESC desc = {};

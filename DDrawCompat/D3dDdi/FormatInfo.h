@@ -15,29 +15,31 @@ namespace D3dDdi
 	{
 		struct Component
 		{
-			BYTE bitCount;
-			BYTE pos;
+			BYTE bitCount = 0;
+			BYTE pos = 0;
 		};
 
-		BYTE bitsPerPixel;
-		BYTE bytesPerPixel;
+		BYTE bitsPerPixel = 0;
+		BYTE bytesPerPixel = 0;
 		Component unused;
 		Component alpha;
 		Component red;
 		Component green;
 		Component blue;
+		Component palette;
 		Component depth;
 		Component stencil;
-
-		FormatInfo();
-		FormatInfo(BYTE unusedBitCount, BYTE alphaBitCount, BYTE redBitCount, BYTE greenBitCount, BYTE blueBitCount);
-		FormatInfo(BYTE unusedBitCount, BYTE depthBitCount, BYTE stencilBitCount);
+		Component luminance;
+		Component du;
+		Component dv;
+		DDPIXELFORMAT pixelFormat = {};
 	};
 
 	D3DCOLOR convertFrom32Bit(const FormatInfo& dstFormatInfo, D3DCOLOR srcColor);
 	DeviceState::ShaderConstF convertToShaderConst(const FormatInfo& srcFormatInfo, D3DCOLOR srcColor);
 	DWORD getComponent(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component);
 	float getComponentAsFloat(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component);
+	D3DDDIFORMAT getFormat(const DDPIXELFORMAT& pixelFormat);
 	FormatInfo getFormatInfo(D3DDDIFORMAT format);
 	DDPIXELFORMAT getPixelFormat(D3DDDIFORMAT format);
 }
