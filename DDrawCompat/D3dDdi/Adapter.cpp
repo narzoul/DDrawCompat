@@ -1,3 +1,4 @@
+#include <array>
 #include <map>
 #include <sstream>
 
@@ -6,6 +7,7 @@
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/ResolutionScale.h>
+#include <Config/Settings/SupportedDepthFormats.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/AdapterFuncs.h>
 #include <D3dDdi/Device.h>
@@ -16,6 +18,18 @@
 
 namespace
 {
+	struct DepthFormat
+	{
+		DWORD flag;
+		D3DDDIFORMAT format;
+	};
+
+	const std::array<DepthFormat, 3> g_depthFormats = { {
+		{ DDBD_16, D3DDDIFMT_D16 },
+		{ DDBD_24, D3DDDIFMT_X8D24 },
+		{ DDBD_32, D3DDDIFMT_D32 }
+	} };
+
 	std::string bitDepthsToString(DWORD bitDepths)
 	{
 		std::string result;
@@ -69,7 +83,15 @@ namespace D3dDdi
 		for (const auto& formatOp : info.formatOps)
 		{
 			LOG_INFO << "  " << formatOp.second;
-		} 
+		}
+
+		for (const auto& depthFormat : g_depthFormats)
+		{
+			if (!Config::supportedDepthFormats.isSupported(depthFormat.format))
+			{
+				info.supportedZBufferBitDepths &= ~depthFormat.flag;
+			}
+		}
 
 		return info;
 	}
@@ -213,17 +235,12 @@ namespace D3dDdi
 	DWORD Adapter::getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const
 	{
 		DWORD supportedZBufferBitDepths = 0;
-		if (formatOps.find(D3DDDIFMT_D16) != formatOps.end())
+		for (const auto& depthFormat : g_depthFormats)
 		{
-			supportedZBufferBitDepths |= DDBD_16;
-		}
-		if (formatOps.find(D3DDDIFMT_X8D24) != formatOps.end())
-		{
-			supportedZBufferBitDepths |= DDBD_24;
-		}
-		if (formatOps.find(D3DDDIFMT_D32) != formatOps.end())
-		{
-			supportedZBufferBitDepths |= DDBD_32;
+			if (formatOps.find(depthFormat.format) != formatOps.end())
+			{
+				supportedZBufferBitDepths |= depthFormat.flag;
+			}
 		}
 		return supportedZBufferBitDepths;
 	}
@@ -283,16 +300,18 @@ namespace D3dDdi
 
 		case D3DDDICAPS_GETFORMATDATA:
 		{
-			if (Config::palettizedTextures.get())
+			UINT count = pData->DataSize / sizeof(FORMATOP);
+			auto formatOp = static_cast<FORMATOP*>(pData->pData);
+			for (UINT i = 0; i < count; ++i)
 			{
-				UINT count = pData->DataSize / sizeof(FORMATOP);
-				auto formatOp = static_cast<FORMATOP*>(pData->pData);
-				for (UINT i = 0; i < count; ++i)
+				if (D3DDDIFMT_P8 == formatOp[i].Format && Config::palettizedTextures.get())
 				{
-					if (D3DDDIFMT_P8 == formatOp[i].Format)
-					{
-						formatOp[i].Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
-					}
+					formatOp[i].Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
+				}
+				if (D3DDDIFMT_D24X4S4 == formatOp[i].Format || D3DDDIFMT_X4S4D24 == formatOp[i].Format)
+				{
+					// If these formats are reported as depth buffers, then EnumZBufferFormats returns only D16
+					formatOp[i].Operations &= ~(FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH);
 				}
 			}
 			break;

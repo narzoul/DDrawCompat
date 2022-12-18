@@ -153,6 +153,7 @@
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
     <ClInclude Include="Config\EnumSetting.h" />
+    <ClInclude Include="Config\FormatListSetting.h" />
     <ClInclude Include="Config\HotKeySetting.h" />
     <ClInclude Include="Config\ListSetting.h" />
     <ClInclude Include="Config\MappedSetting.h" />
@@ -186,6 +187,7 @@
     <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />
     <ClInclude Include="Config\Settings\StatsHotKey.h" />
+    <ClInclude Include="Config\Settings\SupportedDepthFormats.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\SupportedTextureFormats.h" />
     <ClInclude Include="Config\Settings\TerminateHotKey.h" />
@@ -320,6 +322,7 @@
     <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="Config\Config.cpp" />
     <ClCompile Include="Config\EnumSetting.cpp" />
+    <ClCompile Include="Config\FormatListSetting.cpp" />
     <ClCompile Include="Config\ListSetting.cpp" />
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
@@ -333,6 +336,7 @@
     <ClCompile Include="Config\Settings\SpriteDetection.cpp" />
     <ClCompile Include="Config\Settings\SpriteFilter.cpp" />
     <ClCompile Include="Config\Settings\SpriteTexCoord.cpp" />
+    <ClCompile Include="Config\Settings\SupportedDepthFormats.cpp" />
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp" />
     <ClCompile Include="Config\Settings\SupportedTextureFormats.cpp" />
     <ClCompile Include="Config\Settings\TextureFilter.cpp" />

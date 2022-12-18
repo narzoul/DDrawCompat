@@ -27,6 +27,7 @@
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/SupportedResolutions.h>
+#include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/SupportedTextureFormats.h>
 #include <Config/Settings/TerminateHotKey.h>
 #include <Config/Settings/TextureFilter.h>
@@ -65,6 +66,7 @@ namespace Config
 	Settings::SpriteTexCoord spriteTexCoord;
 	Settings::StatsHotKey statsHotKey;
 	Settings::SupportedResolutions supportedResolutions;
+	Settings::SupportedDepthFormats supportedDepthFormats;
 	Settings::SupportedTextureFormats supportedTextureFormats;
 	Settings::TerminateHotKey terminateHotKey;
 	Settings::TextureFilter textureFilter;

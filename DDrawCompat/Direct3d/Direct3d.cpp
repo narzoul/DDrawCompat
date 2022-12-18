@@ -4,7 +4,9 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
 #include <Config/Settings/SoftwareDevice.h>
+#include <Config/Settings/SupportedDepthFormats.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/FormatInfo.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/ScopedThreadLock.h>
@@ -16,6 +18,12 @@
 
 namespace
 {
+	struct EnumZBufferFormatsArgs
+	{
+		void* callback;
+		void* context;
+	};
+
 	template <typename TDirect3d, typename TDirectDrawSurface, typename TDirect3dDevice, typename... Params>
 	HRESULT STDMETHODCALLTYPE createDevice(
 		TDirect3d* This,
@@ -63,6 +71,35 @@ namespace
 		return result;
 	}
 
+	HRESULT CALLBACK enumZBufferFormatsCallback(LPDDPIXELFORMAT lpDDPixFmt, LPVOID lpContext)
+	{
+		if (!Config::supportedDepthFormats.isSupported(D3dDdi::getFormat(*lpDDPixFmt)))
+		{
+			return D3DENUMRET_OK;
+		}
+		auto& args = *static_cast<EnumZBufferFormatsArgs*>(lpContext);
+		auto origCallback = static_cast<decltype(&enumZBufferFormatsCallback)>(args.callback);
+		return origCallback(lpDDPixFmt, args.context);
+	}
+
+	template <typename TDirect3d>
+	HRESULT STDMETHODCALLTYPE enumZBufferFormats(TDirect3d* This, REFCLSID riidDevice,
+		LPD3DENUMPIXELFORMATSCALLBACK lpEnumCallback, LPVOID lpContext)
+	{
+		if (!This || !lpEnumCallback ||
+			IID_IDirect3DHALDevice != riidDevice && IID_IDirect3DTnLHalDevice != riidDevice)
+		{
+			if (This && lpEnumCallback)
+			{
+				LOG_ONCE("Using feature: enumerating software depth formats via " << Compat::getTypeName<TDirect3d>());
+			}
+			return getOrigVtable(This).EnumZBufferFormats(This, riidDevice, lpEnumCallback, lpContext);
+		}
+		LOG_ONCE("Using feature: enumerating hardware depth formats via " << Compat::getTypeName<TDirect3d>());
+		EnumZBufferFormatsArgs args = { lpEnumCallback, lpContext };
+		return getOrigVtable(This).EnumZBufferFormats(This, riidDevice, enumZBufferFormatsCallback, &args);
+	}
+
 	template <typename Vtable>
 	constexpr void setCompatVtable(Vtable& vtable)
 	{
@@ -74,6 +111,11 @@ namespace
 		if constexpr (std::is_same_v<Vtable, IDirect3D7Vtbl>)
 		{
 			vtable.CreateVertexBuffer = &createVertexBuffer;
+		}
+
+		if constexpr (std::is_same_v<Vtable, IDirect3D3Vtbl> || std::is_same_v<Vtable, IDirect3D7Vtbl>)
+		{
+			vtable.EnumZBufferFormats = &enumZBufferFormats;
 		}
 	}
 }

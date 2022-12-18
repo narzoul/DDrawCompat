@@ -1,28 +1,15 @@
 #pragma once
 
-#include <set>
-
-#include <Windows.h>
-
-#include <Config/ListSetting.h>
+#include <Config/FormatListSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class SupportedTextureFormats : public ListSetting
+		class SupportedTextureFormats : public FormatListSetting
 		{
 		public:
 			SupportedTextureFormats();
-
-			virtual std::string getValueStr() const override;
-
-			bool isSupported(UINT format) const;
-
-		private:
-			void setValues(const std::vector<std::string>& values) override;
-
-			std::set<UINT> m_formats;
 		};
 	}
 
