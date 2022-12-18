@@ -6,6 +6,7 @@
 
 namespace Direct3d
 {
+	D3DVERTEXBUFFERDESC getVertexBufferDesc();
 	void onCreateDevice(const IID& iid, IDirectDrawSurface7& surface);
 	const IID& replaceDevice(const IID& iid);
 

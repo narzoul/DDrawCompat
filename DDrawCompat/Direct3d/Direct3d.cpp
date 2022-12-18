@@ -5,6 +5,7 @@
 #include <Common/CompatVtable.h>
 #include <Config/Settings/SoftwareDevice.h>
 #include <Config/Settings/SupportedDepthFormats.h>
+#include <Config/Settings/VertexBufferMemoryType.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/FormatInfo.h>
 #include <DDraw/DirectDrawSurface.h>
@@ -23,6 +24,8 @@ namespace
 		void* callback;
 		void* context;
 	};
+
+	D3DVERTEXBUFFERDESC g_vbDesc = {};
 
 	template <typename TDirect3d, typename TDirectDrawSurface, typename TDirect3dDevice, typename... Params>
 	HRESULT STDMETHODCALLTYPE createDevice(
@@ -57,17 +60,42 @@ namespace
 		return result;
 	}
 
+	template <typename TDirect3d, typename TDirect3dVertexBuffer, typename... Params>
 	HRESULT STDMETHODCALLTYPE createVertexBuffer(
-		IDirect3D7* This,
+		TDirect3d* This,
 		LPD3DVERTEXBUFFERDESC lpVBDesc,
-		LPDIRECT3DVERTEXBUFFER7* lplpD3DVertexBuffer,
-		DWORD dwFlags)
+		TDirect3dVertexBuffer* lplpD3DVertexBuffer,
+		DWORD dwFlags,
+		Params... params)
 	{
-		HRESULT result = getOrigVtable(This).CreateVertexBuffer(This, lpVBDesc, lplpD3DVertexBuffer, dwFlags);
-		if (SUCCEEDED(result))
+		if (!lpVBDesc)
 		{
-			Direct3d::Direct3dVertexBuffer::hookVtable(*(*lplpD3DVertexBuffer)->lpVtbl);
+			return getOrigVtable(This).CreateVertexBuffer(This, lpVBDesc, lplpD3DVertexBuffer, dwFlags, params...);
 		}
+
+		auto desc = *lpVBDesc;
+		g_vbDesc = desc;
+
+		switch (Config::vertexBufferMemoryType.get())
+		{
+		case DDSCAPS_SYSTEMMEMORY:
+			desc.dwCaps |= D3DVBCAPS_SYSTEMMEMORY;
+			break;
+		case DDSCAPS_VIDEOMEMORY:
+			desc.dwCaps &= ~D3DVBCAPS_SYSTEMMEMORY;
+			break;
+		}
+
+		HRESULT result = getOrigVtable(This).CreateVertexBuffer(This, &desc, lplpD3DVertexBuffer, dwFlags, params...);
+		if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
+		{
+			if (SUCCEEDED(result))
+			{
+				Direct3d::Direct3dVertexBuffer::hookVtable(*(*lplpD3DVertexBuffer)->lpVtbl);
+			}
+		}
+
+		g_vbDesc = {};
 		return result;
 	}
 
@@ -108,13 +136,9 @@ namespace
 			vtable.CreateDevice = &createDevice;
 		}
 
-		if constexpr (std::is_same_v<Vtable, IDirect3D7Vtbl>)
-		{
-			vtable.CreateVertexBuffer = &createVertexBuffer;
-		}
-
 		if constexpr (std::is_same_v<Vtable, IDirect3D3Vtbl> || std::is_same_v<Vtable, IDirect3D7Vtbl>)
 		{
+			vtable.CreateVertexBuffer = &createVertexBuffer;
 			vtable.EnumZBufferFormats = &enumZBufferFormats;
 		}
 	}
@@ -122,6 +146,11 @@ namespace
 
 namespace Direct3d
 {
+	D3DVERTEXBUFFERDESC getVertexBufferDesc()
+	{
+		return g_vbDesc;
+	}
+
 	void onCreateDevice(const IID& iid, IDirectDrawSurface7& surface)
 	{
 		if (IID_IDirect3DHALDevice == iid || IID_IDirect3DTnLHalDevice == iid)

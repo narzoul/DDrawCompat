@@ -26,9 +26,9 @@ namespace Config
 		virtual void setValues(const std::vector<std::string>& values) override;
 
 	private:
-		const std::set<D3DDDIFORMAT>& m_allowedFormats;
-		const std::map<std::string, std::vector<D3DDDIFORMAT>>& m_allowedGroups;
+		const std::set<D3DDDIFORMAT> m_allowedFormats;
+		const std::map<std::string, std::vector<D3DDDIFORMAT>> m_allowedGroups;
 		std::vector<D3DDDIFORMAT> m_formats;
-		bool m_allowFourCCs;
+		const bool m_allowFourCCs;
 	};
 }

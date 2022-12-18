@@ -32,6 +32,7 @@
 #include <Config/Settings/TerminateHotKey.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
+#include <Config/Settings/VertexBufferMemoryType.h>
 #include <Config/Settings/VSync.h>
 #include <Config/Settings/WinVersionLie.h>
 
@@ -71,6 +72,7 @@ namespace Config
 	Settings::TerminateHotKey terminateHotKey;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
+	Settings::VertexBufferMemoryType vertexBufferMemoryType;
 	Settings::VSync vSync;
 	Settings::WinVersionLie winVersionLie;
 }

@@ -9,6 +9,7 @@
 #include <D3dDdi/Log/CommonLog.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/LogUsedResourceFormat.h>
+#include <Direct3d/Direct3d.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -81,6 +82,17 @@ namespace DDraw
 			DDSCAPS_PRIMARYSURFACE | DDSCAPS_OVERLAY);
 		auto caps2 = m_desc.ddsCaps.dwCaps2 & (DDSCAPS2_CUBEMAP | DDSCAPS2_TEXTUREMANAGE | DDSCAPS2_D3DTEXTUREMANAGE);
 		DWORD memCaps = 0;
+
+		if (D3DDDIFMT_VERTEXDATA == format)
+		{
+			const auto& vbDesc = Direct3d::getVertexBufferDesc();
+			if (0 == vbDesc.dwSize)
+			{
+				return;
+			}
+			caps &= ~(DDSCAPS_SYSTEMMEMORY | DDSCAPS_VIDEOMEMORY);
+			caps |= (vbDesc.dwCaps & D3DVBCAPS_SYSTEMMEMORY) ? DDSCAPS_SYSTEMMEMORY : DDSCAPS_VIDEOMEMORY;
+		}
 
 		if (!(m_desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_VIDEOMEMORY)) &&
 			!(m_desc.ddsCaps.dwCaps2 & (DDSCAPS2_TEXTUREMANAGE | DDSCAPS2_D3DTEXTUREMANAGE)))
