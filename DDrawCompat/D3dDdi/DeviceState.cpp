@@ -223,7 +223,7 @@ namespace D3dDdi
 		m_changedStates |= CS_TEXTURE_STAGE;
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
-		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
+		m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
 	}
 
 	void DeviceState::flush()
@@ -502,7 +502,7 @@ namespace D3dDdi
 		m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
-		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
+		m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
 		return S_OK;
 	}
 
@@ -514,7 +514,7 @@ namespace D3dDdi
 			m_app.textureStageState[data->Stage][D3DDDITSS_ADDRESSV] = data->Value;
 			m_changedTextureStageStates[data->Stage].set(D3DDDITSS_ADDRESSU);
 			m_changedTextureStageStates[data->Stage].set(D3DDDITSS_ADDRESSV);
-			m_maxChangedTextureStage = max(data->Stage, m_maxChangedTextureStage);
+			m_maxChangedTextureStage = std::max(data->Stage, m_maxChangedTextureStage);
 			return S_OK;
 		}
 		
@@ -531,7 +531,7 @@ namespace D3dDdi
 
 		m_app.textureStageState[data->Stage][data->State] = data->Value;
 		m_changedTextureStageStates[data->Stage].set(data->State);
-		m_maxChangedTextureStage = max(data->Stage, m_maxChangedTextureStage);
+		m_maxChangedTextureStage = std::max(data->Stage, m_maxChangedTextureStage);
 		return S_OK;
 	}
 
@@ -775,7 +775,7 @@ namespace D3dDdi
 	{
 		setTexture(stage, texture);
 		m_changedStates |= CS_TEXTURE_STAGE;
-		m_maxChangedTextureStage = max(stage, m_maxChangedTextureStage);
+		m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
 	}
 
 	void DeviceState::setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss)
@@ -783,7 +783,7 @@ namespace D3dDdi
 		setTextureStageState(tss);
 		m_changedStates |= CS_TEXTURE_STAGE;
 		m_changedTextureStageStates[tss.Stage].set(tss.State);
-		m_maxChangedTextureStage = max(tss.Stage, m_maxChangedTextureStage);
+		m_maxChangedTextureStage = std::max(tss.Stage, m_maxChangedTextureStage);
 	}
 
 	void DeviceState::setTempVertexShaderDecl(HANDLE decl)

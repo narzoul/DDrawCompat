@@ -25,9 +25,18 @@ namespace Win32
 			SIZE diff;
 		};
 
+		struct Resolution
+		{
+			SIZE app;
+			SIZE display;
+		};
+
+		SIZE getAppResolution(const std::wstring& deviceName);
 		DWORD getBpp();
+		SIZE getDisplayResolution(const std::wstring& deviceName);
 		EmulatedDisplayMode getEmulatedDisplayMode();
 		MONITORINFOEXW getMonitorInfo(const std::wstring& deviceName);
+		Resolution getResolution(const std::wstring& deviceName);
 		ULONG queryDisplaySettingsUniqueness();
 
 		void installHooks();

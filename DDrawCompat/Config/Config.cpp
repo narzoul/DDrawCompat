@@ -8,6 +8,7 @@
 #include <Config/Settings/CpuAffinityRotation.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DesktopColorDepth.h>
+#include <Config/Settings/DisplayAspectRatio.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
@@ -48,6 +49,7 @@ namespace Config
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;
 	Settings::DepthFormat depthFormat;
+	Settings::DisplayAspectRatio displayAspectRatio;
 	Settings::DesktopColorDepth desktopColorDepth;
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayRefreshRate displayRefreshRate;

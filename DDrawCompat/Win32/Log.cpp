@@ -93,7 +93,7 @@ namespace
 	std::ostream& logOsVersionInfo(std::ostream& os, const OsVersionInfo& vi)
 	{
 		OsVersionInfoEx viEx = {};
-		memcpy(&viEx, &vi, min(sizeof(viEx), vi.dwOSVersionInfoSize));
+		memcpy(&viEx, &vi, std::min<DWORD>(sizeof(viEx), vi.dwOSVersionInfoSize));
 		return logOsVersionInfoEx(os, viEx);
 	}
 }

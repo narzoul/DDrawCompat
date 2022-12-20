@@ -59,11 +59,6 @@ namespace
 		return rect;
 	}
 
-	RECT calculatePresentationRect()
-	{
-		return calculateScaledRect(DDraw::PrimarySurface::getMonitorRect(), DDraw::RealPrimarySurface::getMonitorRect());
-	}
-
 	LONG divCeil(LONG n, LONG d)
 	{
 		return (n + d - 1) / d;
@@ -669,8 +664,8 @@ namespace D3dDdi
 	{
 		while (srcWidth > 2 * dstWidth || srcHeight > 2 * dstHeight)
 		{
-			const LONG newSrcWidth = max(dstWidth, (srcWidth + 1) / 2);
-			const LONG newSrcHeight = max(dstHeight, (srcHeight + 1) / 2);
+			const LONG newSrcWidth = std::max(dstWidth, (srcWidth + 1) / 2);
+			const LONG newSrcHeight = std::max(dstHeight, (srcHeight + 1) / 2);
 			auto& nextRt = getNextRenderTarget(rt, newSrcWidth, newSrcHeight);
 			if (!nextRt.resource)
 			{
@@ -1444,7 +1439,8 @@ namespace D3dDdi
 
 		if (isFullscreen)
 		{
-			g_presentationRect = calculatePresentationRect();
+			const Int2 ar = m_device.getAdapter().getAspectRatio();
+			g_presentationRect = calculateScaledRect({ 0, 0, ar.x, ar.y }, DDraw::RealPrimarySurface::getMonitorRect());
 			auto& si = m_origData.pSurfList[0];
 			RECT primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
 

@@ -222,13 +222,13 @@ namespace
 				const ULONGLONG maxMem = 0x3FFF0000;
 				if (info->DedicatedVideoMemorySize < maxMem)
 				{
-					auto addedMem = min(maxMem - info->DedicatedVideoMemorySize, info->SharedSystemMemorySize);
+					auto addedMem = std::min(maxMem - info->DedicatedVideoMemorySize, info->SharedSystemMemorySize);
 					info->DedicatedVideoMemorySize += addedMem;
 					info->SharedSystemMemorySize -= addedMem;
 				}
 
-				info->DedicatedVideoMemorySize = min(info->DedicatedVideoMemorySize, maxMem);
-				info->SharedSystemMemorySize = min(info->SharedSystemMemorySize, maxMem);
+				info->DedicatedVideoMemorySize = std::min(info->DedicatedVideoMemorySize, maxMem);
+				info->SharedSystemMemorySize = std::min(info->SharedSystemMemorySize, maxMem);
 				break;
 			}
 			}

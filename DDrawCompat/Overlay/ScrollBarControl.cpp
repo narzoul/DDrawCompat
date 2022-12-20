@@ -116,8 +116,8 @@ namespace Overlay
 	{
 		const auto minPos = m_leftArrow.right + ARROW_SIZE / 2;
 		const auto maxPos = m_rightArrow.left - ARROW_SIZE / 2;
-		pos.x = max(pos.x, minPos);
-		pos.x = min(pos.x, maxPos);
+		pos.x = std::max(pos.x, minPos);
+		pos.x = std::min(pos.x, maxPos);
 		setPos(m_min + roundDiv((pos.x - minPos) * (m_max - m_min), maxPos - minPos));
 	}
 
@@ -128,8 +128,8 @@ namespace Overlay
 
 	void ScrollBarControl::setPos(int pos)
 	{
-		pos = max(pos, m_min);
-		pos = min(pos, m_max);
+		pos = std::max(pos, m_min);
+		pos = std::min(pos, m_max);
 		if (pos != m_pos)
 		{
 			m_pos = pos;

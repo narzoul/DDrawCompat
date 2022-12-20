@@ -150,6 +150,23 @@ namespace Config
 			}
 		}
 
+		SIZE parseAspectRatio(const std::string& value)
+		{
+			try
+			{
+				auto pos = value.find(':');
+				if (pos != std::string::npos)
+				{
+					return { parseInt(value.substr(0, pos), 1, MAXUINT16), parseInt(value.substr(pos + 1), 1, MAXUINT16) };
+				}
+			}
+			catch (ParsingError&)
+			{
+			}
+
+			throw ParsingError("invalid aspect ratio: '" + value + "'");
+		}
+
 		int parseInt(const std::string& value, int min, int max)
 		{
 			if (value.empty() || std::string::npos != value.find_first_not_of("+-0123456789") ||

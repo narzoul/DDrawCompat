@@ -140,7 +140,7 @@ namespace
 				oss << i + 1 << ", ";
 			}
 		}
-		return oss.str().substr(0, max(0, oss.str().length() - 2));
+		return oss.str().substr(0, std::max<std::size_t>(0, oss.str().length() - 2));
 	}
 
 	DWORD rotateMask(DWORD mask)

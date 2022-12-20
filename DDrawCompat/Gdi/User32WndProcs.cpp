@@ -339,7 +339,7 @@ namespace
 			{
 				RECT parentRect = {};
 				GetWindowRect(parent, &parentRect);
-				wp.x = max(parentRect.left + 3 - wp.cx, 0);
+				wp.x = std::max<int>(parentRect.left + 3 - wp.cx, 0);
 			}
 			else
 			{

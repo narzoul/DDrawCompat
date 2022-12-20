@@ -120,8 +120,8 @@ namespace
 				auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
 				cp.x += (llHook.pt.x - origCp.x);
 				cp.y += (llHook.pt.y - origCp.y);
-				cp.x = min(max(g_monitorRect.left, cp.x), g_monitorRect.right);
-				cp.y = min(max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
+				cp.x = std::min(std::max(g_monitorRect.left, cp.x), g_monitorRect.right);
+				cp.y = std::min(std::max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
 				g_cursorPos = cp;
 				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			}

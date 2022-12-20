@@ -5,6 +5,7 @@
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
 #include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/DisplayAspectRatio.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SupportedDepthFormats.h>
@@ -15,6 +16,7 @@
 #include <D3dDdi/DeviceFuncs.h>
 #include <D3dDdi/FormatInfo.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -57,6 +59,25 @@ namespace D3dDdi
 		, m_deviceName(KernelModeThunks::getLastOpenAdapterInfo().deviceName)
 		, m_repository{}
 	{
+	}
+
+	Int2 Adapter::getAspectRatio(Win32::DisplayMode::Resolution res) const
+	{
+		SIZE ar = Config::displayAspectRatio.get();
+		if (Config::Settings::DisplayAspectRatio::APP == ar)
+		{
+			return 0 != res.app.cx ? res.app : Win32::DisplayMode::getAppResolution(m_deviceName);
+		}
+		else if (Config::Settings::DisplayAspectRatio::DISPLAY == ar)
+		{
+			return 0 != res.display.cx ? res.display : Win32::DisplayMode::getDisplayResolution(m_deviceName);
+		}
+		return ar;
+	}
+
+	Int2 Adapter::getAspectRatio() const
+	{
+		return getAspectRatio({});
 	}
 
 	const Adapter::AdapterInfo& Adapter::getInfo() const
@@ -122,14 +143,6 @@ namespace D3dDdi
 		return result;
 	}
 
-	float Adapter::getMaxScaleFactor(SIZE size) const
-	{
-		const auto& caps = getInfo().d3dExtendedCaps;
-		const float scaleX = static_cast<float>(caps.dwMaxTextureWidth) / size.cx;
-		const float scaleY = static_cast<float>(caps.dwMaxTextureHeight) / size.cy;
-		return min(scaleX, scaleY);
-	}
-
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Adapter::getMultisampleConfig(D3DDDIFORMAT format) const
 	{
 		UINT samples = Config::antialiasing.get();
@@ -154,54 +167,62 @@ namespace D3dDdi
 		levels.Format = D3DDDIFMT_X8R8G8B8;
 		levels.MsType = static_cast<D3DDDIMULTISAMPLE_TYPE>(samples);
 		getCaps(D3DDDICAPS_GETMULTISAMPLEQUALITYLEVELS, levels);
-		return { levels.MsType, min(static_cast<UINT>(Config::antialiasing.getParam()), levels.QualityLevels - 1) };
+		return { levels.MsType, std::min(static_cast<UINT>(Config::antialiasing.getParam()), levels.QualityLevels - 1) };
 	}
 
-	SIZE Adapter::getScaledSize(SIZE size) const
+	SIZE Adapter::getScaledSize(Int2 size) const
 	{
-		DEVMODEW dm = {};
-		dm.dmSize = sizeof(dm);
-		EnumDisplaySettingsExW(m_deviceName.c_str(), ENUM_CURRENT_SETTINGS, &dm, 0);
-
-		const SIZE emulatedDisplaySize = { static_cast<long>(dm.dmPelsHeight), static_cast<long>(dm.dmPelsHeight) };
-		const float displayMaxScaleFactor = getMaxScaleFactor(emulatedDisplaySize);
-		const float resourceMaxScaleFactor = getMaxScaleFactor(size);
-		float maxScaleFactor = min(displayMaxScaleFactor, resourceMaxScaleFactor);
-		if (Config::resolutionScale.getParam() > 0)
-		{
-			maxScaleFactor = floor(maxScaleFactor);
-		}
-
-		SIZE baseSize = Config::resolutionScale.get();
+		const auto scaleFactor = getScaleFactor();
 		const int multiplier = Config::resolutionScale.getParam();
-
-		if (Config::Settings::ResolutionScale::APP == baseSize)
-		{
-			baseSize = emulatedDisplaySize;
-		}
-		else if (Config::Settings::ResolutionScale::DISPLAY == baseSize)
-		{
-			CALL_ORIG_FUNC(EnumDisplaySettingsExW)(m_deviceName.c_str(), ENUM_CURRENT_SETTINGS, &dm, 0);
-			baseSize = { static_cast<long>(dm.dmPelsHeight), static_cast<long>(dm.dmPelsHeight) };
-		}
-
-		float scaleX = static_cast<float>(baseSize.cx) / emulatedDisplaySize.cx;
-		float scaleY = static_cast<float>(baseSize.cy) / emulatedDisplaySize.cy;
-		float scale = min(scaleX, scaleY) * abs(multiplier);
-		if (multiplier > 0)
-		{
-			scale = ceil(scale);
-		}
-		scale = max(scale, 1.0f);
-		scale = min(scale, maxScaleFactor);
-
-		size.cx = static_cast<LONG>(size.cx * scale);
-		size.cy = static_cast<LONG>(size.cy * scale);
-
 		const auto& caps = getInfo().d3dExtendedCaps;
-		size.cx = min(size.cx, static_cast<LONG>(caps.dwMaxTextureWidth));
-		size.cy = min(size.cy, static_cast<LONG>(caps.dwMaxTextureHeight));
-		return size;
+
+		Int2 maxSize = { caps.dwMaxTextureWidth, caps.dwMaxTextureHeight };
+		if (multiplier < 0)
+		{
+			maxSize = maxSize / size * size;
+		}
+
+		Int2 scaledSize = Float2(size) * scaleFactor;
+		scaledSize = min(scaledSize, maxSize);
+		scaledSize = max(scaledSize, size);
+		return { scaledSize.x, scaledSize.y };
+	}
+
+	Float2 Adapter::getScaleFactor() const
+	{
+		const SIZE resolutionScale = Config::resolutionScale.get();
+		const int multiplier = Config::resolutionScale.getParam();
+		if (0 == multiplier ||
+			Config::Settings::ResolutionScale::APP == resolutionScale && 1 == multiplier)
+		{
+			return 1;
+		}
+
+		const auto res = Win32::DisplayMode::getResolution(m_deviceName);
+		Int2 targetResolution = resolutionScale;
+		if (Config::Settings::ResolutionScale::APP == resolutionScale)
+		{
+			targetResolution = res.app;
+		}
+		else if (Config::Settings::ResolutionScale::DISPLAY == resolutionScale)
+		{
+			targetResolution = res.display;
+		}
+
+		targetResolution *= abs(multiplier);
+
+		const Int2 ar = getAspectRatio(res);
+		if (targetResolution.y * ar.x / ar.y <= targetResolution.x)
+		{
+			targetResolution.x = targetResolution.y * ar.x / ar.y;
+		}
+		else
+		{
+			targetResolution.y = targetResolution.x * ar.y / ar.x;
+		}
+
+		const auto scaleFactor = Float2(targetResolution) / Float2(res.app);
+		return multiplier < 0 ? scaleFactor : ceil(scaleFactor);
 	}
 
 	std::string Adapter::getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const

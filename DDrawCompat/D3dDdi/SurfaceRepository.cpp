@@ -261,7 +261,8 @@ namespace D3dDdi
 	SurfaceRepository::Surface& SurfaceRepository::getTempSurface(Surface& surface, DWORD width, DWORD height,
 		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount)
 	{
-		return getSurface(surface, max(width, surface.width), max(height, surface.height), format, caps, surfaceCount);
+		return getSurface(surface, std::max(width, surface.width), std::max(height, surface.height),
+			format, caps, surfaceCount);
 	}
 
 	SurfaceRepository::Surface& SurfaceRepository::getTempSysMemSurface(DWORD width, DWORD height)

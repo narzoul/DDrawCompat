@@ -8,7 +8,9 @@
 #include <d3dumddi.h>
 
 #include <Common/CompatPtr.h>
+#include <Common/Vector.h>
 #include <DDraw/DirectDraw.h>
+#include <Win32/DisplayMode.h>
 
 namespace D3dDdi
 {
@@ -31,12 +33,13 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_adapter; }
 
+		Int2 getAspectRatio() const;
 		const AdapterInfo& getInfo() const;
 		LUID getLuid() const { return m_luid; }
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
-		SIZE getScaledSize(SIZE size) const;
+		SIZE getScaledSize(Int2 size) const;
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
@@ -50,8 +53,9 @@ namespace D3dDdi
 		template <typename Data>
 		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
 
+		Int2 getAspectRatio(Win32::DisplayMode::Resolution res) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
-		float getMaxScaleFactor(SIZE size) const;
+		Float2 getScaleFactor() const;
 		std::string getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 		DWORD getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 

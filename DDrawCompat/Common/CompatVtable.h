@@ -28,7 +28,7 @@ public:
 	{
 		static unsigned origVtableSize = 0;
 		auto vtableSize = getVtableSize(version);
-		memcpy(const_cast<Vtable*>(&vtable), &s_origVtable, min(vtableSize, origVtableSize));
+		memcpy(const_cast<Vtable*>(&vtable), &s_origVtable, std::min(vtableSize, origVtableSize));
 
 		class NullLock {};
 		hookVtable<NullLock>(vtable, version);

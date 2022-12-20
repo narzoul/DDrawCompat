@@ -370,6 +370,18 @@ namespace
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
 	}
 
+	SIZE getAppResolution(const std::wstring& deviceName, SIZE displayResolution = {})
+	{
+		{
+			Compat::ScopedSrwLockShared srwLock(g_srwLock);
+			if (deviceName == g_emulatedDisplayMode.deviceName)
+			{
+				return { static_cast<LONG>(g_emulatedDisplayMode.width), static_cast<LONG>(g_emulatedDisplayMode.height) };
+			}
+		}
+		return 0 != displayResolution.cx ? displayResolution : Win32::DisplayMode::getDisplayResolution(deviceName);
+	}
+
 	template <typename Char>
 	DWORD getConfiguredRefreshRate(const Char* deviceName)
 	{
@@ -722,9 +734,22 @@ namespace Win32
 {
 	namespace DisplayMode
 	{
+		SIZE getAppResolution(const std::wstring& deviceName)
+		{
+			return ::getAppResolution(deviceName);
+		}
+
 		DWORD getBpp()
 		{
 			return getEmulatedDisplayMode().bpp;
+		}
+
+		SIZE getDisplayResolution(const std::wstring& deviceName)
+		{
+			DEVMODEW dm = {};
+			dm.dmSize = sizeof(dm);
+			CALL_ORIG_FUNC(EnumDisplaySettingsExW)(deviceName.c_str(), ENUM_CURRENT_SETTINGS, &dm, 0);
+			return { static_cast<LONG>(dm.dmPelsWidth), static_cast<LONG>(dm.dmPelsHeight) };
 		}
 
 		EmulatedDisplayMode getEmulatedDisplayMode()
@@ -739,6 +764,14 @@ namespace Win32
 			wcscpy_s(mi.szDevice, deviceName.c_str());
 			EnumDisplayMonitors(nullptr, nullptr, &getMonitorInfoEnum, reinterpret_cast<LPARAM>(&mi));
 			return mi;
+		}
+
+		Resolution getResolution(const std::wstring& deviceName)
+		{
+			Resolution res = {};
+			res.display = getDisplayResolution(deviceName);
+			res.app = ::getAppResolution(deviceName, res.display);
+			return res;
 		}
 
 		ULONG queryDisplaySettingsUniqueness()

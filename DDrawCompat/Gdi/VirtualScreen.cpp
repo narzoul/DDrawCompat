@@ -42,19 +42,16 @@ namespace
 	BOOL CALLBACK addMonitorRectToRegion(
 		HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
 	{
-		MONITORINFOEX mi = {};
+		MONITORINFOEXW mi = {};
 		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, &mi);
+		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
 
-		DEVMODE dm = {};
-		dm.dmSize = sizeof(dm);
-		CALL_ORIG_FUNC(EnumDisplaySettingsExA)(mi.szDevice, ENUM_CURRENT_SETTINGS, &dm, 0);
-
+		auto res = Win32::DisplayMode::getDisplayResolution(mi.szDevice);
 		RECT rect = *lprcMonitor;
-		if (0 != dm.dmPelsWidth && 0 != dm.dmPelsHeight)
+		if (0 != res.cx && 0 != res.cy)
 		{
-			rect.right = rect.left + dm.dmPelsWidth;
-			rect.bottom = rect.top + dm.dmPelsHeight;
+			rect.right = rect.left + res.cx;
+			rect.bottom = rect.top + res.cy;
 		}
 
 		Gdi::Region& virtualScreenRegion = *reinterpret_cast<Gdi::Region*>(dwData);

@@ -206,8 +206,8 @@ namespace Overlay
 
 		int scaleX = (monitorRect.right - monitorRect.left) / 640;
 		int scaleY = (monitorRect.bottom - monitorRect.top) / 480;
-		m_scaleFactor = min(scaleX, scaleY);
-		m_scaleFactor = max(1, m_scaleFactor);
+		m_scaleFactor = std::min(scaleX, scaleY);
+		m_scaleFactor = std::max(1, m_scaleFactor);
 		m_rect = calculateRect({ monitorRect.left / m_scaleFactor, monitorRect.top / m_scaleFactor,
 			monitorRect.right / m_scaleFactor, monitorRect.bottom / m_scaleFactor });
 
