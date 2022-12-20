@@ -947,7 +947,6 @@ namespace D3dDdi
 		{
 			return;
 		}
-		m_lockData[subResourceIndex].isVidMemUpToDate = true;
 
 		if (m_lockData[subResourceIndex].isMsaaUpToDate || m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 		{
@@ -972,6 +971,7 @@ namespace D3dDdi
 					blt.DstRect = getRect(subResourceIndex);
 					shaderBlt(blt, *this, *m_msaaResolvedSurface.resource);
 				}
+				m_lockData[subResourceIndex].isVidMemUpToDate = true;
 				return;
 			}
 
@@ -1014,6 +1014,7 @@ namespace D3dDdi
 			notifyLock(subResourceIndex);
 			m_lockData[subResourceIndex].isRefLocked = false;
 		}
+		m_lockData[subResourceIndex].isVidMemUpToDate = true;
 	}
 
 	HRESULT Resource::lock(D3DDDIARG_LOCK& data)
