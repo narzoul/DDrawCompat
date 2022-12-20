@@ -311,7 +311,7 @@ namespace Gdi
 					SelectObject(dc.first, createDib(dc.second.useDefaultPalette));
 				}
 
-				if (gdiResource && DDraw::PrimarySurface::getPrimary())
+				if (gdiResource && DDraw::PrimarySurface::getPrimary() && !DDraw::RealPrimarySurface::isLost())
 				{
 					D3dDdi::Device::setGdiResourceHandle(*gdiResource);
 				}

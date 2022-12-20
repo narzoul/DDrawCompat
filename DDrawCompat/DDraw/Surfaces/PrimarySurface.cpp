@@ -19,7 +19,8 @@ namespace
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
 	CompatWeakPtr<IDirectDrawSurface7> g_gdiPrimarySurface;
 	D3dDdi::Device* g_device = nullptr;
-	HANDLE g_gdiResourceHandle = nullptr;
+	HANDLE g_gdiDriverResource = nullptr;
+	HANDLE g_gdiRuntimeResource = nullptr;
 	HANDLE g_frontResource = nullptr;
 	DWORD g_origCaps = 0;
 	HWND g_deviceWindow = nullptr;
@@ -66,7 +67,8 @@ namespace DDraw
 		LOG_FUNC("PrimarySurface::~PrimarySurface");
 
 		g_device = nullptr;
-		g_gdiResourceHandle = nullptr;
+		g_gdiRuntimeResource = nullptr;
+		g_gdiDriverResource = nullptr;
 		g_frontResource = nullptr;
 		g_primarySurface = nullptr;
 		g_gdiPrimarySurface.release();
@@ -282,6 +284,11 @@ namespace DDraw
 		return g_frontResource;
 	}
 
+	HANDLE PrimarySurface::getGdiResource()
+	{
+		return g_gdiDriverResource;
+	}
+	
 	RECT PrimarySurface::getMonitorRect()
 	{
 		return g_monitorRect;
@@ -295,7 +302,7 @@ namespace DDraw
 	template <typename TSurface>
 	static bool PrimarySurface::isGdiSurface(TSurface* surface)
 	{
-		return surface && DirectDrawSurface::getRuntimeResourceHandle(*surface) == g_gdiResourceHandle;
+		return surface && DirectDrawSurface::getRuntimeResourceHandle(*surface) == g_gdiRuntimeResource;
 	}
 
 	template bool PrimarySurface::isGdiSurface(IDirectDrawSurface*);
@@ -310,10 +317,11 @@ namespace DDraw
 
 		Gdi::VirtualScreen::update();
 		g_primarySurface = m_surface;
-		g_gdiResourceHandle = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
+		g_gdiRuntimeResource = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
 
 		updateFrontResource();
-		D3dDdi::Device::setGdiResourceHandle(g_frontResource);
+		g_gdiDriverResource = g_frontResource;
+		D3dDdi::Device::setGdiResourceHandle(g_gdiDriverResource);
 
 		DDSCAPS2 caps = {};
 		caps.dwCaps = DDSCAPS_FLIP;

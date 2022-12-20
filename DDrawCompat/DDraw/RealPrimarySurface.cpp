@@ -308,6 +308,12 @@ namespace
 			g_windowedBackBuffer->Restore(g_windowedBackBuffer);
 		}
 
+		auto gdiResource = DDraw::PrimarySurface::getGdiResource();
+		if (gdiResource)
+		{
+			D3dDdi::Device::setGdiResourceHandle(gdiResource);
+		}
+
 		Compat::ScopedCriticalSection lock(g_presentCs);
 		g_isOverlayUpdatePending = false;
 		g_isUpdatePending = false;

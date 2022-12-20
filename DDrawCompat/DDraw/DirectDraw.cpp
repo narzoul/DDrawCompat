@@ -251,6 +251,11 @@ namespace DDraw
 				if (realPrimary)
 				{
 					realPrimary->Restore(realPrimary);
+					auto gdiResource = DDraw::PrimarySurface::getGdiResource();
+					if (gdiResource)
+					{
+						D3dDdi::Device::setGdiResourceHandle(gdiResource);
+					}
 				}
 			}
 

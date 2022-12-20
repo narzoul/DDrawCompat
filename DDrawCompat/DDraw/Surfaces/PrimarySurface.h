@@ -25,6 +25,7 @@ namespace DDraw
 		static CompatWeakPtr<IDirectDrawSurface7> getGdiPrimary();
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
 		static HANDLE getFrontResource();
+		static HANDLE getGdiResource();
 		static DWORD getOrigCaps();
 		static void updatePalette();
 
