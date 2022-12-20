@@ -953,12 +953,12 @@ namespace D3dDdi
 		{
 			resource->scaleRect(reinterpret_cast<RECT&>(vp));
 			renderTarget.hRenderTarget = *resource->getCustomResource();
-			
-			resource = m_device.getResource(depthStencil.hZBuffer);
-			if (resource && resource->getCustomResource())
-			{
-				depthStencil.hZBuffer = *resource->getCustomResource();
-			}
+		}
+
+		resource = m_device.getResource(depthStencil.hZBuffer);
+		if (resource && resource->getCustomResource())
+		{
+			depthStencil.hZBuffer = *resource->getCustomResource();
 		}
 
 		setRenderTarget(renderTarget);

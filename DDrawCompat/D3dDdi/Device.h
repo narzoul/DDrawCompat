@@ -78,6 +78,7 @@ namespace D3dDdi
 		static void updateAllConfig();
 
 	private:
+		HRESULT clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags);
 		static void updateAllConfigNow();
 
 		D3DDDI_DEVICEFUNCS m_origVtable;

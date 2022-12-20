@@ -167,6 +167,7 @@
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\CpuAffinityRotation.h" />
+    <ClInclude Include="Config\Settings\DepthFormat.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
     <ClInclude Include="Config\Settings\DisplayRefreshRate.h" />

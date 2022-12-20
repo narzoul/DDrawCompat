@@ -52,7 +52,7 @@ namespace
 
 		auto& repo = D3dDdi::SurfaceRepository::get(device->getAdapter());
 		D3dDdi::SurfaceRepository::Surface surface = {};
-		repo.getSurface(surface, 1, 1, DDraw::DirectDraw::getRgbPixelFormat(32), DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY);
+		repo.getSurface(surface, 1, 1, D3DDDIFMT_X8R8G8B8, DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY);
 
 		LOG_RESULT(surface.surface.get());
 		return surface.surface;

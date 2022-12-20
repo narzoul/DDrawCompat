@@ -1,4 +1,5 @@
 #include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SpriteFilter.h>
@@ -82,6 +83,7 @@ namespace Overlay
 		}
 
 		if (&Config::antialiasing  == &m_setting ||
+			&Config::depthFormat == &m_setting ||
 			&Config::renderColorDepth == &m_setting ||
 			&Config::resolutionScale == &m_setting ||
 			&Config::spriteFilter == &m_setting ||

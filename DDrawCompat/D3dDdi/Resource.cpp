@@ -6,6 +6,7 @@
 #include <Common/Rect.h>
 #include <Common/Time.h>
 #include <Config/Settings/BltFilter.h>
+#include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -161,8 +162,6 @@ namespace D3dDdi
 		}
 		m_handle = m_fixedData.hResource;
 
-		updateConfig();
-
 		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool && m_origData.Flags.ZBuffer)
 		{
 			m_lockData.resize(m_origData.SurfCount);
@@ -191,6 +190,7 @@ namespace D3dDdi
 		}
 
 		data.hResource = m_fixedData.hResource;
+		updateConfig();
 	}
 
 	Resource::~Resource()
@@ -707,7 +707,7 @@ namespace D3dDdi
 		if (D3DDDIFMT_UNKNOWN != g_formatOverride)
 		{
 			m_fixedData.Format = g_formatOverride;
-			if (m_fixedData.Flags.ZBuffer)
+			if (FOURCC_INTZ == g_formatOverride)
 			{
 				m_fixedData.Flags.Texture = 1;
 			}
@@ -747,6 +747,27 @@ namespace D3dDdi
 			{
 			case 16: return D3DDDIFMT_R5G6B5;
 			case 32: return D3DDDIFMT_X8R8G8B8;
+			}
+		}
+		else if (m_fixedData.Flags.ZBuffer && Config::Settings::DepthFormat::APP != Config::depthFormat.get() &&
+			getFormatInfo(m_fixedData.Format).depth.bitCount != Config::depthFormat.get())
+		{
+			auto& formatOps = m_device.getAdapter().getInfo().formatOps;
+			switch (Config::depthFormat.get())
+			{
+#define USE_FORMAT(format) if (formatOps.find(format) != formatOps.end()) return format
+			case 32:
+				USE_FORMAT(D3DDDIFMT_D32);
+				USE_FORMAT(D3DDDIFMT_D32_LOCKABLE);
+				USE_FORMAT(D3DDDIFMT_D32F_LOCKABLE);
+			case 24:
+				USE_FORMAT(D3DDDIFMT_S8D24);
+				USE_FORMAT(D3DDDIFMT_D24S8);
+				USE_FORMAT(D3DDDIFMT_X8D24);
+				USE_FORMAT(D3DDDIFMT_D24X8);
+			case 16:
+				USE_FORMAT(D3DDDIFMT_D16);
+#undef USE_FORMAT
 			}
 		}
 		return m_fixedData.Format;
@@ -815,7 +836,7 @@ namespace D3dDdi
 			if (!m_fixedData.Flags.Texture)
 			{
 				auto& repo = SurfaceRepository::get(m_device.getAdapter());
-				auto& texture = repo.getTempTexture(si.Width, si.Height, getPixelFormat(m_fixedData.Format));
+				auto& texture = repo.getTempTexture(si.Width, si.Height, m_fixedData.Format);
 				if (!texture.resource)
 				{
 					return;
@@ -1207,7 +1228,7 @@ namespace D3dDdi
 
 		if (D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
 		{
-			srcResource = repo.getTempTexture(srcWidth, srcHeight, getPixelFormat(srcResource->m_fixedData.Format)).resource;
+			srcResource = repo.getTempTexture(srcWidth, srcHeight, srcResource->m_fixedData.Format).resource;
 			if (!srcResource)
 			{
 				return LOG_RESULT(E_OUTOFMEMORY);
@@ -1319,7 +1340,7 @@ namespace D3dDdi
 
 			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left, visibleRect.bottom - visibleRect.top };
 			auto& windowSurface = repo.getTempSysMemSurface(srcRect.right, srcRect.bottom);
-			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, getPixelFormat(D3DDDIFMT_A8R8G8B8));
+			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, D3DDDIFMT_A8R8G8B8);
 			if (!windowSurface.resource || !texture.resource)
 			{
 				continue;
@@ -1407,6 +1428,11 @@ namespace D3dDdi
 		}
 	}
 
+	void Resource::setFormatOverride(D3DDDIFORMAT format)
+	{
+		g_formatOverride = format;
+	}
+
 	void Resource::setFullscreenMode(bool isFullscreen)
 	{
 		if (!IsRectEmpty(&g_presentationRect) == isFullscreen)
@@ -1469,7 +1495,7 @@ namespace D3dDdi
 			DWORD height = data.SrcRect.bottom - data.SrcRect.top;
 			auto texture = m_fixedData.Flags.ZBuffer
 				? m_msaaResolvedSurface.resource
-				: repo.getTempTexture(width, height, getPixelFormat(srcResource.m_fixedData.Format)).resource;
+				: repo.getTempTexture(width, height, srcResource.m_fixedData.Format).resource;
 			if (!texture)
 			{
 				return LOG_RESULT(E_OUTOFMEMORY);
@@ -1492,7 +1518,7 @@ namespace D3dDdi
 			}
 		}
 
-		if (!m_fixedData.Flags.RenderTarget)
+		if (!m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
 		{
 			LONG width = data.DstRect.right - data.DstRect.left;
 			LONG height = data.DstRect.bottom - data.DstRect.top;
@@ -1540,7 +1566,7 @@ namespace D3dDdi
 				data.Flags.Linear ? D3DTEXF_LINEAR : D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
 		}
 
-		if (!m_fixedData.Flags.RenderTarget)
+		if (!m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
 		{
 			HRESULT result = copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
 				*dstRes, dstIndex, dstRect);
@@ -1562,6 +1588,9 @@ namespace D3dDdi
 		{
 			return false;
 		}
+
+		D3DDDIARG_BLT blt = {};
+		DDraw::setBltSrc(blt);
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
 			D3DDDIFMT_P8 == m_fixedData.Format ||
@@ -1604,9 +1633,6 @@ namespace D3dDdi
 		{
 			return;
 		}
-		m_multiSampleConfig = msaa;
-		m_formatConfig = formatConfig;
-		m_scaledSize = scaledSize;
 
 		if (m_msaaSurface.resource || m_msaaResolvedSurface.resource)
 		{
@@ -1622,6 +1648,10 @@ namespace D3dDdi
 			}
 		}
 
+		m_multiSampleConfig = msaa;
+		m_formatConfig = formatConfig;
+		m_scaledSize = scaledSize;
+
 		m_msaaSurface = {};
 		m_msaaResolvedSurface = {};
 		m_nullSurface = {};
@@ -1636,39 +1666,35 @@ namespace D3dDdi
 			{
 				g_msaaOverride = msaa;
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaSurface,
-					scaledSize.cx, scaledSize.cy, getPixelFormat(formatConfig), caps, m_fixedData.SurfCount);
+					scaledSize.cx, scaledSize.cy, formatConfig, caps, m_fixedData.SurfCount);
 				g_msaaOverride = {};
 			}
 
 			if (m_fixedData.Flags.ZBuffer && m_msaaSurface.resource &&
 				m_device.getAdapter().getInfo().isMsaaDepthResolveSupported)
 			{
-				g_formatOverride = FOURCC_NULL;
 				g_msaaOverride = msaa;
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_nullSurface,
-					scaledSize.cx, scaledSize.cy, getPixelFormat(D3DDDIFMT_X8R8G8B8),
+					scaledSize.cx, scaledSize.cy, FOURCC_NULL,
 					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				g_msaaOverride = {};
-				g_formatOverride = m_nullSurface.resource ? FOURCC_INTZ : D3DDDIFMT_UNKNOWN;
 			}
 			auto msaaResolvedSurfaceCaps = caps | ((m_fixedData.Flags.ZBuffer || !isScaled) ? 0 : DDSCAPS_TEXTURE);
-			auto msaaResolvedSurfaceFormat = 
-				(m_fixedData.Flags.ZBuffer || !isScaled) ? getPixelFormat(formatConfig) : getPixelFormat(D3DDDIFMT_A8R8G8B8);
 			SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
-				scaledSize.cx, scaledSize.cy, msaaResolvedSurfaceFormat, msaaResolvedSurfaceCaps, m_fixedData.SurfCount);
-			g_formatOverride = D3DDDIFMT_UNKNOWN;
+				scaledSize.cx, scaledSize.cy, m_nullSurface.resource ? FOURCC_INTZ : formatConfig,
+				msaaResolvedSurfaceCaps, m_fixedData.SurfCount);
 
 			if (!m_msaaResolvedSurface.resource && m_msaaSurface.resource)
 			{
 				m_msaaSurface = {};
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
-					scaledSize.cx, scaledSize.cy, msaaResolvedSurfaceFormat, msaaResolvedSurfaceCaps, m_fixedData.SurfCount);
+					scaledSize.cx, scaledSize.cy, formatConfig, msaaResolvedSurfaceCaps, m_fixedData.SurfCount);
 			}
 
 			if (!m_fixedData.Flags.ZBuffer && m_msaaResolvedSurface.resource)
 			{
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_lockRefSurface,
-					m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height, getPixelFormat(m_fixedData.Format),
+					m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height, m_fixedData.Format,
 					DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				
 				if (isScaled)

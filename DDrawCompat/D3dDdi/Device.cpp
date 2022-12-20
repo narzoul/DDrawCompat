@@ -47,6 +47,30 @@ namespace D3dDdi
 		s_devices.try_emplace(device, adapter, device);
 	}
 
+	HRESULT Device::clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags)
+	{
+		if (0 == flags)
+		{
+			return S_OK;
+		}
+
+		data.Flags &= ~(D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL);
+		data.Flags |= flags;
+
+		if (resource)
+		{
+			static std::vector<RECT> scaledRects;
+			scaledRects.assign(rect, rect + numRect);
+			for (UINT i = 0; i < numRect; ++i)
+			{
+				resource->scaleRect(scaledRects[i]);
+			}
+			rect = scaledRects.data();
+		}
+
+		return m_origVtable.pfnClear(m_device, &data, numRect, rect);
+	}
+
 	HRESULT Device::createPrivateResource(D3DDDIARG_CREATERESOURCE2& data)
 	{
 		const bool isPalettized = D3DDDIFMT_P8 == data.Format;
@@ -179,18 +203,17 @@ namespace D3dDdi
 		prepareForGpuWrite();
 		m_state.flush();
 
-		if ((m_renderTarget || m_depthStencil) && rect)
+		if (0 == numRect || !rect)
 		{
-			std::vector<RECT> scaledRect(rect, rect + numRect);
-			auto resource = m_renderTarget ? m_renderTarget : m_depthStencil;
-			for (UINT i = 0; i < numRect; ++i)
-			{
-				resource->scaleRect(scaledRect[i]);
-			}
-			return m_origVtable.pfnClear(m_device, data, numRect, scaledRect.data());
+			return m_origVtable.pfnClear(m_device, data, numRect, rect);
 		}
 
-		return m_origVtable.pfnClear(m_device, data, numRect, rect);
+		HRESULT result = clear(*data, numRect, rect, m_renderTarget, data->Flags & D3DCLEAR_TARGET);
+		if (SUCCEEDED(result))
+		{
+			result = clear(*data, numRect, rect, m_depthStencil, data->Flags & (D3DCLEAR_ZBUFFER | D3DCLEAR_STENCIL));
+		}
+		return result;
 	}
 
 	HRESULT Device::pfnColorFill(const D3DDDIARG_COLORFILL* data)

@@ -6,6 +6,7 @@
 
 #include <Common/CompatPtr.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/Resource.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
@@ -65,17 +66,16 @@ namespace
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 		}
 
-		auto srcResource = DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSrcSurface);
-		auto device = D3dDdi::Device::findDeviceByResource(srcResource);
-		if (!device)
+		auto srcResource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSrcSurface));
+		if (!srcResource)
 		{
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 		}
 
-		auto& repo = D3dDdi::SurfaceRepository::get(device->getAdapter());
+		auto& repo = D3dDdi::SurfaceRepository::get(srcResource->getDevice().getAdapter());
 		RECT srcRect = getRect(lpSrcRect, srcDesc);
 		auto& tex = repo.getTempTexture(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top,
-			srcDesc.ddpfPixelFormat);
+			srcResource->getOrigDesc().Format);
 		if (!tex.resource)
 		{
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
@@ -86,7 +86,7 @@ namespace
 		HRESULT result = getOrigVtable(This).GetColorKey(lpDDSrcSurface, DDCKEY_SRCBLT, &ck);
 		getOrigVtable(This).SetColorKey(newSrcSurface, DDCKEY_SRCBLT, SUCCEEDED(result) ? &ck : nullptr);
 
-		g_bltSrcResource = srcResource;
+		g_bltSrcResource = *srcResource;
 		g_bltSrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(*lpDDSrcSurface);
 		g_bltSrcRect = getRect(lpSrcRect, srcDesc);
 

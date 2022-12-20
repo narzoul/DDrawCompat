@@ -6,6 +6,7 @@
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/FpsLimiter.h>
@@ -30,7 +31,7 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 430 }, WS_BORDER, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 455 }, WS_BORDER, Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -43,6 +44,7 @@ namespace Overlay
 		addControl(Config::alternatePixelCenter);
 		addControl(Config::antialiasing);
 		addControl(Config::bltFilter);
+		addControl(Config::depthFormat);
 		addControl(Config::displayFilter);
 		addControl(Config::fontAntialiasing);
 		addControl(Config::fpsLimiter);

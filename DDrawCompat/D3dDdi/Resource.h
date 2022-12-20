@@ -27,7 +27,7 @@ namespace D3dDdi
 		~Resource();
 
 		operator HANDLE() const { return m_handle; }
-		const Resource* getCustomResource() { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
+		Resource* getCustomResource() const { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
 		Device& getDevice() const { return m_device; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
@@ -59,6 +59,8 @@ namespace D3dDdi
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
 		void updatePalettizedTexture(UINT stage);
+
+		static void setFormatOverride(D3DDDIFORMAT format);
 
 	private:
 		class Data : public D3DDDIARG_CREATERESOURCE2

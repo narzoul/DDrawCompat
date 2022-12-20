@@ -6,6 +6,7 @@
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
+#include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/DisplayRefreshRate.h>
@@ -46,6 +47,7 @@ namespace Config
 	Settings::ConfigHotKey configHotKey;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;
+	Settings::DepthFormat depthFormat;
 	Settings::DesktopColorDepth desktopColorDepth;
 	Settings::DisplayFilter displayFilter;
 	Settings::DisplayRefreshRate displayRefreshRate;

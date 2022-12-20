@@ -7,7 +7,6 @@
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
-#include <DDraw/Comparison.h>
 
 namespace D3dDdi
 {
@@ -33,7 +32,7 @@ namespace D3dDdi
 			Resource* resource = nullptr;
 			DWORD width = 0;
 			DWORD height = 0;
-			DDPIXELFORMAT pixelFormat = {};
+			D3DDDIFORMAT format = D3DDDIFMT_UNKNOWN;
 		};
 
 		Cursor getCursor(HCURSOR cursor);
@@ -41,12 +40,12 @@ namespace D3dDdi
 		Resource* getPaletteTexture();
 		Resource* getGammaRampTexture();
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
-			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
+			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempRenderTarget(DWORD width, DWORD height, UINT index = 0);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
-			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount = 1);
-		const Surface& getTempTexture(DWORD width, DWORD height, const DDPIXELFORMAT& pf);
+			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
+		const Surface& getTempTexture(DWORD width, DWORD height, D3DDDIFORMAT format);
 		void release(Surface& surface);
 
 		static SurfaceRepository& get(const Adapter& adapter);
@@ -57,9 +56,9 @@ namespace D3dDdi
 		SurfaceRepository(const Adapter& adapter);
 
 		CompatPtr<IDirectDrawSurface7> createSurface(DWORD width, DWORD height,
-			const DDPIXELFORMAT& pf, DWORD caps, UINT surfaceCount);
+			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount);
 		bool getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags);
-		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, const DDPIXELFORMAT& pf, DWORD caps,
+		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps,
 			std::function<void(const DDSURFACEDESC2&)> initFunc);
 		bool hasAlpha(CompatRef<IDirectDrawSurface7> surface);
 		bool isLost(Surface& surface);
@@ -75,7 +74,7 @@ namespace D3dDdi
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
 		std::vector<Surface> m_renderTargets;
-		std::map<DDPIXELFORMAT, Surface> m_textures;
+		std::map<D3DDDIFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
 		Surface m_sysMemSurface;
 		
