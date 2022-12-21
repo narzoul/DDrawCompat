@@ -93,7 +93,8 @@ namespace D3dDdi
 
 	SurfaceRepository::Cursor SurfaceRepository::getCursor(HCURSOR cursor)
 	{
-		if (isLost(m_cursorMaskTexture) || isLost(m_cursorColorTexture))
+		if (m_cursorMaskTexture.resource && isLost(m_cursorMaskTexture) ||
+			m_cursorColorTexture.resource && isLost(m_cursorColorTexture))
 		{
 			m_cursor = nullptr;
 			m_cursorMaskTexture = {};
@@ -109,6 +110,8 @@ namespace D3dDdi
 			{
 				return {};
 			}
+			std::unique_ptr<void, decltype(&DeleteObject)> bmColor(iconInfo.hbmColor, DeleteObject);
+			std::unique_ptr<void, decltype(&DeleteObject)> bmMask(iconInfo.hbmMask, DeleteObject);
 			m_cursorHotspot.x = iconInfo.xHotspot;
 			m_cursorHotspot.y = iconInfo.yHotspot;
 
