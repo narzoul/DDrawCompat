@@ -226,9 +226,14 @@ namespace
 			}
 
 			HWND parent = GetAncestor(hwnd, GA_PARENT);
-			if (parent && SendMessage(parent, msg, wParam, lParam))
+			if (parent && GetDesktopWindow() != parent && SendMessage(parent, msg, wParam, lParam))
 			{
 				return TRUE;
+			}
+
+			if (hwnd != reinterpret_cast<HWND>(wParam))
+			{
+				return FALSE;
 			}
 
 			if (HTCLIENT == LOWORD(lParam))
@@ -236,7 +241,8 @@ namespace
 				auto cursor = GetClassLong(hwnd, GCL_HCURSOR);
 				if (cursor)
 				{
-					Gdi::Cursor::setCursor(reinterpret_cast<HCURSOR>(cursor));
+					SetCursor(reinterpret_cast<HCURSOR>(cursor));
+					return TRUE;
 				}
 			}
 			else
