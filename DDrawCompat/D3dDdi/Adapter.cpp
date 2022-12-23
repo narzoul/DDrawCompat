@@ -266,6 +266,26 @@ namespace D3dDdi
 		return supportedZBufferBitDepths;
 	}
 
+	bool Adapter::isEmulatedRenderTargetFormat(D3DDDIFORMAT format)
+	{
+		const auto& fi = getFormatInfo(format);
+		if (0 == fi.red.bitCount)
+		{
+			return false;
+		}
+
+		const auto& formatOps = getInfo().formatOps;
+		auto it = formatOps.find(format);
+		if (it == formatOps.end() || (it->second.Operations & FORMATOP_OFFSCREEN_RENDERTARGET))
+		{
+			return false;
+		}
+
+		auto replacementFormat = 0 != fi.alpha.bitCount ? D3DDDIFMT_A8R8G8B8 : D3DDDIFMT_X8R8G8B8;
+		it = formatOps.find(replacementFormat);
+		return it != formatOps.end() && (it->second.Operations & FORMATOP_OFFSCREEN_RENDERTARGET);
+	}
+
 	HRESULT Adapter::pfnCloseAdapter()
 	{
 		auto adapter = m_adapter;
@@ -325,10 +345,16 @@ namespace D3dDdi
 			auto formatOp = static_cast<FORMATOP*>(pData->pData);
 			for (UINT i = 0; i < count; ++i)
 			{
+				if (isEmulatedRenderTargetFormat(formatOp[i].Format))
+				{
+					formatOp[i].Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
+				}
+
 				if (D3DDDIFMT_P8 == formatOp[i].Format && Config::palettizedTextures.get())
 				{
 					formatOp[i].Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
 				}
+
 				if (D3DDDIFMT_D24X4S4 == formatOp[i].Format || D3DDDIFMT_X4S4D24 == formatOp[i].Format)
 				{
 					// If these formats are reported as depth buffers, then EnumZBufferFormats returns only D16

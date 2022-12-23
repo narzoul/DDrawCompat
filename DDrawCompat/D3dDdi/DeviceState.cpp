@@ -587,7 +587,7 @@ namespace D3dDdi
 
 	void DeviceState::prepareTextures()
 	{
-		for (UINT stage = 0; stage < m_app.textures.size(); ++stage)
+		for (UINT stage = 0; stage < getVertexDecl().textureStageCount; ++stage)
 		{
 			auto resource = getTextureResource(stage);
 			if (resource)
@@ -1045,7 +1045,13 @@ namespace D3dDdi
 	{
 		for (UINT stage = 0; stage <= m_maxChangedTextureStage; ++stage)
 		{
-			if (setTexture(stage, m_app.textures[stage]) ||
+			auto resource = getTextureResource(stage);
+			if (resource)
+			{
+				resource = &resource->prepareForGpuRead(0);
+			}
+
+			if (setTexture(stage, resource ? *resource : m_app.textures[stage]) ||
 				m_changedTextureStageStates[stage].test(D3DDDITSS_DISABLETEXTURECOLORKEY) ||
 				m_changedTextureStageStates[stage].test(D3DDDITSS_TEXTURECOLORKEYVAL))
 			{

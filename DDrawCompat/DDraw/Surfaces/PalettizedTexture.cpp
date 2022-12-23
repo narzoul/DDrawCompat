@@ -38,7 +38,9 @@ namespace DDraw
 		auto data = privateData.get();
 		data->m_palettizedSurface = palettizedSurface;
 
+		D3dDdi::Resource::enableConfig(false);
 		result = Surface::create(dd, desc, surface, std::move(privateData));
+		D3dDdi::Resource::enableConfig(true);
 		if (FAILED(result))
 		{
 			return LOG_RESULT(result);

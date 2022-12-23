@@ -35,6 +35,7 @@ namespace
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
 	RECT g_presentationRect = {};
 	
+	bool g_enableConfig = true;
 	D3DDDIFORMAT g_formatOverride = D3DDDIFMT_UNKNOWN;
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> g_msaaOverride = {};
 
@@ -128,7 +129,7 @@ namespace D3dDdi
 		, m_paletteHandle(0)
 		, m_paletteColorKeyIndex(-1)
 		, m_isOversized(false)
-		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface())
+		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface() || !g_enableConfig)
 		, m_isClampable(true)
 		, m_isPrimary(false)
 		, m_isPalettizedTextureUpToDate(false)
@@ -404,7 +405,7 @@ namespace D3dDdi
 
 		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
 			(m_fixedData.Flags.ZBuffer && &dstRes == m_msaaSurface.resource && m_nullSurface.resource ||
-				m_fixedData.Flags.RenderTarget ||
+				dstRes.m_fixedData.Flags.RenderTarget ||
 				!m_fixedData.Flags.ZBuffer && (
 					data.Flags.SrcColorKey ||
 					data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
@@ -583,10 +584,12 @@ namespace D3dDdi
 		D3DDDI_RESOURCEFLAGS flags = {};
 		flags.Value = g_resourceTypeFlags;
 		flags.RenderTarget = 0;
+		flags.Texture = 0;
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
 			m_isSurfaceRepoResource ||
 			0 == m_formatInfo.bytesPerPixel ||
-			0 != (m_fixedData.Flags.Value & flags.Value))
+			0 != (m_fixedData.Flags.Value & flags.Value) ||
+			m_fixedData.Flags.Texture && !m_origData.Flags.RenderTarget)
 		{
 			return;
 		}
@@ -683,6 +686,11 @@ namespace D3dDdi
 		}
 	}
 
+	void Resource::enableConfig(bool enable)
+	{
+		g_enableConfig = enable;
+	}
+
 	void Resource::fixResourceData()
 	{
 		if (m_fixedData.Flags.MatchGdiPrimary)
@@ -698,14 +706,17 @@ namespace D3dDdi
 			}
 			m_fixedData.Format = D3DDDIFMT_X8R8G8B8;
 		}
-
-		if (D3DDDIFMT_UNKNOWN != g_formatOverride)
+		else if (D3DDDIFMT_UNKNOWN != g_formatOverride)
 		{
 			m_fixedData.Format = g_formatOverride;
 			if (FOURCC_INTZ == g_formatOverride)
 			{
 				m_fixedData.Flags.Texture = 1;
 			}
+		}
+		else if (m_fixedData.Flags.RenderTarget && m_device.getAdapter().isEmulatedRenderTargetFormat(m_fixedData.Format))
+		{
+			m_fixedData.Flags.RenderTarget = 0;
 		}
 
 		if (D3DDDIMULTISAMPLE_NONE != g_msaaOverride.first)
@@ -736,6 +747,11 @@ namespace D3dDdi
 
 	D3DDDIFORMAT Resource::getFormatConfig()
 	{
+		if (m_origData.Flags.RenderTarget && !m_fixedData.Flags.RenderTarget)
+		{
+			return 0 != m_formatInfo.alpha.bitCount ? D3DDDIFMT_A8R8G8B8 : D3DDDIFMT_X8R8G8B8;
+		}
+
 		if (D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format)
 		{
 			switch (Config::renderColorDepth.get())
@@ -775,8 +791,7 @@ namespace D3dDdi
 
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
-		if (!m_fixedData.Flags.Texture &&
-			(!m_isPrimary || m_fixedData.Flags.RenderTarget))
+		if (!m_isPrimary || m_origData.Flags.RenderTarget)
 		{
 			return m_device.getAdapter().getMultisampleConfig(m_fixedData.Format);
 		}
@@ -803,7 +818,7 @@ namespace D3dDdi
 	SIZE Resource::getScaledSize()
 	{
 		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
-		if (!m_fixedData.Flags.Texture)
+		if (m_origData.Flags.RenderTarget || m_fixedData.Flags.ZBuffer)
 		{
 			return m_device.getAdapter().getScaledSize(size);
 		}
@@ -951,7 +966,7 @@ namespace D3dDdi
 		if (m_lockData[subResourceIndex].isMsaaUpToDate || m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 		{
 			loadMsaaResolvedResource(subResourceIndex);
-			if (!m_fixedData.Flags.RenderTarget ||
+			if (!m_origData.Flags.RenderTarget ||
 				Config::Settings::ResolutionScaleFilter::POINT == Config::resolutionScaleFilter.get())
 			{
 				const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
@@ -1199,7 +1214,7 @@ namespace D3dDdi
 		if (srcResource->m_lockResource)
 		{
 			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate &&
-				!srcResource->m_fixedData.Flags.RenderTarget)
+				!srcResource->m_origData.Flags.RenderTarget)
 			{
 				srcResource->m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate = false;
 				srcResource->m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate = false;
@@ -1515,7 +1530,7 @@ namespace D3dDdi
 			}
 		}
 
-		if (!m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
+		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer)
 		{
 			LONG width = data.DstRect.right - data.DstRect.left;
 			LONG height = data.DstRect.bottom - data.DstRect.top;
@@ -1563,7 +1578,7 @@ namespace D3dDdi
 				data.Flags.Linear ? D3DTEXF_LINEAR : D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
 		}
 
-		if (!m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer)
+		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer)
 		{
 			HRESULT result = copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
 				*dstRes, dstIndex, dstRect);
@@ -1617,7 +1632,7 @@ namespace D3dDdi
 	{
 		if (m_isSurfaceRepoResource || D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || D3DDDIFMT_P8 == m_fixedData.Format ||
 			m_fixedData.Flags.MatchGdiPrimary ||
-			!m_isPrimary && !m_fixedData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer ||
+			!m_isPrimary && !m_origData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer ||
 			!m_fixedData.Flags.ZBuffer && !m_lockResource)
 		{
 			return;

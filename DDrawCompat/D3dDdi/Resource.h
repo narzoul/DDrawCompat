@@ -60,6 +60,7 @@ namespace D3dDdi
 		void updateConfig();
 		void updatePalettizedTexture(UINT stage);
 
+		static void enableConfig(bool enable);
 		static void setFormatOverride(D3DDDIFORMAT format);
 
 	private:

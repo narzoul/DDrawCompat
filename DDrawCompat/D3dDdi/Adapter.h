@@ -40,6 +40,7 @@ namespace D3dDdi
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
 		SIZE getScaledSize(Int2 size) const;
+		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format);
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
