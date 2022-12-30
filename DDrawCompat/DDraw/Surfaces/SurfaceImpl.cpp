@@ -26,6 +26,14 @@ namespace
 	RECT g_bltSrcRect = {};
 
 	template <typename TSurface>
+	typename DDraw::Types<TSurface>::TDdsCaps getCaps(TSurface* This)
+	{
+		DDraw::Types<TSurface>::TDdsCaps caps = {};
+		getOrigVtable(This).GetCaps(This, &caps);
+		return caps;
+	}
+
+	template <typename TSurface>
 	typename DDraw::Types<TSurface>::TSurfaceDesc getDesc(TSurface* This)
 	{
 		DDraw::Types<TSurface>::TSurfaceDesc desc = {};
@@ -54,8 +62,8 @@ namespace
 			lpDDSrcSurface = srcSurface->getImpl<TSurface>()->getBltSrc(lpDDSrcSurface);
 		}
 
-		auto dstDesc = getDesc(This);
-		if (!(dstDesc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE) || !(dstDesc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY))
+		auto dstCaps = getCaps(This);
+		if (!(dstCaps.dwCaps & DDSCAPS_3DDEVICE) || !(dstCaps.dwCaps & DDSCAPS_VIDEOMEMORY))
 		{
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 		}

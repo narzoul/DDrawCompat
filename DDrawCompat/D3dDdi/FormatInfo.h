@@ -7,9 +7,11 @@
 
 namespace D3dDdi
 {
-	static const auto FOURCC_RESZ = static_cast<D3DDDIFORMAT>(MAKEFOURCC('R', 'E', 'S', 'Z'));
+	static const auto FOURCC_DF16 = static_cast<D3DDDIFORMAT>(MAKEFOURCC('D', 'F', '1', '6'));
+	static const auto FOURCC_DF24 = static_cast<D3DDDIFORMAT>(MAKEFOURCC('D', 'F', '2', '4'));
 	static const auto FOURCC_INTZ = static_cast<D3DDDIFORMAT>(MAKEFOURCC('I', 'N', 'T', 'Z'));
 	static const auto FOURCC_NULL = static_cast<D3DDDIFORMAT>(MAKEFOURCC('N', 'U', 'L', 'L'));
+	static const auto FOURCC_RESZ = static_cast<D3DDDIFORMAT>(MAKEFOURCC('R', 'E', 'S', 'Z'));
 
 	struct FormatInfo
 	{

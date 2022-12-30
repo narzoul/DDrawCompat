@@ -58,6 +58,7 @@ namespace D3dDdi
 		, m_luid(KernelModeThunks::getLastOpenAdapterInfo().luid)
 		, m_deviceName(KernelModeThunks::getLastOpenAdapterInfo().deviceName)
 		, m_repository{}
+		, m_info(findInfo())
 	{
 	}
 
@@ -80,7 +81,7 @@ namespace D3dDdi
 		return getAspectRatio({});
 	}
 
-	const Adapter::AdapterInfo& Adapter::getInfo() const
+	const Adapter::AdapterInfo& Adapter::findInfo() const
 	{
 		auto it = s_adapterInfos.find(m_luid);
 		if (it != s_adapterInfos.end())
@@ -91,12 +92,16 @@ namespace D3dDdi
 		AdapterInfo& info = s_adapterInfos.insert({ m_luid, {} }).first->second;
 		getCaps(D3DDDICAPS_GETD3D7CAPS, info.d3dExtendedCaps);
 		info.formatOps = getFormatOps();
-		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.formatOps);
 
+		auto d3d9on12 = GetModuleHandle("d3d9on12");
+		info.isD3D9On12 = d3d9on12 && d3d9on12 == Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
 		info.isMsaaDepthResolveSupported =
+			!info.isD3D9On12 &&
 			info.formatOps.find(FOURCC_RESZ) != info.formatOps.end() &&
 			info.formatOps.find(FOURCC_INTZ) != info.formatOps.end() &&
 			info.formatOps.find(FOURCC_NULL) != info.formatOps.end();
+		info.fixedFormatOps = getFixedFormatOps(info);
+		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.fixedFormatOps);
 
 		LOG_INFO << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
 		LOG_INFO << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
@@ -115,6 +120,47 @@ namespace D3dDdi
 		}
 
 		return info;
+	}
+
+	std::map<D3DDDIFORMAT, FORMATOP> Adapter::getFixedFormatOps(const AdapterInfo& info) const
+	{
+		std::map<D3DDDIFORMAT, FORMATOP> fixedFormatOps;
+
+		for (auto& formatOp : info.formatOps)
+		{
+			auto fixedFormatOp = formatOp.second;
+			if (isEmulatedRenderTargetFormat(formatOp.first, info.formatOps))
+			{
+				fixedFormatOp.Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
+			}
+
+			if (D3DDDIFMT_P8 == formatOp.first && Config::palettizedTextures.get())
+			{
+				fixedFormatOp.Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
+			}
+
+			if (D3DDDIFMT_D24X4S4 == formatOp.first || D3DDDIFMT_X4S4D24 == formatOp.first)
+			{
+				// If these formats are reported as depth buffers, then EnumZBufferFormats returns only D16
+				fixedFormatOp.Operations &= ~(FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH);
+			}
+
+			if (info.isD3D9On12)
+			{
+				if (D3DDDIFMT_D24X8 == formatOp.first)
+				{
+					fixedFormatOp.Format = D3DDDIFMT_X8D24;
+				}
+				else if (D3DDDIFMT_D24S8 == formatOp.first)
+				{
+					fixedFormatOp.Format = D3DDDIFMT_S8D24;
+				}
+			}
+
+			fixedFormatOps[fixedFormatOp.Format] = fixedFormatOp;
+		}
+
+		return fixedFormatOps;
 	}
 
 	template <typename Data>
@@ -266,7 +312,12 @@ namespace D3dDdi
 		return supportedZBufferBitDepths;
 	}
 
-	bool Adapter::isEmulatedRenderTargetFormat(D3DDDIFORMAT format)
+	bool Adapter::isEmulatedRenderTargetFormat(D3DDDIFORMAT format) const
+	{
+		return isEmulatedRenderTargetFormat(format, m_info.formatOps);
+	}
+
+	bool Adapter::isEmulatedRenderTargetFormat(D3DDDIFORMAT format, const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const
 	{
 		const auto& fi = getFormatInfo(format);
 		if (0 == fi.red.bitCount)
@@ -274,7 +325,6 @@ namespace D3dDdi
 			return false;
 		}
 
-		const auto& formatOps = getInfo().formatOps;
 		auto it = formatOps.find(format);
 		if (it == formatOps.end() || (it->second.Operations & FORMATOP_OFFSCREEN_RENDERTARGET))
 		{
@@ -339,27 +389,24 @@ namespace D3dDdi
 			break;
 		}
 
+		case D3DDDICAPS_GETFORMATCOUNT:
+			*static_cast<UINT*>(pData->pData) = m_info.fixedFormatOps.size();
+			break;
+
 		case D3DDDICAPS_GETFORMATDATA:
 		{
 			UINT count = pData->DataSize / sizeof(FORMATOP);
+			if (count > m_info.fixedFormatOps.size())
+			{
+				count = m_info.fixedFormatOps.size();
+			}
+
 			auto formatOp = static_cast<FORMATOP*>(pData->pData);
+			auto it = m_info.fixedFormatOps.begin();
 			for (UINT i = 0; i < count; ++i)
 			{
-				if (isEmulatedRenderTargetFormat(formatOp[i].Format))
-				{
-					formatOp[i].Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
-				}
-
-				if (D3DDDIFMT_P8 == formatOp[i].Format && Config::palettizedTextures.get())
-				{
-					formatOp[i].Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
-				}
-
-				if (D3DDDIFMT_D24X4S4 == formatOp[i].Format || D3DDDIFMT_X4S4D24 == formatOp[i].Format)
-				{
-					// If these formats are reported as depth buffers, then EnumZBufferFormats returns only D16
-					formatOp[i].Operations &= ~(FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH);
-				}
+				formatOp[i] = it->second;
+				++it;
 			}
 			break;
 		}

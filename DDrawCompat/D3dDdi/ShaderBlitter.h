@@ -27,7 +27,7 @@ namespace D3dDdi
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect, const Resource& nullResource);
+			const Resource& srcResource, const RECT& srcRect, HANDLE nullResource);
 		void gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect);
 		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

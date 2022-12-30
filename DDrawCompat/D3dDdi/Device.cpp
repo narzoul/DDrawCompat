@@ -73,25 +73,45 @@ namespace D3dDdi
 
 	HRESULT Device::createPrivateResource(D3DDDIARG_CREATERESOURCE2& data)
 	{
-		const bool isPalettized = D3DDDIFMT_P8 == data.Format;
-		const bool isTexture = data.Flags.Texture;
-		if (isPalettized)
+		LOG_FUNC("Device::createPrivateResource", data);
+		const auto origFormat = data.Format;
+		const auto origMipLevels = data.MipLevels;
+		const auto origFlags = data.Flags.Value;
+		auto& adapterInfo = m_adapter.getInfo();
+
+		if (D3DDDIFMT_P8 == data.Format)
 		{
 			data.Format = D3DDDIFMT_L8;
-			data.Flags.Texture = 1;
+			if (!data.Flags.Texture)
+			{
+				data.Flags.Texture = 1;
+				data.MipLevels = 1;
+			}
+		}
+		else if (adapterInfo.isD3D9On12)
+		{
+			if (D3DDDIFMT_D16 == data.Format)
+			{
+				data.Format = FOURCC_DF16;
+			}
+			else if (D3DDDIFMT_X8D24 == data.Format)
+			{
+				data.Format = FOURCC_DF24;
+			}
+			else if (D3DDDIFMT_S8D24 == data.Format)
+			{
+				data.Format = FOURCC_INTZ;
+			}
 		}
 
 		HRESULT result = m_origVtable.pfnCreateResource2
 			? m_origVtable.pfnCreateResource2(m_device, &data)
 			: m_origVtable.pfnCreateResource(m_device, reinterpret_cast<D3DDDIARG_CREATERESOURCE*>(&data));
 
-		if (isPalettized)
-		{
-			data.Format = D3DDDIFMT_P8;
-			data.Flags.Texture = isTexture;
-		}
-
-		return result;
+		data.Format = origFormat;
+		data.MipLevels = origMipLevels;
+		data.Flags.Value = origFlags;
+		return LOG_RESULT(result);
 	}
 
 	Device* Device::findDeviceByResource(HANDLE resource)

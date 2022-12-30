@@ -21,8 +21,10 @@ namespace D3dDdi
 		{
 			D3DNTHAL_D3DEXTENDEDCAPS d3dExtendedCaps;
 			std::map<D3DDDIFORMAT, FORMATOP> formatOps;
+			std::map<D3DDDIFORMAT, FORMATOP> fixedFormatOps;
 			DWORD supportedZBufferBitDepths;
 			bool isMsaaDepthResolveSupported;
+			bool isD3D9On12;
 		};
 
 		Adapter(const D3DDDIARG_OPENADAPTER& data);
@@ -34,13 +36,13 @@ namespace D3dDdi
 		operator HANDLE() const { return m_adapter; }
 
 		Int2 getAspectRatio() const;
-		const AdapterInfo& getInfo() const;
+		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
 		SIZE getScaledSize(Int2 size) const;
-		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format);
+		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format) const;
 
 		HRESULT pfnCloseAdapter();
 		HRESULT pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData);
@@ -51,14 +53,18 @@ namespace D3dDdi
 		static void setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository);
 
 	private:
+		const AdapterInfo& findInfo() const;
+
 		template <typename Data>
 		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
 
 		Int2 getAspectRatio(Win32::DisplayMode::Resolution res) const;
+		std::map<D3DDDIFORMAT, FORMATOP> getFixedFormatOps(const AdapterInfo& info) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
 		Float2 getScaleFactor() const;
 		std::string getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 		DWORD getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
+		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format, const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 
 		HANDLE m_adapter;
 		D3DDDI_ADAPTERFUNCS m_origVtable;
@@ -67,6 +73,7 @@ namespace D3dDdi
 		LUID m_luid;
 		std::wstring m_deviceName;
 		CompatWeakPtr<IDirectDraw7> m_repository;
+		const AdapterInfo& m_info;
 
 		static std::map<HANDLE, Adapter> s_adapters;
 		static std::map<LUID, AdapterInfo> s_adapterInfos;

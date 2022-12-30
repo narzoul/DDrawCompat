@@ -264,10 +264,10 @@ namespace D3dDdi
 	}
 
 	void ShaderBlitter::depthBlt(const Resource& dstResource, const RECT& dstRect,
-		const Resource& srcResource, const RECT& srcRect, const Resource& nullResource)
+		const Resource& srcResource, const RECT& srcRect, HANDLE nullResource)
 	{
 		LOG_FUNC("ShaderBlitter::depthBlt", static_cast<HANDLE>(dstResource), dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, static_cast<HANDLE>(nullResource));
+			static_cast<HANDLE>(srcResource), srcRect, nullResource);
 
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
@@ -289,7 +289,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_ALPHATESTENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CULLMODE, D3DCULL_NONE });
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, TRUE });
+		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
@@ -297,11 +297,6 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0 });
-
-		const UINT D3DBLEND_ZERO = 1;
-		const UINT D3DBLEND_ONE = 2;
-		state.setTempRenderState({ D3DDDIRS_SRCBLEND, D3DBLEND_ZERO });
-		state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_ONE });
 
 		setTempTextureStage(0, srcResource, srcRect, D3DTEXF_POINT);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
