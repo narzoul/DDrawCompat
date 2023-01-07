@@ -10,6 +10,7 @@
 #include <Common/Path.h>
 #include <Common/Time.h>
 #include <Config/Parser.h>
+#include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <D3dDdi/Hooks.h>
@@ -51,7 +52,7 @@ namespace
 	template <FARPROC(Dll::Procs::* origFunc), typename OrigFuncPtrType, typename FirstParam, typename... Params>
 	HRESULT WINAPI directDrawFunc(FirstParam firstParam, Params... params)
 	{
-		LOG_FUNC(getFuncName<origFunc>(), params...);
+		LOG_FUNC(getFuncName<origFunc>(), firstParam, params...);
 		installHooks();
 		if constexpr (&Dll::Procs::DirectDrawCreate == origFunc || &Dll::Procs::DirectDrawCreateEx == origFunc)
 		{
@@ -70,8 +71,7 @@ namespace
 
 	void installHooks()
 	{
-		static bool isAlreadyInstalled = false;
-		if (!isAlreadyInstalled)
+		if (!Dll::g_isHooked)
 		{
 			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 			LOG_INFO << "Installing display mode hooks";
@@ -121,8 +121,14 @@ namespace
 			Compat::closeDbgEng();
 			Gdi::GuiThread::start();
 			LOG_INFO << "Finished installing hooks";
-			isAlreadyInstalled = true;
+			Dll::g_isHooked = true;
 		}
+	}
+
+	unsigned WINAPI installHooksThreadProc(LPVOID /*lpParameter*/)
+	{
+		installHooks();
+		return 0;
 	}
 
 	bool isOtherDDrawWrapperLoaded()
@@ -306,6 +312,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		{
 			const DWORD disableMaxWindowedMode = 12;
 			CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
+		}
+
+		if (Config::Settings::DesktopResolution::DESKTOP != Config::desktopResolution.get())
+		{
+			Dll::createThread(&installHooksThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		LOG_INFO << "DDrawCompat loaded successfully";

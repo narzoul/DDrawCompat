@@ -35,6 +35,8 @@ namespace D3dDdi
 			D3DDDIFORMAT format = D3DDDIFMT_UNKNOWN;
 		};
 
+		SurfaceRepository();
+
 		Cursor getCursor(HCURSOR cursor);
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
@@ -47,14 +49,13 @@ namespace D3dDdi
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempTexture(DWORD width, DWORD height, D3DDDIFORMAT format);
 		void release(Surface& surface);
+		void setRepository(CompatWeakPtr<IDirectDraw7> dd) { m_dd = dd; }
 
 		static SurfaceRepository& get(const Adapter& adapter);
 		static bool inCreateSurface() { return s_inCreateSurface; }
 		static void enableSurfaceCheck(bool enable);
 
 	private:
-		SurfaceRepository(const Adapter& adapter);
-
 		CompatPtr<IDirectDrawSurface7> createSurface(DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount);
 		bool getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags);
@@ -63,7 +64,7 @@ namespace D3dDdi
 		bool hasAlpha(CompatRef<IDirectDrawSurface7> surface);
 		bool isLost(Surface& surface);
 
-		const Adapter& m_adapter;
+		CompatWeakPtr<IDirectDraw7> m_dd;
 		HCURSOR m_cursor;
 		SIZE m_cursorSize;
 		POINT m_cursorHotspot;

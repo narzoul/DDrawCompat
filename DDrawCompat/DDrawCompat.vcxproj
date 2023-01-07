@@ -170,6 +170,7 @@
     <ClInclude Include="Config\Settings\CpuAffinityRotation.h" />
     <ClInclude Include="Config\Settings\DepthFormat.h" />
     <ClInclude Include="Config\Settings\DesktopColorDepth.h" />
+    <ClInclude Include="Config\Settings\DesktopResolution.h" />
     <ClInclude Include="Config\Settings\DisplayAspectRatio.h" />
     <ClInclude Include="Config\Settings\DisplayFilter.h" />
     <ClInclude Include="Config\Settings\DisplayRefreshRate.h" />
@@ -332,6 +333,7 @@
     <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="Config\Settings\Antialiasing.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
+    <ClCompile Include="Config\Settings\DesktopResolution.cpp" />
     <ClCompile Include="Config\Settings\DisplayAspectRatio.cpp" />
     <ClCompile Include="Config\Settings\DisplayFilter.cpp" />
     <ClCompile Include="Config\Settings\DisplayRefreshRate.cpp" />

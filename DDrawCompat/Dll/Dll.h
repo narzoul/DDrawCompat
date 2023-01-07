@@ -80,6 +80,7 @@ namespace Dll
 	extern HMODULE g_origDciman32Module;
 	extern Procs g_origProcs;
 	extern Procs g_jmpTargetProcs;
+	extern bool g_isHooked;
 }
 
 #undef  ADD_FARPROC_MEMBER

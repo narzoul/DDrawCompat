@@ -657,6 +657,9 @@
     <ClInclude Include="Common\Vector.h">
       <Filter>Header Files\Common</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\DesktopResolution.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1035,6 +1038,9 @@
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
     <ClCompile Include="Config\Settings\DisplayAspectRatio.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\DesktopResolution.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>

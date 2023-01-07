@@ -22,9 +22,8 @@ namespace
 
 namespace D3dDdi
 {
-	SurfaceRepository::SurfaceRepository(const Adapter& adapter)
-		: m_adapter(adapter)
-		, m_cursor(nullptr)
+	SurfaceRepository::SurfaceRepository()
+		: m_cursor(nullptr)
 		, m_cursorSize{}
 		, m_cursorHotspot{}
 	{
@@ -33,8 +32,7 @@ namespace D3dDdi
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
 		DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps, UINT surfaceCount)
 	{
-		auto dd(m_adapter.getRepository());
-		if (!dd)
+		if (!m_dd)
 		{
 			LOG_ONCE("ERROR: no DirectDraw repository available");
 			return nullptr;
@@ -65,7 +63,7 @@ namespace D3dDdi
 
 		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		s_inCreateSurface = true;
-		HRESULT result = dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+		HRESULT result = m_dd.get()->lpVtbl->CreateSurface(m_dd, &desc, &surface.getRef(), nullptr);
 		s_inCreateSurface = false;
 		D3dDdi::Resource::setFormatOverride(D3DDDIFMT_UNKNOWN);
 		if (FAILED(result))
@@ -83,12 +81,7 @@ namespace D3dDdi
 
 	SurfaceRepository& SurfaceRepository::get(const Adapter& adapter)
 	{
-		auto it = g_repositories.find(adapter.getLuid());
-		if (it != g_repositories.end())
-		{
-			return it->second;
-		}
-		return g_repositories.emplace(adapter.getLuid(), SurfaceRepository(adapter)).first->second;
+		return g_repositories[adapter.getLuid()];
 	}
 
 	SurfaceRepository::Cursor SurfaceRepository::getCursor(HCURSOR cursor)

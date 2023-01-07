@@ -142,6 +142,7 @@ namespace
 			{
 				return FALSE;
 			}
+			DDraw::DirectDraw::onCreate(lpGUID, *dd);
 
 			if (FAILED(dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
 			{
@@ -160,7 +161,8 @@ namespace
 
 	void createDefaultPrimary()
 	{
-		if (g_defaultPrimary ? SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)) : g_frontBuffer)
+		if (!Dll::g_isHooked ||
+			(g_defaultPrimary ? SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)) : g_frontBuffer))
 		{
 			return;
 		}

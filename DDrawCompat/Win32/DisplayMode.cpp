@@ -11,6 +11,7 @@
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
 #include <Config/Settings/DesktopColorDepth.h>
+#include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/SupportedResolutions.h>
@@ -109,6 +110,27 @@ namespace
 	LONG changeDisplaySettingsEx(const Char* lpszDeviceName, typename DevMode<Char>* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
 		DDraw::ScopedThreadLock lock;
+		auto desktopResolution = Config::desktopResolution.get();
+		if (!lpDevMode && 0 == dwflags && Config::Settings::DesktopResolution::DESKTOP != desktopResolution)
+		{
+			auto mi = Win32::DisplayMode::getMonitorInfo(getDeviceName(lpszDeviceName));
+			if (0 == mi.rcMonitor.left && 0 == mi.rcMonitor.top)
+			{
+				DevMode<Char> dm = {};
+				dm.dmSize = sizeof(dm);
+				enumDisplaySettingsEx(lpszDeviceName, ENUM_REGISTRY_SETTINGS, &dm, 0);
+
+				dm.dmBitsPerPel = g_desktopBpp;
+				dm.dmPelsWidth = desktopResolution.cx;
+				dm.dmPelsHeight = desktopResolution.cy;
+
+				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, 0, nullptr))
+				{
+					return DISP_CHANGE_SUCCESSFUL;
+				}
+			}
+		}
+
 		DevMode<Char> targetDevMode = {};
 		SIZE emulatedResolution = {};
 		if (lpDevMode)
@@ -781,13 +803,12 @@ namespace Win32
 
 		void installHooks()
 		{
-			DEVMODEA dm = {};
-			dm.dmSize = sizeof(dm);
-			EnumDisplaySettingsEx(nullptr, ENUM_CURRENT_SETTINGS, &dm, 0);
-
 			g_desktopBpp = Config::desktopColorDepth.get();
 			if (Config::Settings::DesktopColorDepth::INITIAL == g_desktopBpp)
 			{
+				DEVMODEA dm = {};
+				dm.dmSize = sizeof(dm);
+				EnumDisplaySettingsEx(nullptr, ENUM_CURRENT_SETTINGS, &dm, 0);
 				g_desktopBpp = dm.dmBitsPerPel;
 			}
 			g_emulatedDisplayMode.bpp = g_desktopBpp;
@@ -804,6 +825,11 @@ namespace Win32
 			HOOK_FUNCTION(user32, GetMonitorInfoW, getMonitorInfoW);
 
 			disableDwm8And16BitMitigation();
+
+			if (Config::Settings::DesktopResolution::DESKTOP != Config::desktopResolution.get())
+			{
+				changeDisplaySettingsExA(nullptr, nullptr, nullptr, 0, nullptr);
+			}
 		}
 	}
 }

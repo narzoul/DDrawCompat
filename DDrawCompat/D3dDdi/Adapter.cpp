@@ -16,6 +16,7 @@
 #include <D3dDdi/DeviceFuncs.h>
 #include <D3dDdi/FormatInfo.h>
 #include <D3dDdi/KernelModeThunks.h>
+#include <D3dDdi/SurfaceRepository.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -422,6 +423,7 @@ namespace D3dDdi
 			if (adapter.second.m_luid == luid)
 			{
 				adapter.second.m_repository = repository;
+				SurfaceRepository::get(adapter.second).setRepository(repository);
 			}
 		}
 	}
