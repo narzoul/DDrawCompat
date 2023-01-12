@@ -41,6 +41,11 @@ namespace D3dDdi
 		m_releasedSurfaces.clear();
 		CompatPtr<IDirectDrawSurface7> surface;
 
+		if (D3DDDIFMT_P8 == format)
+		{
+			format = D3DDDIFMT_L8;
+		}
+
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS;

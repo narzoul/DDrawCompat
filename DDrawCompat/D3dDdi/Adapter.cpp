@@ -129,15 +129,27 @@ namespace D3dDdi
 
 		for (auto& formatOp : info.formatOps)
 		{
+			if (D3DDDIFMT_P8 == formatOp.first)
+			{
+				continue;
+			}
+
 			auto fixedFormatOp = formatOp.second;
 			if (isEmulatedRenderTargetFormat(formatOp.first, info.formatOps))
 			{
 				fixedFormatOp.Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
 			}
 
-			if (D3DDDIFMT_P8 == formatOp.first && Config::palettizedTextures.get())
+			if (D3DDDIFMT_L8 == formatOp.first)
 			{
-				fixedFormatOp.Operations |= FORMATOP_TEXTURE | FORMATOP_CUBETEXTURE;
+				auto p8FormatOp = formatOp.second;
+				p8FormatOp.Format = D3DDDIFMT_P8;
+				p8FormatOp.Operations |= FORMATOP_OFFSCREENPLAIN;
+				if (!Config::palettizedTextures.get())
+				{
+					p8FormatOp.Operations &= ~(FORMATOP_TEXTURE | FORMATOP_VOLUMETEXTURE | FORMATOP_CUBETEXTURE);
+				}
+				fixedFormatOps[D3DDDIFMT_P8] = p8FormatOp;
 			}
 
 			if (D3DDDIFMT_D24X4S4 == formatOp.first || D3DDDIFMT_X4S4D24 == formatOp.first)

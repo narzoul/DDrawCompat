@@ -513,7 +513,7 @@ namespace D3dDdi
 
 		if (D3DDDIFMT_P8 == m_fixedData.Format)
 		{
-			data.Color <<= 16;
+			data.Color |= data.Color << 16;
 		}
 
 		prepareForBltDst(data.hResource, data.SubResourceIndex, data.DstRect);
