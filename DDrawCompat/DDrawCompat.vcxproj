@@ -221,6 +221,7 @@
     <ClInclude Include="D3dDdi\Resource.h" />
     <ClInclude Include="D3dDdi\ResourceDeleter.h" />
     <ClInclude Include="D3dDdi\ScopedCriticalSection.h" />
+    <ClInclude Include="D3dDdi\ShaderAssembler.h" />
     <ClInclude Include="D3dDdi\ShaderBlitter.h" />
     <ClInclude Include="D3dDdi\SurfaceRepository.h" />
     <ClInclude Include="D3dDdi\Visitors\AdapterCallbacksVisitor.h" />
@@ -369,6 +370,7 @@
     <ClCompile Include="D3dDdi\Log\KernelModeThunksLog.cpp" />
     <ClCompile Include="D3dDdi\Resource.cpp" />
     <ClCompile Include="D3dDdi\ScopedCriticalSection.cpp" />
+    <ClCompile Include="D3dDdi\ShaderAssembler.cpp" />
     <ClCompile Include="D3dDdi\ShaderBlitter.cpp" />
     <ClCompile Include="D3dDdi\SurfaceRepository.cpp" />
     <ClCompile Include="DDraw\Blitter.cpp" />

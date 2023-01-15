@@ -33,8 +33,10 @@ namespace D3dDdi
 		HRESULT pfnBlt(const D3DDDIARG_BLT* data);
 		HRESULT pfnClear(const D3DDDIARG_CLEAR* data, UINT numRect, const RECT* rect);
 		HRESULT pfnColorFill(const D3DDDIARG_COLORFILL* data);
+		HRESULT pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code);
 		HRESULT pfnCreateResource(D3DDDIARG_CREATERESOURCE* data);
 		HRESULT pfnCreateResource2(D3DDDIARG_CREATERESOURCE2* data);
+		HRESULT pfnCreateVertexShaderFunc(D3DDDIARG_CREATEVERTEXSHADERFUNC* data, const UINT* code);
 		HRESULT pfnDepthFill(const D3DDDIARG_DEPTHFILL* data);
 		HRESULT pfnDestroyDevice();
 		HRESULT pfnDestroyResource(HANDLE resource);

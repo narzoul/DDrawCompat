@@ -660,6 +660,9 @@
     <ClInclude Include="Config\Settings\DesktopResolution.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\ShaderAssembler.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1042,6 +1045,9 @@
     </ClCompile>
     <ClCompile Include="Config\Settings\DesktopResolution.cpp">
       <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\ShaderAssembler.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
