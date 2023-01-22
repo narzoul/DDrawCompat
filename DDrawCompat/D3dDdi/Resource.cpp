@@ -6,6 +6,7 @@
 #include <Common/Rect.h>
 #include <Common/Time.h>
 #include <Config/Settings/BltFilter.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/RenderColorDepth.h>
@@ -122,6 +123,8 @@ namespace D3dDdi
 		, m_msaaSurface{}
 		, m_msaaResolvedSurface{}
 		, m_nullSurface{}
+		, m_colorKeyedSurface{}
+		, m_colorKey(0)
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
 		, m_scaledSize{}
@@ -133,6 +136,7 @@ namespace D3dDdi
 		, m_isClampable(true)
 		, m_isPrimary(false)
 		, m_isPalettizedTextureUpToDate(false)
+		, m_isColorKeyedSurfaceUpToDate(false)
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -824,7 +828,7 @@ namespace D3dDdi
 		return *nextRt;
 	}
 
-	RECT Resource::getRect(UINT subResourceIndex)
+	RECT Resource::getRect(UINT subResourceIndex) const
 	{
 		const auto& si = m_fixedData.pSurfList[subResourceIndex];
 		return { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
@@ -1071,6 +1075,7 @@ namespace D3dDdi
 		if (!data.Flags.ReadOnly)
 		{
 			m_isPalettizedTextureUpToDate = false;
+			m_isColorKeyedSurfaceUpToDate = false;
 		}
 
 		if (m_fixedData.Flags.ZBuffer && m_msaaResolvedSurface.resource)
@@ -1127,6 +1132,7 @@ namespace D3dDdi
 	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect)
 	{
 		m_isPalettizedTextureUpToDate = false;
+		m_isColorKeyedSurfaceUpToDate = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
 		{
 			loadFromLockRefResource(subResourceIndex);
@@ -1166,6 +1172,8 @@ namespace D3dDdi
 
 	void Resource::prepareForCpuWrite(UINT subResourceIndex)
 	{
+		m_isPalettizedTextureUpToDate = false;
+		m_isColorKeyedSurfaceUpToDate = false;
 		if (m_lockResource)
 		{
 			if (m_lockRefSurface.resource &&
@@ -1202,6 +1210,7 @@ namespace D3dDdi
 
 	void Resource::prepareForGpuWrite(UINT subResourceIndex)
 	{
+		m_isColorKeyedSurfaceUpToDate = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
 		{
 			if (m_msaaSurface.resource)
@@ -1223,6 +1232,55 @@ namespace D3dDdi
 				m_lockData[subResourceIndex].isVidMemUpToDate = true;
 			}
 		}
+	}
+
+	Resource& Resource::prepareForTextureRead(UINT stage)
+	{
+		if (m_lockResource)
+		{
+			for (UINT i = 0; i < m_lockData.size(); ++i)
+			{
+				prepareForGpuRead(i);
+			}
+		}
+
+		auto& defaultResource = m_msaaResolvedSurface.resource ? *m_msaaResolvedSurface.resource : *this;
+		const auto& appState = m_device.getState().getAppState();
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get() ||
+			!appState.renderState[D3DDDIRS_COLORKEYENABLE] ||
+			appState.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
+		{
+			return defaultResource;
+		}
+
+		if (!m_colorKeyedSurface.surface)
+		{
+			auto& repo = SurfaceRepository::get(m_device.getAdapter());
+			repo.getSurface(m_colorKeyedSurface, m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
+				D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY |
+				(m_fixedData.MipLevels > 1 ? DDSCAPS_MIPMAP : 0),
+				m_fixedData.SurfCount,
+				m_fixedData.Flags.CubeMap ? DDSCAPS2_CUBEMAP : 0);
+			if (!m_colorKeyedSurface.surface)
+			{
+				return defaultResource;
+			}
+			m_colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] + 1;
+		}
+
+		if (!m_isColorKeyedSurfaceUpToDate ||
+			m_colorKey != appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
+		{
+			m_isColorKeyedSurfaceUpToDate = true;
+			m_colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
+			auto ck = convertToShaderConst(m_formatInfo, m_colorKey);
+			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+			{
+				m_device.getShaderBlitter().colorKeyBlt(*m_colorKeyedSurface.resource, i, defaultResource, i, ck);
+			}
+		}
+
+		return *m_colorKeyedSurface.resource;
 	}
 
 	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource* srcResource)
@@ -1767,7 +1825,11 @@ namespace D3dDdi
 			memcpy(palette, m_device.getPalette(m_palettizedTexture->m_paletteHandle), sizeof(palette));
 			for (int i = 0; i < 256; ++i)
 			{
-				if (i != paletteColorKeyIndex && palette[i] == palette[paletteColorKeyIndex])
+				if (i == paletteColorKeyIndex)
+				{
+					palette[i].rgbReserved = 0;
+				}
+				else if (palette[i] == palette[paletteColorKeyIndex])
 				{
 					palette[i].rgbBlue += 0xFF == palette[i].rgbBlue ? -1 : 1;
 				}

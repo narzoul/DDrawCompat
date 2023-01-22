@@ -54,7 +54,6 @@ namespace
 		SET_DEVICE_FUNC(pfnColorFill);
 		SET_DEVICE_FUNC(pfnCreateResource);
 		SET_DEVICE_FUNC(pfnCreateResource2);
-		SET_DEVICE_FUNC(pfnCreatePixelShader);
 		SET_DEVICE_FUNC(pfnCreateVertexShaderFunc);
 		SET_DEVICE_FUNC(pfnDepthFill);
 		SET_DEVICE_FUNC(pfnDestroyDevice);
@@ -71,6 +70,7 @@ namespace
 		SET_DEVICE_FUNC(pfnUnlock);
 		SET_DEVICE_FUNC(pfnUpdatePalette);
 
+		SET_DEVICE_STATE_FUNC(pfnCreatePixelShader);
 		SET_DEVICE_STATE_FUNC(pfnCreateVertexShaderDecl);
 		SET_DEVICE_STATE_FUNC(pfnDeletePixelShader);
 		SET_DEVICE_STATE_FUNC(pfnDeleteVertexShaderDecl);

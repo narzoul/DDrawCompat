@@ -1,4 +1,5 @@
 #include <Config/Settings/Antialiasing.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
@@ -83,6 +84,7 @@ namespace Overlay
 		}
 
 		if (&Config::antialiasing  == &m_setting ||
+			&Config::colorKeyMethod == &m_setting ||
 			&Config::depthFormat == &m_setting ||
 			&Config::renderColorDepth == &m_setting ||
 			&Config::resolutionScale == &m_setting ||

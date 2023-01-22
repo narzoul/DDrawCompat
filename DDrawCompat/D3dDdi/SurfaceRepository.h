@@ -42,7 +42,7 @@ namespace D3dDdi
 		Resource* getPaletteTexture();
 		Resource* getGammaRampTexture();
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
-			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
+			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
 		const Surface& getTempRenderTarget(DWORD width, DWORD height, UINT index = 0);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
@@ -57,7 +57,7 @@ namespace D3dDdi
 
 	private:
 		CompatPtr<IDirectDrawSurface7> createSurface(DWORD width, DWORD height,
-			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount);
+			D3DDDIFORMAT format, DWORD caps, DWORD caps2, UINT surfaceCount);
 		bool getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags);
 		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps,
 			std::function<void(const DDSURFACEDESC2&)> initFunc);

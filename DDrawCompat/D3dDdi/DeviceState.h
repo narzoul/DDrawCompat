@@ -86,6 +86,7 @@ namespace D3dDdi
 
 		DeviceState(Device& device);
 		
+		HRESULT pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code);
 		HRESULT pfnCreateVertexShaderDecl(D3DDDIARG_CREATEVERTEXSHADERDECL* data, const D3DDDIVERTEXELEMENT* vertexElements);
 		HRESULT pfnDeletePixelShader(HANDLE shader);
 		HRESULT pfnDeleteVertexShaderDecl(HANDLE shader);
@@ -148,6 +149,13 @@ namespace D3dDdi
 			CS_TEXTURE_STAGE = 1 << 4
 		};
 
+		struct PixelShader
+		{
+			std::vector<UINT> tokens;
+			std::unique_ptr<void, ResourceDeleter> modifiedPixelShader;
+			bool isModified;
+		};
+
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createVertexShader(const BYTE(&code)[N])
 		{
@@ -158,6 +166,8 @@ namespace D3dDdi
 		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 
+		bool isColorKeyUsed();
+		HANDLE mapPixelShader(HANDLE shader);
 		UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value);
 		UINT mapTssValue(UINT stage, D3DDDITEXTURESTAGESTATETYPE state, UINT value);
 		void prepareTextures();
@@ -214,6 +224,7 @@ namespace D3dDdi
 		std::array<BitSet<D3DDDITSS_TEXTUREMAP, D3DDDITSS_TEXTURECOLORKEYVAL>, 8> m_changedTextureStageStates;
 		std::unique_ptr<void, ResourceDeleter> m_vsVertexFixup;
 		std::array<Resource*, 8> m_textureResource;
+		std::map<HANDLE, PixelShader> m_pixelShaders;
 		bool m_isLocked;
 		bool m_spriteMode;
 	};

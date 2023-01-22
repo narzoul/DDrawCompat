@@ -1,6 +1,7 @@
 #include <algorithm>
 
 #include <Config/Settings/AlternatePixelCenter.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
@@ -10,6 +11,7 @@
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
+#include <D3dDdi/ShaderAssembler.h>
 #include <Shaders/VertexFixup.h>
 
 #define LOG_DS LOG_DEBUG << "DeviceState::" << __func__ << ": "
@@ -280,6 +282,58 @@ namespace D3dDdi
 		return it != m_vertexShaderDecls.end() ? it->second : emptyDecl;
 	}
 
+	bool DeviceState::isColorKeyUsed()
+	{
+		if (!m_app.renderState[D3DDDIRS_COLORKEYENABLE])
+		{
+			return false;
+		}
+
+		bool used = false;
+		for (UINT i = 0; i < getVertexDecl().textureStageCount && !used; ++i)
+		{
+			used = !m_app.textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY];
+		}
+		return used;
+	}
+
+	HANDLE DeviceState::mapPixelShader(HANDLE shader)
+	{
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get())
+		{
+			return m_app.pixelShader;
+		}
+
+		auto it = m_pixelShaders.find(shader);
+		if (it == m_pixelShaders.end())
+		{
+			return m_app.pixelShader;
+		}
+
+		if (!it->second.isModified)
+		{
+			ShaderAssembler shaderAssembler(it->second.tokens.data(), it->second.tokens.size());
+			if (shaderAssembler.addAlphaTest(Config::colorKeyMethod.getParam()))
+			{
+				const auto& tokens = shaderAssembler.getTokens();
+				D3DDDIARG_CREATEPIXELSHADER data = {};
+				data.CodeSize = tokens.size() * 4;
+				HRESULT result = m_device.getOrigVtable().pfnCreatePixelShader(m_device, &data, tokens.data());
+				if (SUCCEEDED(result))
+				{
+					it->second.modifiedPixelShader.reset(data.ShaderHandle);
+				}
+				else
+				{
+					LOG_ONCE("ERROR: failed to create modified pixel shader: " << Compat::hex(result));
+				}
+			}
+			it->second.isModified = true;
+		}
+
+		return it->second.modifiedPixelShader ? it->second.modifiedPixelShader.get() : m_app.pixelShader;
+	}
+
 	UINT DeviceState::mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value)
 	{
 		if (state >= D3DDDIRS_WRAP0 && state <= D3DDDIRS_WRAP7)
@@ -287,14 +341,13 @@ namespace D3dDdi
 			return value & (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3);
 		}
 
-		if (D3DDDIRS_COLORKEYENABLE == state && value)
+		if (D3DDDIRS_COLORKEYENABLE == state)
 		{
-			UINT enable = FALSE;
-			for (UINT i = 0; i < getVertexDecl().textureStageCount && !enable; ++i)
+			if (Config::Settings::ColorKeyMethod::NATIVE != Config::colorKeyMethod.get())
 			{
-				enable = !m_app.textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY];
+				return FALSE;
 			}
-			return enable;
+			return isColorKeyUsed();
 		}
 
 		if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
@@ -371,6 +424,21 @@ namespace D3dDdi
 			&DeviceState::pfnSetStreamSource);
 	}
 
+	HRESULT DeviceState::pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code)
+	{
+		LOG_DEBUG << "Pixel shader bytecode: " << Compat::hexDump(code, data->CodeSize);
+		LOG_DEBUG << ShaderAssembler(code, data->CodeSize).disassemble();
+		HRESULT result = m_device.getOrigVtable().pfnCreatePixelShader(m_device, data, code);
+		if (SUCCEEDED(result))
+		{
+			m_pixelShaders.emplace(data->ShaderHandle,
+				PixelShader{ std::vector<UINT>(code, code + data->CodeSize / 4),
+				std::unique_ptr<void, ResourceDeleter>(
+					nullptr, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc)) });
+		}
+		return result;
+	}
+
 	HRESULT DeviceState::pfnCreateVertexShaderDecl(
 		D3DDDIARG_CREATEVERTEXSHADERDECL* data,
 		const D3DDDIVERTEXELEMENT* vertexElements)
@@ -413,7 +481,21 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnDeletePixelShader(HANDLE shader)
 	{
-		return deleteShader(shader, &State::pixelShader, m_device.getOrigVtable().pfnDeletePixelShader);
+		HRESULT result = deleteShader(shader, &State::pixelShader, m_device.getOrigVtable().pfnDeletePixelShader);
+		if (SUCCEEDED(result))
+		{
+			auto it = m_pixelShaders.find(shader);
+			if (it != m_pixelShaders.end())
+			{
+				if (it->second.modifiedPixelShader)
+				{
+					deleteShader(it->second.modifiedPixelShader.release(), &State::pixelShader,
+						m_device.getOrigVtable().pfnDeletePixelShader);
+				}
+				m_pixelShaders.erase(it);
+			}
+		}
+		return result;
 	}
 
 	HRESULT DeviceState::pfnDeleteVertexShaderDecl(HANDLE shader)
@@ -593,6 +675,7 @@ namespace D3dDdi
 			if (resource)
 			{
 				resource->updatePalettizedTexture(stage);
+				resource->prepareForTextureRead(stage);
 			}
 		}
 	}
@@ -918,14 +1001,27 @@ namespace D3dDdi
 
 	void DeviceState::updateConfig()
 	{
-		m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_TEXTURE_STAGE;
+		m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_SHADER | CS_TEXTURE_STAGE;
+		m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 		m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
+
+		for (auto& ps : m_pixelShaders)
+		{
+			if (ps.second.modifiedPixelShader.get())
+			{
+				deleteShader(ps.second.modifiedPixelShader.release(), &State::pixelShader,
+					m_device.getOrigVtable().pfnDeletePixelShader);
+			}
+			ps.second.isModified = false;
+		}
+
 		for (UINT i = 0; i < m_changedTextureStageStates.size(); ++i)
 		{
 			m_changedTextureStageStates[i].set(D3DDDITSS_MINFILTER);
 			m_changedTextureStageStates[i].set(D3DDDITSS_MAGFILTER);
 			m_changedTextureStageStates[i].set(D3DDDITSS_MIPFILTER);
 			m_changedTextureStageStates[i].set(D3DDDITSS_MAXANISOTROPY);
+			m_changedTextureStageStates[i].set(D3DDDITSS_TEXTURECOLORKEYVAL);
 		}
 		m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
 		m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
@@ -937,7 +1033,7 @@ namespace D3dDdi
 		m_changedRenderStates.forEach([&](UINT stateIndex)
 			{
 				const auto state = static_cast<D3DDDIRENDERSTATETYPE>(stateIndex);
-				setRenderState({ state, mapRsValue(state, m_app.renderState[state]) });
+		setRenderState({ state, mapRsValue(state, m_app.renderState[state]) });
 			});
 		m_changedRenderStates.reset();
 	}
@@ -979,7 +1075,7 @@ namespace D3dDdi
 
 	void DeviceState::updateShaders()
 	{
-		setPixelShader(m_app.pixelShader);
+		setPixelShader(mapPixelShader(m_app.pixelShader));
 		setVertexShaderDecl(m_app.vertexShaderDecl);
 		auto it = m_vertexShaderDecls.find(m_app.vertexShaderDecl);
 		if (it != m_vertexShaderDecls.end() && it->second.isTransformed)
@@ -1008,8 +1104,21 @@ namespace D3dDdi
 	{
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
-		if (!m_app.textures[stage])
+		if (!m_app.textures[stage] || Config::Settings::ColorKeyMethod::NONE == Config::colorKeyMethod.get())
 		{
+			return;
+		}
+
+		if (Config::Settings::ColorKeyMethod::ALPHATEST == Config::colorKeyMethod.get())
+		{
+			const BOOL colorKeyEnabled = !m_app.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY];
+			if (colorKeyEnabled != m_pixelShaderConstB[stage][0])
+			{
+				D3DDDIARG_SETPIXELSHADERCONSTB data = {};
+				data.Register = stage;
+				data.Count = 1;
+				setShaderConst(&data, &colorKeyEnabled, m_pixelShaderConstB, m_device.getOrigVtable().pfnSetPixelShaderConstB);
+			}
 			return;
 		}
 
@@ -1030,7 +1139,7 @@ namespace D3dDdi
 			if (resource && resource->getPalettizedTexture())
 			{
 				tss.Value = reinterpret_cast<DWORD&>(
-					m_device.getPalette(resource->getPalettizedTexture()->getPaletteHandle())[tss.Value]);
+					m_device.getPalette(resource->getPalettizedTexture()->getPaletteHandle())[tss.Value]) & 0xFFFFFF;
 			}
 			m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = tss.Value;
 			m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
@@ -1048,7 +1157,7 @@ namespace D3dDdi
 			auto resource = getTextureResource(stage);
 			if (resource)
 			{
-				resource = &resource->prepareForGpuRead(0);
+				resource = &resource->prepareForTextureRead(stage);
 			}
 
 			if (setTexture(stage, resource ? *resource : m_app.textures[stage]) ||

@@ -30,7 +30,7 @@ namespace D3dDdi
 	}
 
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
-		DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps, UINT surfaceCount)
+		DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps, DWORD caps2, UINT surfaceCount)
 	{
 		if (!m_dd)
 		{
@@ -53,7 +53,21 @@ namespace D3dDdi
 		desc.dwHeight = height;
 		desc.ddpfPixelFormat = getPixelFormat(format);
 		desc.ddsCaps.dwCaps = caps;
-		if (surfaceCount > 1)
+		desc.ddsCaps.dwCaps2 = caps2;
+
+		if (caps2 & DDSCAPS2_CUBEMAP)
+		{
+			desc.ddsCaps.dwCaps |= DDSCAPS_COMPLEX;
+			surfaceCount /= 6;
+		}
+
+		if (caps & DDSCAPS_MIPMAP)
+		{
+			desc.dwFlags |= DDSD_MIPMAPCOUNT;
+			desc.ddsCaps.dwCaps |= DDSCAPS_COMPLEX;
+			desc.dwMipMapCount = surfaceCount;
+		}
+		else if (surfaceCount > 1)
 		{
 			desc.dwFlags |= DDSD_BACKBUFFERCOUNT;
 			desc.ddsCaps.dwCaps |= DDSCAPS_COMPLEX | DDSCAPS_FLIP;
@@ -221,7 +235,7 @@ namespace D3dDdi
 	}
 
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
-		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount)
+		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount, DWORD caps2)
 	{
 		if (!g_enableSurfaceCheck)
 		{
@@ -235,7 +249,7 @@ namespace D3dDdi
 
 		if (!surface.surface)
 		{
-			surface.surface = createSurface(width, height, format, caps, surfaceCount);
+			surface.surface = createSurface(width, height, format, caps, caps2, surfaceCount);
 			if (surface.surface)
 			{
 				surface.resource = D3dDdi::Device::findResource(

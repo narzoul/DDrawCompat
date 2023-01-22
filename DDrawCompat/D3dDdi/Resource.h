@@ -40,6 +40,7 @@ namespace D3dDdi
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		void disableClamp();
 		void* getLockPtr(UINT subResourceIndex);
+		RECT getRect(UINT subResourceIndex) const;
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void onDestroyResource(HANDLE resource);
 		Resource& prepareForBltSrc(const D3DDDIARG_BLT& data);
@@ -49,6 +50,7 @@ namespace D3dDdi
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
 		void prepareForGpuWrite(UINT subResourceIndex);
+		Resource& prepareForTextureRead(UINT stage);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
@@ -111,7 +113,6 @@ namespace D3dDdi
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
 		const SurfaceRepository::Surface& getNextRenderTarget(Resource* currentRt, DWORD width, DWORD height);
-		RECT getRect(UINT subResourceIndex);
 		SIZE getScaledSize();
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		void loadFromLockRefResource(UINT subResourceIndex);
@@ -138,6 +139,8 @@ namespace D3dDdi
 		SurfaceRepository::Surface m_msaaSurface;
 		SurfaceRepository::Surface m_msaaResolvedSurface;
 		SurfaceRepository::Surface m_nullSurface;
+		SurfaceRepository::Surface m_colorKeyedSurface;
+		UINT m_colorKey;
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
 		SIZE m_scaledSize;
@@ -149,5 +152,6 @@ namespace D3dDdi
 		bool m_isClampable;
 		bool m_isPrimary;
 		bool m_isPalettizedTextureUpToDate;
+		bool m_isColorKeyedSurfaceUpToDate;
 	};
 }

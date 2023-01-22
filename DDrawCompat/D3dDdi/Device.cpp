@@ -248,13 +248,6 @@ namespace D3dDdi
 		return m_origVtable.pfnColorFill(m_device, data);
 	}
 
-	HRESULT Device::pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code)
-	{
-		LOG_DEBUG << "Pixel shader bytecode: " << Compat::hexDump(code, data->CodeSize);
-		LOG_DEBUG << ShaderAssembler(code, data->CodeSize).disassemble();
-		return m_origVtable.pfnCreatePixelShader(m_device, data, code);
-	}
-
 	HRESULT Device::pfnCreateResource(D3DDDIARG_CREATERESOURCE* data)
 	{
 		D3DDDIARG_CREATERESOURCE2 data2 = {};

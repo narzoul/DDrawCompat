@@ -663,6 +663,9 @@
     <ClInclude Include="D3dDdi\ShaderAssembler.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\ColorKeyMethod.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>    
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1049,7 +1052,10 @@
     <ClCompile Include="D3dDdi\ShaderAssembler.cpp">
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
-  </ItemGroup>
+    <ClCompile Include="Config\Settings\ColorKeyMethod.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+</ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="DDrawCompat.rc">
       <Filter>Resource Files</Filter>
@@ -1086,6 +1092,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\DepthBlt.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\ColorKeyBlend.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

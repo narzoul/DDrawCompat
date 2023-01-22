@@ -5,12 +5,14 @@
 
 #include <d3d9.h>
 
+#include <Common/Log.h>
 #include <D3dDdi/ShaderAssembler.h>
 
 namespace
 {
 	const UINT BEGIN_BLOCK = 1;
 	const UINT END_BLOCK = 2;
+	const UINT32 PARAMETER_TOKEN_RESERVED_BIT = 0x80000000;
 
 	typedef std::array<const char*, 7> Controls;
 
@@ -49,6 +51,19 @@ namespace
 		UINT32 major : 8;
 		UINT32 type : 16;
 	};
+
+	class RestorePos
+	{
+	public:
+		RestorePos(UINT& pos) : m_pos(pos), m_origPos(pos) { }
+		~RestorePos() { m_pos = m_origPos; }
+
+	private:
+		UINT& m_pos;
+		UINT m_origPos;
+	};
+
+	void setRegisterType(UINT32& token, D3DSHADER_PARAM_REGISTER_TYPE registerType);
 
 	std::map<UINT16, Instruction> g_instructionMap = {
 		{ D3DSIO_NOP, { "nop" } },
@@ -192,6 +207,68 @@ namespace
 		{ D3DDECLUSAGE_DEPTH, "depth" },
 		{ D3DDECLUSAGE_SAMPLE, "sample" }
 	};
+
+	UINT getFreeRegisterNumber(const std::set<UINT>& usedRegisterNumbers)
+	{
+		UINT prev = UINT_MAX;
+		for (UINT num : usedRegisterNumbers)
+		{
+			if (num > prev + 1)
+			{
+				return prev + 1;
+			}
+		}
+		return usedRegisterNumbers.empty() ? 0 : (*usedRegisterNumbers.rbegin() + 1);
+	}
+
+	D3DSHADER_PARAM_REGISTER_TYPE getRegisterType(UINT32 token)
+	{
+		return static_cast<D3DSHADER_PARAM_REGISTER_TYPE>(
+			((token & D3DSP_REGTYPE_MASK) >> D3DSP_REGTYPE_SHIFT) |
+			((token & D3DSP_REGTYPE_MASK2) >> D3DSP_REGTYPE_SHIFT2));
+	}
+
+	UINT32 makeConstToken(FLOAT value)
+	{
+		return *reinterpret_cast<UINT32*>(&value);
+	}
+
+	UINT32 makeDestinationParameterToken(D3DSHADER_PARAM_REGISTER_TYPE registerType, UINT32 registerNumber,
+		UINT32 writeMask, UINT32 modifiers)
+	{
+		UINT32 token = PARAMETER_TOKEN_RESERVED_BIT | registerNumber | writeMask | modifiers;
+		setRegisterType(token, registerType);
+		return token;
+	}
+
+	UINT32 makeInstructionToken(D3DSHADER_INSTRUCTION_OPCODE_TYPE opcode)
+	{
+		auto& inst = g_instructionMap.at(static_cast<UINT16>(opcode));
+		auto tokenCount = inst.dstCount + inst.srcCount + inst.extraCount;
+		return opcode | (tokenCount << D3DSI_INSTLENGTH_SHIFT);
+	}
+
+	UINT32 makeSourceParameterToken(D3DSHADER_PARAM_REGISTER_TYPE registerType, UINT32 registerNumber,
+		UINT32 swizzle, D3DSHADER_PARAM_SRCMOD_TYPE modifier)
+	{
+		UINT32 token = PARAMETER_TOKEN_RESERVED_BIT | registerNumber | swizzle | modifier;
+		setRegisterType(token, registerType);
+		return token;
+	}
+
+	UINT reserveRegisterNumber(std::set<UINT>& usedRegisterNumbers)
+	{
+		auto num = getFreeRegisterNumber(usedRegisterNumbers);
+		usedRegisterNumbers.insert(num);
+		return num;
+	}
+
+	void setRegisterType(UINT32& token, D3DSHADER_PARAM_REGISTER_TYPE registerType)
+	{
+		token &= ~(D3DSP_REGTYPE_MASK | D3DSP_REGTYPE_MASK2);
+		token |= ((registerType << D3DSP_REGTYPE_SHIFT) & D3DSP_REGTYPE_MASK) |
+			((registerType << D3DSP_REGTYPE_SHIFT2) & D3DSP_REGTYPE_MASK2);
+	}
 }
 
 namespace D3dDdi
@@ -202,11 +279,95 @@ namespace D3dDdi
 	{
 	}
 
+	bool ShaderAssembler::addAlphaTest(UINT alphaRef)
+	{
+		LOG_FUNC("ShaderAssembler::addAlphaTest", alphaRef);
+		LOG_DEBUG << "Original bytecode: " << Compat::hexDump(m_tokens.data(), m_tokens.size() * 4);
+		LOG_DEBUG << disassemble();
+
+		RestorePos restorePos(m_pos);
+		m_pos = 0;
+		UINT constRegNum = UINT_MAX;
+		UINT tempRegNum = UINT_MAX;
+
+		while (nextInstruction())
+		{
+			auto instruction = getToken<InstructionToken>();
+			if (D3DSIO_TEX != instruction.opcode)
+			{
+				continue;
+			}
+
+			const auto dst = getToken<UINT32>(1);
+			const auto src = getToken<UINT32>(3);
+			const auto samplerRegNum = src & D3DSP_REGNUM_MASK;
+
+			if (UINT_MAX == constRegNum)
+			{
+				auto usedConstRegNums = getUsedRegisterNumbers(D3DSPR_CONST);
+				constRegNum = reserveRegisterNumber(usedConstRegNums);
+				if (constRegNum >= 32)
+				{
+					LOG_ONCE("ERROR: no free PS const register found");
+					return false;
+				}
+
+				auto usedTempRegNums = getUsedRegisterNumbers(D3DSPR_TEMP);
+				tempRegNum = reserveRegisterNumber(usedTempRegNums);
+				if (tempRegNum >= 32)
+				{
+					LOG_ONCE("ERROR: no free PS temp register found");
+					return false;
+				}
+			}
+
+			nextInstruction();
+
+			insertToken(makeInstructionToken(D3DSIO_IF));
+			insertToken(makeSourceParameterToken(D3DSPR_CONSTBOOL, samplerRegNum, D3DSP_NOSWIZZLE, D3DSPSM_NONE));
+
+			insertToken(makeInstructionToken(D3DSIO_SUB));
+			insertToken(makeDestinationParameterToken(D3DSPR_TEMP, tempRegNum, D3DSP_WRITEMASK_ALL, D3DSPDM_NONE));
+			insertToken(makeSourceParameterToken(D3DSPR_TEMP, dst & D3DSP_REGNUM_MASK, D3DSP_REPLICATEALPHA, D3DSPSM_NONE));
+			insertToken(makeSourceParameterToken(D3DSPR_CONST, constRegNum, D3DSP_REPLICATEALPHA, D3DSPSM_NONE));
+
+			insertToken(makeInstructionToken(D3DSIO_TEXKILL));
+			insertToken(makeDestinationParameterToken(D3DSPR_TEMP, tempRegNum, D3DSP_WRITEMASK_ALL, D3DSPDM_NONE));
+
+			insertToken(makeInstructionToken(D3DSIO_ENDIF));
+			--m_pos;
+		}
+
+		if (UINT_MAX == constRegNum)
+		{
+			LOG_DEBUG << "No modifications needed";
+			return false;
+		}
+
+		m_pos = 0;
+		nextInstruction();
+		insertToken(makeInstructionToken(D3DSIO_DEF));
+		insertToken(makeDestinationParameterToken(D3DSPR_CONST, constRegNum, D3DSP_WRITEMASK_ALL, D3DSPSM_NONE));
+		for (UINT i = 0; i < 3; ++i)
+		{
+			insertToken(makeConstToken(0));
+		}
+		insertToken(makeConstToken(alphaRef / 255.0f));
+
+		LOG_DEBUG << "Modified bytecode: " << Compat::hexDump(m_tokens.data(), m_tokens.size() * 4);
+		LOG_DEBUG << disassemble();
+		return true;
+	}
+
 	std::string ShaderAssembler::disassemble()
 	{
-		auto origPos = m_pos;
-		m_pos = 0;
+		if (Config::Settings::LogLevel::DEBUG != Compat::Log::getLogLevel())
+		{
+			return {};
+		}
 
+		RestorePos restorePos(m_pos);
+		m_pos = 0;
 		std::ostringstream os;
 		os << "Disassembled shader code:" << std::endl;
 
@@ -228,7 +389,6 @@ namespace D3dDdi
 			os << e.what();
 		}
 
-		m_pos = origPos;
 		return os.str();
 	}
 
@@ -419,9 +579,7 @@ namespace D3dDdi
 
 	void ShaderAssembler::disassembleRegister(std::ostream& os, UINT token)
 	{
-		auto registerType = static_cast<D3DSHADER_PARAM_REGISTER_TYPE>(
-			((token & D3DSP_REGTYPE_MASK) >> D3DSP_REGTYPE_SHIFT) |
-			((token & D3DSP_REGTYPE_MASK2) >> D3DSP_REGTYPE_SHIFT2));
+		auto registerType = getRegisterType(token);
 		auto registerNumber = token & D3DSP_REGNUM_MASK;
 
 		auto it = g_registerMap.find(registerType);
@@ -536,6 +694,66 @@ namespace D3dDdi
 	ShaderAssembler::ShaderType ShaderAssembler::getShaderType() const
 	{
 		return static_cast<ShaderType>(m_tokens.front() >> 16);
+	}
+
+	template <typename Token>
+	Token ShaderAssembler::getToken(UINT offset) const
+	{
+		auto pos = m_pos + offset;
+		return pos < m_tokens.size() ? *reinterpret_cast<const Token*>(&m_tokens[pos]) : Token{};
+	}
+
+	std::set<UINT> ShaderAssembler::getUsedRegisterNumbers(int registerType)
+	{
+		RestorePos restorePos(m_pos);
+		m_pos = 0;
+		std::set<UINT> usedRegisterNumbers;
+		while (nextInstruction())
+		{
+			auto it = g_instructionMap.find(getToken<InstructionToken>().opcode);
+			if (it == g_instructionMap.end())
+			{
+				continue;
+			}
+
+			const UINT offset = D3DSIO_DCL == it->first ? 2 : 1;
+			const auto tokenCount = it->second.dstCount + it->second.srcCount;
+			for (UINT i = 0; i < tokenCount; ++i)
+			{
+				auto token = getToken<UINT32>(offset + i);
+				if (registerType == getRegisterType(token))
+				{
+					usedRegisterNumbers.insert(token & D3DSP_REGNUM_MASK);
+				}
+			}
+		}
+		return usedRegisterNumbers;
+	}
+
+	void ShaderAssembler::insertToken(UINT32 token)
+	{
+		m_tokens.insert(m_tokens.begin() + m_pos, token);
+		++m_pos;
+	}
+
+	bool ShaderAssembler::nextInstruction()
+	{
+		if (0 == m_pos)
+		{
+			m_pos = 1;
+		}
+		else
+		{
+			auto token = readToken<InstructionToken>();
+			readTokens(token.tokenCount);
+		}
+
+		while (D3DSIO_COMMENT == getToken<InstructionToken>().opcode)
+		{
+			auto token = readToken<CommentToken>();
+			readTokens(token.tokenCount);
+		}
+		return m_pos < m_tokens.size() && D3DSIO_END != getToken<InstructionToken>().opcode;
 	}
 
 	UINT ShaderAssembler::readToken()

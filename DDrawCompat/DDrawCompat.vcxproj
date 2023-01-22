@@ -165,6 +165,7 @@
     <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
     <ClInclude Include="Config\Settings\BltFilter.h" />
+    <ClInclude Include="Config\Settings\ColorKeyMethod.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\CpuAffinityRotation.h" />
@@ -333,6 +334,7 @@
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="Config\Settings\Antialiasing.cpp" />
+    <ClCompile Include="Config\Settings\ColorKeyMethod.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="Config\Settings\DesktopResolution.cpp" />
     <ClCompile Include="Config\Settings\DisplayAspectRatio.cpp" />
@@ -457,12 +459,9 @@
     <None Include="genversion.ps1" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\ColorKey.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Pixel</ShaderType>
-    </FxCompile>
-    <FxCompile Include="Shaders\DepthBlt.hlsl">
-      <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Pixel</ShaderType>
-    </FxCompile>
+    <FxCompile Include="Shaders\ColorKey.hlsl" />
+    <FxCompile Include="Shaders\ColorKeyBlend.hlsl" />
+    <FxCompile Include="Shaders\DepthBlt.hlsl" />
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />
     <FxCompile Include="Shaders\GenBilinear.hlsl" />

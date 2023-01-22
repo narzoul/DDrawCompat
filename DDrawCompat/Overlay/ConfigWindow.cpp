@@ -5,6 +5,7 @@
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/BltFilter.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
@@ -31,7 +32,7 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 455 }, WS_BORDER, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 480 }, WS_BORDER, Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -44,6 +45,7 @@ namespace Overlay
 		addControl(Config::alternatePixelCenter);
 		addControl(Config::antialiasing);
 		addControl(Config::bltFilter);
+		addControl(Config::colorKeyMethod);
 		addControl(Config::depthFormat);
 		addControl(Config::displayFilter);
 		addControl(Config::fontAntialiasing);

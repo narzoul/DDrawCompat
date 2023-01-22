@@ -3,6 +3,7 @@
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/BltFilter.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
@@ -46,6 +47,7 @@ namespace Config
 	Settings::AltTabFix altTabFix;
 	Settings::Antialiasing antialiasing;
 	Settings::BltFilter bltFilter;
+	Settings::ColorKeyMethod colorKeyMethod;
 	Settings::ConfigHotKey configHotKey;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;

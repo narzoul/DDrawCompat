@@ -1,6 +1,7 @@
 #pragma once
 
 #include <ostream>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -13,7 +14,9 @@ namespace D3dDdi
 	public:
 		ShaderAssembler(const UINT* code, DWORD size);
 
+		bool addAlphaTest(UINT alphaRef);
 		std::string disassemble();
+		const std::vector<UINT>& getTokens() const { return m_tokens; }
 
 	private:
 		enum ShaderType
@@ -33,10 +36,15 @@ namespace D3dDdi
 		void disassembleSourceSwizzle(std::ostream& os, UINT token);
 		void disassembleVersion(std::ostream& os);
 		UINT getRemainingTokenCount() const;
+		std::set<UINT> getUsedRegisterNumbers(int registerType);
 		ShaderType getShaderType() const;
+		void insertToken(UINT32 token);
+		bool nextInstruction();
 		UINT readToken();
 		const UINT* readTokens(UINT count);
 
+		template <typename Token>
+		Token getToken(UINT offset = 0) const;
 		template <typename Token>
 		Token readToken();
 

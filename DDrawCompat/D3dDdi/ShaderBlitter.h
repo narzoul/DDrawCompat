@@ -24,6 +24,8 @@ namespace D3dDdi
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
+		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
+			const Resource& srcResource, UINT srcSubResourceIndex, DeviceState::ShaderConstF srcColorKey);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
@@ -75,6 +77,7 @@ namespace D3dDdi
 
 		Device& m_device;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
+		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;

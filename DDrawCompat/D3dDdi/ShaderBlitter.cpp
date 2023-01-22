@@ -7,6 +7,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Shaders/ColorKey.h>
+#include <Shaders/ColorKeyBlend.h>
 #include <Shaders/DepthBlt.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
@@ -55,6 +56,7 @@ namespace D3dDdi
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
 		, m_psColorKey(createPixelShader(g_psColorKey))
+		, m_psColorKeyBlend(createPixelShader(g_psColorKeyBlend))
 		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
@@ -162,6 +164,15 @@ namespace D3dDdi
 		}
 
 		m_device.flushPrimitives();
+	}
+
+	void ShaderBlitter::colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
+		const Resource& srcResource, UINT srcSubResourceIndex, DeviceState::ShaderConstF srcColorKey)
+	{
+		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 31, 1 }, &srcColorKey);
+		blt(dstResource, dstSubResourceIndex, dstResource.getRect(dstSubResourceIndex),
+			srcResource, srcSubResourceIndex, srcResource.getRect(srcSubResourceIndex),
+			m_psColorKeyBlend.get(), D3DTEXF_POINT);
 	}
 
 	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
