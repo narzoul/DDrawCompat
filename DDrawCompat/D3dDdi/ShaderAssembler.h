@@ -16,6 +16,7 @@ namespace D3dDdi
 
 		bool addAlphaTest(UINT alphaRef);
 		std::string disassemble();
+		UINT getTextureStageCount();
 		const std::vector<UINT>& getTokens() const { return m_tokens; }
 
 	private:

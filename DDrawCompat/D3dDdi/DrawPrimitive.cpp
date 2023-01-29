@@ -829,9 +829,10 @@ namespace D3dDdi
 		auto& state = m_device.getState();
 		auto& appState = state.getAppState();
 		auto& decl = state.getVertexDecl();
+		auto textureStageCount = state.getTextureStageCount();
 		auto vertices = m_streamSource.vertices + baseVertexIndex * m_streamSource.stride;
 
-		for (UINT stage = 0; stage < decl.textureStageCount; ++stage)
+		for (UINT stage = 0; stage < textureStageCount; ++stage)
 		{
 			const UINT D3DDECLTYPE_FLOAT2 = 1;
 			if (!appState.textures[stage] ||

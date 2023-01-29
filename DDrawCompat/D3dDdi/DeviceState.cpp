@@ -47,11 +47,13 @@ namespace D3dDdi
 		, m_vertexShaderConst{}
 		, m_vertexShaderConstB{}
 		, m_vertexShaderConstI{}
+		, m_vertexDecl(nullptr)
 		, m_changedStates(0)
 		, m_maxChangedTextureStage(0)
 		, m_changedTextureStageStates{}
 		, m_vsVertexFixup(createVertexShader(g_vsVertexFixup))
 		, m_textureResource{}
+		, m_pixelShader(nullptr)
 		, m_isLocked(false)
 		, m_spriteMode(false)
 	{
@@ -275,11 +277,15 @@ namespace D3dDdi
 		return m_textureResource[stage];
 	}
 
+	UINT DeviceState::getTextureStageCount() const
+	{
+		return m_pixelShader ? m_pixelShader->textureStageCount : 0;
+	}
+
 	const DeviceState::VertexDecl& DeviceState::getVertexDecl() const
 	{
 		static const VertexDecl emptyDecl = {};
-		auto it = m_vertexShaderDecls.find(m_app.vertexShaderDecl);
-		return it != m_vertexShaderDecls.end() ? it->second : emptyDecl;
+		return m_vertexDecl ? *m_vertexDecl : emptyDecl;
 	}
 
 	bool DeviceState::isColorKeyUsed()
@@ -290,7 +296,8 @@ namespace D3dDdi
 		}
 
 		bool used = false;
-		for (UINT i = 0; i < getVertexDecl().textureStageCount && !used; ++i)
+		UINT textureStageCount = getTextureStageCount();
+		for (UINT i = 0; i < textureStageCount && !used; ++i)
 		{
 			used = !m_app.textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY];
 		}
@@ -426,15 +433,17 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code)
 	{
+		ShaderAssembler shaderAssembler(code, data->CodeSize);
 		LOG_DEBUG << "Pixel shader bytecode: " << Compat::hexDump(code, data->CodeSize);
-		LOG_DEBUG << ShaderAssembler(code, data->CodeSize).disassemble();
+		LOG_DEBUG << shaderAssembler.disassemble();
 		HRESULT result = m_device.getOrigVtable().pfnCreatePixelShader(m_device, data, code);
 		if (SUCCEEDED(result))
 		{
 			m_pixelShaders.emplace(data->ShaderHandle,
 				PixelShader{ std::vector<UINT>(code, code + data->CodeSize / 4),
 				std::unique_ptr<void, ResourceDeleter>(
-					nullptr, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc)) });
+					nullptr, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc)),
+				    shaderAssembler.getTextureStageCount(), false });
 		}
 		return result;
 	}
@@ -459,10 +468,6 @@ namespace D3dDdi
 			{
 				decl.texCoordOffset[vertexElements[i].UsageIndex] = vertexElements[i].Offset;
 				decl.texCoordType[vertexElements[i].UsageIndex] = vertexElements[i].Type;
-				if (vertexElements[i].UsageIndex >= decl.textureStageCount)
-				{
-					decl.textureStageCount = vertexElements[i].UsageIndex + 1;
-				}
 			}
 			else if (D3DDECLUSAGE_POSITIONT == vertexElements[i].Usage)
 			{
@@ -487,6 +492,10 @@ namespace D3dDdi
 			auto it = m_pixelShaders.find(shader);
 			if (it != m_pixelShaders.end())
 			{
+				if (m_pixelShader == &it->second)
+				{
+					m_pixelShader = nullptr;
+				}
 				if (it->second.modifiedPixelShader)
 				{
 					deleteShader(it->second.modifiedPixelShader.release(), &State::pixelShader,
@@ -500,9 +509,14 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnDeleteVertexShaderDecl(HANDLE shader)
 	{
+		const bool isCurrent = m_app.vertexShaderDecl == shader;
 		HRESULT result = deleteShader(shader, &State::vertexShaderDecl, m_device.getOrigVtable().pfnDeleteVertexShaderDecl);
 		if (SUCCEEDED(result))
 		{
+			if (isCurrent)
+			{
+				m_vertexDecl = nullptr;
+			}
 			m_vertexShaderDecls.erase(shader);
 		}
 		return result;
@@ -525,6 +539,8 @@ namespace D3dDdi
 	{
 		m_app.pixelShader = shader;
 		m_changedStates |= CS_SHADER;
+		auto it = m_pixelShaders.find(shader);
+		m_pixelShader = it != m_pixelShaders.end() ? &it->second : nullptr;
 		return S_OK;
 	}
 
@@ -636,6 +652,8 @@ namespace D3dDdi
 	{
 		m_app.vertexShaderDecl = shader;
 		m_changedStates |= CS_SHADER;
+		auto it = m_vertexShaderDecls.find(shader);
+		m_vertexDecl = it != m_vertexShaderDecls.end() ? &it->second : nullptr;
 		return S_OK;
 	}
 
@@ -669,7 +687,8 @@ namespace D3dDdi
 
 	void DeviceState::prepareTextures()
 	{
-		for (UINT stage = 0; stage < getVertexDecl().textureStageCount; ++stage)
+		UINT textureStageCount = getTextureStageCount();
+		for (UINT stage = 0; stage < textureStageCount; ++stage)
 		{
 			auto resource = getTextureResource(stage);
 			if (resource)

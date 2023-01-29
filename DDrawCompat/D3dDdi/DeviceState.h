@@ -80,7 +80,6 @@ namespace D3dDdi
 			std::vector<D3DDDIVERTEXELEMENT> elements;
 			std::array<UINT, 8> texCoordOffset;
 			std::array<UINT, 8> texCoordType;
-			UINT textureStageCount;
 			bool isTransformed;
 		};
 
@@ -130,6 +129,7 @@ namespace D3dDdi
 		const State& getAppState() const { return m_app; }
 		const State& getCurrentState() const { return m_current; }
 		Resource* getTextureResource(UINT stage);
+		UINT getTextureStageCount() const;
 		const VertexDecl& getVertexDecl() const;
 		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }
 		bool isLocked() const { return m_isLocked; }
@@ -153,6 +153,7 @@ namespace D3dDdi
 		{
 			std::vector<UINT> tokens;
 			std::unique_ptr<void, ResourceDeleter> modifiedPixelShader;
+			UINT textureStageCount;
 			bool isModified;
 		};
 
@@ -217,6 +218,7 @@ namespace D3dDdi
 		std::array<ShaderConstB, 16> m_vertexShaderConstB;
 		std::array<ShaderConstI, 16> m_vertexShaderConstI;
 		std::map<HANDLE, VertexDecl> m_vertexShaderDecls;
+		VertexDecl* m_vertexDecl;
 		UINT m_changedStates;
 		UINT m_maxChangedTextureStage;
 		UINT m_usedTextureStages;
@@ -225,6 +227,7 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_vsVertexFixup;
 		std::array<Resource*, 8> m_textureResource;
 		std::map<HANDLE, PixelShader> m_pixelShaders;
+		PixelShader* m_pixelShader;
 		bool m_isLocked;
 		bool m_spriteMode;
 	};

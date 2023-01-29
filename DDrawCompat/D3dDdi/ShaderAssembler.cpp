@@ -696,6 +696,12 @@ namespace D3dDdi
 		return static_cast<ShaderType>(m_tokens.front() >> 16);
 	}
 
+	UINT ShaderAssembler::getTextureStageCount()
+	{
+		auto usedSamplers = getUsedRegisterNumbers(D3DSPR_SAMPLER);
+		return usedSamplers.empty() ? 0 : (*usedSamplers.rbegin() + 1);
+	}
+
 	template <typename Token>
 	Token ShaderAssembler::getToken(UINT offset) const
 	{
