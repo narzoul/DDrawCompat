@@ -34,6 +34,7 @@ namespace D3dDdi
 			HANDLE pixelShader;
 			std::array<UINT, D3DDDIRS_BLENDOPALPHA + 1> renderState;
 			D3DDDIARG_SETRENDERTARGET renderTarget;
+			RECT scissorRect;
 			D3DDDIARG_SETSTREAMSOURCE streamSource;
 			D3DDDIARG_SETSTREAMSOURCEUM streamSourceUm;
 			const void* streamSourceUmBuffer;
@@ -191,6 +192,7 @@ namespace D3dDdi
 		void setPixelShader(HANDLE shader);
 		void setRenderState(const D3DDDIARG_RENDERSTATE& renderState);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
+		void setScissorRect(const RECT& rect);
 		void setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
 		void setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
 		bool setTexture(UINT stage, HANDLE texture);
@@ -206,7 +208,7 @@ namespace D3dDdi
 		void updateShaders();
 		void updateTextureColorKey(UINT stage);
 		void updateTextureStages();
-		void updateVertexFixupConstants();
+		void updateVertexFixupConstants(UINT width, UINT height, float sx, float sy);
 
 		Device& m_device;
 		State m_app;

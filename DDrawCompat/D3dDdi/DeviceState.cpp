@@ -5,6 +5,7 @@
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
+#include <Common/Comparison.h>
 #include <Common/Log.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceState.h>
@@ -19,6 +20,16 @@
 namespace
 {
 	const HANDLE DELETED_RESOURCE = reinterpret_cast<HANDLE>(0xBAADBAAD);
+
+	RECT makeRect(const D3DDDIARG_VIEWPORTINFO& vp)
+	{
+		return {
+			static_cast<LONG>(vp.X),
+			static_cast<LONG>(vp.Y),
+			static_cast<LONG>(vp.X + vp.Width),
+			static_cast<LONG>(vp.Y + vp.Height)
+		};
+	}
 }
 
 namespace D3dDdi
@@ -127,6 +138,7 @@ namespace D3dDdi
 		m_current.renderState[D3DDDIRS_PATCHSEGMENTS] = 0x3F800000;
 		m_current.renderState[D3DDDIRS_COLORWRITEENABLE] = 0xF;
 		m_current.renderState[D3DDDIRS_BLENDOP] = D3DBLENDOP_ADD;
+		m_current.renderState[D3DDDIRS_SCISSORTESTENABLE] = FALSE;
 		m_current.renderState[D3DDDIRS_SRGBWRITEENABLE] = FALSE;
 
 		for (UINT i = 0; i < m_current.renderState.size(); i++)
@@ -652,8 +664,13 @@ namespace D3dDdi
 	{
 		m_app.vertexShaderDecl = shader;
 		m_changedStates |= CS_SHADER;
+		const bool wasTransformed = getVertexDecl().isTransformed;
 		auto it = m_vertexShaderDecls.find(shader);
 		m_vertexDecl = it != m_vertexShaderDecls.end() ? &it->second : nullptr;
+		if (getVertexDecl().isTransformed != wasTransformed)
+		{
+			m_changedStates |= CS_RENDER_TARGET;
+		}
 		return S_OK;
 	}
 
@@ -768,6 +785,18 @@ namespace D3dDdi
 		m_current.vertexShaderFunc = DELETED_RESOURCE;
 		m_changedStates |= CS_SHADER;
 		LOG_DS << renderTarget;
+	}
+
+	void DeviceState::setScissorRect(const RECT& rect)
+	{
+		if (rect == m_current.scissorRect)
+		{
+			return;
+		}
+
+		m_device.flushPrimitives();
+		m_device.getOrigVtable().pfnSetScissorRect(m_device, &rect);
+		m_current.scissorRect = rect;
 	}
 
 	bool DeviceState::setShader(HANDLE shader, HANDLE& currentShader,
@@ -1060,14 +1089,36 @@ namespace D3dDdi
 	void DeviceState::updateRenderTarget()
 	{
 		auto vp = m_app.viewport;
+		auto scaledVp = m_app.viewport;
+		RECT scissorRect = {};
 		auto renderTarget = m_app.renderTarget;
 		auto depthStencil = m_app.depthStencil;
+		bool isTransformed = getVertexDecl().isTransformed;
 
 		Resource* resource = m_device.getResource(renderTarget.hRenderTarget);
-		if (resource && resource->getCustomResource())
+		if (resource)
 		{
-			resource->scaleRect(reinterpret_cast<RECT&>(vp));
-			renderTarget.hRenderTarget = *resource->getCustomResource();
+			auto customResource = resource->getCustomResource();
+			if (customResource)
+			{
+				resource->scaleRect(reinterpret_cast<RECT&>(scaledVp));
+				renderTarget.hRenderTarget = *customResource;
+			}
+			if (isTransformed)
+			{
+				scissorRect = makeRect(scaledVp);
+				auto& si = resource->getOrigDesc().pSurfList[renderTarget.SubResourceIndex];
+				vp = { 0, 0, si.Width, si.Height };
+				if (customResource)
+				{
+					auto& scaledSi = customResource->getOrigDesc().pSurfList[renderTarget.SubResourceIndex];
+					scaledVp = { 0, 0, scaledSi.Width, scaledSi.Height };
+				}
+				else
+				{
+					scaledVp = vp;
+				}
+			}
 		}
 
 		resource = m_device.getResource(depthStencil.hZBuffer);
@@ -1078,7 +1129,7 @@ namespace D3dDdi
 
 		setRenderTarget(renderTarget);
 		setDepthStencil(depthStencil);
-		setViewport(vp);
+		setViewport(scaledVp);
 
 		auto wInfo = m_app.wInfo;
 		if (1.0f == wInfo.WNear && 1.0f == wInfo.WFar)
@@ -1089,15 +1140,26 @@ namespace D3dDdi
 
 		setZRange(m_app.zRange);
 
-		updateVertexFixupConstants();
+		if (isTransformed)
+		{
+			const float sx = static_cast<float>(scaledVp.Width) / vp.Width;
+			const float sy = static_cast<float>(scaledVp.Height) / vp.Height;
+			updateVertexFixupConstants(vp.Width, vp.Height, sx, sy);
+		}
+
+		const bool isScissorRectNeeded = isTransformed && 0 != memcmp(&vp, &m_app.viewport, sizeof(vp));
+		setRenderState({ D3DDDIRS_SCISSORTESTENABLE, isScissorRectNeeded });
+		if (isScissorRectNeeded)
+		{
+			setScissorRect(scissorRect);
+		}
 	}
 
 	void DeviceState::updateShaders()
 	{
 		setPixelShader(mapPixelShader(m_app.pixelShader));
 		setVertexShaderDecl(m_app.vertexShaderDecl);
-		auto it = m_vertexShaderDecls.find(m_app.vertexShaderDecl);
-		if (it != m_vertexShaderDecls.end() && it->second.isTransformed)
+		if (getVertexDecl().isTransformed)
 		{
 			setVertexShaderFunc(m_vsVertexFixup.get());
 		}
@@ -1195,7 +1257,7 @@ namespace D3dDdi
 		}
 	}
 
-	void DeviceState::updateVertexFixupConstants()
+	void DeviceState::updateVertexFixupConstants(UINT width, UINT height, float sx, float sy)
 	{
 		D3DDDIARG_SETVERTEXSHADERCONST data = {};
 		data.Register = 253;
@@ -1203,15 +1265,12 @@ namespace D3dDdi
 
 		const float stc = static_cast<float>(Config::spriteTexCoord.getParam()) / 100;
 		const float apc = Config::alternatePixelCenter.get();
-		const auto& vp = m_app.viewport;
 		const auto& zr = m_current.zRange;
-		const float sx = static_cast<float>(m_current.viewport.Width) / m_app.viewport.Width;
-		const float sy = static_cast<float>(m_current.viewport.Height) / m_app.viewport.Height;
 
 		ShaderConstF registers[3] = {
 			{ m_vertexShaderConst[253][0], m_vertexShaderConst[253][1], stc, stc },
-			{ 0.5f + apc - 0.5f / sx - vp.X - vp.Width / 2, 0.5f + apc - 0.5f / sy - vp.Y - vp.Height / 2, -zr.MinZ, 0.0f },
-			{ 2.0f / vp.Width, -2.0f / vp.Height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
+			{ 0.5f + apc - 0.5f / sx - width / 2, 0.5f + apc - 0.5f / sy - height / 2, -zr.MinZ, 0.0f },
+			{ 2.0f / width, -2.0f / height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
 		};
 
 		if (0 != memcmp(registers, &m_vertexShaderConst[data.Register], sizeof(registers)))

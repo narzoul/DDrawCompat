@@ -121,6 +121,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0xF });
+		state.setTempRenderState({ D3DDDIRS_SCISSORTESTENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, srgb });
 
 		if (alpha)
