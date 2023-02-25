@@ -673,7 +673,7 @@ namespace D3dDdi
 		m_isClampable = false;
 	}
 
-	void Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight, bool dryRun)
+	void Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight)
 	{
 		while (srcWidth > 2 * dstWidth || srcHeight > 2 * dstHeight)
 		{
@@ -685,11 +685,8 @@ namespace D3dDdi
 				return;
 			}
 
-			if (!dryRun)
-			{
-				m_device.getShaderBlitter().textureBlt(*nextRt.resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
-					*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR);
-			}
+			m_device.getShaderBlitter().textureBlt(*nextRt.resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
+				*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR);
 			rt = nextRt.resource;
 			srcWidth = newSrcWidth;
 			srcHeight = newSrcHeight;
@@ -1015,7 +1012,6 @@ namespace D3dDdi
 			auto srcRect = src->getRect(subResourceIndex);
 			auto dstRect = getRect(subResourceIndex);
 
-			SurfaceRepository::enableSurfaceCheck(false);
 			downscale(src, srcRect.right, srcRect.bottom, dstRect.right, dstRect.bottom);
 			auto srcIndex = src == m_msaaResolvedSurface.resource ? subResourceIndex : 0;
 
@@ -1032,7 +1028,6 @@ namespace D3dDdi
 					srcIndex = 0;
 				}
 			}
-			SurfaceRepository::enableSurfaceCheck(true);
 
 			if (dstRect == srcRect)
 			{
@@ -1786,18 +1781,11 @@ namespace D3dDdi
 					m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height, m_fixedData.Format,
 					DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				
-				if (isScaled)
+				if (isScaled && m_device.getGdiResource() == this)
 				{
-					Resource* rt = m_msaaResolvedSurface.resource;
-					auto srcRect = rt->getRect(0);
-					auto dstRect = getRect(0);
-					const bool dryRun = true;
-					downscale(rt, srcRect.right, srcRect.bottom, dstRect.right, dstRect.bottom, dryRun);
-					if (dstRect != srcRect &&
-						!(m_device.getAdapter().getInfo().formatOps.at(m_fixedData.Format).Operations & FORMATOP_SRGBWRITE))
-					{
-						getNextRenderTarget(rt, dstRect.right, dstRect.bottom);
-					}
+					loadMsaaResolvedResource(0);
+					m_lockData[0].isVidMemUpToDate = false;
+					loadVidMemResource(0);
 				}
 			}
 		}

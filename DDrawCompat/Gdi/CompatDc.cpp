@@ -1,6 +1,7 @@
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
@@ -19,6 +20,7 @@ namespace Gdi
 			auto gdiResource = D3dDdi::Device::getGdiResource();
 			if (gdiResource)
 			{
+				D3dDdi::SurfaceRepository::enableSurfaceCheck(false);
 				if (isReadOnly)
 				{
 					gdiResource->prepareForCpuRead(0);
@@ -27,6 +29,7 @@ namespace Gdi
 				{
 					gdiResource->prepareForCpuWrite(0);
 				}
+				D3dDdi::SurfaceRepository::enableSurfaceCheck(true);
 			}
 		}
 		else
