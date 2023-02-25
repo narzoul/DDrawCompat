@@ -3,6 +3,8 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/ScopedSrwLock.h>
+#include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
@@ -170,7 +172,10 @@ namespace
 			}
 
 			paletteInfo.isRealized = true;
-			std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
+			if (!DDraw::RealPrimarySurface::isFullscreen() || !DDraw::PrimarySurface::s_palette)
+			{
+				std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
+			}
 			Gdi::VirtualScreen::updatePalette(g_systemPalette);
 			return LOG_RESULT(count);
 		}

@@ -1526,10 +1526,10 @@ namespace D3dDdi
 			return;
 		}
 
-		DDraw::PrimarySurface::updatePalette();
-
 		if (isFullscreen)
 		{
+			DDraw::PrimarySurface::updatePalette();
+
 			const Int2 ar = m_device.getAdapter().getAspectRatio();
 			g_presentationRect = calculateScaledRect({ 0, 0, ar.x, ar.y }, DDraw::RealPrimarySurface::getMonitorRect());
 			auto& si = m_origData.pSurfList[0];
@@ -1544,6 +1544,8 @@ namespace D3dDdi
 		}
 		else
 		{
+			Gdi::Palette::setHardwarePalette(Gdi::Palette::getSystemPalette().data());
+
 			g_presentationRect = {};
 			Gdi::VirtualScreen::setFullscreenMode(false);
 			Gdi::Cursor::setEmulated(false);
