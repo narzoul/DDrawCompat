@@ -304,12 +304,11 @@ namespace
 		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
 	{
 		LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
-		const DWORD CBM_CREATDIB = 2;
-		if (!g_disableDibRedirection && !(fdwInit & CBM_CREATDIB) && lpbmih && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && lpbmih && Gdi::isDisplayDc(hdc))
 		{
 			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(
-				lpbmi->bmiHeader.biWidth, lpbmi->bmiHeader.biHeight, Win32::DisplayMode::getBpp());
-			if (bitmap && lpbInit && lpbmi)
+				lpbmih->biWidth, lpbmih->biHeight, Win32::DisplayMode::getBpp());
+			if ((fdwInit & CBM_INIT) && bitmap && lpbInit && lpbmi)
 			{
 				SetDIBits(hdc, bitmap, 0, std::abs(lpbmi->bmiHeader.biHeight), lpbInit, lpbmi, fuUsage);
 			}
