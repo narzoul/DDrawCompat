@@ -30,6 +30,7 @@ namespace D3dDdi
 		Resource* getCustomResource() const { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
 		Device& getDevice() const { return m_device; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
+		FORMATOP getFormatOp() const { return m_formatOp; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
 		UINT getPaletteHandle() const { return m_paletteHandle; }
 		Resource* getPalettizedTexture() { return m_palettizedTexture; }
@@ -97,6 +98,7 @@ namespace D3dDdi
 		HRESULT bltLock(D3DDDIARG_LOCK& data);
 		HRESULT bltViaCpu(D3DDDIARG_BLT data, Resource& srcResource);
 		HRESULT bltViaGpu(D3DDDIARG_BLT data, Resource& srcResource);
+		bool canCopySubResource(const D3DDDIARG_BLT& data, Resource& srcResource);
 		void clearRectExterior(UINT subResourceIndex, const RECT& rect);
 		void clearRectInterior(UINT subResourceIndex, const RECT& rect);
 		void clearUpToDateFlags(UINT subResourceIndex);
@@ -124,7 +126,7 @@ namespace D3dDdi
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect,
 			std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect);
 		void resolveMsaaDepthBuffer();
-		HRESULT shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource);
+		HRESULT shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter);
 		bool shouldBltViaCpu(const D3DDDIARG_BLT &data, Resource& srcResource);
 
 		Device& m_device;
@@ -132,6 +134,7 @@ namespace D3dDdi
 		Data m_origData;
 		Data m_fixedData;
 		FormatInfo m_formatInfo;
+		FORMATOP m_formatOp;
 		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
 		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, ResourceDeleter> m_lockResource;

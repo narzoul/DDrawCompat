@@ -117,6 +117,8 @@ namespace D3dDdi
 		, m_handle(nullptr)
 		, m_origData(data)
 		, m_fixedData(data)
+		, m_formatInfo{}
+		, m_formatOp{}
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device, device.getOrigVtable().pfnDestroyResource))
 		, m_lockRefSurface{}
@@ -154,6 +156,13 @@ namespace D3dDdi
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 		m_formatConfig = m_fixedData.Format;
 		m_scaledSize = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
+
+		const auto& formatOps = m_device.getAdapter().getInfo().formatOps;
+		auto it = formatOps.find(m_fixedData.Format);
+		if (it != formatOps.end())
+		{
+			m_formatOp = it->second;
+		}
 
 		HRESULT result = m_device.createPrivateResource(m_fixedData);
 		if (FAILED(result))
@@ -392,55 +401,40 @@ namespace D3dDdi
 			srcResource.prepareForBltSrc(data);
 		}
 
+		if (!m_fixedData.Flags.ZBuffer &&
+			(0 == m_formatInfo.bytesPerPixel || 0 == srcResource.m_formatInfo.bytesPerPixel))
+		{
+			if (m_lockResource)
+			{
+				loadVidMemResource(data.DstSubResourceIndex);
+				clearUpToDateFlags(data.DstSubResourceIndex);
+				m_lockData[data.DstSubResourceIndex].isVidMemUpToDate = true;
+			}
+			return m_device.getOrigVtable().pfnBlt(m_device, &data);
+		}
+
 		Resource& dstRes = prepareForBltDst(data);
+		return shaderBlt(data, dstRes, *srcRes,
+			Config::Settings::BltFilter::BILINEAR == Config::bltFilter.get() ? D3DTEXF_LINEAR : D3DTEXF_POINT);
+	}
 
-		if (!m_fixedData.Flags.ZBuffer)
+	bool Resource::canCopySubResource(const D3DDDIARG_BLT& data, Resource& srcResource)
+	{
+		if (data.Flags.SrcColorKey ||
+			data.Flags.MirrorLeftRight ||
+			data.Flags.MirrorUpDown ||
+			D3DDDIMULTISAMPLE_NONE != m_fixedData.MultisampleType)
 		{
-			if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-				D3DDDIPOOL_SYSTEMMEM != srcResource.m_fixedData.Pool &&
-				Config::Settings::BltFilter::BILINEAR == Config::bltFilter.get())
-			{
-				data.Flags.Linear = 1;
-			}
-			else
-			{
-				data.Flags.Point = 1;
-			}
-		}
-
-		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool &&
-			(m_fixedData.Flags.ZBuffer &&
-				(m_nullSurface.resource && &dstRes == m_msaaSurface.resource || m_device.getAdapter().getInfo().isD3D9On12) ||
-				dstRes.m_fixedData.Flags.RenderTarget ||
-				!m_fixedData.Flags.ZBuffer && (
-					data.Flags.SrcColorKey ||
-					data.Flags.MirrorLeftRight || data.Flags.MirrorUpDown ||
-					data.DstRect.right - data.DstRect.left != data.SrcRect.right - data.SrcRect.left ||
-					data.DstRect.bottom - data.DstRect.top != data.SrcRect.bottom - data.SrcRect.top)) &&
-			SUCCEEDED(shaderBlt(data, dstRes, *srcRes)))
-		{
-			return S_OK;
+			return false;
 		}
 
-		if (&dstRes != this && D3DDDIPOOL_SYSTEMMEM == srcRes->m_fixedData.Pool)
+		if (m_fixedData.Flags.ZBuffer)
 		{
-			RECT r = { 0, 0, data.SrcRect.right - data.SrcRect.left, data.SrcRect.bottom - data.SrcRect.top };
-			copySubResourceRegion(*this, data.DstSubResourceIndex, r, *srcRes, data.SrcSubResourceIndex, data.SrcRect);
-			data.hSrcResource = *this;
-			data.SrcSubResourceIndex = data.DstSubResourceIndex;
-			data.SrcRect = r;
+			return !m_device.getAdapter().getInfo().isD3D9On12 ||
+				m_fixedData.Format == srcResource.m_fixedData.Format && Rect::isEqualSize(data.SrcRect, data.DstRect);
 		}
 
-		HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
-		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
-		{
-			notifyLock(data.DstSubResourceIndex);
-		}
-		else if (D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
-		{
-			srcResource.notifyLock(data.SrcSubResourceIndex);
-		}
-		return result;
+		return Rect::isEqualSize(data.SrcRect, data.DstRect);
 	}
 
 	void Resource::clearRectExterior(UINT subResourceIndex, const RECT& rect)
@@ -686,7 +680,7 @@ namespace D3dDdi
 			}
 
 			m_device.getShaderBlitter().textureBlt(*nextRt.resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
-				*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR);
+				*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR | D3DTEXF_SRGB);
 			rt = nextRt.resource;
 			srcWidth = newSrcWidth;
 			srcHeight = newSrcHeight;
@@ -941,23 +935,14 @@ namespace D3dDdi
 		else
 		{
 			loadVidMemResource(subResourceIndex);
-			const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
-				static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
-			if ((m_fixedData.Flags.ZBuffer || !isScaled) && !m_device.getAdapter().getInfo().isD3D9On12)
-			{
-				copySubResource(*m_msaaResolvedSurface.resource, *this, subResourceIndex);
-			}
-			else
-			{
-				D3DDDIARG_BLT blt = {};
-				blt.hSrcResource = *this;
-				blt.SrcSubResourceIndex = subResourceIndex;
-				blt.SrcRect = getRect(subResourceIndex);
-				blt.hDstResource = *m_msaaResolvedSurface.resource;
-				blt.DstSubResourceIndex = subResourceIndex;
-				blt.DstRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
-				shaderBlt(blt, *m_msaaResolvedSurface.resource , *this);
-			}
+			D3DDDIARG_BLT blt = {};
+			blt.hSrcResource = *this;
+			blt.SrcSubResourceIndex = subResourceIndex;
+			blt.SrcRect = getRect(subResourceIndex);
+			blt.hDstResource = *m_msaaResolvedSurface.resource;
+			blt.DstSubResourceIndex = subResourceIndex;
+			blt.DstRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
+			shaderBlt(blt, *m_msaaResolvedSurface.resource, *this, D3DTEXF_POINT);
 		}
 		m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
 	}
@@ -984,60 +969,18 @@ namespace D3dDdi
 		if (m_lockData[subResourceIndex].isMsaaUpToDate || m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
 		{
 			loadMsaaResolvedResource(subResourceIndex);
-			if (!m_origData.Flags.RenderTarget ||
-				Config::Settings::ResolutionScaleFilter::POINT == Config::resolutionScaleFilter.get())
-			{
-				const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
-					static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
-				if ((m_fixedData.Flags.ZBuffer || !isScaled) && !m_device.getAdapter().getInfo().isD3D9On12)
-				{
-					copySubResource(*this, *m_msaaResolvedSurface.resource, subResourceIndex);
-				}
-				else
-				{
-					D3DDDIARG_BLT blt = {};
-					blt.hSrcResource = *m_msaaResolvedSurface.resource;
-					blt.SrcSubResourceIndex = subResourceIndex;
-					blt.SrcRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
-					blt.hDstResource = *this;
-					blt.DstSubResourceIndex = subResourceIndex;
-					blt.DstRect = getRect(subResourceIndex);
-					shaderBlt(blt, *this, *m_msaaResolvedSurface.resource);
-				}
-				m_lockData[subResourceIndex].isVidMemUpToDate = true;
-				return;
-			}
 
-			auto src = m_msaaResolvedSurface.resource;
-			auto srcRect = src->getRect(subResourceIndex);
-			auto dstRect = getRect(subResourceIndex);
-
-			downscale(src, srcRect.right, srcRect.bottom, dstRect.right, dstRect.bottom);
-			auto srcIndex = src == m_msaaResolvedSurface.resource ? subResourceIndex : 0;
-
-			if (dstRect != srcRect &&
-				!(m_device.getAdapter().getInfo().formatOps.at(m_fixedData.Format).Operations & FORMATOP_SRGBWRITE))
-			{
-				auto nextRt = getNextRenderTarget(src, dstRect.right, dstRect.bottom).resource;
-				if (nextRt)
-				{
-					m_device.getShaderBlitter().textureBlt(*nextRt, 0, dstRect,
-						*src, srcIndex, srcRect, D3DTEXF_LINEAR);
-					src = nextRt;
-					srcRect = dstRect;
-					srcIndex = 0;
-				}
-			}
-
-			if (dstRect == srcRect)
-			{
-				copySubResourceRegion(m_handle, subResourceIndex, dstRect, *src, srcIndex, srcRect);
-			}
-			else
-			{
-				m_device.getShaderBlitter().textureBlt(*this, subResourceIndex, dstRect,
-					*src, srcIndex, srcRect, D3DTEXF_LINEAR);
-			}
+			D3DDDIARG_BLT blt = {};
+			blt.hSrcResource = *m_msaaResolvedSurface.resource;
+			blt.SrcSubResourceIndex = subResourceIndex;
+			blt.SrcRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
+			blt.hDstResource = *this;
+			blt.DstSubResourceIndex = subResourceIndex;
+			blt.DstRect = getRect(subResourceIndex);
+			shaderBlt(blt, *this, *m_msaaResolvedSurface.resource,
+				Config::Settings::ResolutionScaleFilter::BILINEAR == Config::resolutionScaleFilter.get()
+				? D3DTEXF_LINEAR | D3DTEXF_SRGB
+				: D3DTEXF_POINT);
 		}
 		else
 		{
@@ -1560,9 +1503,16 @@ namespace D3dDdi
 		resource.m_isPalettizedTextureUpToDate = false;
 	}
 
-	HRESULT Resource::shaderBlt(D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource)
+	HRESULT Resource::shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter)
 	{
-		LOG_FUNC("Resource::shaderBlt", data, srcResource);
+		LOG_FUNC("Resource::shaderBlt", data, dstResource, srcResource);
+
+		if (D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
+			dstResource.canCopySubResource(data, srcResource))
+		{
+			return LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
+		}
+
 		auto& repo = SurfaceRepository::get(m_device.getAdapter());
 
 		Resource* srcRes = &srcResource;
@@ -1573,7 +1523,15 @@ namespace D3dDdi
 		UINT dstIndex = data.DstSubResourceIndex;
 		RECT dstRect = data.DstRect;
 
-		if (!srcResource.m_fixedData.Flags.Texture || D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool)
+		if (D3DTEXF_POINT != filter &&
+			(dstResource.m_fixedData.Flags.ZBuffer || Rect::isEqualSize(srcRect, dstRect)))
+		{
+			filter = D3DTEXF_POINT;
+		}
+
+		if (!srcResource.m_fixedData.Flags.Texture ||
+			D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool ||
+			(filter & D3DTEXF_SRGB) && !(srcResource.m_formatOp.Operations & FORMATOP_SRGBREAD))
 		{
 			DWORD width = data.SrcRect.right - data.SrcRect.left;
 			DWORD height = data.SrcRect.bottom - data.SrcRect.top;
@@ -1602,11 +1560,21 @@ namespace D3dDdi
 			}
 		}
 
-		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer)
+		if (filter & D3DTEXF_SRGB)
+		{
+			downscale(srcRes, srcRect.right, srcRect.bottom, dstRect.right, dstRect.bottom);
+			if (Rect::isEqualSize(srcRect, dstRect))
+			{
+				filter = D3DTEXF_POINT;
+			}
+		}
+
+		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer ||
+			(filter & D3DTEXF_SRGB) && !(dstResource.m_formatOp.Operations & FORMATOP_SRGBWRITE))
 		{
 			LONG width = data.DstRect.right - data.DstRect.left;
 			LONG height = data.DstRect.bottom - data.DstRect.top;
-			auto& rt = repo.getTempRenderTarget(width, height);
+			auto& rt = getNextRenderTarget(srcRes, width, height);
 			if (!rt.resource)
 			{
 				return LOG_RESULT(E_OUTOFMEMORY);
@@ -1642,16 +1610,20 @@ namespace D3dDdi
 			: DeviceState::ShaderConstF{};
 		if (m_fixedData.Flags.ZBuffer)
 		{
-			m_device.getShaderBlitter().depthBlt(*dstRes, dstRect, *srcRes, srcRect,
-				m_device.getAdapter().getInfo().isD3D9On12 ? nullptr : static_cast<HANDLE>(*m_nullSurface.resource));
+			const bool isD3D9On12 = m_device.getAdapter().getInfo().isD3D9On12;
+			if (m_nullSurface.resource || isD3D9On12)
+			{
+				m_device.getShaderBlitter().depthBlt(*dstRes, dstRect, *srcRes, srcRect,
+					isD3D9On12 ? nullptr : static_cast<HANDLE>(*m_nullSurface.resource));
+			}
 		}
 		else
 		{
 			m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
-				data.Flags.Linear ? D3DTEXF_LINEAR : D3DTEXF_POINT, data.Flags.SrcColorKey ? &ck : nullptr);
+				filter, data.Flags.SrcColorKey ? &ck : nullptr);
 		}
 
-		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer)
+		if (*dstRes != data.hDstResource)
 		{
 			HRESULT result = copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
 				*dstRes, dstIndex, dstRect);
@@ -1691,9 +1663,7 @@ namespace D3dDdi
 			return false;
 		}
 
-		return Config::Settings::BltFilter::POINT == Config::bltFilter.get() ||
-			data.SrcRect.right - data.SrcRect.left == data.DstRect.right - data.DstRect.left &&
-			data.SrcRect.bottom - data.SrcRect.top == data.DstRect.bottom - data.DstRect.top;
+		return Config::Settings::BltFilter::POINT == Config::bltFilter.get() || Rect::isEqualSize(data.SrcRect, data.DstRect);
 	}
 
 	HRESULT Resource::unlock(const D3DDDIARG_UNLOCK& data)
@@ -1755,8 +1725,7 @@ namespace D3dDdi
 				g_msaaOverride = {};
 			}
 
-			auto& adapterInfo = m_device.getAdapter().getInfo();
-			if (m_fixedData.Flags.ZBuffer && m_msaaSurface.resource && adapterInfo.isMsaaDepthResolveSupported)
+			if (m_fixedData.Flags.ZBuffer && m_msaaSurface.resource)
 			{
 				g_msaaOverride = msaa;
 				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_nullSurface,

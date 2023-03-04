@@ -89,13 +89,9 @@ namespace D3dDdi
 		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[srcSubResourceIndex];
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 
-		bool srgb = false;
-		if (D3DTEXF_LINEAR == filter)
-		{
-			const auto& formatOps = m_device.getAdapter().getInfo().formatOps;
-			srgb = (formatOps.at(srcResource.getFixedDesc().Format).Operations & FORMATOP_SRGBREAD) &&
-				(formatOps.at(dstResource.getFixedDesc().Format).Operations & FORMATOP_SRGBWRITE);
-		}
+		const bool srgb = (filter & D3DTEXF_SRGB) &&
+			(srcResource.getFormatOp().Operations & FORMATOP_SRGBREAD) &&
+			(dstResource.getFormatOp().Operations & FORMATOP_SRGBWRITE);
 
 		auto& state = m_device.getState();
 		state.setSpriteMode(false);
@@ -142,7 +138,7 @@ namespace D3dDdi
 			state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_INVSRCALPHA });
 		}
 
-		setTempTextureStage(0, srcResource, srcRect, filter);
+		setTempTextureStage(0, srcResource, srcRect, LOWORD(filter));
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, srgb });
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
@@ -382,7 +378,7 @@ namespace D3dDdi
 		if (100 == blurPercent)
 		{
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect,
-				m_psTextureSampler.get(), D3DTEXF_LINEAR);
+				m_psTextureSampler.get(), D3DTEXF_LINEAR | D3DTEXF_SRGB);
 			return;
 		}
 
@@ -400,7 +396,8 @@ namespace D3dDdi
 		} };
 
 		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, registers.size() }, registers.data());
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGenBilinear.get(), D3DTEXF_LINEAR);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGenBilinear.get(),
+			D3DTEXF_LINEAR | D3DTEXF_SRGB);
 	}
 
 	bool ShaderBlitter::isGammaRampDefault()

@@ -21,6 +21,12 @@ namespace
 
 namespace Rect
 {
+	bool isEqualSize(const RECT& rect1, const RECT& rect2)
+	{
+		return rect1.right - rect1.left == rect2.right - rect2.left &&
+			rect1.bottom - rect1.top == rect2.bottom - rect2.top;
+	}
+
 	RectF toRectF(const RECT& rect)
 	{
 		return {
