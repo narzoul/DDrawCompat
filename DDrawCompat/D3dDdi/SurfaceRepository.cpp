@@ -229,6 +229,23 @@ namespace D3dDdi
 		return surface.resource;
 	}
 
+	const SurfaceRepository::Surface& SurfaceRepository::getNextRenderTarget(
+		DWORD width, DWORD height, const Resource* currentSrcRt, const Resource* currentDstRt)
+	{
+		std::size_t index = 0;
+		while (index < m_renderTargets.size())
+		{
+			auto rt = m_renderTargets[index].resource;
+			if (!rt || rt != currentSrcRt && rt != currentDstRt)
+			{
+				break;
+			}
+			++index;
+		}
+		return getTempSurface(m_renderTargets[index], width, height, D3DDDIFMT_A8R8G8B8,
+			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+	}
+
 	Resource* SurfaceRepository::getPaletteTexture()
 	{
 		return getSurface(m_paletteTexture, 256, 1, D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
@@ -261,16 +278,6 @@ namespace D3dDdi
 		}
 
 		return surface;
-	}
-
-	const SurfaceRepository::Surface& SurfaceRepository::getTempRenderTarget(DWORD width, DWORD height, UINT index)
-	{
-		if (index >= m_renderTargets.size())
-		{
-			m_renderTargets.resize(index + 1);
-		}
-		return getTempSurface(m_renderTargets[index], width, height, D3DDDIFMT_A8R8G8B8,
-			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
 	SurfaceRepository::Surface& SurfaceRepository::getTempSurface(Surface& surface, DWORD width, DWORD height,

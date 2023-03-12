@@ -194,7 +194,7 @@ namespace
 			return nullptr;
 		}
 
-		auto& repo = D3dDdi::SurfaceRepository::get(device->getAdapter());
+		auto& repo = device->getRepo();
 		D3dDdi::SurfaceRepository::Surface surface = {};
 		repo.getSurface(surface, width, height, D3DDDIFMT_X8R8G8B8,
 			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);

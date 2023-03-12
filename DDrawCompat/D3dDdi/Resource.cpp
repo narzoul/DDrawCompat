@@ -8,7 +8,6 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
-#include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
 #include <D3dDdi/Adapter.h>
@@ -212,7 +211,7 @@ namespace D3dDdi
 
 		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface || m_lockRefSurface.surface)
 		{
-			auto& repo = SurfaceRepository::get(m_device.getAdapter());
+			auto& repo = m_device.getRepo();
 			repo.release(m_msaaSurface);
 			repo.release(m_msaaResolvedSurface);
 			repo.release(m_lockRefSurface);
@@ -669,11 +668,12 @@ namespace D3dDdi
 
 	void Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight)
 	{
+		auto& repo = m_device.getRepo();
 		while (srcWidth > 2 * dstWidth || srcHeight > 2 * dstHeight)
 		{
 			const LONG newSrcWidth = std::max(dstWidth, (srcWidth + 1) / 2);
 			const LONG newSrcHeight = std::max(dstHeight, (srcHeight + 1) / 2);
-			auto& nextRt = getNextRenderTarget(rt, newSrcWidth, newSrcHeight);
+			auto& nextRt = repo.getNextRenderTarget(newSrcWidth, newSrcHeight, rt);
 			if (!nextRt.resource)
 			{
 				return;
@@ -808,17 +808,6 @@ namespace D3dDdi
 		return { D3DDDIMULTISAMPLE_NONE, 0 };
 	}
 
-	const SurfaceRepository::Surface& Resource::getNextRenderTarget(Resource* currentRt, DWORD width, DWORD height)
-	{
-		auto& repo = SurfaceRepository::get(m_device.getAdapter());
-		auto nextRt = &repo.getTempRenderTarget(width, height, 0);
-		if (nextRt->resource == currentRt)
-		{
-			nextRt = &repo.getTempRenderTarget(width, height, 1);
-		}
-		return *nextRt;
-	}
-
 	RECT Resource::getRect(UINT subResourceIndex) const
 	{
 		const auto& si = m_fixedData.pSurfList[subResourceIndex];
@@ -855,8 +844,7 @@ namespace D3dDdi
 			const RECT srcRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
 			if (!m_fixedData.Flags.Texture)
 			{
-				auto& repo = SurfaceRepository::get(m_device.getAdapter());
-				auto& texture = repo.getTempTexture(si.Width, si.Height, m_fixedData.Format);
+				auto& texture = m_device.getRepo().getTempTexture(si.Width, si.Height, m_fixedData.Format);
 				if (!texture.resource)
 				{
 					return;
@@ -1193,8 +1181,8 @@ namespace D3dDdi
 
 		if (!m_colorKeyedSurface.surface)
 		{
-			auto& repo = SurfaceRepository::get(m_device.getAdapter());
-			repo.getSurface(m_colorKeyedSurface, m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
+			m_device.getRepo().getSurface(m_colorKeyedSurface,
+				m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
 				D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY |
 				(m_fixedData.MipLevels > 1 ? DDSCAPS_MIPMAP : 0),
 				m_fixedData.SurfCount,
@@ -1244,8 +1232,8 @@ namespace D3dDdi
 			data.DstRect = g_presentationRect;
 		}
 
-		auto& repo = SurfaceRepository::get(m_device.getAdapter());
-		const auto& rtSurface = repo.getTempRenderTarget(srcWidth, srcHeight);
+		auto& repo = m_device.getRepo();
+		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight);
 		auto rt = rtSurface.resource ? rtSurface.resource : this;
 		auto rtIndex = rtSurface.resource ? 0 : data.DstSubResourceIndex;
 		auto rtRect = rtSurface.resource ? data.SrcRect : data.DstRect;
@@ -1300,39 +1288,7 @@ namespace D3dDdi
 		const LONG dstHeight = data.DstRect.bottom - data.DstRect.top;
 		downscale(rt, data.SrcRect.right, data.SrcRect.bottom, dstWidth, dstHeight);
 
-		const SurfaceRepository::Surface* rtGamma = nullptr;
-		if (!ShaderBlitter::isGammaRampDefault() &&
-			SurfaceRepository::get(m_device.getAdapter()).getGammaRampTexture())
-		{
-			rtGamma = &getNextRenderTarget(rt, dstWidth, dstHeight);
-		}
-		const bool useGamma = rtGamma && rtGamma->resource;
-		auto& rtNext = useGamma ? *rtGamma->resource : *this;
-		auto rtNextIndex = useGamma ? 0 : data.DstSubResourceIndex;
-		auto rtNextRect = useGamma ? RECT{ 0, 0, dstWidth, dstHeight } : data.DstRect;
-
-		if (Config::Settings::DisplayFilter::BILINEAR == Config::displayFilter.get())
-		{
-			m_device.getShaderBlitter().genBilinearBlt(rtNext, rtNextIndex, rtNextRect,
-				*rt, data.SrcRect, Config::displayFilter.getParam());
-		}
-		else
-		{
-			D3DDDIARG_BLT blt = {};
-			blt.hSrcResource = *rt;
-			blt.SrcSubResourceIndex = 0;
-			blt.SrcRect = data.SrcRect;
-			blt.hDstResource = rtNext;
-			blt.DstSubResourceIndex = rtNextIndex;
-			blt.DstRect = rtNextRect;
-			blt.Flags.Point = 1;
-			m_device.getOrigVtable().pfnBlt(m_device, &blt);
-		}
-
-		if (useGamma)
-		{
-			m_device.getShaderBlitter().gammaBlt(*this, data.DstSubResourceIndex, data.DstRect, rtNext, rtNextRect);
-		}
+		m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *rt, 0, data.SrcRect);
 
 		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 
@@ -1351,7 +1307,7 @@ namespace D3dDdi
 		std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect)
 	{
 		auto& blitter = m_device.getShaderBlitter();
-		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		auto& repo = m_device.getRepo();
 
 		for (auto& layeredWindow : layeredWindows)
 		{
@@ -1513,7 +1469,7 @@ namespace D3dDdi
 			return LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
 		}
 
-		auto& repo = SurfaceRepository::get(m_device.getAdapter());
+		auto& repo = m_device.getRepo();
 
 		Resource* srcRes = &srcResource;
 		UINT srcIndex = data.SrcSubResourceIndex;
@@ -1574,7 +1530,7 @@ namespace D3dDdi
 		{
 			LONG width = data.DstRect.right - data.DstRect.left;
 			LONG height = data.DstRect.bottom - data.DstRect.top;
-			auto& rt = getNextRenderTarget(srcRes, width, height);
+			auto& rt = repo.getNextRenderTarget(width, height, srcRes);
 			if (!rt.resource)
 			{
 				return LOG_RESULT(E_OUTOFMEMORY);
@@ -1716,39 +1672,36 @@ namespace D3dDdi
 			static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
 		if (D3DDDIMULTISAMPLE_NONE != msaa.first || m_fixedData.Format != formatConfig || isScaled)
 		{
+			auto& repo = m_device.getRepo();
 			const DWORD caps = (m_fixedData.Flags.ZBuffer ? DDSCAPS_ZBUFFER : DDSCAPS_3DDEVICE) | DDSCAPS_VIDEOMEMORY;
 			if (D3DDDIMULTISAMPLE_NONE != msaa.first)
 			{
 				g_msaaOverride = msaa;
-				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaSurface,
-					scaledSize.cx, scaledSize.cy, formatConfig, caps, m_fixedData.SurfCount);
+				repo.getSurface(m_msaaSurface, scaledSize.cx, scaledSize.cy, formatConfig, caps, m_fixedData.SurfCount);
 				g_msaaOverride = {};
 			}
 
 			if (m_fixedData.Flags.ZBuffer && m_msaaSurface.resource)
 			{
 				g_msaaOverride = msaa;
-				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_nullSurface,
-					scaledSize.cx, scaledSize.cy, FOURCC_NULL,
+				repo.getSurface(m_nullSurface, scaledSize.cx, scaledSize.cy, FOURCC_NULL,
 					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				g_msaaOverride = {};
 			}
-			SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
-				scaledSize.cx, scaledSize.cy, m_nullSurface.resource ? FOURCC_INTZ : formatConfig,
-				caps, m_fixedData.SurfCount);
+			repo.getSurface(m_msaaResolvedSurface, scaledSize.cx, scaledSize.cy,
+				m_nullSurface.resource ? FOURCC_INTZ : formatConfig, caps, m_fixedData.SurfCount);
 
 			if (!m_msaaResolvedSurface.resource && m_msaaSurface.resource)
 			{
 				m_msaaSurface = {};
-				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_msaaResolvedSurface,
-					scaledSize.cx, scaledSize.cy, formatConfig, caps, m_fixedData.SurfCount);
+				repo.getSurface(m_msaaResolvedSurface, scaledSize.cx, scaledSize.cy,
+					formatConfig, caps, m_fixedData.SurfCount);
 			}
 
 			if (!m_fixedData.Flags.ZBuffer && m_msaaResolvedSurface.resource)
 			{
-				SurfaceRepository::get(m_device.getAdapter()).getSurface(m_lockRefSurface,
-					m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height, m_fixedData.Format,
-					DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
+				repo.getSurface(m_lockRefSurface, m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
+					m_fixedData.Format, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				
 				if (isScaled && m_device.getGdiResource() == this)
 				{

@@ -80,7 +80,7 @@ namespace
 			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 		}
 
-		auto& repo = D3dDdi::SurfaceRepository::get(srcResource->getDevice().getAdapter());
+		auto& repo = srcResource->getDevice().getRepo();
 		RECT srcRect = getRect(lpSrcRect, srcDesc);
 		auto& tex = repo.getTempTexture(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top,
 			srcResource->getOrigDesc().Format);

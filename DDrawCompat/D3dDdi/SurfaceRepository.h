@@ -1,7 +1,9 @@
 #pragma once
 
+#include <array>
 #include <functional>
 #include <map>
+#include <vector>
 
 #include <ddraw.h>
 
@@ -41,9 +43,10 @@ namespace D3dDdi
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
 		Resource* getGammaRampTexture();
+		const Surface& getNextRenderTarget(DWORD width, DWORD height,
+			const Resource* currentSrcRt = nullptr, const Resource* currentDstRt = nullptr);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
-		const Surface& getTempRenderTarget(DWORD width, DWORD height, UINT index = 0);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
@@ -74,7 +77,7 @@ namespace D3dDdi
 		Surface m_gammaRampTexture;
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
-		std::vector<Surface> m_renderTargets;
+		std::array<Surface, 3> m_renderTargets;
 		std::map<D3DDDIFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
 		Surface m_sysMemSurface;

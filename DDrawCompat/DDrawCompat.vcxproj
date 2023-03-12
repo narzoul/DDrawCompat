@@ -91,7 +91,7 @@
     <FxCompile>
       <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
       <ObjectFileOutput />
-      <ShaderModel>2.0</ShaderModel>
+      <ShaderModel>3.0</ShaderModel>
       <ShaderType>Pixel</ShaderType>
       <DisableOptimizations>false</DisableOptimizations>
     </FxCompile>
@@ -128,7 +128,7 @@
     <FxCompile>
       <HeaderFileOutput>$(IntDir)%(RelativeDir)%(Filename).h</HeaderFileOutput>
       <ObjectFileOutput />
-      <ShaderModel>2.0</ShaderModel>
+      <ShaderModel>3.0</ShaderModel>
       <ShaderType>Pixel</ShaderType>
     </FxCompile>
   </ItemDefinitionGroup>
@@ -457,6 +457,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="genversion.ps1" />
+    <None Include="Shaders\Convolution.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\ColorKey.hlsl" />
@@ -465,6 +466,7 @@
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />
     <FxCompile Include="Shaders\GenBilinear.hlsl" />
+    <FxCompile Include="Shaders\Lanczos.hlsl" />
     <FxCompile Include="Shaders\LockRef.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
     <FxCompile Include="Shaders\TextureSampler.hlsl" />
@@ -473,6 +475,8 @@
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Vertex</ShaderType>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">g_vs%(Filename)</VariableName>
       <VariableName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">g_vs%(Filename)</VariableName>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">2.0</ShaderModel>
+      <ShaderModel Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">2.0</ShaderModel>
     </FxCompile>
   </ItemGroup>
   <ItemGroup>

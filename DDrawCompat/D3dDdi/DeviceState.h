@@ -59,6 +59,17 @@ namespace D3dDdi
 			D3DDDIARG_SETPIXELSHADERCONST m_data;
 		};
 
+		class TempPixelShaderConstI
+		{
+		public:
+			TempPixelShaderConstI(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTI& data, const ShaderConstI* registers);
+			~TempPixelShaderConstI();
+
+		private:
+			DeviceState& m_state;
+			D3DDDIARG_SETPIXELSHADERCONSTI m_data;
+		};
+
 		class TempStateLock
 		{
 		public:

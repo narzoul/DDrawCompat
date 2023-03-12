@@ -5,6 +5,7 @@
 
 #include <Windows.h>
 
+#include <Common/Vector.h>
 #include <D3dDdi/ResourceDeleter.h>
 #include <Gdi/Region.h>
 
@@ -30,10 +31,14 @@ namespace D3dDdi
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
 			const Resource& srcResource, const RECT& srcRect, HANDLE nullResource);
+		void displayBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect, UINT blurPercent);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
+		void lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes);
 		void lockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			const Resource& lockRefResource);
@@ -44,7 +49,6 @@ namespace D3dDdi
 			UINT filter, const DeviceState::ShaderConstF* srcColorKey = nullptr, const BYTE* alpha = nullptr,
 			const Gdi::Region& srcRgn = nullptr);
 
-		static bool isGammaRampDefault();
 		static void resetGammaRamp();
 		static void setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp);
 
@@ -62,6 +66,12 @@ namespace D3dDdi
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader,
 			UINT filter, UINT flags = 0, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
+		void convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			bool isHorizontal, float kernelStep, int sampleCount, float support, HANDLE pixelShader);
+		void convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			Float2 support, HANDLE pixelShader);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
@@ -82,6 +92,7 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
 		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
+		std::unique_ptr<void, ResourceDeleter> m_psLanczos;
 		std::unique_ptr<void, ResourceDeleter> m_psLockRef;
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;

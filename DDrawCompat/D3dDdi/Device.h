@@ -12,6 +12,7 @@
 #include <D3dDdi/DeviceState.h>
 #include <D3dDdi/DrawPrimitive.h>
 #include <D3dDdi/ShaderBlitter.h>
+#include <D3dDdi/SurfaceRepository.h>
 
 namespace D3dDdi
 {
@@ -56,6 +57,7 @@ namespace D3dDdi
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		RGBQUAD* getPalette(UINT paletteHandle) { return m_palettes[paletteHandle].data(); }
+		SurfaceRepository& getRepo() const { return SurfaceRepository::get(m_adapter); }
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }
 		ShaderBlitter& getShaderBlitter() { return m_shaderBlitter; }
