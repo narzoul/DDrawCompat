@@ -458,11 +458,14 @@
   <ItemGroup>
     <None Include="genversion.ps1" />
     <None Include="Shaders\Convolution.hlsli" />
+    <None Include="Shaders\CubicConvolution.hlsli" />
   </ItemGroup>
   <ItemGroup>
-    <FxCompile Include="Shaders\Bicubic.hlsl" />
     <FxCompile Include="Shaders\ColorKey.hlsl" />
     <FxCompile Include="Shaders\ColorKeyBlend.hlsl" />
+    <FxCompile Include="Shaders\CubicConvolution2.hlsl" />
+    <FxCompile Include="Shaders\CubicConvolution3.hlsl" />
+    <FxCompile Include="Shaders\CubicConvolution4.hlsl" />
     <FxCompile Include="Shaders\DepthBlt.hlsl" />
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />

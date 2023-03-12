@@ -3,7 +3,7 @@ int g_sampleCountX : register(i0);
 int g_sampleCountY : register(i1);
 
 float4 c[32] : register(c0);
-float4 g_extraParams[2] : register(c5);
+float4 g_extraParams[4] : register(c5);
 
 static const float2 g_textureSize       = c[0].xy;
 static const float2 g_textureSizeRcp    = c[0].zw;

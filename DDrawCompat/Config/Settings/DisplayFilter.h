@@ -13,6 +13,7 @@ namespace Config
 			static const UINT BILINEAR = 1;
 			static const UINT BICUBIC = 2;
 			static const UINT LANCZOS = 3;
+			static const UINT SPLINE = 4;
 
 			DisplayFilter();
 

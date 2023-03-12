@@ -7,9 +7,11 @@
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
-#include <Shaders/Bicubic.h>
 #include <Shaders/ColorKey.h>
 #include <Shaders/ColorKeyBlend.h>
+#include <Shaders/CubicConvolution2.h>
+#include <Shaders/CubicConvolution3.h>
+#include <Shaders/CubicConvolution4.h>
 #include <Shaders/DepthBlt.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
@@ -45,6 +47,16 @@ namespace
 		return ck;
 	}
 
+	constexpr D3dDdi::DeviceState::ShaderConstF getSplineWeights(int n, float a, float b, float c, float d)
+	{
+		return {
+			a,
+			-3 * n * a + b,
+			3 * n * n * a - 2 * n * b + c,
+			-n * n * n * a + n * n * b - n * c + d
+		};
+	}
+
 	void setGammaValues(BYTE* ptr, USHORT* ramp)
 	{
 		for (UINT i = 0; i < 256; ++i)
@@ -58,9 +70,13 @@ namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
-		, m_psBicubic(createPixelShader(g_psBicubic))
 		, m_psColorKey(createPixelShader(g_psColorKey))
 		, m_psColorKeyBlend(createPixelShader(g_psColorKeyBlend))
+		, m_psCubicConvolution{
+			createPixelShader(g_psCubicConvolution2),
+			createPixelShader(g_psCubicConvolution3),
+			createPixelShader(g_psCubicConvolution4)
+		}
 		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
@@ -93,7 +109,7 @@ namespace D3dDdi
 		m_convolutionExtraParams[1] = { (-B - 6 * C) / 6, (6 * B + 30 * C) / 6, (-12 * B - 48 * C) / 6, (8 * B + 24 * C) / 6 };
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			2, m_psBicubic.get());
+			2, m_psCubicConvolution[0].get());
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -499,6 +515,11 @@ namespace D3dDdi
 			m_device.getShaderBlitter().lanczosBlt(rt, rtIndex, rtRect,
 				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
 			break;
+
+		case Config::Settings::DisplayFilter::SPLINE:
+			m_device.getShaderBlitter().splineBlt(rt, rtIndex, rtRect,
+				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			break;
 		}
 
 		if (rtGamma)
@@ -689,6 +710,37 @@ namespace D3dDdi
 		m_vertices[1].tc[stage] = { rect.right / w, rect.top / h };
 		m_vertices[2].tc[stage] = { rect.left / w, rect.bottom / h };
 		m_vertices[3].tc[stage] = { rect.right / w, rect.bottom / h };
+	}
+
+	void ShaderBlitter::splineBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes)
+	{
+		LOG_FUNC("ShaderBlitter::splineBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, lobes);
+
+		switch (lobes)
+		{
+		case 2:
+			m_convolutionExtraParams[0] = getSplineWeights(0, 1.0f, -9.0f / 5.0f, -1.0f / 5.0f, 1.0f);
+			m_convolutionExtraParams[1] = getSplineWeights(1, -1.0f / 3.0f, 4.0f / 5.0f, -7.0f / 15.0f, 0.0f);
+			break;
+
+		case 3:
+			m_convolutionExtraParams[0] = getSplineWeights(0, 13.0f / 11.0f, -453.0f / 209.0f, -3.0f / 209.0f, 1.0f);
+			m_convolutionExtraParams[1] = getSplineWeights(1, -6.0f / 11.0f, 270.0f / 209.0f, -156.0f / 209.0f, 0.0f);
+			m_convolutionExtraParams[2] = getSplineWeights(2, 1.0f / 11.0f, -45.0f / 209.0f, 26.0f / 209.0f, 0.0f);
+			break;
+
+		case 4:
+			m_convolutionExtraParams[0] = getSplineWeights(0, 49.0f / 41.0f, -6387.0f / 2911.0f, -3.0f / 2911.0f, 1.0f);
+			m_convolutionExtraParams[1] = getSplineWeights(1, -24.0f / 41.0f, 4032.0f / 2911.0f, -2328.0f / 2911.0f, 0.0f);
+			m_convolutionExtraParams[2] = getSplineWeights(2, 6.0f / 41.0f, -1008.0f / 2911.0f, 582.0f / 2911.0f, 0.0f);
+			m_convolutionExtraParams[3] = getSplineWeights(3, -1.0f / 41.0f, 168.0f / 2911.0f, -97.0f / 2911.0f, 0.0f);
+			break;
+		}
+
+		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			lobes, m_psCubicConvolution[lobes - 2].get());
 	}
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

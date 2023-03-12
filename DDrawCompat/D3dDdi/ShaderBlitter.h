@@ -46,6 +46,8 @@ namespace D3dDdi
 			const Resource& lockRefResource);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, RGBQUAD palette[256]);
+		void splineBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			UINT filter, const DeviceState::ShaderConstF* srcColorKey = nullptr, const BYTE* alpha = nullptr,
@@ -88,9 +90,9 @@ namespace D3dDdi
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
-		std::unique_ptr<void, ResourceDeleter> m_psBicubic;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
+		std::unique_ptr<void, ResourceDeleter> m_psCubicConvolution[3];
 		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
@@ -101,7 +103,7 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
 		std::array<DeviceState::ShaderConstF, 5> m_convolutionBaseParams;
-		std::array<DeviceState::ShaderConstF, 2> m_convolutionExtraParams;
+		std::array<DeviceState::ShaderConstF, 4> m_convolutionExtraParams;
 		std::array<Vertex, 4> m_vertices;
 	};
 }
