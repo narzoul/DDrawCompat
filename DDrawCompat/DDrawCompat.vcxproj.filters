@@ -1103,6 +1103,9 @@
     <FxCompile Include="Shaders\Lanczos.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+    <FxCompile Include="Shaders\Bicubic.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
   </ItemGroup>
   <ItemGroup>
     <Image Include="arrow.bmp">

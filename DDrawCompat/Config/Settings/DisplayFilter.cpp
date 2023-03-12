@@ -8,6 +8,7 @@ namespace Config
 			: MappedSetting("DisplayFilter", "bilinear", {
 				{"point", POINT},
 				{"bilinear", BILINEAR},
+				{"bicubic", BICUBIC},
 				{"lanczos", LANCZOS},
 				})
 		{
@@ -18,6 +19,7 @@ namespace Config
 			switch (m_value)
 			{
 			case BILINEAR:
+			case BICUBIC:
 				return { "Blur", 0, 100, 0, m_param };
 			case LANCZOS:
 				return { "Lobes", 2, 4, 2, m_param };

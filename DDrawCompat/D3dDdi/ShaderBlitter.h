@@ -25,6 +25,8 @@ namespace D3dDdi
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
+		void bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, UINT srcSubResourceIndex, DeviceState::ShaderConstF srcColorKey);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -86,6 +88,7 @@ namespace D3dDdi
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
+		std::unique_ptr<void, ResourceDeleter> m_psBicubic;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
@@ -97,6 +100,8 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
+		std::array<DeviceState::ShaderConstF, 5> m_convolutionBaseParams;
+		std::array<DeviceState::ShaderConstF, 2> m_convolutionExtraParams;
 		std::array<Vertex, 4> m_vertices;
 	};
 }

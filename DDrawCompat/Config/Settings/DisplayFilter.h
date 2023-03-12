@@ -11,7 +11,8 @@ namespace Config
 		public:
 			static const UINT POINT = 0;
 			static const UINT BILINEAR = 1;
-			static const UINT LANCZOS = 2;
+			static const UINT BICUBIC = 2;
+			static const UINT LANCZOS = 3;
 
 			DisplayFilter();
 

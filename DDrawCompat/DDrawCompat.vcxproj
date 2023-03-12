@@ -460,6 +460,7 @@
     <None Include="Shaders\Convolution.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\Bicubic.hlsl" />
     <FxCompile Include="Shaders\ColorKey.hlsl" />
     <FxCompile Include="Shaders\ColorKeyBlend.hlsl" />
     <FxCompile Include="Shaders\DepthBlt.hlsl" />

@@ -7,6 +7,7 @@
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Shaders/Bicubic.h>
 #include <Shaders/ColorKey.h>
 #include <Shaders/ColorKeyBlend.h>
 #include <Shaders/DepthBlt.h>
@@ -57,6 +58,7 @@ namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
+		, m_psBicubic(createPixelShader(g_psBicubic))
 		, m_psColorKey(createPixelShader(g_psColorKey))
 		, m_psColorKeyBlend(createPixelShader(g_psColorKeyBlend))
 		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
@@ -68,12 +70,30 @@ namespace D3dDdi
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
 		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
 		, m_vertexShaderDecl(createVertexShaderDecl())
+		, m_convolutionBaseParams{}
+		, m_convolutionExtraParams{}
 		, m_vertices{}
 	{
 		for (std::size_t i = 0; i < m_vertices.size(); ++i)
 		{
 			m_vertices[i].rhw = 1;
 		}
+	}
+
+	void ShaderBlitter::bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent)
+	{
+		LOG_FUNC("ShaderBlitter::bicubicBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, blurPercent);
+
+		const float B = blurPercent / 100.0f;
+		const float C = (1 - B) / 2;
+
+		m_convolutionExtraParams[0] = { (12 - 9 * B - 6 * C) / 6, (-18 + 12 * B + 6 * C) / 6, 0, (6 - 2 * B) / 6 };
+		m_convolutionExtraParams[1] = { (-B - 6 * C) / 6, (6 * B + 30 * C) / 6, (-12 * B - 48 * C) / 6, (8 * B + 24 * C) / 6 };
+
+		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			2, m_psBicubic.get());
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -192,23 +212,23 @@ namespace D3dDdi
 		const float firstKernelOffset = firstSampleOffset * kernelStep;
 		const float firstTextureOffset = firstSampleOffset * textureStep;
 
-		std::array<DeviceState::ShaderConstF, 5> reg = {};
-		reg[0] = { textureSize.x, textureSize.y, textureSizeRcp.x, textureSizeRcp.y };
+		m_convolutionBaseParams[0] = { textureSize.x, textureSize.y, textureSizeRcp.x, textureSizeRcp.y };
 		if (isHorizontal)
 		{
-			reg[1] = { firstTextureOffset, 0, firstKernelOffset, 0 };
-			reg[2] = { textureStep, 0, kernelStep, 0 };
-			reg[3] = { -0.5f, 0, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
+			m_convolutionBaseParams[1] = { firstTextureOffset, 0, firstKernelOffset, 0 };
+			m_convolutionBaseParams[2] = { textureStep, 0, kernelStep, 0 };
+			m_convolutionBaseParams[3] = { -0.5f, 0, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
 		}
 		else
 		{
-			reg[1] = { 0, firstTextureOffset, 0, firstKernelOffset };
-			reg[2] = { 0, textureStep, 0, kernelStep };
-			reg[3] = { 0, -0.5f, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
+			m_convolutionBaseParams[1] = { 0, firstTextureOffset, 0, firstKernelOffset };
+			m_convolutionBaseParams[2] = { 0, textureStep, 0, kernelStep };
+			m_convolutionBaseParams[3] = { 0, -0.5f, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
 		}
-		reg[4] = { support, 1.0f / support, 0, 0 };
+		m_convolutionBaseParams[4] = { support, 1.0f / support, 0, 0 };
 
-		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, reg.size() }, reg.data());
+		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(),
+			{ 0, m_convolutionBaseParams.size() + m_convolutionExtraParams.size()}, m_convolutionBaseParams.data());
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 			pixelShader, D3DTEXF_LINEAR | D3DTEXF_SRGB);
 	}
@@ -467,6 +487,11 @@ namespace D3dDdi
 
 		case Config::Settings::DisplayFilter::BILINEAR:
 			m_device.getShaderBlitter().genBilinearBlt(rt, rtIndex, rtRect,
+				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			break;
+
+		case Config::Settings::DisplayFilter::BICUBIC:
+			m_device.getShaderBlitter().bicubicBlt(rt, rtIndex, rtRect,
 				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
 			break;
 
