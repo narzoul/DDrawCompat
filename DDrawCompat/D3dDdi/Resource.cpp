@@ -666,27 +666,6 @@ namespace D3dDdi
 		m_isClampable = false;
 	}
 
-	void Resource::downscale(Resource*& rt, LONG& srcWidth, LONG& srcHeight, LONG dstWidth, LONG dstHeight)
-	{
-		auto& repo = m_device.getRepo();
-		while (srcWidth > 2 * dstWidth || srcHeight > 2 * dstHeight)
-		{
-			const LONG newSrcWidth = std::max(dstWidth, (srcWidth + 1) / 2);
-			const LONG newSrcHeight = std::max(dstHeight, (srcHeight + 1) / 2);
-			auto& nextRt = repo.getNextRenderTarget(newSrcWidth, newSrcHeight, rt);
-			if (!nextRt.resource)
-			{
-				return;
-			}
-
-			m_device.getShaderBlitter().textureBlt(*nextRt.resource, 0, { 0, 0, newSrcWidth, newSrcHeight },
-				*rt, 0, { 0, 0, srcWidth, srcHeight }, D3DTEXF_LINEAR | D3DTEXF_SRGB);
-			rt = nextRt.resource;
-			srcWidth = newSrcWidth;
-			srcHeight = newSrcHeight;
-		}
-	}
-
 	void Resource::enableConfig(bool enable)
 	{
 		g_enableConfig = enable;
@@ -1285,10 +1264,6 @@ namespace D3dDdi
 			return LOG_RESULT(S_OK);
 		}
 
-		const LONG dstWidth = data.DstRect.right - data.DstRect.left;
-		const LONG dstHeight = data.DstRect.bottom - data.DstRect.top;
-		downscale(rt, data.SrcRect.right, data.SrcRect.bottom, dstWidth, dstHeight);
-
 		m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *rt, 0, data.SrcRect);
 
 		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
@@ -1517,15 +1492,6 @@ namespace D3dDdi
 			}
 		}
 
-		if (filter & D3DTEXF_SRGB)
-		{
-			downscale(srcRes, srcRect.right, srcRect.bottom, dstRect.right, dstRect.bottom);
-			if (Rect::isEqualSize(srcRect, dstRect))
-			{
-				filter = D3DTEXF_POINT;
-			}
-		}
-
 		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer ||
 			(filter & D3DTEXF_SRGB) && !(dstResource.m_formatOp.Operations & FORMATOP_SRGBWRITE))
 		{
@@ -1576,8 +1542,15 @@ namespace D3dDdi
 		}
 		else
 		{
-			m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
-				filter, data.Flags.SrcColorKey ? &ck : nullptr);
+			if ((D3DTEXF_LINEAR | D3DTEXF_SRGB) == filter)
+			{
+				m_device.getShaderBlitter().bilinearBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect, 0);
+			}
+			else
+			{
+				m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
+					filter, data.Flags.SrcColorKey ? &ck : nullptr);
+			}
 		}
 
 		if (*dstRes != data.hDstResource)
