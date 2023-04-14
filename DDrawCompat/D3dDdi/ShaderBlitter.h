@@ -46,6 +46,8 @@ namespace D3dDdi
 			const Resource& lockRefResource);
 		void palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, RGBQUAD palette[256]);
+		void pointBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void splineBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -117,6 +119,7 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_psLanczos;
 		std::unique_ptr<void, ResourceDeleter> m_psLockRef;
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
+		std::unique_ptr<void, ResourceDeleter> m_psPoint;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
 		ConvolutionParams m_convolutionParams;

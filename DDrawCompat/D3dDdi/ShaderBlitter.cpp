@@ -19,6 +19,7 @@
 #include <Shaders/Lanczos.h>
 #include <Shaders/LockRef.h>
 #include <Shaders/PaletteLookup.h>
+#include <Shaders/Point.h>
 #include <Shaders/TextureSampler.h>
 
 #define CONCAT_(a, b) a##b
@@ -84,6 +85,7 @@ namespace D3dDdi
 		, m_psLanczos(createPixelShader(g_psLanczos))
 		, m_psLockRef(createPixelShader(g_psLockRef))
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
+		, m_psPoint(createPixelShader(g_psPoint))
 		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
 		, m_vertexShaderDecl(createVertexShaderDecl())
 		, m_convolutionParams{}
@@ -528,8 +530,8 @@ namespace D3dDdi
 		switch (Config::displayFilter.get())
 		{
 		case Config::Settings::DisplayFilter::POINT:
-			m_device.getShaderBlitter().textureBlt(rt, rtIndex, rtRect,
-				srcResource, srcSubResourceIndex, srcRect, D3DTEXF_POINT);
+			m_device.getShaderBlitter().pointBlt(rt, rtIndex, rtRect,
+				srcResource, srcSubResourceIndex, srcRect);
 			break;
 
 		case Config::Settings::DisplayFilter::BILINEAR:
@@ -667,6 +669,16 @@ namespace D3dDdi
 		setTempTextureStage(1, *paletteTexture, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 			m_psPaletteLookup.get(), D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::pointBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
+	{
+		LOG_FUNC("ShaderBlitter::pointBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
+
+		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			0.5f, m_psPoint.get());
 	}
 
 	void ShaderBlitter::resetGammaRamp()

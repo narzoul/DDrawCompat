@@ -473,6 +473,7 @@
     <FxCompile Include="Shaders\Lanczos.hlsl" />
     <FxCompile Include="Shaders\LockRef.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />
+    <FxCompile Include="Shaders\Point.hlsl" />
     <FxCompile Include="Shaders\TextureSampler.hlsl" />
     <FxCompile Include="Shaders\VertexFixup.hlsl">
       <ShaderType Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Vertex</ShaderType>
