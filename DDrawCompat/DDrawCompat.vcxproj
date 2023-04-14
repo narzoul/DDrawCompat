@@ -461,6 +461,7 @@
     <None Include="Shaders\CubicConvolution.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\Bilinear.hlsl" />
     <FxCompile Include="Shaders\ColorKey.hlsl" />
     <FxCompile Include="Shaders\ColorKeyBlend.hlsl" />
     <FxCompile Include="Shaders\CubicConvolution2.hlsl" />
@@ -469,7 +470,6 @@
     <FxCompile Include="Shaders\DepthBlt.hlsl" />
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Gamma.hlsl" />
-    <FxCompile Include="Shaders\GenBilinear.hlsl" />
     <FxCompile Include="Shaders\Lanczos.hlsl" />
     <FxCompile Include="Shaders\LockRef.hlsl" />
     <FxCompile Include="Shaders\PaletteLookup.hlsl" />

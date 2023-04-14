@@ -25,6 +25,8 @@ namespace D3dDdi
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
+		void bilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
@@ -37,8 +39,6 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void gammaBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
-		void genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes);
 		void lockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -59,6 +59,22 @@ namespace D3dDdi
 	private:
 		const UINT BLT_SRCALPHA = 1;
 
+		struct ConvolutionParams
+		{
+			Float2 textureSize;
+			Float2 sampleCoordOffset;
+			Float2 textureCoordOffset[2];
+			Float2 kernelCoordOffset[2];
+			Float2 textureCoordStep;
+			Float2 kernelCoordStep;
+			Float2 textureCoordStepPri;
+			Float2 textureCoordStepSec;
+			Float2 kernelCoordStepPri;
+			float support;
+			float supportRcp;
+			alignas(sizeof(DeviceState::ShaderConstF)) std::array<DeviceState::ShaderConstF, 4> extra;
+		};
+
 		struct Vertex
 		{
 			std::array<float, 2> xy;
@@ -72,10 +88,11 @@ namespace D3dDdi
 			UINT filter, UINT flags = 0, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
 		void convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			bool isHorizontal, float kernelStep, int sampleCount, float support, HANDLE pixelShader);
+			bool isHorizontal, Float2 support, HANDLE pixelShader,
+			const std::function<void(bool)> setExtraParams);
 		void convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			Float2 support, HANDLE pixelShader);
+			Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams = {});
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
@@ -90,20 +107,19 @@ namespace D3dDdi
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
+		std::unique_ptr<void, ResourceDeleter> m_psBilinear;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psCubicConvolution[3];
 		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psGamma;
-		std::unique_ptr<void, ResourceDeleter> m_psGenBilinear;
 		std::unique_ptr<void, ResourceDeleter> m_psLanczos;
 		std::unique_ptr<void, ResourceDeleter> m_psLockRef;
 		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
 		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
-		std::array<DeviceState::ShaderConstF, 5> m_convolutionBaseParams;
-		std::array<DeviceState::ShaderConstF, 4> m_convolutionExtraParams;
+		ConvolutionParams m_convolutionParams;
 		std::array<Vertex, 4> m_vertices;
 	};
 }

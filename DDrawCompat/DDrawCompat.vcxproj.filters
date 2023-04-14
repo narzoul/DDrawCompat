@@ -1079,9 +1079,6 @@
     <FxCompile Include="Shaders\DrawCursor.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\GenBilinear.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\TextureSampler.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -1113,6 +1110,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\CubicConvolution4.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\Bilinear.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

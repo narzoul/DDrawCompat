@@ -242,7 +242,7 @@ namespace D3dDdi
 			}
 			++index;
 		}
-		return getTempSurface(m_renderTargets[index], width, height, D3DDDIFMT_A8R8G8B8,
+		return getTempSurface(m_renderTargets[index], width, height, D3DDDIFMT_X8R8G8B8,
 			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 

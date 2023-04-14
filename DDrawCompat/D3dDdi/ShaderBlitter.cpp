@@ -7,6 +7,7 @@
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Shaders/Bilinear.h>
 #include <Shaders/ColorKey.h>
 #include <Shaders/ColorKeyBlend.h>
 #include <Shaders/CubicConvolution2.h>
@@ -15,7 +16,6 @@
 #include <Shaders/DepthBlt.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Gamma.h>
-#include <Shaders/GenBilinear.h>
 #include <Shaders/Lanczos.h>
 #include <Shaders/LockRef.h>
 #include <Shaders/PaletteLookup.h>
@@ -70,6 +70,7 @@ namespace D3dDdi
 {
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
+		, m_psBilinear(createPixelShader(g_psBilinear))
 		, m_psColorKey(createPixelShader(g_psColorKey))
 		, m_psColorKeyBlend(createPixelShader(g_psColorKeyBlend))
 		, m_psCubicConvolution{
@@ -80,14 +81,12 @@ namespace D3dDdi
 		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psGamma(createPixelShader(g_psGamma))
-		, m_psGenBilinear(createPixelShader(g_psGenBilinear))
 		, m_psLanczos(createPixelShader(g_psLanczos))
 		, m_psLockRef(createPixelShader(g_psLockRef))
 		, m_psPaletteLookup(createPixelShader(g_psPaletteLookup))
 		, m_psTextureSampler(createPixelShader(g_psTextureSampler))
 		, m_vertexShaderDecl(createVertexShaderDecl())
-		, m_convolutionBaseParams{}
-		, m_convolutionExtraParams{}
+		, m_convolutionParams{}
 		, m_vertices{}
 	{
 		for (std::size_t i = 0; i < m_vertices.size(); ++i)
@@ -105,11 +104,40 @@ namespace D3dDdi
 		const float B = blurPercent / 100.0f;
 		const float C = (1 - B) / 2;
 
-		m_convolutionExtraParams[0] = { (12 - 9 * B - 6 * C) / 6, (-18 + 12 * B + 6 * C) / 6, 0, (6 - 2 * B) / 6 };
-		m_convolutionExtraParams[1] = { (-B - 6 * C) / 6, (6 * B + 30 * C) / 6, (-12 * B - 48 * C) / 6, (8 * B + 24 * C) / 6 };
+		m_convolutionParams.extra[0] = { (12 - 9 * B - 6 * C) / 6, (-18 + 12 * B + 6 * C) / 6, 0, (6 - 2 * B) / 6 };
+		m_convolutionParams.extra[1] = { (-B - 6 * C) / 6, (6 * B + 30 * C) / 6, (-12 * B - 48 * C) / 6, (8 * B + 24 * C) / 6 };
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 			2, m_psCubicConvolution[0].get());
+	}
+
+	void ShaderBlitter::bilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent)
+	{
+		LOG_FUNC("ShaderBlitter::bilinearBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, blurPercent);
+
+		const Float2 dstSize(dstRect.right - dstRect.left, dstRect.bottom - dstRect.top);
+		const Float2 srcSize(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top);
+		const Float2 scale = dstSize / srcSize;
+		const Float2 higherScale = max(scale, 1.0f / scale);
+		const Float2 blur = Config::displayFilter.getParam() / 100.0f;
+		const Float2 adjustedScale = 1.0f / (blur + (1.0f - blur) / higherScale);
+		const Float2 multiplier = -1.0f * adjustedScale;
+		const Float2 offset = 0.5f * adjustedScale + 0.5f;
+		const Float2 support = 0.5f + 0.5f / adjustedScale;
+
+		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			support, m_psBilinear.get(), [&](bool isHorizontal) {
+				if (isHorizontal)
+				{
+					m_convolutionParams.extra[0] = { multiplier.x, multiplier.y, offset.x, offset.y };
+				}
+				else
+				{
+					m_convolutionParams.extra[0] = { multiplier.y, multiplier.x, offset.y, offset.x };
+				}
+			});
 	}
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -213,64 +241,84 @@ namespace D3dDdi
 
 	void ShaderBlitter::convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		bool isHorizontal, float kernelStep, int sampleCount, float support, HANDLE pixelShader)
+		bool isHorizontal, Float2 support, HANDLE pixelShader,
+		const std::function<void(bool)> setExtraParams)
 	{
 		LOG_FUNC("ShaderBlitter::convolution", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
-			isHorizontal, kernelStep, sampleCount, support, pixelShader);
+			isHorizontal, support, pixelShader, static_cast<bool>(setExtraParams));
 
 		const auto& srcDesc = srcResource.getFixedDesc().pSurfList[0];
-		const Float2 textureSize(srcDesc.Width, srcDesc.Height);
-		const Float2 textureSizeRcp = Float2(1) / textureSize;
-		const float textureStep = isHorizontal ? textureSizeRcp.x : textureSizeRcp.y;
+		const Float2 dstSize(dstRect.right - dstRect.left, dstRect.bottom - dstRect.top);
+		const Float2 srcSize(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top);
+		const Float2 scale = dstSize / srcSize;
 
-		const int firstSampleOffset = -sampleCount / 2 + 1;
-		const float firstKernelOffset = firstSampleOffset * kernelStep;
-		const float firstTextureOffset = firstSampleOffset * textureStep;
+		const bool isDual = srcSize.x != dstSize.x && srcSize.y != dstSize.y;
+		const Float2 compMaskPri = isHorizontal ? Float2(1, 0) : Float2(0, 1);
+		const Float2 compMaskSec = isHorizontal ? Float2(0, 1) : Float2(1, 0);
+		const Float2 compMask = isDual ? Float2(1, 1) : compMaskPri;
 
-		m_convolutionBaseParams[0] = { textureSize.x, textureSize.y, textureSizeRcp.x, textureSizeRcp.y };
-		if (isHorizontal)
+		auto& p = m_convolutionParams;
+		p.textureSize = { srcDesc.Width, srcDesc.Height };
+		p.sampleCoordOffset = -0.5f * compMask;
+		p.textureCoordStep = 1.0f / p.textureSize;
+		p.kernelCoordStep = min(scale, 1.0f);
+		p.textureCoordStepPri = 2.0f * p.textureCoordStep * compMaskPri;
+		p.textureCoordStepSec = p.textureCoordStep * compMaskSec;
+		p.kernelCoordStepPri = 2.0f * p.kernelCoordStep * compMaskPri;
+		p.support = dot(support, compMaskPri);
+		p.supportRcp = 1.0f / p.support;
+
+		const Int2 sampleCountHalf = min(ceil(support / p.kernelCoordStep), 255.0f);
+		const Float2 firstSampleOffset = 1 - sampleCountHalf;
+		p.kernelCoordOffset[0] = firstSampleOffset * p.kernelCoordStep;
+		p.kernelCoordOffset[1] = p.kernelCoordOffset[0] + p.kernelCoordStep;
+		p.textureCoordOffset[0] = (firstSampleOffset * compMaskPri + 0.5f) * p.textureCoordStep;
+		p.textureCoordOffset[1] = p.textureCoordOffset[0] + p.textureCoordStep * compMaskPri;
+
+		if (!isHorizontal)
 		{
-			m_convolutionBaseParams[1] = { firstTextureOffset, 0, firstKernelOffset, 0 };
-			m_convolutionBaseParams[2] = { textureStep, 0, kernelStep, 0 };
-			m_convolutionBaseParams[3] = { -0.5f, 0, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
+			std::swap(p.kernelCoordStepPri.x, p.kernelCoordStepPri.y);
 		}
-		else
+
+		if (setExtraParams)
 		{
-			m_convolutionBaseParams[1] = { 0, firstTextureOffset, 0, firstKernelOffset };
-			m_convolutionBaseParams[2] = { 0, textureStep, 0, kernelStep };
-			m_convolutionBaseParams[3] = { 0, -0.5f, 0.5f * textureSizeRcp.x, 0.5f * textureSizeRcp.y };
+			setExtraParams(isHorizontal);
 		}
-		m_convolutionBaseParams[4] = { support, 1.0f / support, 0, 0 };
+
+		const DeviceState::ShaderConstI reg = { dot(sampleCountHalf - 1, Int2(compMaskPri)) };
+		DeviceState::TempPixelShaderConstI tempPsConstI(m_device.getState(), { 0, 1 }, &reg);
 
 		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(),
-			{ 0, m_convolutionBaseParams.size() + m_convolutionExtraParams.size()}, m_convolutionBaseParams.data());
+			{ 0, sizeof(m_convolutionParams) / sizeof(DeviceState::ShaderConstF) },
+			reinterpret_cast<DeviceState::ShaderConstF*>(&m_convolutionParams));
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			pixelShader, D3DTEXF_LINEAR | D3DTEXF_SRGB);
+			pixelShader, (p.support <= 1 ? D3DTEXF_LINEAR : D3DTEXF_POINT) | D3DTEXF_SRGB);
 	}
 
 	void ShaderBlitter::convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		Float2 support, HANDLE pixelShader)
+		Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams)
 	{
 		LOG_FUNC("ShaderBlitter::convolutionBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, support, pixelShader);
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, support, pixelShader,
+			static_cast<bool>(setExtraParams));
 
 		const Int2 dstSize(dstRect.right - dstRect.left, dstRect.bottom - dstRect.top);
 		const Int2 srcSize(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top);
 		const Float2 scale = Float2(dstSize) / Float2(srcSize);
-		const Float2 kernelStep = min(scale, Float2(1));
-		const Int2 sampleCount = min(Float2(2) * ceil(support / kernelStep), Float2(255));
+		const Float2 kernelCoordStep = min(scale, 1.0f);
+		const Float2 sampleCountHalf = support / kernelCoordStep;
 
-		if (srcSize.y == dstSize.y)
+		if (srcSize.y == dstSize.y || sampleCountHalf.y <= 1)
 		{
 			return convolution(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				true, kernelStep.x, sampleCount.x, support.x, pixelShader);
+				true, support, pixelShader, setExtraParams);
 		}
-		else if (srcSize.x == dstSize.x)
+		else if (srcSize.x == dstSize.x || sampleCountHalf.x <= 1)
 		{
 			return convolution(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				false, kernelStep.y, sampleCount.y, support.y, pixelShader);
+				false, support, pixelShader, setExtraParams);
 		}
 
 		const bool isHorizontalFirst = dstSize.x * srcSize.y <= srcSize.x * dstSize.y;
@@ -290,27 +338,10 @@ namespace D3dDdi
 			return;
 		}
 
-		const std::array<DeviceState::ShaderConstI, 2> reg = { {
-			{ sampleCount.x },
-			{ sampleCount.y }
-		} };
-
-		DeviceState::TempPixelShaderConstI tempPsConstI(m_device.getState(), { 0, reg.size()}, reg.data());
-
-		if (isHorizontalFirst)
-		{
-			convolution(*rt, 0, rect, srcResource, srcSubResourceIndex, srcRect,
-				true, kernelStep.x, sampleCount.x, support.x, pixelShader);
-			convolution(dstResource, dstSubResourceIndex, dstRect, *rt, 0, rect,
-				false, kernelStep.y, sampleCount.y, support.y, pixelShader);
-		}
-		else
-		{
-			convolution(*rt, 0, rect, srcResource, srcSubResourceIndex, srcRect,
-				false, kernelStep.y, sampleCount.y, support.y, pixelShader);
-			convolution(dstResource, dstSubResourceIndex, dstRect, *rt, 0, rect,
-				true, kernelStep.x, sampleCount.x, support.x, pixelShader);
-		}
+		convolution(*rt, 0, rect, srcResource, srcSubResourceIndex, srcRect,
+			isHorizontalFirst, support, pixelShader, setExtraParams);
+		convolution(dstResource, dstSubResourceIndex, dstRect, *rt, 0, rect,
+			!isHorizontalFirst, support, pixelShader, setExtraParams);
 	}
 
 	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
@@ -502,7 +533,7 @@ namespace D3dDdi
 			break;
 
 		case Config::Settings::DisplayFilter::BILINEAR:
-			m_device.getShaderBlitter().genBilinearBlt(rt, rtIndex, rtRect,
+			m_device.getShaderBlitter().bilinearBlt(rt, rtIndex, rtRect,
 				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
 			break;
 
@@ -580,36 +611,6 @@ namespace D3dDdi
 
 		setTempTextureStage(1, *gammaRampTexture, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, 0, srcRect, m_psGamma.get(), D3DTEXF_POINT);
-	}
-
-	void ShaderBlitter::genBilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent)
-	{
-		LOG_FUNC("ShaderBlitter::genBilinearBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, blurPercent);
-		if (100 == blurPercent)
-		{
-			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				m_psTextureSampler.get(), D3DTEXF_LINEAR | D3DTEXF_SRGB);
-			return;
-		}
-
-		const auto& srcDesc = srcResource.getFixedDesc().pSurfList[0];
-		float scaleX = static_cast<float>(dstRect.right - dstRect.left) / (srcRect.right - srcRect.left);
-		float scaleY = static_cast<float>(dstRect.bottom - dstRect.top) / (srcRect.bottom - srcRect.top);
-
-		const float blur = blurPercent / 100.0f;
-		scaleX = 1 / ((1 - blur) / scaleX + blur);
-		scaleY = 1 / ((1 - blur) / scaleY + blur);
-
-		const std::array<DeviceState::ShaderConstF, 2> registers{ {
-			{ static_cast<float>(srcDesc.Width), static_cast<float>(srcDesc.Height), 0.0f, 0.0f },
-			{ scaleX, scaleY, 0.0f, 0.0f }
-		} };
-
-		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(), { 0, registers.size() }, registers.data());
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, m_psGenBilinear.get(),
-			D3DTEXF_LINEAR | D3DTEXF_SRGB);
 	}
 
 	void ShaderBlitter::lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -721,21 +722,21 @@ namespace D3dDdi
 		switch (lobes)
 		{
 		case 2:
-			m_convolutionExtraParams[0] = getSplineWeights(0, 1.0f, -9.0f / 5.0f, -1.0f / 5.0f, 1.0f);
-			m_convolutionExtraParams[1] = getSplineWeights(1, -1.0f / 3.0f, 4.0f / 5.0f, -7.0f / 15.0f, 0.0f);
+			m_convolutionParams.extra[0] = getSplineWeights(0, 1.0f, -9.0f / 5.0f, -1.0f / 5.0f, 1.0f);
+			m_convolutionParams.extra[1] = getSplineWeights(1, -1.0f / 3.0f, 4.0f / 5.0f, -7.0f / 15.0f, 0.0f);
 			break;
 
 		case 3:
-			m_convolutionExtraParams[0] = getSplineWeights(0, 13.0f / 11.0f, -453.0f / 209.0f, -3.0f / 209.0f, 1.0f);
-			m_convolutionExtraParams[1] = getSplineWeights(1, -6.0f / 11.0f, 270.0f / 209.0f, -156.0f / 209.0f, 0.0f);
-			m_convolutionExtraParams[2] = getSplineWeights(2, 1.0f / 11.0f, -45.0f / 209.0f, 26.0f / 209.0f, 0.0f);
+			m_convolutionParams.extra[0] = getSplineWeights(0, 13.0f / 11.0f, -453.0f / 209.0f, -3.0f / 209.0f, 1.0f);
+			m_convolutionParams.extra[1] = getSplineWeights(1, -6.0f / 11.0f, 270.0f / 209.0f, -156.0f / 209.0f, 0.0f);
+			m_convolutionParams.extra[2] = getSplineWeights(2, 1.0f / 11.0f, -45.0f / 209.0f, 26.0f / 209.0f, 0.0f);
 			break;
 
 		case 4:
-			m_convolutionExtraParams[0] = getSplineWeights(0, 49.0f / 41.0f, -6387.0f / 2911.0f, -3.0f / 2911.0f, 1.0f);
-			m_convolutionExtraParams[1] = getSplineWeights(1, -24.0f / 41.0f, 4032.0f / 2911.0f, -2328.0f / 2911.0f, 0.0f);
-			m_convolutionExtraParams[2] = getSplineWeights(2, 6.0f / 41.0f, -1008.0f / 2911.0f, 582.0f / 2911.0f, 0.0f);
-			m_convolutionExtraParams[3] = getSplineWeights(3, -1.0f / 41.0f, 168.0f / 2911.0f, -97.0f / 2911.0f, 0.0f);
+			m_convolutionParams.extra[0] = getSplineWeights(0, 49.0f / 41.0f, -6387.0f / 2911.0f, -3.0f / 2911.0f, 1.0f);
+			m_convolutionParams.extra[1] = getSplineWeights(1, -24.0f / 41.0f, 4032.0f / 2911.0f, -2328.0f / 2911.0f, 0.0f);
+			m_convolutionParams.extra[2] = getSplineWeights(2, 6.0f / 41.0f, -1008.0f / 2911.0f, 582.0f / 2911.0f, 0.0f);
+			m_convolutionParams.extra[3] = getSplineWeights(3, -1.0f / 41.0f, 168.0f / 2911.0f, -97.0f / 2911.0f, 0.0f);
 			break;
 		}
 

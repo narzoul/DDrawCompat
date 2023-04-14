@@ -1257,6 +1257,7 @@ namespace D3dDdi
 				pal[i].rgbRed = entries[i].peRed;
 				pal[i].rgbGreen = entries[i].peGreen;
 				pal[i].rgbBlue = entries[i].peBlue;
+				pal[i].rgbReserved = 0xFF;
 			}
 			m_device.getShaderBlitter().palettizedBlt(
 				*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect, pal);
