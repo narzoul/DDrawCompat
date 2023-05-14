@@ -119,13 +119,13 @@ namespace
 	HRESULT STDMETHODCALLTYPE SetCooperativeLevel(TDirectDraw* This, HWND hWnd, DWORD dwFlags)
 	{
 		HRESULT result = getOrigVtable(This).SetCooperativeLevel(This, hWnd, dwFlags);
-		if (SUCCEEDED(result) && (dwFlags & (DDSCL_FULLSCREEN | DDSCL_NORMAL)))
+		const bool isFullscreen = (dwFlags & DDSCL_FULLSCREEN) && (dwFlags & DDSCL_EXCLUSIVE);
+		if (SUCCEEDED(result) && (isFullscreen || (dwFlags & DDSCL_NORMAL)))
 		{
 			auto tagSurface = DDraw::TagSurface::get(*CompatPtr<IDirectDraw>::from(This));
 			if (tagSurface)
 			{
 				const bool wasFullscreen = tagSurface->isFullscreen();
-				const bool isFullscreen = dwFlags & DDSCL_FULLSCREEN;
 				if (wasFullscreen != isFullscreen)
 				{
 					tagSurface->setFullscreenWindow(isFullscreen ? hWnd : nullptr);
