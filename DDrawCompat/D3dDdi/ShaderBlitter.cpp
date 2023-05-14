@@ -62,7 +62,7 @@ namespace
 	{
 		for (UINT i = 0; i < 256; ++i)
 		{
-			ptr[i] = static_cast<BYTE>(ramp[i] * 0xFF / 0xFFFF);
+			ptr[i] = static_cast<BYTE>(ramp[i] / 256);
 		}
 	}
 }
@@ -693,8 +693,7 @@ namespace D3dDdi
 		g_isGammaRampDefault = true;
 		for (WORD i = 0; i < 256 && g_isGammaRampDefault; ++i)
 		{
-			const WORD defaultRamp = i * 0xFFFF / 0xFF;
-			g_isGammaRampDefault = defaultRamp == ramp.Red[i] && defaultRamp == ramp.Green[i] && defaultRamp == ramp.Blue[i];
+			g_isGammaRampDefault = i == ramp.Red[i] / 256 && i == ramp.Green[i] / 256 && i == ramp.Blue[i] / 256;
 		}
 		g_isGammaRampInvalidated = !g_isGammaRampDefault;
 	}
