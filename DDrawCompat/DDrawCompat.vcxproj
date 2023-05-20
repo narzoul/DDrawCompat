@@ -153,6 +153,7 @@
     <ClInclude Include="Common\Hook.h" />
     <ClInclude Include="Common\ScopedCriticalSection.h" />
     <ClInclude Include="Common\Time.h" />
+    <ClInclude Include="Config\EnumListSetting.h" />
     <ClInclude Include="Config\EnumSetting.h" />
     <ClInclude Include="Config\FormatListSetting.h" />
     <ClInclude Include="Config\HotKeySetting.h" />
@@ -191,6 +192,7 @@
     <ClInclude Include="Config\Settings\SpriteDetection.h" />
     <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />
+    <ClInclude Include="Config\Settings\StatsColumns.h" />
     <ClInclude Include="Config\Settings\StatsHotKey.h" />
     <ClInclude Include="Config\Settings\SupportedDepthFormats.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
@@ -328,6 +330,7 @@
     <ClCompile Include="Common\Rect.cpp" />
     <ClCompile Include="Common\Time.cpp" />
     <ClCompile Include="Config\Config.cpp" />
+    <ClCompile Include="Config\EnumListSetting.cpp" />
     <ClCompile Include="Config\EnumSetting.cpp" />
     <ClCompile Include="Config\FormatListSetting.cpp" />
     <ClCompile Include="Config\ListSetting.cpp" />

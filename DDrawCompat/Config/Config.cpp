@@ -29,6 +29,7 @@
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/StatsColumns.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/SupportedDepthFormats.h>
@@ -73,6 +74,7 @@ namespace Config
 	Settings::SpriteDetection spriteDetection;
 	Settings::SpriteFilter spriteFilter;
 	Settings::SpriteTexCoord spriteTexCoord;
+	Settings::StatsColumns statsColumns;
 	Settings::StatsHotKey statsHotKey;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::SupportedDepthFormats supportedDepthFormats;

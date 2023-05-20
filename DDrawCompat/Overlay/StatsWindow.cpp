@@ -66,8 +66,7 @@ namespace
 namespace Overlay
 {
 	StatsWindow::StatsWindow()
-		: Window(nullptr, { 0, 0, StatsControl::NAME_LABEL_WIDTH + 4 * StatsControl::VALUE_LABEL_WIDTH, 105 + BORDER },
-			0, Config::statsHotKey.get())
+		: Window(nullptr, { 0, 0, StatsControl::getWidth(), 105 + BORDER}, 0, Config::statsHotKey.get())
 	{
 		addControl("", [](StatsQueue::TickCount) { return std::array<std::string, 4>{ "cur", "avg", "min", "max" }; },
 			WS_VISIBLE | WS_DISABLED).update(0);

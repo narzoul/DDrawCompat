@@ -1,30 +1,69 @@
+#include <Config/Settings/StatsColumns.h>
 #include <Overlay/StatsWindow.h>
 #include <Overlay/StatsControl.h>
+
+namespace
+{
+	const int NAME_LABEL_WIDTH = 70;
+	const int VALUE_LABEL_WIDTH = 40;
+}
 
 namespace Overlay
 {
 	StatsControl::StatsControl(StatsWindow& parent, const RECT& rect, const std::string& caption, UpdateFunc updateFunc, DWORD style)
 		: Control(&parent, rect, style)
-		, m_captionLabel(*this, { rect.left, rect.top,
-			rect.left + NAME_LABEL_WIDTH, rect.bottom }, caption, 0, WS_DISABLED | WS_VISIBLE)
-		, m_curLabel(*this, { m_captionLabel.getRect().right, rect.top,
-			m_captionLabel.getRect().right + VALUE_LABEL_WIDTH, rect.bottom}, std::string(), DT_RIGHT)
-		, m_avgLabel(*this, { m_curLabel.getRect().right, rect.top,
-			m_curLabel.getRect().right + VALUE_LABEL_WIDTH, rect.bottom }, std::string(), DT_RIGHT)
-		, m_minLabel(*this, { m_avgLabel.getRect().right, rect.top,
-			m_avgLabel.getRect().right + VALUE_LABEL_WIDTH, rect.bottom }, std::string(), DT_RIGHT)
-		, m_maxLabel(*this, { m_minLabel.getRect().right, rect.top,
-			m_minLabel.getRect().right + VALUE_LABEL_WIDTH, rect.bottom }, std::string(), DT_RIGHT)
 		, m_updateFunc(updateFunc)
 	{
+		auto& columns = Config::statsColumns.get();
+		RECT r = rect;
+		for (unsigned i = 0; i < columns.size(); ++i)
+		{
+			r.right = r.left + getColumnWidth(i);
+			if (Config::Settings::StatsColumns::LABEL == columns[i])
+			{
+				m_labels.emplace_back(*this, r, caption, 0, WS_DISABLED | WS_VISIBLE);
+			}
+			else
+			{
+				m_labels.emplace_back(*this, r, std::string(), DT_RIGHT);
+			}
+			r.left = r.right;
+		}
+	}
+
+	int StatsControl::getColumnWidth(unsigned index)
+	{
+		auto& columns = Config::statsColumns.get();
+		if (index >= columns.size())
+		{
+			return 0;
+		}
+		return Config::Settings::StatsColumns::LABEL == columns[index] ? NAME_LABEL_WIDTH : VALUE_LABEL_WIDTH;
+	}
+
+	int StatsControl::getWidth()
+	{
+		int width = 0;
+		auto& columns = Config::statsColumns.get();
+		for (unsigned i = 0; i < columns.size(); ++i)
+		{
+			width += getColumnWidth(i);
+		}
+		return width;
 	}
 
 	void StatsControl::update(StatsQueue::TickCount tickCount)
 	{
 		auto stats = m_updateFunc(tickCount);
-		m_curLabel.setLabel(stats[0]);
-		m_avgLabel.setLabel(stats[1]);
-		m_minLabel.setLabel(stats[2]);
-		m_maxLabel.setLabel(stats[3]);
+		auto& columns = Config::statsColumns.get();
+		auto label = m_labels.begin();
+		for (unsigned i = 0; i < columns.size(); ++i)
+		{
+			if (Config::Settings::StatsColumns::LABEL != columns[i])
+			{
+				label->setLabel(stats[columns[i]]);
+			}
+			++label;
+		}
 	}
 }
