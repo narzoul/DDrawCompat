@@ -1,18 +1,15 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class SpriteTexCoord : public MappedSetting<UINT>
+		class SpriteTexCoord : public EnumSetting
 		{
 		public:
-			static const UINT APP = 0;
-			static const UINT CLAMP = 1;
-			static const UINT CLAMPALL = 2;
-			static const UINT ROUND = 3;
+			enum Values { APP, CLAMP, CLAMPALL, ROUND };
 
 			SpriteTexCoord();
 

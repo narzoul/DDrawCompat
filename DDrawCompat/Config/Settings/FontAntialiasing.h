@@ -6,15 +6,13 @@ namespace Config
 {
 	namespace Settings
 	{
-		class FontAntialiasing : public MappedSetting<UINT>
+		class FontAntialiasing : public EnumSetting
 		{
 		public:
-			static const UINT APP = 0;
-			static const UINT OFF = 1;
-			static const UINT ON = 2;
+			enum Values { APP, OFF, ON };
 
 			FontAntialiasing()
-				: MappedSetting("FontAntialiasing", "app", { {"app", APP}, {"off", OFF}, {"on", ON} })
+				: EnumSetting("FontAntialiasing", "app", { "app", "off", "on" })
 			{
 			}
 		};

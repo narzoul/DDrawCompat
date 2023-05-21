@@ -1,19 +1,15 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class DisplayFilter : public MappedSetting<UINT>
+		class DisplayFilter : public EnumSetting
 		{
 		public:
-			static const UINT POINT = 0;
-			static const UINT BILINEAR = 1;
-			static const UINT BICUBIC = 2;
-			static const UINT LANCZOS = 3;
-			static const UINT SPLINE = 4;
+			enum Values { POINT, BILINEAR, BICUBIC, LANCZOS, SPLINE };
 
 			DisplayFilter();
 

@@ -8,7 +8,7 @@ namespace Config
 	namespace Settings
 	{
 		VSync::VSync()
-			: MappedSetting("VSync", "app", { {"app", APP}, {"off", OFF}, {"on", ON} })
+			: EnumSetting("VSync", "app", { "app", "off", "on" })
 		{
 		}
 
@@ -16,7 +16,7 @@ namespace Config
 		{
 			if (ON == m_value)
 			{
-				return { "Interval", 1, 16, 1, m_param };
+				return { "Interval", 1, 16, 1 };
 			}
 			return {};
 		}

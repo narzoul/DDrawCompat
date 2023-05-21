@@ -672,6 +672,9 @@
     <ClInclude Include="Config\EnumListSetting.h">
       <Filter>Header Files\Config</Filter>
     </ClInclude>
+    <ClInclude Include="Config\BoolSetting.h">
+      <Filter>Header Files\Config</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

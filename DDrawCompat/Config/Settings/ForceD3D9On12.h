@@ -1,16 +1,16 @@
 #pragma once
 
-#include <Config/EnumSetting.h>
+#include <Config/BoolSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class ForceD3D9On12 : public MappedSetting<bool>
+		class ForceD3D9On12 : public BoolSetting
 		{
 		public:
 			ForceD3D9On12()
-				: MappedSetting("ForceD3D9On12", "off", { {"off", false}, {"on", true} })
+				: BoolSetting("ForceD3D9On12", "off")
 			{
 			}
 		};

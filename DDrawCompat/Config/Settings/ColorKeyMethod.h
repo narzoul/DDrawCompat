@@ -1,17 +1,15 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class ColorKeyMethod : public MappedSetting<UINT>
+		class ColorKeyMethod : public EnumSetting
 		{
 		public:
-			static const UINT NONE = 0;
-			static const UINT NATIVE = 1;
-			static const UINT ALPHATEST = 2;
+			enum Values { NONE, NATIVE, ALPHATEST };
 
 			ColorKeyMethod();
 

@@ -42,7 +42,7 @@ namespace Config
 					const auto paramInfo = getParamInfo();
 					if (!paramInfo.name.empty())
 					{
-						return pair.first + '(' + std::to_string(paramInfo.current) + ')';
+						return pair.first + '(' + std::to_string(m_param) + ')';
 					}
 					return pair.first;
 				}

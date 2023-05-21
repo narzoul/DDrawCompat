@@ -248,7 +248,6 @@ namespace Compat
 	class Log
 	{
 	public:
-		Log(bool isEnabled);
 		Log(unsigned logLevel);
 		~Log();
 

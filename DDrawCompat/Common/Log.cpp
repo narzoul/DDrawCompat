@@ -39,7 +39,7 @@ namespace Compat
 		return os;
 	}
 
-	Log::Log(bool isEnabled) : m_isEnabled(isEnabled)
+	Log::Log(unsigned logLevel) : m_isEnabled(logLevel <= s_logLevel)
 	{
 		if (!m_isEnabled)
 		{
@@ -67,10 +67,6 @@ namespace Compat
 		{
 			std::fill_n(std::ostreambuf_iterator<char>(*s_logStream), s_indent, ' ');
 		}
-	}
-
-	Log::Log(unsigned logLevel) : Log(logLevel <= s_logLevel)
-	{
 	}
 
 	Log::~Log()
@@ -148,6 +144,6 @@ namespace Compat
 	thread_local DWORD Log::s_indent = 0;
 
 	bool Log::s_isLeaveLog = false;
-	unsigned Log::s_logLevel = Config::Settings::LogLevel::INITIAL;
+	unsigned Log::s_logLevel = Config::Settings::LogLevel::DEBUG;
 	std::ostream* Log::s_logStream = &g_initialLogStream;
 }

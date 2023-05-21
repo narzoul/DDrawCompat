@@ -1,16 +1,16 @@
 #pragma once
 
-#include <Config/EnumSetting.h>
+#include <Config/BoolSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class CpuAffinityRotation : public MappedSetting<bool>
+		class CpuAffinityRotation : public BoolSetting
 		{
 		public:
 			CpuAffinityRotation()
-				: MappedSetting("CpuAffinityRotation", "on", { {"off", false}, {"on", true} })
+				: BoolSetting("CpuAffinityRotation", "on")
 			{
 			}
 		};

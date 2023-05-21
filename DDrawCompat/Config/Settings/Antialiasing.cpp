@@ -22,7 +22,7 @@ namespace Config
 		{
 			if (D3DDDIMULTISAMPLE_NONE != m_value)
 			{
-				return { "Quality", 0, 7, 7, m_param };
+				return { "Quality", 0, 7, 7 };
 			}
 			return {};
 		}

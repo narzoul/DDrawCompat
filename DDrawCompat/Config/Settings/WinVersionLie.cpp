@@ -27,7 +27,7 @@ namespace Config
 		{
 			if (0 != m_value.version)
 			{
-				return { "SP", 0, 5, 0, m_param };
+				return { "SP", 0, 5, 0 };
 			}
 			return {};
 		}

@@ -14,7 +14,6 @@ namespace Config
 			int min;
 			int max;
 			int default;
-			int current;
 		};
 
 		Setting(const std::string& name, const std::string& default);

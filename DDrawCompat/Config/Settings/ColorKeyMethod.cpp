@@ -5,11 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		ColorKeyMethod::ColorKeyMethod()
-			: MappedSetting("ColorKeyMethod", "native", {
-				{"none", NONE},
-				{"native", NATIVE},
-				{"alphatest", ALPHATEST}
-				})
+			: EnumSetting("ColorKeyMethod", "native", { "none", "native", "alphatest" })
 		{
 		}
 
@@ -17,7 +13,7 @@ namespace Config
 		{
 			if (ALPHATEST == m_value)
 			{
-				return { "AlphaRef", 1, 255, 1, m_param };
+				return { "AlphaRef", 1, 255, 1 };
 			}
 			return {};
 		}

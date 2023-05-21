@@ -5,13 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		DisplayFilter::DisplayFilter()
-			: MappedSetting("DisplayFilter", "bilinear", {
-				{"point", POINT},
-				{"bilinear", BILINEAR},
-				{"bicubic", BICUBIC},
-				{"lanczos", LANCZOS},
-				{"spline", SPLINE}
-				})
+			: EnumSetting("DisplayFilter", "bilinear", { "point",  "bilinear", "bicubic", "lanczos", "spline" })
 		{
 		}
 
@@ -21,10 +15,10 @@ namespace Config
 			{
 			case BILINEAR:
 			case BICUBIC:
-				return { "Blur", 0, 100, 0, m_param };
+				return { "Blur", 0, 100, 0 };
 			case LANCZOS:
 			case SPLINE:
-				return { "Lobes", 2, 4, 2, m_param };
+				return { "Lobes", 2, 4, 2 };
 			default:
 				return {};
 			}

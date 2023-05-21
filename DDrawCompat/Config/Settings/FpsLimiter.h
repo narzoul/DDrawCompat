@@ -1,18 +1,15 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class FpsLimiter : public MappedSetting<UINT>
+		class FpsLimiter : public EnumSetting
 		{
 		public:
-			static const UINT OFF = 0;
-			static const UINT FLIPSTART = 1;
-			static const UINT FLIPEND = 2;
-			static const UINT MSGLOOP = 3;
+			enum Values { OFF, FLIPSTART, FLIPEND, MSGLOOP };
 
 			FpsLimiter();
 

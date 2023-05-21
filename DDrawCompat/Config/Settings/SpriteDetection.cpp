@@ -5,12 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		SpriteDetection::SpriteDetection()
-			: MappedSetting("SpriteDetection", "off", {
-				{"off", OFF},
-				{"zconst", ZCONST},
-				{"zmax", ZMAX},
-				{"point", POINT}
-				})
+			: EnumSetting("SpriteDetection", "off", { "off",  "zconst", "zmax", "point" })
 		{
 		}
 
@@ -18,7 +13,7 @@ namespace Config
 		{
 			if (ZMAX == m_value)
 			{
-				return { "ZMax", 0, 100, 0, m_param };
+				return { "ZMax", 0, 100, 0 };
 			}
 			return {};
 		}

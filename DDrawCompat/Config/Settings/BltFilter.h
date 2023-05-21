@@ -1,19 +1,18 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class BltFilter : public MappedSetting<UINT>
+		class BltFilter : public EnumSetting
 		{
 		public:
-			static const UINT POINT = 1;
-			static const UINT BILINEAR = 2;
+			enum Values { POINT, BILINEAR };
 
 			BltFilter::BltFilter()
-				: MappedSetting("BltFilter", "point", { {"point", POINT}, {"bilinear", BILINEAR} })
+				: EnumSetting("BltFilter", "point", { "point", "bilinear" })
 			{
 			}
 		};

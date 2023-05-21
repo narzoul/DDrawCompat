@@ -1,16 +1,16 @@
 #pragma once
 
-#include <Config/EnumSetting.h>
+#include <Config/BoolSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class PalettizedTextures : public MappedSetting<bool>
+		class PalettizedTextures : public BoolSetting
 		{
 		public:
 			PalettizedTextures()
-				: MappedSetting("PalettizedTextures", "on", { {"off", false}, {"on", true} })
+				: BoolSetting("PalettizedTextures", "on")
 			{
 			}
 		};

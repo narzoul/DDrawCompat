@@ -1,16 +1,16 @@
 #pragma once
 
-#include <Config/EnumSetting.h>
+#include <Config/BoolSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class RemoveBorders : public MappedSetting<bool>
+		class RemoveBorders : public BoolSetting
 		{
 		public:
 			RemoveBorders()
-				: MappedSetting("RemoveBorders", "off", { {"off", false}, {"on", true} })
+				: BoolSetting("RemoveBorders", "off")
 			{
 			}
 		};

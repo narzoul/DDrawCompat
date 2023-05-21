@@ -1,19 +1,19 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class ResolutionScaleFilter : public MappedSetting<UINT>
+		class ResolutionScaleFilter : public EnumSetting
 		{
 		public:
 			static const UINT POINT = 0;
 			static const UINT BILINEAR = 1;
 
 			ResolutionScaleFilter::ResolutionScaleFilter()
-				: MappedSetting("ResolutionScaleFilter", "point", { {"point", POINT}, {"bilinear", BILINEAR} })
+				: EnumSetting("ResolutionScaleFilter", "point", { "point", "bilinear" })
 			{
 			}
 		};

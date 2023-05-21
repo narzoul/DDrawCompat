@@ -6,17 +6,13 @@ namespace Config
 {
 	namespace Settings
 	{
-		class AltTabFix : public MappedSetting<UINT>
+		class AltTabFix : public EnumSetting
 		{
 		public:
-			static const UINT OFF = 0;
-			static const UINT KEEPVIDMEM = 1;
+			enum Values { OFF, KEEPVIDMEM };
 
 			AltTabFix()
-				: MappedSetting("AltTabFix", "off", {
-					{"off", OFF},
-					{"keepvidmem", KEEPVIDMEM}
-					})
+				: EnumSetting("AltTabFix", "off", { "off", "keepvidmem" })
 			{
 			}
 		};

@@ -1,18 +1,15 @@
 #pragma once
 
-#include <Config/MappedSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class SpriteDetection : public MappedSetting<UINT>
+		class SpriteDetection : public EnumSetting
 		{
 		public:
-			static const UINT OFF = 0;
-			static const UINT ZCONST = 1;
-			static const UINT ZMAX = 2;
-			static const UINT POINT = 3;
+			enum Values { OFF, ZCONST, ZMAX, POINT };
 
 			SpriteDetection();
 

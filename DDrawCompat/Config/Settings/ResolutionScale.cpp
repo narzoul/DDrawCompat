@@ -23,7 +23,7 @@ namespace Config
 
 		Setting::ParamInfo ResolutionScale::getParamInfo() const
 		{
-			return { "Multiplier", APP == m_value ? 1 : -16, 16, 1, m_param };
+			return { "Multiplier", APP == m_value ? 1 : -16, 16, 1 };
 		}
 
 		void ResolutionScale::setValue(const std::string& value)
