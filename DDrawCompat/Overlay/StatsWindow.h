@@ -3,6 +3,7 @@
 #include <list>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <Overlay/StatsControl.h>
 #include <Overlay/StatsEventGroup.h>
@@ -27,12 +28,20 @@ namespace Overlay
 		StatsQueue m_gdiObjects;
 
 	private:
+		struct StatsRow
+		{
+			const char* name;
+			StatsControl::UpdateFunc updateFunc;
+			DWORD style;
+		};
+
 		StatsControl& addControl(const std::string& name, StatsControl::UpdateFunc updateFunc, DWORD style = WS_VISIBLE);
 
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 		virtual HWND getTopmost() const override;
 
 		std::list<StatsControl> m_statsControls;
+		std::vector<StatsRow> m_statsRows;
 		uint64_t m_tickCount;
 	};
 }

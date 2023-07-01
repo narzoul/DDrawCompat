@@ -4,7 +4,7 @@
 
 namespace
 {
-	const int NAME_LABEL_WIDTH = 70;
+	const int NAME_LABEL_WIDTH = 80;
 	const int VALUE_LABEL_WIDTH = 40;
 }
 

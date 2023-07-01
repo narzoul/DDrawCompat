@@ -3,6 +3,7 @@
 
 #include <Common/Time.h>
 #include <Config/Settings/StatsHotKey.h>
+#include <Config/Settings/StatsRows.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
@@ -61,29 +62,49 @@ namespace
 
 		StatsQueue& m_statsQueue;
 	};
+
+	const int ROW_HEIGHT = 15;
 }
 
 namespace Overlay
 {
 	StatsWindow::StatsWindow()
-		: Window(nullptr, { 0, 0, StatsControl::getWidth(), 105 + BORDER}, 0, Config::statsHotKey.get())
+		: Window(nullptr,
+			{ 0, 0, StatsControl::getWidth(), static_cast<int>(Config::statsRows.get().size()) * ROW_HEIGHT + BORDER },
+			0, Config::statsHotKey.get())
 	{
-		addControl("", [](StatsQueue::TickCount) { return std::array<std::string, 4>{ "cur", "avg", "min", "max" }; },
-			WS_VISIBLE | WS_DISABLED).update(0);
-		addControl("Present rate", UpdateStats(m_present.m_rate));
-		addControl("Flip rate", UpdateStats(m_flip.m_rate));
-		addControl("Blit count", UpdateStats(m_blit.m_count));
-		addControl("Lock count", UpdateStats(m_lock.m_count));
-		addControl("DDI usage", UpdateStats(m_ddiUsage));
-		addControl("GDI objects", UpdateStats(m_gdiObjects));
+		m_statsRows.push_back({ "", [](auto) { return std::array<std::string, 4>{ "cur", "avg", "min", "max" }; },
+			WS_VISIBLE | WS_DISABLED });
+		m_statsRows.push_back({ "Present count", UpdateStats(m_present.m_count) });
+		m_statsRows.push_back({ "Present rate", UpdateStats(m_present.m_rate) });
+		m_statsRows.push_back({ "Present time", UpdateStats(m_present.m_time) });
+		m_statsRows.push_back({ "Flip count", UpdateStats(m_flip.m_count) });
+		m_statsRows.push_back({ "Flip rate", UpdateStats(m_flip.m_rate) });
+		m_statsRows.push_back({ "Flip time", UpdateStats(m_flip.m_time) });
+		m_statsRows.push_back({ "Blit count", UpdateStats(m_blit.m_count) });
+		m_statsRows.push_back({ "Blit rate", UpdateStats(m_blit.m_rate) });
+		m_statsRows.push_back({ "Blit time", UpdateStats(m_blit.m_time) });
+		m_statsRows.push_back({ "Lock count", UpdateStats(m_lock.m_count) });
+		m_statsRows.push_back({ "Lock rate", UpdateStats(m_lock.m_rate) });
+		m_statsRows.push_back({ "Lock time", UpdateStats(m_lock.m_time) });
+		m_statsRows.push_back({ "DDI usage", UpdateStats(m_ddiUsage) });
+		m_statsRows.push_back({ "GDI objects", UpdateStats(m_gdiObjects) });
+
+		for (auto statsRowIndex : Config::statsRows.get())
+		{
+			auto& statsRow = m_statsRows[statsRowIndex];
+			auto& statsControl = addControl(statsRow.name, statsRow.updateFunc, statsRow.style);
+			if (statsRow.style & WS_DISABLED)
+			{
+				statsControl.update(0);
+			}
+		}
 	}
 
 	StatsControl& StatsWindow::addControl(const std::string& name, StatsControl::UpdateFunc updateFunc, DWORD style)
 	{
 		const int index = m_statsControls.size();
-		const int rowHeight = 15;
-
-		RECT rect = { 0, index * rowHeight + BORDER / 2, m_rect.right, (index + 1) * rowHeight + BORDER / 2 };
+		RECT rect = { 0, index * ROW_HEIGHT + BORDER / 2, m_rect.right, (index + 1) * ROW_HEIGHT + BORDER / 2 };
 		return m_statsControls.emplace_back(*this, rect, name, updateFunc, style);
 	}
 
