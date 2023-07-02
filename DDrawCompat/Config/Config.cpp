@@ -29,6 +29,7 @@
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/StatsAggregateTime.h>
 #include <Config/Settings/StatsColumns.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/StatsRows.h>
@@ -76,6 +77,7 @@ namespace Config
 	Settings::SpriteDetection spriteDetection;
 	Settings::SpriteFilter spriteFilter;
 	Settings::SpriteTexCoord spriteTexCoord;
+	Settings::StatsAggregateTime statsAggregateTime;
 	Settings::StatsColumns statsColumns;
 	Settings::StatsHotKey statsHotKey;
 	Settings::StatsRows statsRows;

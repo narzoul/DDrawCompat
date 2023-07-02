@@ -194,6 +194,7 @@
     <ClInclude Include="Config\Settings\SpriteDetection.h" />
     <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />
+    <ClInclude Include="Config\Settings\StatsAggregateTime.h" />
     <ClInclude Include="Config\Settings\StatsColumns.h" />
     <ClInclude Include="Config\Settings\StatsHotKey.h" />
     <ClInclude Include="Config\Settings\StatsRows.h" />

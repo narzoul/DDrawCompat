@@ -1,3 +1,4 @@
+#include <Config/Settings/StatsAggregateTime.h>
 #include <Config/Settings/StatsUpdateRate.h>
 #include <Overlay/StatsQueue.h>
 
@@ -17,7 +18,7 @@ namespace
 StatsQueueInitializer::StatsQueueInitializer()
 {
 	s_update_rate = Config::statsUpdateRate.get();
-	s_history_time = 3;
+	s_history_time = Config::statsAggregateTime.get();
 	s_history_size = s_history_time * s_update_rate;
 }
 
