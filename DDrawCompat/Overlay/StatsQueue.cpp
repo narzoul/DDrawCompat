@@ -1,3 +1,4 @@
+#include <Config/Settings/StatsUpdateRate.h>
 #include <Overlay/StatsQueue.h>
 
 namespace
@@ -13,9 +14,20 @@ namespace
 	}
 }
 
+StatsQueueInitializer::StatsQueueInitializer()
+{
+	s_update_rate = Config::statsUpdateRate.get();
+	s_history_time = 3;
+	s_history_size = s_history_time * s_update_rate;
+}
+
+uint32_t StatsQueueInitializer::s_history_size = 0;
+uint32_t StatsQueueInitializer::s_history_time = 0;
+uint32_t StatsQueueInitializer::s_update_rate = 0;
+
 StatsQueue::StatsQueue()
-	: m_sums(HISTORY_SIZE)
-	, m_sampleCounts(HISTORY_SIZE)
+	: m_sums(s_history_size)
+	, m_sampleCounts(s_history_size)
 	, m_currentTickCount(0)
 	, m_sampleCount(0)
 	, m_sum(0)
@@ -57,7 +69,7 @@ StatsQueue::Stats StatsQueue::getRawStats(TickCount tickCount)
 {
 	setTickCount(tickCount);
 	Stats stats = {};
-	const uint32_t index = (m_currentTickCount - 1) % HISTORY_SIZE;
+	const uint32_t index = (m_currentTickCount - 1) % s_history_size;
 	stats.cur = getAvg(m_sums[index], m_sampleCounts[index]);
 	stats.avg = getAvg(m_totalSum, m_totalSampleCount);
 	stats.min = m_minQueue.empty() ? NAN : m_minQueue.front().stat;
@@ -67,7 +79,7 @@ StatsQueue::Stats StatsQueue::getRawStats(TickCount tickCount)
 
 StatsQueue::SampleCount StatsQueue::getSampleCount(TickCount tickCount) const
 {
-	return m_sampleCounts[tickCount % HISTORY_SIZE];
+	return m_sampleCounts[tickCount % s_history_size];
 }
 
 StatsQueue::Stats StatsQueue::getStats(TickCount tickCount)
@@ -84,7 +96,7 @@ void StatsQueue::push()
 {
 	finalize(m_sampleCount, m_sum, m_min, m_max);
 
-	uint32_t index = m_currentTickCount % HISTORY_SIZE;
+	uint32_t index = m_currentTickCount % s_history_size;
 	m_totalSampleCount -= m_sampleCounts[index];
 	m_totalSampleCount += m_sampleCount;
 	m_totalSum -= m_sums[index];
@@ -112,7 +124,7 @@ void StatsQueue::pushToMinMaxQueue(std::deque<TimestampedStat>& queue, Stat stat
 		}
 	}
 
-	while (!queue.empty() && m_currentTickCount - queue.front().tickCount >= HISTORY_SIZE)
+	while (!queue.empty() && m_currentTickCount - queue.front().tickCount >= s_history_size)
 	{
 		queue.pop_front();
 	}
@@ -125,9 +137,9 @@ void StatsQueue::pushToMinMaxQueue(std::deque<TimestampedStat>& queue, Stat stat
 
 void StatsQueue::setTickCount(TickCount tickCount)
 {
-	if (tickCount - m_currentTickCount > HISTORY_SIZE)
+	if (tickCount - m_currentTickCount > s_history_size)
 	{
-		m_currentTickCount = tickCount - HISTORY_SIZE;
+		m_currentTickCount = tickCount - s_history_size;
 		resetTickCount();
 	}
 

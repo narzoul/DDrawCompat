@@ -8,7 +8,7 @@ StatsTimer::StatsTimer()
 
 double StatsTimer::convert(double stat)
 {
-	return 100 * stat * StatsQueue::TICKS_PER_SEC / Time::g_qpcFrequency;
+	return 100 * stat * s_update_rate / Time::g_qpcFrequency;
 }
 
 void StatsTimer::finalize(SampleCount& sampleCount, Stat& sum, Stat& min, Stat& max)

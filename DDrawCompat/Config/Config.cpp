@@ -32,6 +32,7 @@
 #include <Config/Settings/StatsColumns.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/StatsRows.h>
+#include <Config/Settings/StatsUpdateRate.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/SupportedTextureFormats.h>
@@ -78,6 +79,7 @@ namespace Config
 	Settings::StatsColumns statsColumns;
 	Settings::StatsHotKey statsHotKey;
 	Settings::StatsRows statsRows;
+	Settings::StatsUpdateRate statsUpdateRate;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::SupportedDepthFormats supportedDepthFormats;
 	Settings::SupportedTextureFormats supportedTextureFormats;

@@ -158,6 +158,7 @@
     <ClInclude Include="Config\EnumSetting.h" />
     <ClInclude Include="Config\FormatListSetting.h" />
     <ClInclude Include="Config\HotKeySetting.h" />
+    <ClInclude Include="Config\IntSetting.h" />
     <ClInclude Include="Config\ListSetting.h" />
     <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
@@ -196,6 +197,7 @@
     <ClInclude Include="Config\Settings\StatsColumns.h" />
     <ClInclude Include="Config\Settings\StatsHotKey.h" />
     <ClInclude Include="Config\Settings\StatsRows.h" />
+    <ClInclude Include="Config\Settings\StatsUpdateRate.h" />
     <ClInclude Include="Config\Settings\SupportedDepthFormats.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\SupportedTextureFormats.h" />

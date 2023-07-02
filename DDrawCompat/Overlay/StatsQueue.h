@@ -5,13 +5,19 @@
 
 #include <Common/Time.h>
 
-class StatsQueue
+class StatsQueueInitializer
+{
+protected:
+	StatsQueueInitializer();
+
+	static uint32_t s_history_size;
+	static uint32_t s_history_time;
+	static uint32_t s_update_rate;
+};
+
+class StatsQueue : protected StatsQueueInitializer
 {
 public:
-	static const uint32_t TICKS_PER_SEC = 5;
-	static const uint32_t HISTORY_TIME = 3;
-	static const uint32_t HISTORY_SIZE = HISTORY_TIME * TICKS_PER_SEC;
-
 	typedef uint32_t SampleCount;
 	typedef uint64_t Stat;
 	typedef uint64_t TickCount;
@@ -33,12 +39,12 @@ public:
 
 	static long long getQpc(TickCount tickCount)
 	{
-		return tickCount * Time::g_qpcFrequency / TICKS_PER_SEC;
+		return tickCount * Time::g_qpcFrequency / s_update_rate;
 	}
 
 	static TickCount getTickCount(long long qpc = Time::queryPerformanceCounter())
 	{
-		return qpc * TICKS_PER_SEC / Time::g_qpcFrequency;
+		return qpc * s_update_rate / Time::g_qpcFrequency;
 	}
 
 protected:

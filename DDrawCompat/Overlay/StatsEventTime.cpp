@@ -9,7 +9,7 @@ StatsEventTime::StatsEventTime()
 
 void StatsEventTime::add(TickCount tickCount, long long qpcNow)
 {
-	if (0 != m_qpcLast && qpcNow - m_qpcLast < HISTORY_TIME * Time::g_qpcFrequency)
+	if (0 != m_qpcLast && qpcNow - m_qpcLast < s_history_time * Time::g_qpcFrequency)
 	{
 		addSample(tickCount, qpcNow - m_qpcLast);
 	}

@@ -3,7 +3,7 @@
 #include <Overlay/StatsEventCount.h>
 
 StatsEventCount::StatsEventCount()
-	: m_sampleCounts(TICKS_PER_SEC)
+	: m_sampleCounts(s_update_rate)
 	, m_sampleCount(0)
 	, m_totalSampleCount(0)
 {
@@ -17,7 +17,7 @@ void StatsEventCount::add(TickCount tickCount)
 
 void StatsEventCount::finalize(SampleCount& sampleCount, Stat& sum, Stat& min, Stat& max)
 {
-	const uint32_t index = getCurrentTickCount() % TICKS_PER_SEC;
+	const uint32_t index = getCurrentTickCount() % s_update_rate;
 	m_totalSampleCount += m_sampleCount;
 	m_totalSampleCount -= m_sampleCounts[index];
 	m_sampleCounts[index] = m_sampleCount;
