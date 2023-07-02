@@ -22,26 +22,45 @@ namespace Overlay
 	ScrollBarControl::ScrollBarControl(Control& parent, const RECT& rect, int min, int max)
 		: Control(&parent, rect, WS_VISIBLE)
 		, m_min(min)
-		, m_max(max)
+		, m_max(std::max(min, max))
 		, m_pos(min)
-		, m_leftArrow{ rect.left, rect.top, rect.left + ARROW_SIZE, rect.bottom }
-		, m_rightArrow{ rect.right - ARROW_SIZE, rect.top, rect.right, rect.bottom }
 		, m_state(State::IDLE)
+		, m_left(isHorizontal() ? &RECT::left : &RECT::top)
+		, m_top(isHorizontal() ? &RECT::top : &RECT::left)
+		, m_right(isHorizontal() ? &RECT::right : &RECT::bottom)
+		, m_bottom(isHorizontal() ? &RECT::bottom : &RECT::right)
+		, m_x(isHorizontal() ? &POINT::x : &POINT::y)
 	{
 	}
 
 	void ScrollBarControl::draw(HDC dc)
 	{
-		drawArrow(dc, m_leftArrow, DFCS_SCROLLLEFT);
-		drawArrow(dc, m_rightArrow, DFCS_SCROLLRIGHT);
+		drawArrow(dc, getLeftArrowRect(), isHorizontal() ? DFCS_SCROLLLEFT : DFCS_SCROLLUP);
+		drawArrow(dc, getRightArrowRect(), isHorizontal() ? DFCS_SCROLLRIGHT : DFCS_SCROLLDOWN);
 
-		RECT r = { m_leftArrow.right, m_rect.top, m_rightArrow.left, m_rect.bottom };
-		CALL_ORIG_FUNC(Rectangle)(dc, r.left - 1, r.top, r.right + 1, r.bottom);
+		RECT r = m_rect;
+		r.*m_left += ARROW_SIZE - 1;
+		r.*m_right -= ARROW_SIZE - 1;
+		CALL_ORIG_FUNC(Rectangle)(dc, r.left, r.top, r.right, r.bottom);
 
 		r = getThumbRect();
 		SelectObject(dc, GetStockObject(DC_BRUSH));
 		CALL_ORIG_FUNC(Ellipse)(dc, r.left, r.top, r.right, r.bottom);
 		SelectObject(dc, GetStockObject(NULL_BRUSH));
+	}
+
+	RECT ScrollBarControl::getLeftArrowRect() const
+	{
+		RECT r = m_rect;
+		r.*m_right = r.*m_left + ARROW_SIZE;
+		return r;
+	}
+
+	RECT ScrollBarControl::getRightArrowRect() const
+	{
+		RECT r = m_rect;
+		r.*m_left = r.*m_right - ARROW_SIZE;
+		return r;
 	}
 
 	int ScrollBarControl::getPageSize() const
@@ -51,19 +70,27 @@ namespace Overlay
 
 	RECT ScrollBarControl::getThumbRect() const
 	{
-		const int thumbPos = (m_pos - m_min) * (m_rightArrow.left - m_leftArrow.right - ARROW_SIZE) / (m_max - m_min);
-		return RECT{ m_leftArrow.right + thumbPos, m_rect.top, m_leftArrow.right + thumbPos + ARROW_SIZE, m_rect.bottom };
+		const int thumbPos = (m_pos - m_min) * (m_rect.*m_right - m_rect.*m_left - 3 * ARROW_SIZE) / (m_max - m_min);
+		RECT r = m_rect;
+		r.*m_left = m_rect.*m_left + ARROW_SIZE + thumbPos;
+		r.*m_right = r.*m_left + ARROW_SIZE;
+		return r;
+	}
+
+	bool ScrollBarControl::isHorizontal() const
+	{
+		return m_rect.right - m_rect.left > m_rect.bottom - m_rect.top;
 	}
 
 	void ScrollBarControl::onLButtonDown(POINT pos)
 	{
 		Input::setCapture(this);
-		
-		if (PtInRect(&m_leftArrow, pos))
+
+		if (pos.*m_x < m_rect.*m_left + ARROW_SIZE)
 		{
 			m_state = State::LEFT_ARROW_PRESSED;
 		}
-		else if (PtInRect(&m_rightArrow, pos))
+		else if (pos.*m_x >= m_rect.*m_right - ARROW_SIZE)
 		{
 			m_state = State::RIGHT_ARROW_PRESSED;
 		}
@@ -74,7 +101,7 @@ namespace Overlay
 			{
 				m_state = State::THUMB_PRESSED;
 			}
-			else if (pos.x < r.left)
+			else if (pos.*m_x < r.*m_left)
 			{
 				m_state = State::LEFT_SHAFT_PRESSED;
 			}
@@ -110,6 +137,14 @@ namespace Overlay
 		}
 	}
 
+	void ScrollBarControl::onMouseWheel(POINT /*pos*/, SHORT delta)
+	{
+		if (State::IDLE == m_state)
+		{
+			setPos(m_pos - delta / WHEEL_DELTA * getPageSize());
+		}
+	}
+
 	void ScrollBarControl::onRepeat()
 	{
 		stopRepeatTimer();
@@ -135,14 +170,14 @@ namespace Overlay
 			break;
 
 		case State::LEFT_SHAFT_PRESSED:
-			if (Input::getRelativeCursorPos().x < getThumbRect().left)
+			if (Input::getRelativeCursorPos().*m_x < getThumbRect().*m_left)
 			{
 				setPos(m_pos - getPageSize());
 			}
 			break;
 
 		case State::RIGHT_SHAFT_PRESSED:
-			if (Input::getRelativeCursorPos().x >= getThumbRect().right)
+			if (Input::getRelativeCursorPos().*m_x >= getThumbRect().*m_right)
 			{
 				setPos(m_pos + getPageSize());
 			}
@@ -150,12 +185,12 @@ namespace Overlay
 
 		case State::THUMB_PRESSED:
 		{
-			POINT pos = Input::getRelativeCursorPos();
-			const auto minPos = m_leftArrow.right + ARROW_SIZE / 2;
-			const auto maxPos = m_rightArrow.left - ARROW_SIZE / 2;
-			pos.x = std::max(pos.x, minPos);
-			pos.x = std::min(pos.x, maxPos);
-			setPos(m_min + roundDiv((pos.x - minPos) * (m_max - m_min), maxPos - minPos));
+			auto pos = Input::getRelativeCursorPos().*m_x;
+			const auto minPos = m_rect.*m_left + ARROW_SIZE + ARROW_SIZE / 2;
+			const auto maxPos = m_rect.*m_right - ARROW_SIZE - ARROW_SIZE / 2;
+			pos = std::max(pos, minPos);
+			pos = std::min(pos, maxPos);
+			setPos(m_min + roundDiv((pos - minPos) * (m_max - m_min), maxPos - minPos));
 			break;
 		}
 		}
@@ -168,6 +203,7 @@ namespace Overlay
 		if (pos != m_pos)
 		{
 			m_pos = pos;
+			m_parent->invalidate();
 			m_parent->onNotify(*this);
 		}
 	}

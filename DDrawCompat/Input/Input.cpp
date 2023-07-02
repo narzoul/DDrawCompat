@@ -97,13 +97,14 @@ namespace
 	{
 		if (HC_ACTION == nCode)
 		{
+			auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
+
 			if (WM_MOUSEMOVE == wParam)
 			{
 				POINT cp = g_cursorPos;
 				POINT origCp = {};
 				GetCursorPos(&origCp);
 
-				auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
 				cp.x += (llHook.pt.x - origCp.x);
 				cp.y += (llHook.pt.y - origCp.y);
 				cp.x = std::min(std::max(g_monitorRect.left, cp.x), g_monitorRect.right);
@@ -126,6 +127,10 @@ namespace
 
 			case WM_MOUSEMOVE:
 				g_capture->onMouseMove(cp);
+				break;
+
+			case WM_MOUSEWHEEL:
+				g_capture->onMouseWheel(cp, HIWORD(llHook.mouseData));
 				break;
 			}
 

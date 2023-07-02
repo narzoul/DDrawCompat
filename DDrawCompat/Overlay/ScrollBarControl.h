@@ -9,6 +9,11 @@ namespace Overlay
 	public:
 		ScrollBarControl(Control& parent, const RECT& rect, int min, int max);
 
+		virtual void onLButtonDown(POINT pos) override;
+		virtual void onLButtonUp(POINT pos) override;
+		virtual void onMouseMove(POINT pos) override;
+		virtual void onMouseWheel(POINT pos, SHORT delta) override;
+
 		int getPos() const { return m_pos; }
 		void setPos(int pos);
 
@@ -24,12 +29,12 @@ namespace Overlay
 		};
 
 		virtual void draw(HDC dc) override;
-		virtual void onLButtonDown(POINT pos) override;
-		virtual void onLButtonUp(POINT pos) override;
-		virtual void onMouseMove(POINT pos) override;
 
+		RECT getLeftArrowRect() const;
+		RECT getRightArrowRect() const;
 		int getPageSize() const;
 		RECT getThumbRect() const;
+		bool isHorizontal() const;
 		void onRepeat();
 		void scroll();
 
@@ -40,8 +45,11 @@ namespace Overlay
 		int m_min;
 		int m_max;
 		int m_pos;
-		RECT m_leftArrow;
-		RECT m_rightArrow;
 		State m_state;
+		LONG RECT::* m_left;
+		LONG RECT::* m_top;
+		LONG RECT::* m_right;
+		LONG RECT::* m_bottom;
+		LONG POINT::* m_x;
 	};
 }

@@ -7,7 +7,6 @@
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Setting.h>
-#include <D3dDdi/Device.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
@@ -32,9 +31,10 @@ namespace
 
 namespace Overlay
 {
-	SettingControl::SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting)
+	SettingControl::SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting, UpdateFunc updateFunc)
 		: Control(&parent, rect, WS_VISIBLE | WS_TABSTOP)
 		, m_setting(setting)
+		, m_updateFunc(updateFunc)
 		, m_settingLabel(*this, { rect.left, rect.top, rect.left + SETTING_LABEL_WIDTH, rect.bottom }, setting.getName() + ':', 0)
 	{
 		const RECT r = { rect.left + SETTING_LABEL_WIDTH, rect.top + BORDER / 2,
@@ -72,6 +72,14 @@ namespace Overlay
 		}
 	}
 
+	void SettingControl::onMouseWheel(POINT pos, SHORT delta)
+	{
+		if (m_paramControl)
+		{
+			m_paramControl->onMouseWheel(pos, delta);
+		}
+	}
+
 	void SettingControl::onNotify(Control& control)
 	{
 		if (&control == m_paramControl.get())
@@ -83,16 +91,9 @@ namespace Overlay
 			onValueChanged();
 		}
 
-		if (&Config::antialiasing  == &m_setting ||
-			&Config::colorKeyMethod == &m_setting ||
-			&Config::depthFormat == &m_setting ||
-			&Config::renderColorDepth == &m_setting ||
-			&Config::resolutionScale == &m_setting ||
-			&Config::spriteFilter == &m_setting ||
-			&Config::spriteTexCoord == &m_setting ||
-			&Config::textureFilter == &m_setting)
+		if (m_updateFunc)
 		{
-			D3dDdi::Device::updateAllConfig();
+			m_updateFunc();
 		}
 
 		invalidate();

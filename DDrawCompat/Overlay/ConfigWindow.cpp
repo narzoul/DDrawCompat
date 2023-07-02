@@ -1,3 +1,4 @@
+#include <array>
 #include <fstream>
 #include <sstream>
 
@@ -19,6 +20,7 @@
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/VSync.h>
+#include <D3dDdi/Device.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
@@ -26,13 +28,41 @@
 
 namespace
 {
+	struct SettingRow
+	{
+		Config::Setting* setting;
+		Overlay::SettingControl::UpdateFunc updateFunc;
+	};
+
 	const int CAPTION_HEIGHT = 22;
+	const int ROW_HEIGHT = 25;
+	const int ROWS = 15;
+
+	std::array<SettingRow, 16> g_settingRows = { {
+		{ &Config::alternatePixelCenter },
+		{ &Config::antialiasing, &D3dDdi::Device::updateAllConfig },
+		{ &Config::bltFilter },
+		{ &Config::colorKeyMethod, &D3dDdi::Device::updateAllConfig },
+		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
+		{ &Config::displayFilter },
+		{ &Config::fontAntialiasing },
+		{ &Config::fpsLimiter },
+		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
+		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },
+		{ &Config::resolutionScaleFilter },
+		{ &Config::spriteDetection },
+		{ &Config::spriteFilter, &D3dDdi::Device::updateAllConfig },
+		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
+		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
+		{ &Config::vSync }
+	} };
 }
 
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH, 480 }, WS_BORDER, Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH + ARROW_SIZE + BORDER / 2, ROWS * ROW_HEIGHT + 80 },
+			WS_BORDER, Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -42,22 +72,13 @@ namespace Overlay
 		r = { m_rect.right - CAPTION_HEIGHT, 0, m_rect.right, CAPTION_HEIGHT };
 		m_captionCloseButton.reset(new ButtonControl(*this, r, "X", onClose));
 
-		addControl(Config::alternatePixelCenter);
-		addControl(Config::antialiasing);
-		addControl(Config::bltFilter);
-		addControl(Config::colorKeyMethod);
-		addControl(Config::depthFormat);
-		addControl(Config::displayFilter);
-		addControl(Config::fontAntialiasing);
-		addControl(Config::fpsLimiter);
-		addControl(Config::renderColorDepth);
-		addControl(Config::resolutionScale);
-		addControl(Config::resolutionScaleFilter);
-		addControl(Config::spriteDetection);
-		addControl(Config::spriteFilter);
-		addControl(Config::spriteTexCoord);
-		addControl(Config::textureFilter);
-		addControl(Config::vSync);
+		r.left = SettingControl::TOTAL_WIDTH;
+		r.top = CAPTION_HEIGHT + BORDER;
+		r.right = r.left + ARROW_SIZE;
+		r.bottom = r.top + ROWS * ROW_HEIGHT;
+		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, g_settingRows.size() - ROWS));
+
+		addSettingControls();
 
 		m_closeButton = addButton("Close", onClose);
 		m_exportButton = addButton("Export", onExport);
@@ -80,14 +101,23 @@ namespace Overlay
 		return std::make_unique<ButtonControl>(*this, r, label, clickHandler);
 	}
 
-	void ConfigWindow::addControl(Config::Setting& setting)
+	void ConfigWindow::addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc)
 	{
 		const int index = m_settingControls.size();
-		const int rowHeight = 25;
-
-		RECT rect = { 0, index * rowHeight + BORDER / 2, m_rect.right, (index + 1) * rowHeight + BORDER / 2 };
+		RECT rect = { 0, index * ROW_HEIGHT + BORDER, SettingControl::TOTAL_WIDTH, (index + 1) * ROW_HEIGHT + BORDER };
 		OffsetRect(&rect, 0, CAPTION_HEIGHT);
-		m_settingControls.emplace_back(*this, rect, setting);
+		m_settingControls.emplace_back(*this, rect, setting, updateFunc);
+	}
+
+	void ConfigWindow::addSettingControls()
+	{
+		m_settingControls.clear();
+		const int pos = m_scrollBar->getPos();
+		for (int i = 0; i < ROWS; ++i)
+		{
+			auto& row = g_settingRows[pos + i];
+			addSettingControl(*row.setting, row.updateFunc);
+		}
 	}
 
 	RECT ConfigWindow::calculateRect(const RECT& monitorRect) const
@@ -157,6 +187,20 @@ namespace Overlay
 	void ConfigWindow::onImport(Control& control)
 	{
 		static_cast<ConfigWindow*>(control.getParent())->importSettings();
+	}
+
+	void ConfigWindow::onMouseWheel(POINT pos, SHORT delta)
+	{
+		m_scrollBar->onMouseWheel(pos, delta);
+	}
+
+	void ConfigWindow::onNotify(Control& control)
+	{
+		if (m_scrollBar.get() == &control)
+		{
+			addSettingControls();
+			onMouseMove(Input::getRelativeCursorPos());
+		}
 	}
 
 	void ConfigWindow::onResetAll(Control& control)

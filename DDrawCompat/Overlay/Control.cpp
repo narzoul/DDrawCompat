@@ -20,6 +20,11 @@ namespace Overlay
 		if (m_parent)
 		{
 			m_parent->m_children.erase(this);
+			if (this == m_parent->m_highlightedChild)
+			{
+				m_parent->m_highlightedChild = nullptr;
+			}
+			m_parent->invalidate();
 		}
 	}
 
@@ -158,7 +163,13 @@ namespace Overlay
 		}
 	}
 
-	void Control::propagateMouseEvent(void(Control::* onEvent)(POINT), POINT pos)
+	void Control::onMouseWheel(POINT pos, SHORT delta)
+	{
+		propagateMouseEvent(&Control::onMouseWheel, pos, delta);
+	}
+
+	template <typename... Params>
+	void Control::propagateMouseEvent(void(Control::* onEvent)(POINT, Params...), POINT pos, Params... params)
 	{
 		if (m_style & WS_DISABLED)
 		{
@@ -169,7 +180,7 @@ namespace Overlay
 		{
 			if (PtInRect(&child->m_rect, pos))
 			{
-				(child->*onEvent)(pos);
+				(child->*onEvent)(pos, params...);
 				return;
 			}
 		}

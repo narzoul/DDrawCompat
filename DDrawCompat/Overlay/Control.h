@@ -26,6 +26,7 @@ namespace Overlay
 		virtual void onLButtonDown(POINT pos);
 		virtual void onLButtonUp(POINT pos);
 		virtual void onMouseMove(POINT pos);
+		virtual void onMouseWheel(POINT pos, SHORT delta);
 		virtual void onNotify(Control& /*control*/) {}
 		virtual void setVisible(bool isVisible);
 
@@ -44,7 +45,9 @@ namespace Overlay
 		static const COLORREF HIGHLIGHT_COLOR = RGB(255, 255, 0);
 
 		void drawArrow(HDC dc, RECT rect, UINT state);
-		void propagateMouseEvent(void(Control::* onEvent)(POINT), POINT pos);
+
+		template <typename... Params>
+		void propagateMouseEvent(void(Control::* onEvent)(POINT, Params...), POINT pos, Params... params);
 
 		Control* m_parent;
 		RECT m_rect;
