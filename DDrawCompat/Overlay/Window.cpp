@@ -43,11 +43,11 @@ namespace
 
 namespace Overlay
 {
-	Window::Window(Window* parentWindow, const RECT& rect, DWORD style, const Input::HotKey& hotKey)
+	Window::Window(Window* parentWindow, const RECT& rect, DWORD style, int alpha, const Input::HotKey& hotKey)
 		: Control(nullptr, rect, style)
 		, m_hwnd(Gdi::PresentationWindow::create(parentWindow ? parentWindow->m_hwnd : nullptr))
 		, m_parentWindow(parentWindow)
-		, m_transparency(25)
+		, m_alpha(alpha)
 		, m_scaleFactor(1)
 		, m_dc(CreateCompatibleDC(nullptr))
 		, m_bitmap(nullptr)
@@ -56,7 +56,7 @@ namespace Overlay
 	{
 		g_windows.emplace(m_hwnd, *this);
 		CALL_ORIG_FUNC(SetWindowLongA)(m_hwnd, GWL_WNDPROC, reinterpret_cast<LONG>(&staticWindowProc));
-		setTransparency(m_transparency);
+		setAlpha(alpha);
 
 		if (0 != hotKey.vk)
 		{
@@ -108,10 +108,10 @@ namespace Overlay
 		DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 	}
 
-	void Window::setTransparency(int transparency)
+	void Window::setAlpha(int alpha)
 	{
-		m_transparency = transparency;
-		CALL_ORIG_FUNC(SetLayeredWindowAttributes)(m_hwnd, 0, static_cast<BYTE>(100 - transparency) * 255 / 100, ULW_ALPHA);
+		m_alpha = alpha;
+		CALL_ORIG_FUNC(SetLayeredWindowAttributes)(m_hwnd, 0, static_cast<BYTE>(alpha * 255 / 100), ULW_ALPHA);
 	}
 
 	void Window::setVisible(bool isVisible)

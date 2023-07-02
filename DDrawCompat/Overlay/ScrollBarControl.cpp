@@ -19,11 +19,11 @@ namespace
 
 namespace Overlay
 {
-	ScrollBarControl::ScrollBarControl(Control& parent, const RECT& rect, int min, int max)
+	ScrollBarControl::ScrollBarControl(Control& parent, const RECT& rect, int min, int max, int pos)
 		: Control(&parent, rect, WS_VISIBLE)
 		, m_min(min)
 		, m_max(std::max(min, max))
-		, m_pos(min)
+		, m_pos(std::max(min, std::min(max, pos)))
 		, m_state(State::IDLE)
 		, m_left(isHorizontal() ? &RECT::left : &RECT::top)
 		, m_top(isHorizontal() ? &RECT::top : &RECT::left)

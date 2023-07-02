@@ -6,6 +6,7 @@
 #include <Config/Settings/StatsPosX.h>
 #include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/StatsRows.h>
+#include <Config/Settings/StatsTransparency.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
@@ -73,7 +74,7 @@ namespace Overlay
 	StatsWindow::StatsWindow()
 		: Window(nullptr,
 			{ 0, 0, StatsControl::getWidth(), static_cast<int>(Config::statsRows.get().size()) * ROW_HEIGHT + BORDER },
-			0, Config::statsHotKey.get())
+			0, Config::statsTransparency.get(), Config::statsHotKey.get())
 	{
 		m_statsRows.push_back({ "", [](auto) { return std::array<std::string, 4>{ "cur", "avg", "min", "max" }; },
 			WS_VISIBLE | WS_DISABLED });

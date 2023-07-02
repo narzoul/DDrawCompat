@@ -8,6 +8,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/FontAntialiasing.h>
@@ -20,6 +21,7 @@
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/StatsPosX.h>
 #include <Config/Settings/StatsPosY.h>
+#include <Config/Settings/StatsTransparency.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
@@ -41,11 +43,12 @@ namespace
 	const int ROW_HEIGHT = 25;
 	const int ROWS = 15;
 
-	std::array<SettingRow, 18> g_settingRows = { {
+	std::array<SettingRow, 20> g_settingRows = { {
 		{ &Config::alternatePixelCenter },
 		{ &Config::antialiasing, &D3dDdi::Device::updateAllConfig },
 		{ &Config::bltFilter },
 		{ &Config::colorKeyMethod, &D3dDdi::Device::updateAllConfig },
+		{ &Config::configTransparency, [&]() { Gdi::GuiThread::getConfigWindow()->setAlpha(Config::configTransparency.get()); }},
 		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
 		{ &Config::displayFilter },
 		{ &Config::fontAntialiasing },
@@ -58,6 +61,7 @@ namespace
 		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
 		{ &Config::statsPosX, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
 		{ &Config::statsPosY, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
+		{ &Config::statsTransparency, [&]() { Gdi::GuiThread::getStatsWindow()->setAlpha(Config::statsTransparency.get()); }},
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vSync }
 	} };
@@ -67,7 +71,7 @@ namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
 		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH + ARROW_SIZE + BORDER / 2, ROWS * ROW_HEIGHT + 80 },
-			WS_BORDER, Config::configHotKey.get())
+			WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -81,7 +85,7 @@ namespace Overlay
 		r.top = CAPTION_HEIGHT + BORDER;
 		r.right = r.left + ARROW_SIZE;
 		r.bottom = r.top + ROWS * ROW_HEIGHT;
-		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, g_settingRows.size() - ROWS));
+		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, g_settingRows.size() - ROWS, 0));
 
 		addSettingControls();
 

@@ -5,6 +5,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
 #include <Config/Settings/DepthFormat.h>
@@ -35,6 +36,7 @@
 #include <Config/Settings/StatsPosX.h>
 #include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/StatsRows.h>
+#include <Config/Settings/StatsTransparency.h>
 #include <Config/Settings/StatsUpdateRate.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/SupportedDepthFormats.h>
@@ -55,6 +57,7 @@ namespace Config
 	Settings::BltFilter bltFilter;
 	Settings::ColorKeyMethod colorKeyMethod;
 	Settings::ConfigHotKey configHotKey;
+	Settings::ConfigTransparency configTransparency;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;
 	Settings::DepthFormat depthFormat;
@@ -85,6 +88,7 @@ namespace Config
 	Settings::StatsPosX statsPosX;
 	Settings::StatsPosY statsPosY;
 	Settings::StatsRows statsRows;
+	Settings::StatsTransparency statsTransparency;
 	Settings::StatsUpdateRate statsUpdateRate;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::SupportedDepthFormats supportedDepthFormats;

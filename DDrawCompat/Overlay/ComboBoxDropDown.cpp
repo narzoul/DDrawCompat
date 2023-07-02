@@ -1,6 +1,7 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Config/Parser.h>
+#include <Config/Settings/ConfigTransparency.h>
 #include <Input/Input.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ComboBoxDropDown.h>
@@ -8,7 +9,8 @@
 namespace Overlay
 {
 	ComboBoxDropDown::ComboBoxDropDown(ComboBoxControl& parent, const std::vector<std::string>& values)
-		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()), WS_BORDER)
+		: Window(&static_cast<Window&>(parent.getRoot()), calculateRect(parent, values.size()), WS_BORDER,
+			Config::configTransparency.get())
 		, m_parent(parent)
 	{
 		for (int i = 0; i < static_cast<int>(values.size()); ++i)
