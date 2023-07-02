@@ -24,6 +24,7 @@ namespace Overlay
 		HWND getWindow() const { return m_hwnd; }
 		void setTransparency(int transparency);
 		void update();
+		void updatePos();
 
 	protected:
 		HWND m_hwnd;
@@ -31,8 +32,6 @@ namespace Overlay
 		int m_transparency;
 
 		virtual HWND getTopmost() const;
-
-		void updatePos();
 
 	private:
 		virtual void draw(HDC dc) override;

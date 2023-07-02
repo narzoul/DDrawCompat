@@ -687,6 +687,12 @@
     <ClInclude Include="Config\Settings\StatsAggregateTime.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\StatsPosX.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Settings\StatsPosY.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">

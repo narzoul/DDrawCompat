@@ -3,6 +3,8 @@
 
 #include <Common/Time.h>
 #include <Config/Settings/StatsHotKey.h>
+#include <Config/Settings/StatsPosX.h>
+#include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/StatsRows.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
@@ -111,7 +113,9 @@ namespace Overlay
 	RECT StatsWindow::calculateRect(const RECT& monitorRect) const
 	{
 		RECT r = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
-		OffsetRect(&r, monitorRect.left + monitorRect.right - r.right, monitorRect.top);
+		OffsetRect(&r,
+			monitorRect.left + Config::statsPosX.get() * (monitorRect.right - monitorRect.left - r.right) / 100,
+			monitorRect.top + Config::statsPosY.get() * (monitorRect.bottom - monitorRect.top - r.bottom) / 100);
 		return r;
 	}
 

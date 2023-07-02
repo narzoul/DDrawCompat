@@ -18,6 +18,8 @@
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
+#include <Config/Settings/StatsPosX.h>
+#include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
@@ -25,6 +27,7 @@
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
+#include <Overlay/StatsWindow.h>
 
 namespace
 {
@@ -38,7 +41,7 @@ namespace
 	const int ROW_HEIGHT = 25;
 	const int ROWS = 15;
 
-	std::array<SettingRow, 16> g_settingRows = { {
+	std::array<SettingRow, 18> g_settingRows = { {
 		{ &Config::alternatePixelCenter },
 		{ &Config::antialiasing, &D3dDdi::Device::updateAllConfig },
 		{ &Config::bltFilter },
@@ -53,6 +56,8 @@ namespace
 		{ &Config::spriteDetection },
 		{ &Config::spriteFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
+		{ &Config::statsPosX, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
+		{ &Config::statsPosY, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vSync }
 	} };

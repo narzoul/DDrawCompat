@@ -32,6 +32,8 @@
 #include <Config/Settings/StatsAggregateTime.h>
 #include <Config/Settings/StatsColumns.h>
 #include <Config/Settings/StatsHotKey.h>
+#include <Config/Settings/StatsPosX.h>
+#include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/StatsRows.h>
 #include <Config/Settings/StatsUpdateRate.h>
 #include <Config/Settings/SupportedResolutions.h>
@@ -80,6 +82,8 @@ namespace Config
 	Settings::StatsAggregateTime statsAggregateTime;
 	Settings::StatsColumns statsColumns;
 	Settings::StatsHotKey statsHotKey;
+	Settings::StatsPosX statsPosX;
+	Settings::StatsPosY statsPosY;
 	Settings::StatsRows statsRows;
 	Settings::StatsUpdateRate statsUpdateRate;
 	Settings::SupportedResolutions supportedResolutions;

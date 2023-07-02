@@ -197,6 +197,8 @@
     <ClInclude Include="Config\Settings\StatsAggregateTime.h" />
     <ClInclude Include="Config\Settings\StatsColumns.h" />
     <ClInclude Include="Config\Settings\StatsHotKey.h" />
+    <ClInclude Include="Config\Settings\StatsPosX.h" />
+    <ClInclude Include="Config\Settings\StatsPosY.h" />
     <ClInclude Include="Config\Settings\StatsRows.h" />
     <ClInclude Include="Config\Settings\StatsUpdateRate.h" />
     <ClInclude Include="Config\Settings\SupportedDepthFormats.h" />
