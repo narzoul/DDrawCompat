@@ -38,41 +38,57 @@ namespace Overlay
 		RECT r = { m_leftArrow.right, m_rect.top, m_rightArrow.left, m_rect.bottom };
 		CALL_ORIG_FUNC(Rectangle)(dc, r.left - 1, r.top, r.right + 1, r.bottom);
 
-		const int thumbPos = (m_pos - m_min) * (r.right - r.left - ARROW_SIZE) / (m_max - m_min);
-		r = { m_leftArrow.right + thumbPos, r.top, m_leftArrow.right + thumbPos + ARROW_SIZE, r.bottom };
+		r = getThumbRect();
 		SelectObject(dc, GetStockObject(DC_BRUSH));
 		CALL_ORIG_FUNC(Ellipse)(dc, r.left, r.top, r.right, r.bottom);
 		SelectObject(dc, GetStockObject(NULL_BRUSH));
 	}
 
+	int ScrollBarControl::getPageSize() const
+	{
+		return std::max((m_max - m_min) / 20, 1);
+	}
+
+	RECT ScrollBarControl::getThumbRect() const
+	{
+		const int thumbPos = (m_pos - m_min) * (m_rightArrow.left - m_leftArrow.right - ARROW_SIZE) / (m_max - m_min);
+		return RECT{ m_leftArrow.right + thumbPos, m_rect.top, m_leftArrow.right + thumbPos + ARROW_SIZE, m_rect.bottom };
+	}
+
 	void ScrollBarControl::onLButtonDown(POINT pos)
 	{
 		Input::setCapture(this);
+		
 		if (PtInRect(&m_leftArrow, pos))
 		{
-			setPos(m_pos - 1);
-			if (State::IDLE == m_state)
-			{
-				m_state = State::LEFT_ARROW_PRESSED;
-				startRepeatTimer(REPEAT_DELAY);
-			}
+			m_state = State::LEFT_ARROW_PRESSED;
 		}
 		else if (PtInRect(&m_rightArrow, pos))
 		{
-			setPos(m_pos + 1);
-			if (State::IDLE == m_state)
-			{
-				m_state = State::RIGHT_ARROW_PRESSED;
-				startRepeatTimer(REPEAT_DELAY);
-			}
+			m_state = State::RIGHT_ARROW_PRESSED;
 		}
 		else
 		{
-			onThumbTrack(pos);
-			if (State::IDLE == m_state)
+			RECT r = getThumbRect();
+			if (PtInRect(&r, pos))
 			{
-				m_state = State::THUMB_TRACKING;
+				m_state = State::THUMB_PRESSED;
 			}
+			else if (pos.x < r.left)
+			{
+				m_state = State::LEFT_SHAFT_PRESSED;
+			}
+			else
+			{
+				m_state = State::RIGHT_SHAFT_PRESSED;
+			}
+		}
+
+		scroll();
+
+		if (State::THUMB_PRESSED != m_state)
+		{
+			startRepeatTimer(REPEAT_DELAY);
 		}
 	}
 
@@ -86,44 +102,63 @@ namespace Overlay
 		}
 	}
 
-	void ScrollBarControl::onMouseMove(POINT pos)
+	void ScrollBarControl::onMouseMove(POINT /*pos*/)
 	{
-		if (State::THUMB_TRACKING == m_state)
+		if (State::THUMB_PRESSED == m_state)
 		{
-			onThumbTrack(pos);
+			scroll();
 		}
 	}
 
 	void ScrollBarControl::onRepeat()
 	{
 		stopRepeatTimer();
-
-		switch (m_state)
-		{
-		case State::LEFT_ARROW_PRESSED:
-			setPos(m_pos - 1);
-			startRepeatTimer(REPEAT_INTERVAL);
-			break;
-
-		case State::RIGHT_ARROW_PRESSED:
-			setPos(m_pos + 1);
-			startRepeatTimer(REPEAT_INTERVAL);
-			break;
-		}
-	}
-
-	void ScrollBarControl::onThumbTrack(POINT pos)
-	{
-		const auto minPos = m_leftArrow.right + ARROW_SIZE / 2;
-		const auto maxPos = m_rightArrow.left - ARROW_SIZE / 2;
-		pos.x = std::max(pos.x, minPos);
-		pos.x = std::min(pos.x, maxPos);
-		setPos(m_min + roundDiv((pos.x - minPos) * (m_max - m_min), maxPos - minPos));
+		scroll();
+		startRepeatTimer(REPEAT_INTERVAL);
 	}
 
 	void CALLBACK ScrollBarControl::repeatTimerProc(HWND /*hwnd*/, UINT /*message*/, UINT_PTR /*iTimerID*/, DWORD /*dwTime*/)
 	{
 		static_cast<ScrollBarControl*>(Input::getCapture())->onRepeat();
+	}
+
+	void ScrollBarControl::scroll()
+	{
+		switch (m_state)
+		{
+		case State::LEFT_ARROW_PRESSED:
+			setPos(m_pos - 1);
+			break;
+
+		case State::RIGHT_ARROW_PRESSED:
+			setPos(m_pos + 1);
+			break;
+
+		case State::LEFT_SHAFT_PRESSED:
+			if (Input::getRelativeCursorPos().x < getThumbRect().left)
+			{
+				setPos(m_pos - getPageSize());
+			}
+			break;
+
+		case State::RIGHT_SHAFT_PRESSED:
+			if (Input::getRelativeCursorPos().x >= getThumbRect().right)
+			{
+				setPos(m_pos + getPageSize());
+			}
+			break;
+
+		case State::THUMB_PRESSED:
+		{
+			POINT pos = Input::getRelativeCursorPos();
+			const auto minPos = m_leftArrow.right + ARROW_SIZE / 2;
+			const auto maxPos = m_rightArrow.left - ARROW_SIZE / 2;
+			pos.x = std::max(pos.x, minPos);
+			pos.x = std::min(pos.x, maxPos);
+			setPos(m_min + roundDiv((pos.x - minPos) * (m_max - m_min), maxPos - minPos));
+			break;
+		}
+		}
 	}
 
 	void ScrollBarControl::setPos(int pos)

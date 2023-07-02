@@ -20,6 +20,7 @@ namespace Input
 	Overlay::Window* getCaptureWindow();
 	POINT getCursorPos();
 	HWND getCursorWindow();
+	POINT getRelativeCursorPos();
 	void installHooks();
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context, bool onKeydown = true);
 	void setCapture(Overlay::Control* control);

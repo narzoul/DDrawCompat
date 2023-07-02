@@ -18,8 +18,24 @@ namespace Overlay
 			IDLE,
 			LEFT_ARROW_PRESSED,
 			RIGHT_ARROW_PRESSED,
-			THUMB_TRACKING,
+			LEFT_SHAFT_PRESSED,
+			RIGHT_SHAFT_PRESSED,
+			THUMB_PRESSED
 		};
+
+		virtual void draw(HDC dc) override;
+		virtual void onLButtonDown(POINT pos) override;
+		virtual void onLButtonUp(POINT pos) override;
+		virtual void onMouseMove(POINT pos) override;
+
+		int getPageSize() const;
+		RECT getThumbRect() const;
+		void onRepeat();
+		void scroll();
+
+		static void CALLBACK repeatTimerProc(HWND hwnd, UINT message, UINT_PTR iTimerID, DWORD dwTime);
+		static void startRepeatTimer(DWORD time);
+		static void stopRepeatTimer();
 
 		int m_min;
 		int m_max;
@@ -27,17 +43,5 @@ namespace Overlay
 		RECT m_leftArrow;
 		RECT m_rightArrow;
 		State m_state;
-
-		virtual void draw(HDC dc) override;
-		virtual void onLButtonDown(POINT pos) override;
-		virtual void onLButtonUp(POINT pos) override;
-		virtual void onMouseMove(POINT pos) override;
-
-		void onRepeat();
-		void onThumbTrack(POINT pos);
-
-		static void CALLBACK repeatTimerProc(HWND hwnd, UINT message, UINT_PTR iTimerID, DWORD dwTime);
-		static void startRepeatTimer(DWORD time);
-		static void stopRepeatTimer();
 	};
 }

@@ -67,20 +67,6 @@ namespace
 		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
 	}
 
-	POINT getRelativeCursorPos()
-	{
-		auto captureWindow = Input::getCaptureWindow();
-		const RECT rect = captureWindow->getRect();
-		const int scaleFactor = captureWindow->getScaleFactor();
-
-		auto cp = g_cursorPos;
-		cp.x /= scaleFactor;
-		cp.y /= scaleFactor;
-		cp.x -= rect.left;
-		cp.y -= rect.top;
-		return cp;
-	}
-
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (HC_ACTION == nCode &&
@@ -126,7 +112,7 @@ namespace
 				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			}
 
-			auto cp = getRelativeCursorPos();
+			auto cp = Input::getRelativeCursorPos();
 
 			switch (wParam)
 			{
@@ -247,6 +233,25 @@ namespace Input
 	HWND getCursorWindow()
 	{
 		return g_cursorWindow;
+	}
+
+	POINT getRelativeCursorPos()
+	{
+		auto captureWindow = Input::getCaptureWindow();
+		if (!captureWindow)
+		{
+			return {};
+		}
+
+		const RECT rect = captureWindow->getRect();
+		const int scaleFactor = captureWindow->getScaleFactor();
+
+		auto cp = g_cursorPos;
+		cp.x /= scaleFactor;
+		cp.y /= scaleFactor;
+		cp.x -= rect.left;
+		cp.y -= rect.top;
+		return cp;
 	}
 
 	void installHooks()
