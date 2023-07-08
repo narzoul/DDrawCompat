@@ -19,8 +19,8 @@ namespace
 
 namespace Overlay
 {
-	ScrollBarControl::ScrollBarControl(Control& parent, const RECT& rect, int min, int max, int pos)
-		: Control(&parent, rect, WS_VISIBLE)
+	ScrollBarControl::ScrollBarControl(Control& parent, const RECT& rect, int min, int max, int pos, DWORD style)
+		: Control(&parent, rect, style)
 		, m_min(min)
 		, m_max(std::max(min, max))
 		, m_pos(std::max(min, std::min(max, pos)))
@@ -70,7 +70,7 @@ namespace Overlay
 
 	RECT ScrollBarControl::getThumbRect() const
 	{
-		const int thumbPos = (m_pos - m_min) * (m_rect.*m_right - m_rect.*m_left - 3 * ARROW_SIZE) / (m_max - m_min);
+		const int thumbPos = (m_pos - m_min) * (m_rect.*m_right - m_rect.*m_left - 3 * ARROW_SIZE) / std::max(m_max - m_min, 1);
 		RECT r = m_rect;
 		r.*m_left = m_rect.*m_left + ARROW_SIZE + thumbPos;
 		r.*m_right = r.*m_left + ARROW_SIZE;

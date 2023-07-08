@@ -1,6 +1,7 @@
-#include <array>
+#include <algorithm>
 #include <fstream>
 #include <sstream>
+#include <vector>
 
 #include <Common/Log.h>
 #include <Config/Settings/AlternatePixelCenter.h>
@@ -8,6 +9,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/ConfigRows.h>
 #include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DisplayFilter.h>
@@ -41,9 +43,9 @@ namespace
 
 	const int CAPTION_HEIGHT = 22;
 	const int ROW_HEIGHT = 25;
-	const int ROWS = 15;
+	const int ROWS = 16;
 
-	std::array<SettingRow, 20> g_settingRows = { {
+	std::vector<SettingRow> g_settingRows = {
 		{ &Config::alternatePixelCenter },
 		{ &Config::antialiasing, &D3dDdi::Device::updateAllConfig },
 		{ &Config::bltFilter },
@@ -64,14 +66,13 @@ namespace
 		{ &Config::statsTransparency, [&]() { Gdi::GuiThread::getStatsWindow()->setAlpha(Config::statsTransparency.get()); }},
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vSync }
-	} };
+	};
 }
 
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, SettingControl::TOTAL_WIDTH + ARROW_SIZE + BORDER / 2, ROWS * ROW_HEIGHT + 80 },
-			WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, 640, 480 }, WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{
@@ -81,11 +82,14 @@ namespace Overlay
 		r = { m_rect.right - CAPTION_HEIGHT, 0, m_rect.right, CAPTION_HEIGHT };
 		m_captionCloseButton.reset(new ButtonControl(*this, r, "X", onClose));
 
-		r.left = SettingControl::TOTAL_WIDTH;
+		r.right = m_rect.right - BORDER;
+		r.left = r.right - ARROW_SIZE;
 		r.top = CAPTION_HEIGHT + BORDER;
-		r.right = r.left + ARROW_SIZE;
 		r.bottom = r.top + ROWS * ROW_HEIGHT;
-		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, g_settingRows.size() - ROWS, 0));
+
+		const auto settingCount = Config::configRows.get().size();
+		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, settingCount - ROWS, 0,
+			WS_VISIBLE | (settingCount < ROWS ? WS_DISABLED : 0)));
 
 		addSettingControls();
 
@@ -110,22 +114,27 @@ namespace Overlay
 		return std::make_unique<ButtonControl>(*this, r, label, clickHandler);
 	}
 
-	void ConfigWindow::addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc)
+	void ConfigWindow::addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc, bool isReadOnly)
 	{
 		const int index = m_settingControls.size();
 		RECT rect = { 0, index * ROW_HEIGHT + BORDER, SettingControl::TOTAL_WIDTH, (index + 1) * ROW_HEIGHT + BORDER };
 		OffsetRect(&rect, 0, CAPTION_HEIGHT);
-		m_settingControls.emplace_back(*this, rect, setting, updateFunc);
+		m_settingControls.emplace_back(*this, rect, setting, updateFunc, isReadOnly);
 	}
 
 	void ConfigWindow::addSettingControls()
 	{
 		m_settingControls.clear();
-		const int pos = m_scrollBar->getPos();
-		for (int i = 0; i < ROWS; ++i)
+		const auto& configRows = Config::configRows.get();
+		const unsigned pos = m_scrollBar->getPos();
+
+		for (int i = 0; i < ROWS && pos + i < configRows.size(); ++i)
 		{
-			auto& row = g_settingRows[pos + i];
-			addSettingControl(*row.setting, row.updateFunc);
+			const auto setting = configRows[pos + i];
+			const auto it = std::find_if(g_settingRows.begin(), g_settingRows.end(),
+				[&](auto& settingRow) { return setting == settingRow.setting; });
+			const bool isReadOnly = it == g_settingRows.end();
+			addSettingControl(*setting, isReadOnly ? SettingControl::UpdateFunc() : it->updateFunc, isReadOnly);
 		}
 	}
 
@@ -172,6 +181,16 @@ namespace Overlay
 		}
 
 		updateButtons();
+	}
+
+	std::set<std::string> ConfigWindow::getRwSettingNames()
+	{
+		std::set<std::string> names;
+		for (const auto& row : g_settingRows)
+		{
+			names.insert(row.setting->getName());
+		}
+		return names;
 	}
 
 	void ConfigWindow::importSettings()

@@ -113,6 +113,11 @@ namespace
 				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			}
 
+			if (!g_capture->isEnabled())
+			{
+				return 1;
+			}
+
 			auto cp = Input::getRelativeCursorPos();
 
 			switch (wParam)

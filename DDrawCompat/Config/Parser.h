@@ -23,7 +23,6 @@ namespace Config
 		SIZE parseAspectRatio(const std::string& value);
 		int parseInt(const std::string& value, int min, int max);
 		SIZE parseResolution(const std::string& value);
-		void registerSetting(Setting& setting);
 		std::string removeParam(const std::string& value);
 		std::string tolower(const std::string& str);
 		std::string toupper(const std::string& str);

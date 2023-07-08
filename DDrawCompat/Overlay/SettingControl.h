@@ -23,12 +23,13 @@ namespace Overlay
 
 		static const int PARAM_LABEL_WIDTH = 70;
 		static const int PARAM_CONTROL_WIDTH = 241;
-		static const int SETTING_LABEL_WIDTH = 130;
-		static const int SETTING_CONTROL_WIDTH = 141;
+		static const int SETTING_LABEL_WIDTH = 140;
+		static const int SETTING_CONTROL_WIDTH = 150;
 		static const int TOTAL_WIDTH =
 			SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH + PARAM_LABEL_WIDTH + PARAM_CONTROL_WIDTH + BORDER;
 
-		SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting, UpdateFunc updateFunc);
+		SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting,
+			UpdateFunc updateFunc, bool isReadOnly);
 
 		virtual RECT getHighlightRect() const override;
 		virtual void onLButtonDown(POINT pos) override;

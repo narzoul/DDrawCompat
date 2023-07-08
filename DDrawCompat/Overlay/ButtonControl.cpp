@@ -13,11 +13,6 @@ namespace Overlay
 
 	void ButtonControl::onLButtonDown(POINT pos)
 	{
-		if (m_style & WS_DISABLED)
-		{
-			return;
-		}
-
 		Input::setCapture(this);
 		onMouseMove(pos);
 	}

@@ -2,6 +2,7 @@
 
 #include <list>
 #include <memory>
+#include <set>
 #include <string>
 
 #include <Overlay/ButtonControl.h>
@@ -24,6 +25,8 @@ namespace Overlay
 		void setFocus(SettingControl* control);
 		void updateButtons();
 
+		static std::set<std::string> getRwSettingNames();
+
 	private:
 		static void onClose(Control& control);
 		static void onExport(Control& control);
@@ -33,7 +36,7 @@ namespace Overlay
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 
 		std::unique_ptr<ButtonControl> addButton(const std::string& label, ButtonControl::ClickHandler clickHandler);
-		void addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc);
+		void addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc, bool isReadOnly);
 		void addSettingControls();
 		std::string constructFileContent();
 		void exportSettings();

@@ -35,12 +35,13 @@ namespace Overlay
 		RECT getRect() const { return m_rect; }
 		const Control& getRoot() const;
 		Control& getRoot();
+		DWORD getStyle() const { return m_style; }
 		bool isEnabled() const;
 		bool isVisible() const { return m_style & WS_VISIBLE; }
 		void setEnabled(bool isEnabled);
 
 	protected:
-		static const COLORREF DISABLED_COLOR = RGB(128, 128, 128);
+		static const COLORREF DISABLED_COLOR = RGB(192, 192, 192);
 		static const COLORREF FOREGROUND_COLOR = RGB(0, 255, 0);
 		static const COLORREF HIGHLIGHT_COLOR = RGB(255, 255, 0);
 

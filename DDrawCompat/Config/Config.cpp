@@ -5,6 +5,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/ConfigRows.h>
 #include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
@@ -57,6 +58,7 @@ namespace Config
 	Settings::BltFilter bltFilter;
 	Settings::ColorKeyMethod colorKeyMethod;
 	Settings::ConfigHotKey configHotKey;
+	Settings::ConfigRows configRows;
 	Settings::ConfigTransparency configTransparency;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;

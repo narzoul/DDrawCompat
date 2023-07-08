@@ -7,7 +7,7 @@ namespace Overlay
 	class ScrollBarControl : public Control
 	{
 	public:
-		ScrollBarControl(Control& parent, const RECT& rect, int min, int max, int pos);
+		ScrollBarControl(Control& parent, const RECT& rect, int min, int max, int pos, DWORD style = WS_VISIBLE);
 
 		virtual void onLButtonDown(POINT pos) override;
 		virtual void onLButtonUp(POINT pos) override;

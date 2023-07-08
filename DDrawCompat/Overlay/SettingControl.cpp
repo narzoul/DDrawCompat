@@ -31,17 +31,27 @@ namespace
 
 namespace Overlay
 {
-	SettingControl::SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting, UpdateFunc updateFunc)
-		: Control(&parent, rect, WS_VISIBLE | WS_TABSTOP)
+	SettingControl::SettingControl(ConfigWindow& parent, const RECT& rect, Config::Setting& setting,
+		UpdateFunc updateFunc, bool isReadOnly)
+		: Control(&parent, rect, WS_VISIBLE | WS_TABSTOP | (isReadOnly ? WS_DISABLED : 0))
 		, m_setting(setting)
 		, m_updateFunc(updateFunc)
 		, m_settingLabel(*this, { rect.left, rect.top, rect.left + SETTING_LABEL_WIDTH, rect.bottom }, setting.getName() + ':', 0)
 	{
-		const RECT r = { rect.left + SETTING_LABEL_WIDTH, rect.top + BORDER / 2,
+		RECT r = { rect.left + SETTING_LABEL_WIDTH, rect.top + BORDER / 2,
 			rect.left + SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH, rect.bottom - BORDER / 2 };
-		m_valueControl.reset(new ComboBoxControl(*this, r, getValueStrings(setting)));
-		getValueComboBox().setValue(setting.getValueStr());
-		onValueChanged();
+
+		if (isReadOnly)
+		{
+			r.right += PARAM_LABEL_WIDTH + PARAM_CONTROL_WIDTH;
+			m_valueControl.reset(new LabelControl(*this, r, setting.getValueStr(), 0));
+		}
+		else
+		{
+			m_valueControl.reset(new ComboBoxControl(*this, r, getValueStrings(setting)));
+			getValueComboBox().setValue(setting.getValueStr());
+			onValueChanged();
+		}
 	}
 
 	RECT SettingControl::getHighlightRect() const

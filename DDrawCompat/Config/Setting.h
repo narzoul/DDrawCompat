@@ -1,5 +1,6 @@
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -53,4 +54,7 @@ namespace Config
 		std::string m_baseValue;
 		std::string m_exportedValue;
 	};
+
+	const std::map<std::string, Setting&>& getAllSettings();
+	Setting* getSetting(const std::string& name);
 }

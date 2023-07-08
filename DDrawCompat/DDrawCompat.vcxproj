@@ -170,6 +170,7 @@
     <ClInclude Include="Config\Settings\BltFilter.h" />
     <ClInclude Include="Config\Settings\ColorKeyMethod.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
+    <ClInclude Include="Config\Settings\ConfigRows.h" />
     <ClInclude Include="Config\Settings\ConfigTransparency.h" />
     <ClInclude Include="Config\Settings\CpuAffinity.h" />
     <ClInclude Include="Config\Settings\CpuAffinityRotation.h" />
@@ -347,6 +348,7 @@
     <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="Config\Settings\Antialiasing.cpp" />
     <ClCompile Include="Config\Settings\ColorKeyMethod.cpp" />
+    <ClCompile Include="Config\Settings\ConfigRows.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="Config\Settings\DesktopResolution.cpp" />
     <ClCompile Include="Config\Settings\DisplayAspectRatio.cpp" />

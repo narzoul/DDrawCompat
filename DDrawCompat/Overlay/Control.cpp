@@ -30,7 +30,9 @@ namespace Overlay
 
 	void Control::drawAll(HDC dc)
 	{
+		SetDCPenColor(dc, isEnabled() ? FOREGROUND_COLOR : DISABLED_COLOR);
 		draw(dc);
+		SetDCPenColor(dc, FOREGROUND_COLOR);
 
 		for (auto control : m_children)
 		{
@@ -145,11 +147,6 @@ namespace Overlay
 
 	void Control::onMouseMove(POINT pos)
 	{
-		if (m_style & WS_DISABLED)
-		{
-			return;
-		}
-
 		auto prevHighlightedChild = m_highlightedChild;
 		m_highlightedChild = nullptr;
 		propagateMouseEvent(&Control::onMouseMove, pos);
@@ -171,14 +168,9 @@ namespace Overlay
 	template <typename... Params>
 	void Control::propagateMouseEvent(void(Control::* onEvent)(POINT, Params...), POINT pos, Params... params)
 	{
-		if (m_style & WS_DISABLED)
-		{
-			return;
-		}
-
 		for (auto child : m_children)
 		{
-			if (PtInRect(&child->m_rect, pos))
+			if (PtInRect(&child->m_rect, pos) && !(child->getStyle() & WS_DISABLED))
 			{
 				(child->*onEvent)(pos, params...);
 				return;

@@ -1,6 +1,5 @@
 #include <fstream>
 #include <locale>
-#include <map>
 
 #include <Common/Log.h>
 #include <Common/Path.h>
@@ -12,12 +11,6 @@ namespace
 	std::filesystem::path g_overlayConfigPath;
 
 	void setConfig(const std::string& name, const std::string& value, const std::string& source);
-
-	auto& getSettings()
-	{
-		static std::map<std::string, Config::Setting&> settings;
-		return settings;
-	}
 
 	void loadConfigFile(const std::string& source, const std::filesystem::path& path)
 	{
@@ -68,20 +61,19 @@ namespace
 			throw Config::ParsingError("missing setting name before '='");
 		}
 
-		auto it = std::find_if(getSettings().cbegin(), getSettings().cend(), [&](const auto& v) {
-			return 0 == _stricmp(v.first.c_str(), name.c_str()); });
-		if (it == getSettings().end())
+		auto setting = Config::getSetting(name);
+		if (!setting)
 		{
 			throw Config::ParsingError("unknown setting: '" + name + "'");
 		}
 
 		try
 		{
-			it->second.set(Config::Parser::tolower(value), source);
+			setting->set(Config::Parser::tolower(value), source);
 		}
 		catch (const Config::ParsingError& error)
 		{
-			throw Config::ParsingError(it->second.getName() + ": " + error.what());
+			throw Config::ParsingError(setting->getName() + ": " + error.what());
 		}
 	}
 }
@@ -97,7 +89,7 @@ namespace Config
 
 		void loadAllConfigFiles(const std::filesystem::path& processPath)
 		{
-			for (auto& setting : getSettings()) {
+			for (auto& setting : Config::getAllSettings()) {
 				setting.second.reset();
 			}
 
@@ -114,20 +106,20 @@ namespace Config
 			processConfigPath.replace_filename(L"DDrawCompat-" + processConfigPath.filename().native() + L".ini");
 			loadConfigFile("process", processConfigPath);
 
-			for (auto& setting : getSettings()) {
+			for (auto& setting : Config::getAllSettings()) {
 				setting.second.setBaseValue();
 			}
 
 			g_overlayConfigPath.replace_filename(L"DDrawCompatOverlay-" + g_overlayConfigPath.filename().native() + L".ini");
 			loadConfigFile("overlay", g_overlayConfigPath);
 
-			for (auto& setting : getSettings()) {
+			for (auto& setting : Config::getAllSettings()) {
 				setting.second.setExportedValue();
 			}
 
 			std::size_t maxNameLength = 0;
 			std::size_t maxSourceLength = 0;
-			for (const auto& setting : getSettings())
+			for (auto& setting : Config::getAllSettings())
 			{
 				if (setting.second.getName().length() > maxNameLength)
 				{
@@ -140,7 +132,7 @@ namespace Config
 			}
 
 			LOG_INFO << "Final configuration:";
-			for (const auto& setting : getSettings())
+			for (auto& setting : Config::getAllSettings())
 			{
 				std::string name(setting.second.getName());
 				name.insert(name.end(), maxNameLength - name.length(), ' ');
@@ -198,12 +190,6 @@ namespace Config
 			}
 
 			throw ParsingError("invalid resolution: '" + value + "'");
-		}
-
-		void registerSetting(Setting& setting)
-		{
-			const auto& name = setting.getName();
-			getSettings().emplace(name, setting);
 		}
 
 		std::string removeParam(const std::string& value)

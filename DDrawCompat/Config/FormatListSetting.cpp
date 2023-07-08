@@ -7,14 +7,6 @@
 
 namespace
 {
-	void append(std::vector<D3DDDIFORMAT>& formats, D3DDDIFORMAT format)
-	{
-		if (std::find(formats.begin(), formats.end(), format) == formats.end())
-		{
-			formats.push_back(format);
-		}
-	}
-
 	std::string getFormatName(D3DDDIFORMAT format)
 	{
 		if (format > 0xFF)
@@ -33,12 +25,13 @@ namespace Config
 {
 	FormatListSetting::FormatListSetting(const std::string& name, const std::string& default,
 		const std::set<D3DDDIFORMAT>& allowedFormats,
-		const std::map<std::string, std::vector<D3DDDIFORMAT>>& allowedGroups,
+		const std::map<std::string, std::set<D3DDDIFORMAT>>& allowedGroups,
 		bool allowFourCCs)
 		: ListSetting(name, default)
 		, m_allowedFormats(allowedFormats)
 		, m_allowedGroups(allowedGroups)
 		, m_allowFourCCs(allowFourCCs)
+		, m_valueStr("all")
 	{
 	}
 
@@ -73,27 +66,32 @@ namespace Config
 			throw ParsingError("empty list is not allowed");
 		}
 
-		if (1 == values.size() && "all" == values[0])
+		if (std::find(values.begin(), values.end(), "all") != values.end())
 		{
 			m_formats.clear();
+			m_valueStr = "all";
 			return;
 		}
 
-		std::vector<D3DDDIFORMAT> formats;
-		for (auto formatName : values)
-		{
-			if ("all" == formatName)
-			{
-				throw ParsingError("'all' cannot be combined with other values");
-			}
+		std::set<D3DDDIFORMAT> formats;
+		std::set<std::string> groups;
 
+		for (const auto& formatName : values)
+		{
 			auto group = m_allowedGroups.find(formatName);
 			if (group != m_allowedGroups.end())
 			{
-				for (auto fmt : group->second)
-				{
-					append(formats, fmt);
-				}
+				formats.insert(group->second.begin(), group->second.end());
+				groups.insert(group->first);
+			}
+		}
+
+		std::set<std::string> valueSet(groups);
+
+		for (auto formatName : values)
+		{
+			if (groups.find(formatName) != groups.end())
+			{
 				continue;
 			}
 
@@ -102,14 +100,21 @@ namespace Config
 				[&](auto fmt) { return getFormatName(fmt) == formatName; });
 			if (it != m_allowedFormats.end())
 			{
-				append(formats, *it);
+				if (formats.insert(*it).second)
+				{
+					valueSet.insert(formatName);
+				}
 				continue;
 			}
 
 			if (m_allowFourCCs && 4 == formatName.length() &&
 				formatName.end() == std::find_if(formatName.begin(), formatName.end(), [](char c) { return !std::isalnum(c); }))
 			{
-				append(formats, *reinterpret_cast<const D3DDDIFORMAT*>(formatName.c_str()));
+				auto fourCC = *reinterpret_cast<const D3DDDIFORMAT*>(formatName.c_str());
+				if (formats.insert(fourCC).second)
+				{
+					valueSet.insert(formatName);
+				}
 				continue;
 			}
 
@@ -117,5 +122,12 @@ namespace Config
 		}
 
 		m_formats = formats;
+
+		m_valueStr.clear();
+		for (const auto& value : valueSet)
+		{
+			m_valueStr += ", " + value;
+		}
+		m_valueStr = m_valueStr.substr(2);
 	}
 }
