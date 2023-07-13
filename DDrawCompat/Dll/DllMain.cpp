@@ -35,6 +35,8 @@ HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
 namespace
 {
+	const DWORD DISABLE_MAX_WINDOWED_MODE = 12;
+
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI*)(Params...);
 
@@ -160,6 +162,16 @@ namespace
 	void printEnvironmentVariable(const char* var)
 	{
 		LOG_INFO << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
+	}
+
+	HRESULT WINAPI setAppCompatData(DWORD param1, DWORD param2)
+	{
+		LOG_FUNC("SetAppCompatData", param1, param2);
+		if (DISABLE_MAX_WINDOWED_MODE == param1)
+		{
+			return LOG_RESULT(S_OK);
+		}
+		return LOG_RESULT(CALL_ORIG_PROC(SetAppCompatData)(param1, param2));
 	}
 
 	void setDpiAwareness()
@@ -294,6 +306,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Dll::g_jmpTargetProcs = Dll::g_origProcs;
 
 		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);
+		Compat::hookFunction(reinterpret_cast<void*&>(Dll::g_origProcs.SetAppCompatData),
+			static_cast<decltype(&SetAppCompatData)>(&setAppCompatData), "SetAppCompatData");
 
 		Input::installHooks();
 		Win32::MemoryManagement::installHooks();
@@ -310,8 +324,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		if (Config::Settings::FullscreenMode::EXCLUSIVE == Config::fullscreenMode.get())
 		{
-			const DWORD disableMaxWindowedMode = 12;
-			CALL_ORIG_PROC(SetAppCompatData)(disableMaxWindowedMode, 0);
+			CALL_ORIG_PROC(SetAppCompatData)(DISABLE_MAX_WINDOWED_MODE, 1);
 		}
 
 		if (Config::Settings::DesktopResolution::DESKTOP != Config::desktopResolution.get())
