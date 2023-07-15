@@ -339,18 +339,21 @@ namespace
 		g_flipEndVsyncCount = g_presentEndVsyncCount;
 	}
 
-	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src)
+	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
-		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src);
+		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src, isOverlayOnly);
 
 		Gdi::VirtualScreen::update();
 
-		Gdi::GuiThread::execute([]()
+		Gdi::GuiThread::execute([&]()
 			{
 				auto statsWindow = Gdi::GuiThread::getStatsWindow();
 				if (statsWindow)
 				{
-					statsWindow->m_present.add();
+					if (!isOverlayOnly)
+					{
+						statsWindow->m_present.add();
+					}
 					statsWindow->update();
 				}
 
@@ -380,7 +383,7 @@ namespace
 		bltToPrimaryChain(*src);
 	}
 
-	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src)
+	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
 		{
 			Compat::ScopedCriticalSection lock(g_presentCs);
@@ -389,7 +392,7 @@ namespace
 			g_isUpdateReady = false;
 		}
 
-		presentToPrimaryChain(src);
+		presentToPrimaryChain(src, isOverlayOnly);
 
 		if (g_isFullscreen)
 		{
@@ -610,6 +613,8 @@ namespace DDraw
 			updatePresentationWindow();
 		}
 
+		bool isOverlayOnly = false;
+
 		{
 			Compat::ScopedCriticalSection lock(g_presentCs);
 			if (!g_isUpdateReady)
@@ -637,6 +642,7 @@ namespace DDraw
 				{
 					g_qpcLastUpdate = Time::queryPerformanceCounter();
 					g_isUpdateReady = true;
+					isOverlayOnly = true;
 				}
 			}
 
@@ -674,7 +680,7 @@ namespace DDraw
 			return 1;
 		}
 
-		updateNow(src);
+		updateNow(src, isOverlayOnly);
 		return 0;
 	}
 
