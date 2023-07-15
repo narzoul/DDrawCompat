@@ -215,17 +215,19 @@ namespace DDraw
 		LRESULT handleActivateApp(bool isActivated, std::function<LRESULT()> callOrigWndProc)
 		{
 			LOG_FUNC("handleActivateApp", isActivated, callOrigWndProc);
-			if (Config::Settings::AltTabFix::KEEPVIDMEM != Config::altTabFix.get())
+			if (Config::Settings::AltTabFix::OFF == Config::altTabFix.get())
 			{
 				return LOG_RESULT(callOrigWndProc());
 			}
 
 			DDraw::ScopedThreadLock lock;
+			const bool keepPrimary = Config::Settings::AltTabFix::KEEPVIDMEM == Config::altTabFix.get();
 			std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
 			DDraw::Surface::enumSurfaces([&](const Surface& surface)
 				{
 					auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
-					if (!(lcl->dwFlags & DDRAWISURF_INVALID))
+					if (!(lcl->dwFlags & DDRAWISURF_INVALID) &&
+						(keepPrimary || !(surface.getOrigCaps() & DDSCAPS_PRIMARYSURFACE)))
 					{
 						lcl->dwFlags |= DDRAWISURF_INVALID;
 						surfacesToRestore.insert(lcl);
@@ -245,7 +247,7 @@ namespace DDraw
 					}
 				});
 
-			if (isActivated)
+			if (isActivated && keepPrimary)
 			{
 				auto realPrimary(DDraw::RealPrimarySurface::getSurface());
 				if (realPrimary)

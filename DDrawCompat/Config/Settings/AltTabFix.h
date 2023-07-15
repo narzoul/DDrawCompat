@@ -9,10 +9,10 @@ namespace Config
 		class AltTabFix : public EnumSetting
 		{
 		public:
-			enum Values { OFF, KEEPVIDMEM };
+			enum Values { OFF, KEEPVIDMEM, KEEPVIDMEMNP };
 
 			AltTabFix()
-				: EnumSetting("AltTabFix", "off", { "off", "keepvidmem" })
+				: EnumSetting("AltTabFix", "off", { "off", "keepvidmem", "keepvidmemnp" })
 			{
 			}
 		};
