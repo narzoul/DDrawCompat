@@ -371,10 +371,8 @@ namespace D3dDdi
 		void fixPresent(D3DKMT_PRESENT& data)
 		{
 			static RECT rect = {};
-			HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
 			HWND presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
-			if (devicePresentationWindow && devicePresentationWindow == data.hWindow ||
-				presentationWindow && presentationWindow == data.hWindow)
+			if (presentationWindow && presentationWindow == data.hWindow)
 			{
 				rect = DDraw::RealPrimarySurface::getMonitorRect();
 				OffsetRect(&rect, -rect.left, -rect.top);

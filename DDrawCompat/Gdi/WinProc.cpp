@@ -431,6 +431,7 @@ namespace
 
 		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
+			DDraw::RealPrimarySurface::setPresentationWindowTopmost();
 			Gdi::Window::updateAll();
 		}
 
@@ -578,6 +579,7 @@ namespace
 	BOOL WINAPI setWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
 	{
 		LOG_FUNC("SetWindowPos", hWnd, hWndInsertAfter, X, Y, cx, cy, Compat::hex(uFlags));
+
 		if (uFlags & SWP_NOSENDCHANGING)
 		{
 			WINDOWPOS wp = {};
@@ -591,6 +593,18 @@ namespace
 			onWindowPosChanging(hWnd, wp);
 			uFlags = wp.flags;
 		}
+
+		if ((uFlags & SWP_NOACTIVATE) && !(uFlags && SWP_NOZORDER) &&
+			(HWND_TOP == hWndInsertAfter || HWND_TOPMOST == hWndInsertAfter) &&
+			(GetWindowLong(hWnd, GWL_EXSTYLE) & WS_EX_TOPMOST))
+		{
+			const HWND topmost = DDraw::RealPrimarySurface::getTopmost();
+			if (topmost != HWND_TOPMOST)
+			{
+				hWndInsertAfter = topmost;
+			}
+		}
+
 		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowPos)(hWnd, hWndInsertAfter, X, Y, cx, cy, uFlags));
 	}
 

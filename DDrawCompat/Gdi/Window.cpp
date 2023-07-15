@@ -350,15 +350,7 @@ namespace
 					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, it->second.windowRegion);
 				}
 
-				const HWND devicePresentationWindow = DDraw::RealPrimarySurface::getDevicePresentationWindow();
-				if (DDraw::RealPrimarySurface::isFullscreen() && devicePresentationWindow == it->second.presentationWindow)
-				{
-					DDraw::RealPrimarySurface::updateDevicePresentationWindowPos();
-				}
-				else
-				{
-					Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
-				}
+				Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
 			}
 		}
 		return TRUE;
