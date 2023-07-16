@@ -14,8 +14,15 @@ namespace Overlay
 		: Control(&parent, rect, style)
 		, m_updateFunc(updateFunc)
 	{
+		if (style & WS_GROUP)
+		{
+			m_labels.emplace_back(*this, rect, std::string(), TA_RIGHT);
+			return;
+		}
+
 		auto& columns = Config::statsColumns.get();
 		RECT r = rect;
+		r.left += (r.right - r.left) - getWidth();
 		for (unsigned i = 0; i < columns.size(); ++i)
 		{
 			r.right = r.left + getColumnWidth(i);
@@ -25,7 +32,7 @@ namespace Overlay
 			}
 			else
 			{
-				m_labels.emplace_back(*this, r, std::string(), DT_RIGHT);
+				m_labels.emplace_back(*this, r, std::string(), TA_RIGHT);
 			}
 			r.left = r.right;
 		}
@@ -55,6 +62,12 @@ namespace Overlay
 	void StatsControl::update(StatsQueue::TickCount tickCount)
 	{
 		auto stats = m_updateFunc(tickCount);
+		if (m_style & WS_GROUP)
+		{
+			m_labels.front().setLabel(stats[0]);
+			return;
+		}
+
 		auto& columns = Config::statsColumns.get();
 		auto label = m_labels.begin();
 		for (unsigned i = 0; i < columns.size(); ++i)

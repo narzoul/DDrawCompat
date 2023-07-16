@@ -13,12 +13,12 @@ namespace Config
 
 		virtual std::string getValueStr() const override;
 
-		const std::vector<unsigned>& get() const { return m_values; }
+		const std::vector<int>& get() const { return m_values; }
 
 	private:
 		void setValues(const std::vector<std::string>& values) override;
 
 		const std::vector<std::string> m_enumNames;
-		std::vector<unsigned> m_values;
+		std::vector<int> m_values;
 	};
 }

@@ -27,7 +27,7 @@ namespace Config
 			throw ParsingError("empty list is not allowed");
 		}
 
-		std::vector<unsigned> result;
+		std::vector<int> result;
 		for (auto valueName : values)
 		{
 			auto it = std::find(m_enumNames.begin(), m_enumNames.end(), valueName);
@@ -36,7 +36,7 @@ namespace Config
 				throw ParsingError("invalid value: '" + valueName + "'");
 			}
 
-			unsigned value = it - m_enumNames.begin();
+			int value = it - m_enumNames.begin();
 			if (std::find(result.begin(), result.end(), value) == result.end())
 			{
 				result.push_back(value);

@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <array>
 #include <functional>
 
+#include <Common/Log.h>
 #include <Common/Time.h>
 #include <Config/Settings/StatsHotKey.h>
 #include <Config/Settings/StatsPosX.h>
@@ -47,11 +49,11 @@ namespace
 			char buf[20] = {};
 			if (0 == unitIndex)
 			{
-				snprintf(buf, sizeof(buf), "%.0f", stat);
+				sprintf_s(buf, "%.0f", stat);
 				return buf;
 			}
 
-			auto len = snprintf(buf, sizeof(buf), "%.2f", stat);
+			auto len = sprintf_s(buf, "%.2f", stat);
 			const auto decimalPoint = strchr(buf, '.');
 			const auto intLen = decimalPoint ? decimalPoint - buf : len;
 			if (len > 4)
@@ -67,14 +69,31 @@ namespace
 	};
 
 	const int ROW_HEIGHT = 15;
+
+	std::array<std::string, 4> getDebugInfo(StatsQueue::TickCount /*tickCount*/)
+	{
+		const uint32_t presentCount = Gdi::GuiThread::getStatsWindow()->m_presentCount;
+		static uint32_t updateCount = 0;
+		++updateCount;
+
+		SYSTEMTIME st = {};
+		GetLocalTime(&st);
+		LOG_DEBUG << "Stats debuginfo: " << presentCount << " " << updateCount;
+
+		char debuginfo[60];
+		sprintf_s(debuginfo, "%u %u %02hu:%02hu:%02hu.%03hu", presentCount, updateCount,
+			st.wHour, st.wMinute, st.wSecond, st.wMilliseconds);
+		return { debuginfo };
+	}
 }
 
 namespace Overlay
 {
 	StatsWindow::StatsWindow()
 		: Window(nullptr,
-			{ 0, 0, StatsControl::getWidth(), static_cast<int>(Config::statsRows.get().size()) * ROW_HEIGHT + BORDER },
+			{ 0, 0, getWidth(), static_cast<int>(Config::statsRows.get().size()) * ROW_HEIGHT + BORDER },
 			0, Config::statsTransparency.get(), Config::statsHotKey.get())
+		, m_presentCount(0)
 	{
 		m_statsRows.push_back({ "", [](auto) { return std::array<std::string, 4>{ "cur", "avg", "min", "max" }; },
 			WS_VISIBLE | WS_DISABLED });
@@ -92,6 +111,7 @@ namespace Overlay
 		m_statsRows.push_back({ "Lock time", UpdateStats(m_lock.m_time) });
 		m_statsRows.push_back({ "DDI usage", UpdateStats(m_ddiUsage) });
 		m_statsRows.push_back({ "GDI objects", UpdateStats(m_gdiObjects) });
+		m_statsRows.push_back({ "", &getDebugInfo, WS_VISIBLE | WS_GROUP });
 
 		for (auto statsRowIndex : Config::statsRows.get())
 		{
@@ -126,12 +146,30 @@ namespace Overlay
 		return (configWindow && configWindow->isVisible()) ? configWindow->getWindow() : Window::getTopmost();
 	}
 
+	LONG StatsWindow::getWidth()
+	{
+		LONG width = StatsControl::getWidth();
+		const auto& statsRows = Config::statsRows.get();
+		if (std::find(statsRows.begin(), statsRows.end(), Config::Settings::StatsRows::DEBUG) != statsRows.end())
+		{
+			width = std::max(width, 140L);
+		}
+		return width;
+	}
+
 	void StatsWindow::updateStats()
 	{
 		static auto prevTickCount = StatsQueue::getTickCount() - 1;
 		m_tickCount = StatsQueue::getTickCount();
 		if (m_tickCount == prevTickCount)
 		{
+			for (auto& statsControl : m_statsControls)
+			{
+				if (statsControl.getStyle() & WS_GROUP)
+				{
+					statsControl.update(m_tickCount);
+				}
+			}
 			return;
 		}
 

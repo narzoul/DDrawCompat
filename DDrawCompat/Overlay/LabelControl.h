@@ -23,7 +23,8 @@ namespace Overlay
 		virtual void draw(HDC dc) override;
 
 		std::string m_label;
-		UINT m_format;
+		std::wstring m_wlabel;
+		UINT m_align;
 		COLORREF m_color;
 	};
 }

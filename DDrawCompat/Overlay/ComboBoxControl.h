@@ -5,6 +5,7 @@
 
 #include <Overlay/ComboBoxDropDown.h>
 #include <Overlay/Control.h>
+#include <Overlay/LabelControl.h>
 
 namespace Overlay
 {
@@ -13,14 +14,14 @@ namespace Overlay
 	public:
 		ComboBoxControl(Control& parent, const RECT& rect, const std::vector<std::string>& values);
 
-		std::string getValue() const { return m_value; }
+		const std::string& getValue() const { return m_label.getLabel(); }
 		void setValue(const std::string& value);
 
 	private:
 		virtual void draw(HDC dc) override;
 		virtual void onLButtonDown(POINT pos) override;
 
-		std::string m_value;
+		LabelControl m_label;
 		ComboBoxDropDown m_dropDown;
 	};
 }

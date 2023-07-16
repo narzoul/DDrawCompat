@@ -352,6 +352,7 @@ namespace
 				{
 					if (!isOverlayOnly)
 					{
+						statsWindow->m_presentCount++;
 						statsWindow->m_present.add();
 					}
 					statsWindow->update();

@@ -7,7 +7,7 @@ namespace Overlay
 	ButtonControl::ButtonControl(Control& parent, const RECT& rect, const std::string& label, ClickHandler clickHandler)
 		: Control(&parent, rect, WS_BORDER | WS_TABSTOP | WS_VISIBLE)
 		, m_clickHandler(clickHandler)
-		, m_label(*this, rect, label, DT_CENTER)
+		, m_label(*this, rect, label, TA_CENTER)
 	{
 	}
 

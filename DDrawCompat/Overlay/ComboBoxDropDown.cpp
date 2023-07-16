@@ -17,7 +17,7 @@ namespace Overlay
 		{
 			m_labels.emplace_back(*this,
 				RECT{ 2, i * ARROW_SIZE + 2, m_rect.right - m_rect.left - 2, (i + 1) * ARROW_SIZE + 2 },
-				values[i], DT_SINGLELINE | DT_VCENTER, WS_VISIBLE | WS_TABSTOP);
+				values[i], TA_LEFT, WS_VISIBLE | WS_TABSTOP);
 		}
 	}
 

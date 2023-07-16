@@ -24,7 +24,8 @@ namespace Config
 				LOCKRATE,
 				LOCKTIME,
 				DDIUSAGE,
-				GDIOBJECTS
+				GDIOBJECTS,
+				DEBUG
 			};
 
 			StatsRows()
@@ -44,7 +45,8 @@ namespace Config
 						"lockrate",
 						"locktime",
 						"ddiusage",
-						"gdiobjects"
+						"gdiobjects",
+						"debug"
 					})
 			{
 			}

@@ -20,6 +20,7 @@ namespace Overlay
 
 		void updateStats();
 
+		uint32_t m_presentCount;
 		StatsEventGroup m_present;
 		StatsEventGroup m_flip;
 		StatsEventGroup m_blit;
@@ -39,6 +40,8 @@ namespace Overlay
 
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 		virtual HWND getTopmost() const override;
+
+		static LONG getWidth();
 
 		std::list<StatsControl> m_statsControls;
 		std::vector<StatsRow> m_statsRows;
