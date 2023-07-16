@@ -2,6 +2,7 @@
 #include <set>
 
 #include <Windows.h>
+#include <Windowsx.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
@@ -54,6 +55,7 @@ namespace
 	Compat::SrwLock g_windowProcSrwLock;
 	std::map<HWND, WindowProc> g_windowProc;
 
+	thread_local POINT* g_cursorPos = nullptr;
 	thread_local unsigned g_inCreateDialog = 0;
 	thread_local unsigned g_inMessageBox = 0;
 	thread_local unsigned g_inWindowProc = 0;
@@ -88,6 +90,7 @@ namespace
 	{
 		LOG_FUNC("ddcWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
 		ScopedIncrement inc(g_inWindowProc);
+		POINT cursorPos = {};
 
 		switch (uMsg)
 		{
@@ -109,6 +112,15 @@ namespace
 
 		case WM_INITDIALOG:
 			onInitDialog(hwnd);
+			break;
+
+		case WM_MOUSEMOVE:
+			if (1 == g_inWindowProc)
+			{
+				cursorPos = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+				ClientToScreen(hwnd, &cursorPos);
+				g_cursorPos = &cursorPos;
+			}
 			break;
 
 		case WM_SYNCPAINT:
@@ -190,6 +202,13 @@ namespace
 			onInitMenuPopup(reinterpret_cast<HMENU>(wParam));
 			break;
 
+		case WM_MOUSEMOVE:
+			if (1 == g_inWindowProc)
+			{
+				g_cursorPos = nullptr;
+			}
+			break;
+
 		case WM_NCDESTROY:
 			onDestroyWindow(hwnd);
 			break;
@@ -245,6 +264,16 @@ namespace
 		}
 
 		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowLongA)(hWnd, nIndex, dwNewLong));
+	}
+
+	BOOL WINAPI getCursorPos(LPPOINT lpPoint)
+	{
+		if (lpPoint && g_cursorPos)
+		{
+			*lpPoint = *g_cursorPos;
+			return TRUE;
+		}
+		return CALL_ORIG_FUNC(GetCursorPos)(lpPoint);
 	}
 
 	BOOL WINAPI getMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
@@ -719,6 +748,7 @@ namespace Gdi
 			HOOK_FUNCTION(user32, DialogBoxParamW, createDialog<DialogBoxParamW>);
 			HOOK_FUNCTION(user32, DialogBoxIndirectParamA, createDialog<DialogBoxIndirectParamA>);
 			HOOK_FUNCTION(user32, DialogBoxIndirectParamW, createDialog<DialogBoxIndirectParamW>);
+			HOOK_FUNCTION(user32, GetCursorPos, getCursorPos);
 			HOOK_FUNCTION(user32, GetMessageA, getMessageA);
 			HOOK_FUNCTION(user32, GetMessageW, getMessageW);
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);

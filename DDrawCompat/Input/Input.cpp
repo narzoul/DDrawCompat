@@ -103,7 +103,7 @@ namespace
 			{
 				POINT cp = g_cursorPos;
 				POINT origCp = {};
-				GetCursorPos(&origCp);
+				CALL_ORIG_FUNC(GetCursorPos)(&origCp);
 
 				cp.x += (llHook.pt.x - origCp.x);
 				cp.y += (llHook.pt.y - origCp.y);

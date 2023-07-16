@@ -191,7 +191,7 @@ namespace Gdi
 			g_prevCursorInfo = {};
 
 			POINT pos = {};
-			GetCursorPos(&pos);
+			CALL_ORIG_FUNC(GetCursorPos)(&pos);
 			SetCursorPos(pos.x, pos.y);
 		}
 
