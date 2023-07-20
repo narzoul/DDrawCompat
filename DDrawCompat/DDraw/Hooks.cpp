@@ -8,7 +8,6 @@
 #include <DDraw/Hooks.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
-#include <Win32/Registry.h>
 
 namespace
 {
@@ -99,11 +98,6 @@ namespace DDraw
 	void installHooks(CompatPtr<IDirectDraw7> dd7)
 	{
 		RealPrimarySurface::init();
-
-		Win32::Registry::unsetValue(
-			HKEY_LOCAL_MACHINE, "SOFTWARE\\Microsoft\\DirectDraw", "EmulationOnly");
-		Win32::Registry::unsetValue(
-			HKEY_LOCAL_MACHINE, "SOFTWARE\\WOW6432Node\\Microsoft\\DirectDraw", "EmulationOnly");
 
 		g_origInitialize = dd7.get()->lpVtbl->Initialize;
 		Compat::hookFunction(reinterpret_cast<void*&>(g_origInitialize), initialize, "IDirectDrawVtbl::Initialize");

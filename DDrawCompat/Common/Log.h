@@ -290,7 +290,7 @@ namespace Compat
 			auto& param = std::get<paramIndex>(std::tie(params...));
 			if constexpr (IsString<decltype(param)>::value)
 			{
-				if constexpr (!std::is_class_v<decltype(param)>)
+				if constexpr (std::is_pointer_v<std::decay_t<decltype(param)>>)
 				{
 					if (reinterpret_cast<DWORD>(param) <= 0xFFFF)
 					{
