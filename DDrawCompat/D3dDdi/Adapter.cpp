@@ -145,10 +145,6 @@ namespace D3dDdi
 				auto p8FormatOp = formatOp.second;
 				p8FormatOp.Format = D3DDDIFMT_P8;
 				p8FormatOp.Operations |= FORMATOP_OFFSCREENPLAIN;
-				if (!Config::palettizedTextures.get())
-				{
-					p8FormatOp.Operations &= ~(FORMATOP_TEXTURE | FORMATOP_VOLUMETEXTURE | FORMATOP_CUBETEXTURE);
-				}
 				fixedFormatOps[D3DDDIFMT_P8] = p8FormatOp;
 			}
 

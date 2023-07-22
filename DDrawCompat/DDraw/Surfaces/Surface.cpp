@@ -91,8 +91,9 @@ namespace DDraw
 		CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData)
 	{
 		if ((desc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE) &&
-			((desc.dwFlags & DDSD_PIXELFORMAT) && (desc.ddpfPixelFormat.dwRGBBitCount <= 8)) ||
-			(!(desc.dwFlags & DDSD_PIXELFORMAT) && Win32::DisplayMode::getBpp() <= 8))
+			((desc.dwFlags & DDSD_PIXELFORMAT)
+				? (desc.ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXED8)
+				: (Win32::DisplayMode::getBpp() <= 8)))
 		{
 			desc.ddsCaps.dwCaps &= ~DDSCAPS_3DDEVICE;
 		}

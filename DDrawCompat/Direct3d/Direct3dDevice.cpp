@@ -2,6 +2,7 @@
 #include <Common/CompatRef.h>
 #include <Common/CompatVtable.h>
 #include <Common/Log.h>
+#include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/SupportedTextureFormats.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/FormatInfo.h>
@@ -25,6 +26,10 @@ namespace
 		{
 			// D3DDDIFMT_A8B8G8R8 and D3DDDIFMT_X8B8G8R8 are enumerated like this, but nobody is expected to use them,
 			// and with proper pixel formats these cannot be created in video memory anyway.
+			return false;
+		}
+		if ((pf.dwFlags & DDPF_PALETTEINDEXED8) && !Config::palettizedTextures.get())
+		{
 			return false;
 		}
 		return Config::supportedTextureFormats.isSupported(D3dDdi::getFormat(pf));

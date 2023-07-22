@@ -1,6 +1,5 @@
 #include <map>
 #include <set>
-#include <sstream>
 
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
@@ -23,6 +22,7 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -47,12 +47,15 @@ namespace
 		TSurfaceDesc desc = *lpDDSurfaceDesc;
 		if (!D3dDdi::SurfaceRepository::inCreateSurface())
 		{
+			const bool isPalettized = (desc.dwFlags & DDSD_PIXELFORMAT)
+				? (desc.ddpfPixelFormat.dwFlags & DDPF_PALETTEINDEXED8)
+				: (Win32::DisplayMode::getBpp() <= 8);
+
 			if (&IID_IDirect3DHALDevice == Config::softwareDevice.get())
 			{
 				if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) &&
 					!(desc.ddsCaps.dwCaps & DDSCAPS_3DDEVICE) &&
-					(desc.dwFlags & DDSD_PIXELFORMAT) &&
-					(DDPF_RGB | DDPF_PALETTEINDEXED8) == desc.ddpfPixelFormat.dwFlags)
+					isPalettized)
 				{
 					desc.ddsCaps.dwCaps |= DDSCAPS_TEXTURE;
 					desc.ddsCaps.dwCaps &= ~DDSCAPS_OFFSCREENPLAIN;
@@ -66,18 +69,28 @@ namespace
 				}
 			}
 
-			if (Config::palettizedTextures.get() &&
-				(desc.ddsCaps.dwCaps & DDSCAPS_TEXTURE) &&
-				!(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) &&
-				(desc.dwFlags & DDSD_PIXELFORMAT) &&
-				(DDPF_RGB | DDPF_PALETTEINDEXED8) == desc.ddpfPixelFormat.dwFlags)
+			if (isPalettized && (desc.ddsCaps.dwCaps & DDSCAPS_TEXTURE))
 			{
-				return DDraw::PalettizedTexture::create<TDirectDraw>(*This, desc, *lplpDDSurface);
+				if (Config::palettizedTextures.get())
+				{
+					if (!(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
+					{
+						return DDraw::PalettizedTexture::create<TDirectDraw>(*This, desc, *lplpDDSurface);
+					}
+				}
+				else if (desc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY)
+				{
+					return DDERR_UNSUPPORTED;
+				}
+				else
+				{
+					desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
+				}
 			}
 		}
 
-		return DDraw::Surface::create<TDirectDraw>(
-			*This, desc, *lplpDDSurface, std::make_unique<DDraw::Surface>(desc.dwFlags, desc.ddsCaps.dwCaps));
+		return DDraw::Surface::create<TDirectDraw>(*This, desc, *lplpDDSurface,
+			std::make_unique<DDraw::Surface>(desc.dwFlags, lpDDSurfaceDesc->ddsCaps.dwCaps));
 	}
 
 	template <typename TDirectDraw>
