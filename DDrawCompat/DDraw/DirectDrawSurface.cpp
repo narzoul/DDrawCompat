@@ -60,6 +60,7 @@ namespace
 		SET_COMPAT_METHOD(Blt);
 		SET_COMPAT_METHOD(BltFast);
 		SET_COMPAT_METHOD(Flip);
+		SET_COMPAT_METHOD(GetAttachedSurface);
 		SET_COMPAT_METHOD(GetCaps);
 		SET_COMPAT_METHOD(GetDC);
 		SET_COMPAT_METHOD(GetPalette);

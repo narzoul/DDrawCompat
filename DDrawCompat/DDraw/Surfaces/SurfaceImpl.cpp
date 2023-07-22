@@ -151,6 +151,21 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::GetAttachedSurface(TSurface* This, TDdsCaps* lpDDSCaps, TSurface** lplpDDAttachedSurface)
+	{
+		TDdsCaps caps = {};
+		if (lpDDSCaps && (lpDDSCaps->dwCaps & DDSCAPS_3DDEVICE) &&
+			SUCCEEDED(getOrigVtable(This).GetCaps(This, &caps)) &&
+			!(caps.dwCaps & DDSCAPS_3DDEVICE) && (m_data->m_origCaps & DDSCAPS_3DDEVICE))
+		{
+			caps = *lpDDSCaps;
+			caps.dwCaps &= ~DDSCAPS_3DDEVICE;
+			return getOrigVtable(This).GetAttachedSurface(This, &caps, lplpDDAttachedSurface);
+		}
+		return getOrigVtable(This).GetAttachedSurface(This, lpDDSCaps, lplpDDAttachedSurface);
+	}
+
+	template <typename TSurface>
 	TSurface* SurfaceImpl<TSurface>::getBltSrc(TSurface* src)
 	{
 		return src;
