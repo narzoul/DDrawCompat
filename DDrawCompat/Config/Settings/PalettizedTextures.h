@@ -10,7 +10,7 @@ namespace Config
 		{
 		public:
 			PalettizedTextures()
-				: BoolSetting("PalettizedTextures", "on")
+				: BoolSetting("PalettizedTextures", "off")
 			{
 			}
 		};
