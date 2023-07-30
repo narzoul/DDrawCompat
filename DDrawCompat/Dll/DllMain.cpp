@@ -1,6 +1,7 @@
 #include <string>
 
 #include <Windows.h>
+#include <DbgHelp.h>
 #include <ShellScalingApi.h>
 #include <timeapi.h>
 #include <Uxtheme.h>
@@ -8,8 +9,10 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Path.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 #include <Config/Parser.h>
+#include <Config/Settings/CrashDump.h>
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/FullscreenMode.h>
@@ -36,6 +39,9 @@ HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 namespace
 {
 	const DWORD DISABLE_MAX_WINDOWED_MODE = 12;
+
+	Compat::CriticalSection g_crashDumpCs;
+	std::filesystem::path g_crashDumpPath;
 
 	template <typename Result, typename... Params>
 	using FuncPtr = Result(WINAPI*)(Params...);
@@ -238,6 +244,71 @@ namespace
 
 		logDpiAwareness(SetProcessDPIAware(), DPI_AWARENESS_CONTEXT_SYSTEM_AWARE, "SetProcessDPIAware");
 	}
+
+	LPTOP_LEVEL_EXCEPTION_FILTER WINAPI setUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter)
+	{
+		LOG_FUNC("SetUnhandledExceptionFilter", Compat::funcPtrToStr(lpTopLevelExceptionFilter));
+		LOG_ONCE("Suppressed new unhandled exception filter: " << Compat::funcPtrToStr(lpTopLevelExceptionFilter));
+		return LOG_RESULT(nullptr);
+	}
+
+	LONG WINAPI unhandledExceptionFilter(EXCEPTION_POINTERS* ExceptionInfo)
+	{
+		Compat::ScopedCriticalSection lock(g_crashDumpCs);
+		BOOL result = FALSE;
+		DWORD error = 0;
+		HANDLE dumpFile = INVALID_HANDLE_VALUE;
+
+		LOG_INFO << "Terminating application due to unhandled exception: "
+			<< Compat::hex(ExceptionInfo->ExceptionRecord->ExceptionCode);
+
+		const auto writeDump = reinterpret_cast<decltype(&MiniDumpWriteDump)>(
+			GetProcAddress(GetModuleHandle("dbghelp"), "MiniDumpWriteDump"));
+
+		if (writeDump)
+		{
+			dumpFile = CreateFileW(g_crashDumpPath.native().c_str(),
+				GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+			if (INVALID_HANDLE_VALUE == dumpFile)
+			{
+				error = GetLastError();
+			}
+			else
+			{
+
+				MINIDUMP_EXCEPTION_INFORMATION mei = {};
+				mei.ThreadId = GetCurrentThreadId();
+				mei.ExceptionPointers = ExceptionInfo;
+				result = writeDump(GetCurrentProcess(), GetCurrentProcessId(), dumpFile,
+					static_cast<MINIDUMP_TYPE>(Config::crashDump.get()), &mei, nullptr, nullptr);
+				if (!result)
+				{
+					error = GetLastError();
+				}
+				CloseHandle(dumpFile);
+			}
+		}
+
+		if (result)
+		{
+			LOG_INFO << "Crash dump has been written to: " << g_crashDumpPath.native().c_str();
+		}
+		else if (!writeDump)
+		{
+			LOG_INFO << "Failed to load procedure MiniDumpWriteDump to create a crash dump";
+		}
+		else if (INVALID_HANDLE_VALUE == dumpFile)
+		{
+			LOG_INFO << "Failed to create crash dump file: " << Compat::hex(error);
+		}
+		else
+		{
+			LOG_INFO << "Failed to write crash dump: " << Compat::hex(error);
+		}
+
+		TerminateProcess(GetCurrentProcess(), 0);
+		return EXCEPTION_CONTINUE_SEARCH;
+	}
 }
 
 #define	LOAD_ORIG_PROC(proc) \
@@ -275,6 +346,25 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		Config::Parser::loadAllConfigFiles(processPath);
 		Compat::Log::initLogging(processPath, Config::logLevel.get());
+
+		if (Config::Settings::CrashDump::OFF != Config::crashDump.get())
+		{
+			g_crashDumpPath = processPath;
+			if (Compat::isEqual(g_crashDumpPath.extension(), ".exe"))
+			{
+				g_crashDumpPath.replace_extension();
+			}
+			g_crashDumpPath.replace_filename(L"DDrawCompat-" + g_crashDumpPath.filename().native());
+			g_crashDumpPath += ".dmp";
+
+			HOOK_FUNCTION(kernel32, SetUnhandledExceptionFilter, setUnhandledExceptionFilter);
+			LOG_INFO << "Installing unhandled exception filter for automatic crash dumps";
+			auto prevFilter = CALL_ORIG_FUNC(SetUnhandledExceptionFilter)(&unhandledExceptionFilter);
+			if (prevFilter)
+			{
+				LOG_INFO << "Replaced previous unhandled exception filter: " << Compat::funcPtrToStr(prevFilter);
+			}
+		}
 
 		auto systemPath(Compat::getSystemPath());
 		if (Compat::isEqual(currentDllPath.parent_path(), systemPath))

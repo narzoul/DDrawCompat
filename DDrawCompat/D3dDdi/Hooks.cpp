@@ -73,7 +73,7 @@ namespace
 			if ("OpenAdapter" == std::string(lpProcName))
 			{
 				g_origOpenAdapter = reinterpret_cast<PFND3DDDI_OPENADAPTER>(
-					CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+					GetProcAddress(hModule, lpProcName));
 				if (g_origOpenAdapter)
 				{
 					static std::set<HMODULE> hookedModules;
@@ -89,14 +89,14 @@ namespace
 			else if ("GetPrivateDDITable" == std::string(lpProcName))
 			{
 				g_origGetPrivateDdiTable = reinterpret_cast<decltype(&getPrivateDdiTable)>(
-					CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+					GetProcAddress(hModule, lpProcName));
 				if (g_origGetPrivateDdiTable)
 				{
 					return reinterpret_cast<FARPROC>(&getPrivateDdiTable);
 				}
 			}
 		}
-		return LOG_RESULT(CALL_ORIG_FUNC(GetProcAddress)(hModule, lpProcName));
+		return LOG_RESULT(GetProcAddress(hModule, lpProcName));
 	}
 
 	HRESULT APIENTRY kmtPresent(HANDLE hDevice, D3DKMT_PRESENT* pKMTArgs)

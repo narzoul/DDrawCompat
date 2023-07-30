@@ -9,6 +9,7 @@
 #include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
+#include <Config/Settings/CrashDump.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DesktopResolution.h>
@@ -62,6 +63,7 @@ namespace Config
 	Settings::ConfigTransparency configTransparency;
 	Settings::CpuAffinity cpuAffinity;
 	Settings::CpuAffinityRotation cpuAffinityRotation;
+	Settings::CrashDump crashDump;
 	Settings::DepthFormat depthFormat;
 	Settings::DisplayAspectRatio displayAspectRatio;
 	Settings::DesktopColorDepth desktopColorDepth;
