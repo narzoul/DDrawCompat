@@ -408,35 +408,50 @@ namespace
 	void updatePresentationWindow()
 	{
 		LOG_FUNC("RealPrimarySurface::updatePresentationWindow");
-		const bool isFullscreen = isProcessActive() && (g_isFullscreen ||
-			g_frontBuffer && DDraw::PrimarySurface::getPrimary() && SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)) &&
-			Gdi::Window::hasFullscreenWindow());
+
+		const bool isActive = isProcessActive();
+		HWND fullscreenWindow = nullptr;
+		if (g_isFullscreen && IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
+		{
+			fullscreenWindow = g_deviceWindow;
+		}
+		else if (g_frontBuffer && DDraw::PrimarySurface::getPrimary() && SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
+		{
+			fullscreenWindow = Gdi::Window::getFullscreenWindow();
+		}
+
+		fullscreenWindow = fullscreenWindow ? Gdi::Window::getPresentationWindow(fullscreenWindow) : nullptr;
 
 		if (g_windowedBackBuffer)
 		{
 			auto resource = D3dDdi::Device::findResource(
 				DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
-			resource->setFullscreenMode(isFullscreen);
+			resource->setFullscreenMode(isActive && fullscreenWindow);
 		}
 
-		Gdi::GuiThread::execute([&]()
-			{
-				if (isFullscreen)
+		if (!isActive)
+		{
+			return;
+		}
+
+		g_presentationWindow = fullscreenWindow;
+
+		if (g_presentationWindow)
+		{
+			Gdi::GuiThread::execute([&]()
 				{
-					if (!g_presentationWindow)
-					{
-						g_presentationWindow = Gdi::PresentationWindow::create(nullptr);
-					}
 					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, g_monitorRect.left, g_monitorRect.top,
 						g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top,
 						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER | SWP_SHOWWINDOW);
-				}
-				else if (g_presentationWindow)
-				{
-					DestroyWindow(g_presentationWindow);
-					g_presentationWindow = nullptr;
-				}
-			});
+				});
+		}
+
+		static HWND prevPresentationWindow = nullptr;
+		if (prevPresentationWindow && prevPresentationWindow != g_presentationWindow)
+		{
+			Gdi::Window::updatePresentationWindowPos(prevPresentationWindow, GetParent(prevPresentationWindow));
+		}
+		prevPresentationWindow = g_presentationWindow;
 	}
 
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
@@ -605,7 +620,7 @@ namespace DDraw
 			Compat::ScopedCriticalSection lock(g_presentCs);
 			isPresentationWindowUpdateNeeded =
 				0 != g_qpcUpdatePresentationWindow && Time::queryPerformanceCounter() - g_qpcUpdatePresentationWindow >= 0 ||
-				g_presentationWindow && !isProcessActive();
+				!isProcessActive();
 		}
 
 		if (isPresentationWindowUpdateNeeded)
@@ -799,14 +814,14 @@ namespace DDraw
 
 	void RealPrimarySurface::setPresentationWindowTopmost()
 	{
-		Gdi::GuiThread::execute([&]()
-			{
-				if (g_presentationWindow)
+		if (g_presentationWindow && IsWindowVisible(g_presentationWindow))
+		{
+			Gdi::GuiThread::execute([&]()
 				{
 					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, 0, 0, 0, 0,
-						SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER);
-				}
-			});
+					SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER);
+				});
+		}
 	}
 
 	void RealPrimarySurface::setUpdateReady()

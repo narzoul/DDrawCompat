@@ -105,17 +105,17 @@ namespace Gdi
 {
 	namespace GuiThread
 	{
-		HWND createWindow(DWORD dwExStyle, LPCSTR lpClassName, LPCSTR lpWindowName, DWORD dwStyle,
+		HWND createWindow(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
 			int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam)
 		{
 			// Workaround for ForceSimpleWindow shim
-			static auto createWindowExA = reinterpret_cast<decltype(&CreateWindowExA)>(
-				Compat::getProcAddress(GetModuleHandle("user32"), "CreateWindowExA"));
+			static auto createWindowExW = reinterpret_cast<decltype(&CreateWindowExW)>(
+				Compat::getProcAddress(GetModuleHandle("user32"), "CreateWindowExW"));
 
 			HWND hwnd = nullptr;
 			execute([&]()
 				{
-					hwnd = createWindowExA(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight,
+					hwnd = createWindowExW(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight,
 						hWndParent, hMenu, hInstance, lpParam);
 				});
 			return hwnd;

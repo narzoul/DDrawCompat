@@ -26,8 +26,8 @@ namespace Gdi
 			GuiThread::execute([&]()
 				{
 					presentationWindow = GuiThread::createWindow(
-						WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | WS_EX_TOOLWINDOW,
-						reinterpret_cast<const char*>(g_classAtom),
+						WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | (owner ? 0 : WS_EX_TOOLWINDOW),
+						reinterpret_cast<const wchar_t*>(g_classAtom),
 						nullptr,
 						WS_DISABLED | WS_POPUP,
 						0, 0, 1, 1,

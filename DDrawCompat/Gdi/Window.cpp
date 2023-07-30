@@ -14,6 +14,7 @@
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
+#include <Gdi/WinProc.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
@@ -269,6 +270,7 @@ namespace
 			if (!isLayered)
 			{
 				it->second.presentationWindow = Gdi::PresentationWindow::create(hwnd);
+				Gdi::WinProc::updatePresentationWindowText(hwnd);
 				setPresentationWindowRgn = true;
 			}
 			else if (it->second.presentationWindow)
@@ -350,7 +352,10 @@ namespace
 					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, it->second.windowRegion);
 				}
 
-				Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
+				if (it->second.presentationWindow != DDraw::RealPrimarySurface::getPresentationWindow())
+				{
+					Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
+				}
 			}
 		}
 		return TRUE;
@@ -420,7 +425,7 @@ namespace Gdi
 			return layeredWindows;
 		}
 
-		bool hasFullscreenWindow()
+		HWND getFullscreenWindow()
 		{
 			D3dDdi::ScopedCriticalSection lock;
 			RECT mr = DDraw::PrimarySurface::getMonitorRect();
@@ -434,10 +439,10 @@ namespace Gdi
 					IsWindowVisible(window.first) &&
 					!IsIconic(window.first))
 				{
-					return true;
+					return window.first;
 				}
 			}
-			return false;
+			return nullptr;
 		}
 
 		bool isTopLevelWindow(HWND hwnd)
@@ -626,11 +631,14 @@ namespace Gdi
 
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner)
 		{
-			const bool isOwnerVisible = IsWindowVisible(owner) && !IsIconic(owner);
+			if (IsIconic(owner))
+			{
+				return;
+			}
 
 			WINDOWPOS wp = {};
 			wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
-			if (isOwnerVisible)
+			if (IsWindowVisible(owner))
 			{
 				wp.hwndInsertAfter = GetWindow(owner, GW_HWNDPREV);
 				if (!wp.hwndInsertAfter)

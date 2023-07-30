@@ -3,6 +3,7 @@
 
 #include <Windows.h>
 #include <Windowsx.h>
+#include <dwmapi.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
@@ -49,6 +50,10 @@ namespace
 		WNDPROC wndProcW;
 	};
 
+	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
+	decltype(&SetThreadDpiAwarenessContext) g_setThreadDpiAwarenessContext = nullptr;
+
+	wchar_t g_dummyWindowText;
 	std::map<HMENU, UINT> g_menuMaxHeight;
 	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
@@ -63,7 +68,9 @@ namespace
 	thread_local bool g_isFrameStarted = false;
 	thread_local bool g_waiting = false;
 
+	void dwmSendIconicThumbnail(HWND hwnd, LONG width, LONG height);
 	WindowProc getWindowProc(HWND hwnd);
+	std::wstring getWindowText(HWND hwnd, WNDPROC wndProc);
 	bool isUser32ScrollBar(HWND hwnd);
 	void onDestroyWindow(HWND hwnd);
 	void onGetMinMaxInfo(MINMAXINFO& mmi);
@@ -106,6 +113,10 @@ namespace
 			Gdi::checkDesktopComposition();
 			break;
 
+		case WM_DWMSENDICONICTHUMBNAIL:
+			dwmSendIconicThumbnail(hwnd, HIWORD(lParam), LOWORD(lParam));
+			return 0;
+
 		case WM_GETMINMAXINFO:
 			onGetMinMaxInfo(*reinterpret_cast<MINMAXINFO*>(lParam));
 			break;
@@ -120,6 +131,19 @@ namespace
 				cursorPos = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
 				ClientToScreen(hwnd, &cursorPos);
 				g_cursorPos = &cursorPos;
+			}
+			break;
+
+		case WM_NULL:
+			if (WM_GETTEXT == wParam && reinterpret_cast<LPARAM>(&g_dummyWindowText) == lParam)
+			{
+				auto presentationWindow = Gdi::Window::getPresentationWindow(hwnd);
+				if (presentationWindow)
+				{
+					std::wstring windowText(L"[DDrawCompat] " + getWindowText(hwnd, wndProc));
+					SendMessageW(presentationWindow, WM_SETTEXT, 0, reinterpret_cast<LPARAM>(windowText.c_str()));
+				}
+				return 0;
 			}
 			break;
 
@@ -266,6 +290,59 @@ namespace
 		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowLongA)(hWnd, nIndex, dwNewLong));
 	}
 
+	void dwmSendIconicThumbnail(HWND hwnd, LONG width, LONG height)
+	{
+		auto presentationWindow = Gdi::Window::getPresentationWindow(hwnd);
+		if (!presentationWindow || !g_dwmSetIconicThumbnail)
+		{
+			return;
+		}
+
+		BITMAPINFO bmi = {};
+		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+		bmi.bmiHeader.biWidth = width;
+		bmi.bmiHeader.biHeight = -height;
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_RGB;
+		void* bits = nullptr;
+		HBITMAP bmp = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, nullptr, 0);
+		if (!bmp)
+		{
+			return;
+		}
+
+		HDC srcDc = GetWindowDC(presentationWindow);
+		HDC dstDc = CreateCompatibleDC(nullptr);
+		auto prevBmp = SelectBitmap(dstDc, bmp);
+
+		RECT srcRect = {};
+		GetWindowRect(presentationWindow, &srcRect);
+
+		SetStretchBltMode(dstDc, HALFTONE);
+		CALL_ORIG_FUNC(StretchBlt)(dstDc, 0, 0, width, height,
+			srcDc, 0, 0, srcRect.right - srcRect.left, srcRect.bottom - srcRect.top, SRCCOPY);
+
+		SelectBitmap(dstDc, prevBmp);
+		DeleteDC(dstDc);
+		ReleaseDC(presentationWindow, srcDc);
+
+		DPI_AWARENESS_CONTEXT prevContext = nullptr;
+		if (g_setThreadDpiAwarenessContext)
+		{
+			prevContext = g_setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
+		}
+
+		g_dwmSetIconicThumbnail(hwnd, bmp, 0);
+
+		if (prevContext)
+		{
+			g_setThreadDpiAwarenessContext(prevContext);
+		}
+
+		DeleteObject(bmp);
+	}
+
 	BOOL WINAPI getCursorPos(LPPOINT lpPoint)
 	{
 		if (lpPoint && g_cursorPos)
@@ -324,6 +401,25 @@ namespace
 	{
 		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
 		return g_windowProc[hwnd];
+	}
+
+	std::wstring getWindowText(HWND hwnd, WNDPROC wndProc)
+	{
+		const UINT MAX_LEN = 256;
+		if (IsWindowUnicode(hwnd))
+		{
+			wchar_t windowText[MAX_LEN] = {};
+			CallWindowProcW(wndProc, hwnd, WM_GETTEXT, MAX_LEN, reinterpret_cast<LPARAM>(windowText));
+			windowText[MAX_LEN - 1] = 0;
+			return windowText;
+		}
+		else
+		{
+			char windowText[MAX_LEN] = {};
+			CallWindowProcA(wndProc, hwnd, WM_GETTEXT, MAX_LEN, reinterpret_cast<LPARAM>(windowText));
+			windowText[MAX_LEN - 1] = 0;
+			return std::wstring(windowText, windowText + strlen(windowText));
+		}
 	}
 
 	template <auto func, typename... Params>
@@ -462,6 +558,13 @@ namespace
 		{
 			DDraw::RealPrimarySurface::setPresentationWindowTopmost();
 			Gdi::Window::updateAll();
+
+			if (g_dwmSetIconicThumbnail)
+			{
+				const BOOL isIconic = IsIconic(hwnd);
+				DwmSetWindowAttribute(hwnd, DWMWA_FORCE_ICONIC_REPRESENTATION, &isIconic, sizeof(isIconic));
+				DwmSetWindowAttribute(hwnd, DWMWA_HAS_ICONIC_BITMAP, &isIconic, sizeof(isIconic));
+			}
 		}
 
 		if (wp.flags & SWP_FRAMECHANGED)
@@ -670,6 +773,12 @@ namespace
 			break;
 
 		case EVENT_OBJECT_NAMECHANGE:
+			if (OBJID_WINDOW == idObject && Gdi::Window::isTopLevelWindow(hwnd) && !Gdi::GuiThread::isGuiThreadWindow(hwnd))
+			{
+				Gdi::WinProc::updatePresentationWindowText(hwnd);
+				break;
+			}
+
 		case EVENT_OBJECT_SHOW:
 		case EVENT_OBJECT_HIDE:
 			if (OBJID_CURSOR == idObject && Gdi::Cursor::isEmulated())
@@ -712,6 +821,7 @@ namespace
 				break;
 			}
 			}
+			break;
 		}
 	}
 }
@@ -765,6 +875,11 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+
+			g_dwmSetIconicThumbnail = reinterpret_cast<decltype(&DwmSetIconicThumbnail)>(
+				GetProcAddress(GetModuleHandle("dwmapi"), "DwmSetIconicThumbnail"));
+			g_setThreadDpiAwarenessContext = reinterpret_cast<decltype(&SetThreadDpiAwarenessContext)>(
+				GetProcAddress(GetModuleHandle("user32"), "SetThreadDpiAwarenessContext"));
 
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "SetWindowLongA", ddrawSetWindowLongA);
 
@@ -862,6 +977,11 @@ namespace Gdi
 			{
 				qpcNow = Time::queryPerformanceCounter();
 			}
+		}
+
+		void updatePresentationWindowText(HWND owner)
+		{
+			SendNotifyMessageW(owner, WM_NULL, WM_GETTEXT, reinterpret_cast<LPARAM>(&g_dummyWindowText));
 		}
 
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)

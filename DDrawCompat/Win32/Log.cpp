@@ -110,6 +110,29 @@ std::ostream& operator<<(std::ostream& os, const BITMAP& bm)
 		<< bm.bmBits;
 }
 
+std::ostream& operator<<(std::ostream& os, const BITMAPINFO& bmi)
+{
+	return Compat::LogStruct(os)
+		<< bmi.bmiHeader
+		<< Compat::array(bmi.bmiColors, 1);
+}
+
+std::ostream& operator<<(std::ostream& os, const BITMAPINFOHEADER& bmih)
+{
+	return Compat::LogStruct(os)
+		<< bmih.biSize
+		<< bmih.biWidth
+		<< bmih.biHeight
+		<< bmih.biPlanes
+		<< bmih.biBitCount
+		<< bmih.biCompression
+		<< bmih.biSizeImage
+		<< bmih.biXPelsPerMeter
+		<< bmih.biYPelsPerMeter
+		<< bmih.biClrUsed
+		<< bmih.biClrImportant;
+}
+
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis)
 {
 	return Compat::LogStruct(os)

@@ -10,6 +10,7 @@ namespace Gdi
 		void installHooks();
 		void onCreateWindow(HWND hwnd);
 		void startFrame();
+		void updatePresentationWindowText(HWND owner);
 		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 	}
 }
