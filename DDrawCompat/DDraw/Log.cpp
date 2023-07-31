@@ -134,5 +134,9 @@ std::ostream& operator<<(std::ostream& os, const GUID& guid)
 
 	OLECHAR str[256] = {};
 	StringFromGUID2(guid, str, sizeof(str));
-	return os << str;
+	for (auto p = str; *p != 0; ++p)
+	{
+		os << static_cast<char>(*p);
+	}
+	return os;
 }
