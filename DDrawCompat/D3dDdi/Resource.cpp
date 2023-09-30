@@ -1178,7 +1178,7 @@ namespace D3dDdi
 		{
 			m_isColorKeyedSurfaceUpToDate = true;
 			m_colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
-			auto ck = convertToShaderConst(m_formatInfo, m_colorKey);
+			const ShaderBlitter::ColorKeyInfo ck = { m_colorKey, m_origData.Format };
 			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 			{
 				m_device.getShaderBlitter().colorKeyBlt(*m_colorKeyedSurface.resource, i, defaultResource, i, ck);
@@ -1313,15 +1313,12 @@ namespace D3dDdi
 			copySubResourceRegion(*texture.resource, 0, srcRect, *windowSurface.resource, 0, srcRect);
 			windowSurface.resource->notifyLock(0);
 
-			DeviceState::ShaderConstF ck = {};
 			COLORREF colorKey = 0;
 			BYTE alpha = 0;
 			DWORD flags = 0;
 			GetLayeredWindowAttributes(layeredWindow.hwnd, &colorKey, &alpha, &flags);
-			if (flags & ULW_COLORKEY)
-			{
-				ck = convertToShaderConst(getFormatInfo(D3DDDIFMT_X8B8G8R8), colorKey);
-			}
+			const ShaderBlitter::ColorKeyInfo ck = { colorKey,
+				(flags & ULW_COLORKEY) ? D3DDDIFMT_A8R8G8B8 : D3DDDIFMT_UNKNOWN };
 
 			if (layeredWindow.region)
 			{
@@ -1331,8 +1328,7 @@ namespace D3dDdi
 			Rect::transform(visibleRect, monitorRect, dstRect);
 
 			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect, D3DTEXF_POINT,
-				(flags & ULW_COLORKEY) ? &ck : nullptr,
-				(flags & ULW_ALPHA) ? &alpha : nullptr,
+				ck, (flags & ULW_ALPHA) ? &alpha : nullptr,
 				layeredWindow.region);
 		}
 	}
@@ -1528,9 +1524,6 @@ namespace D3dDdi
 			std::swap(srcRect.top, srcRect.bottom);
 		}
 
-		auto ck = data.Flags.SrcColorKey
-			? convertToShaderConst(srcResource.m_formatInfo, data.ColorKey)
-			: DeviceState::ShaderConstF{};
 		if (m_fixedData.Flags.ZBuffer)
 		{
 			const bool isD3D9On12 = m_device.getAdapter().getInfo().isD3D9On12;
@@ -1548,8 +1541,9 @@ namespace D3dDdi
 			}
 			else
 			{
-				m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect,
-					filter, data.Flags.SrcColorKey ? &ck : nullptr);
+				const ShaderBlitter::ColorKeyInfo ck = { data.ColorKey,
+					data.Flags.SrcColorKey ? srcResource.m_origData.Format : D3DDDIFMT_UNKNOWN };
+				m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect, filter, ck);
 			}
 		}
 

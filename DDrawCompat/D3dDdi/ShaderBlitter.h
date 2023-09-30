@@ -19,6 +19,12 @@ namespace D3dDdi
 	class ShaderBlitter
 	{
 	public:
+		struct ColorKeyInfo
+		{
+			UINT colorKey;
+			D3DDDIFORMAT format;
+		};
+
 		ShaderBlitter(Device& device);
 		ShaderBlitter(const ShaderBlitter&) = delete;
 		ShaderBlitter(ShaderBlitter&&) = delete;
@@ -30,7 +36,7 @@ namespace D3dDdi
 		void bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
-			const Resource& srcResource, UINT srcSubResourceIndex, DeviceState::ShaderConstF srcColorKey);
+			const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
@@ -52,7 +58,7 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT lobes);
 		void textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			UINT filter, const DeviceState::ShaderConstF* srcColorKey = nullptr, const BYTE* alpha = nullptr,
+			UINT filter, ColorKeyInfo srcColorKey = {}, const BYTE* alpha = nullptr,
 			const Gdi::Region& srcRgn = nullptr);
 
 		static void resetGammaRamp();

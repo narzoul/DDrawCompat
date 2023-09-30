@@ -32,20 +32,22 @@ namespace
 	bool g_isGammaRampDefault = true;
 	bool g_isGammaRampInvalidated = false;
 
-	D3dDdi::DeviceState::ShaderConstF getColorKeyAsFloat4(const UINT* colorKey)
+	std::array<D3dDdi::DeviceState::ShaderConstF, 2> convertToShaderConst(D3dDdi::ShaderBlitter::ColorKeyInfo colorKeyInfo)
 	{
-		std::array<float, 4> ck{};
-		if (colorKey)
-		{
-			ck[0] = ((*colorKey & 0xFF0000) >> 16) / 255.0f;
-			ck[1] = ((*colorKey & 0x00FF00) >> 8) / 255.0f;
-			ck[2] = ((*colorKey & 0x0000FF)) / 255.0f;
-		}
-		else
-		{
-			ck[0] = ck[1] = ck[2] = -1.0f;
-		}
-		return ck;
+		const auto& fi = D3dDdi::getFormatInfo(colorKeyInfo.format);
+		return { {
+			{
+				D3dDdi::getComponentAsFloat(colorKeyInfo.colorKey, fi.red),
+				D3dDdi::getComponentAsFloat(colorKeyInfo.colorKey, fi.green),
+				D3dDdi::getComponentAsFloat(colorKeyInfo.colorKey, fi.blue),
+				0
+			},
+			{
+				0.5f / ((1 << fi.red.bitCount) - 1),
+				0.5f / ((1 << fi.green.bitCount) - 1),
+				0.5f / ((1 << fi.blue.bitCount) - 1),
+			}
+		} };
 	}
 
 	constexpr D3dDdi::DeviceState::ShaderConstF getSplineWeights(int n, float a, float b, float c, float d)
@@ -233,9 +235,10 @@ namespace D3dDdi
 	}
 
 	void ShaderBlitter::colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
-		const Resource& srcResource, UINT srcSubResourceIndex, DeviceState::ShaderConstF srcColorKey)
+		const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey)
 	{
-		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 31, 1 }, &srcColorKey);
+		const auto ck = convertToShaderConst(srcColorKey);
+		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
 		blt(dstResource, dstSubResourceIndex, dstResource.getRect(dstSubResourceIndex),
 			srcResource, srcSubResourceIndex, srcResource.getRect(srcSubResourceIndex),
 			m_psColorKeyBlend.get(), D3DTEXF_POINT);
@@ -757,11 +760,12 @@ namespace D3dDdi
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		UINT filter, const DeviceState::ShaderConstF* srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
+		UINT filter, ColorKeyInfo srcColorKey, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
-		if (srcColorKey)
+		if (D3DDDIFMT_UNKNOWN != srcColorKey.format)
 		{
-			DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 31, 1 }, srcColorKey);
+			const auto ck = convertToShaderConst(srcColorKey);
+			DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 				m_psColorKey.get(), filter, 0, alpha, srcRgn);
 		}

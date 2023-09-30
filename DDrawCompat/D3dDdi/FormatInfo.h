@@ -38,10 +38,9 @@ namespace D3dDdi
 	};
 
 	D3DCOLOR convertFrom32Bit(const FormatInfo& dstFormatInfo, D3DCOLOR srcColor);
-	DeviceState::ShaderConstF convertToShaderConst(const FormatInfo& srcFormatInfo, D3DCOLOR srcColor);
 	DWORD getComponent(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component);
 	float getComponentAsFloat(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component);
 	D3DDDIFORMAT getFormat(const DDPIXELFORMAT& pixelFormat);
-	FormatInfo getFormatInfo(D3DDDIFORMAT format);
-	DDPIXELFORMAT getPixelFormat(D3DDDIFORMAT format);
+	const FormatInfo& getFormatInfo(D3DDDIFORMAT format);
+	const DDPIXELFORMAT& getPixelFormat(D3DDDIFORMAT format);
 }

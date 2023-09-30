@@ -187,16 +187,6 @@ namespace D3dDdi
 			(blue << (dstFormatInfo.blue.pos | dstFormatInfo.palette.pos));
 	}
 
-	DeviceState::ShaderConstF convertToShaderConst(const FormatInfo& srcFormatInfo, D3DCOLOR srcColor)
-	{
-		return {
-			getComponentAsFloat(srcColor, srcFormatInfo.red),
-			getComponentAsFloat(srcColor, srcFormatInfo.green),
-			getComponentAsFloat(srcColor, srcFormatInfo.blue),
-			getComponentAsFloat(srcColor, srcFormatInfo.alpha)
-		};
-	}
-
 	DWORD getComponent(D3DCOLOR color, const D3dDdi::FormatInfo::Component& component)
 	{
 		return (color & getMask(component)) >> component.pos;
@@ -238,13 +228,14 @@ namespace D3dDdi
 		return D3DDDIFMT_UNKNOWN;
 	}
 
-	FormatInfo getFormatInfo(D3DDDIFORMAT format)
+	const FormatInfo& getFormatInfo(D3DDDIFORMAT format)
 	{
+		static const FormatInfo empty = {};
 		auto it = g_formatInfo.find(format);
-		return it != g_formatInfo.end() ? it->second : FormatInfo{};
+		return it != g_formatInfo.end() ? it->second : empty;
 	}
 
-	DDPIXELFORMAT getPixelFormat(D3DDDIFORMAT format)
+	const DDPIXELFORMAT& getPixelFormat(D3DDDIFORMAT format)
 	{
 		return getFormatInfo(format).pixelFormat;
 	}
