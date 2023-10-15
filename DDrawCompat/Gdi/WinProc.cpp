@@ -82,6 +82,17 @@ namespace
 	LONG WINAPI setWindowLongA(HWND hWnd, int nIndex, LONG dwNewLong);
 	void setWindowProc(HWND hwnd, WNDPROC wndProcA, WNDPROC wndProcW);
 
+	BOOL WINAPI animateWindow(HWND hWnd, DWORD dwTime, DWORD dwFlags)
+	{
+		LOG_FUNC("AnimateWindow", hWnd, dwTime, Compat::hex(dwFlags));
+		if (dwFlags & AW_BLEND)
+		{
+			dwFlags &= ~AW_BLEND;
+			dwFlags |= AW_SLIDE | AW_HOR_POSITIVE;
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(AnimateWindow)(hWnd, dwTime, dwFlags));
+	}
+
 	template <auto func, typename Result, typename... Params>
 	Result WINAPI createDialog(Params... params)
 	{
@@ -840,6 +851,7 @@ namespace Gdi
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(user32, AnimateWindow, animateWindow);
 			HOOK_FUNCTION(user32, CreateDialogIndirectParamA, createDialog<CreateDialogIndirectParamA>);
 			HOOK_FUNCTION(user32, CreateDialogIndirectParamW, createDialog<CreateDialogIndirectParamW>);
 			HOOK_FUNCTION(user32, CreateDialogParamA, createDialog<CreateDialogParamA>);
