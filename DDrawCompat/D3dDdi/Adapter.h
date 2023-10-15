@@ -38,6 +38,7 @@ namespace D3dDdi
 		Int2 getAspectRatio() const;
 		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
+		const auto& getMonitorInfo() const { return Win32::DisplayMode::getMonitorInfo(m_deviceName); }
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
@@ -58,7 +59,7 @@ namespace D3dDdi
 		template <typename Data>
 		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
 
-		Int2 getAspectRatio(Win32::DisplayMode::Resolution res) const;
+		Int2 getAspectRatio(SIZE appRes, SIZE displayRes) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFixedFormatOps(const AdapterInfo& info) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
 		Float2 getScaleFactor() const;

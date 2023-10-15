@@ -19,9 +19,9 @@ namespace Gdi
 {
 	namespace PresentationWindow
 	{
-		HWND create(HWND owner)
+		HWND create(HWND owner, bool dpiAware)
 		{
-			LOG_FUNC("PresentationWindow::create", owner);
+			LOG_FUNC("PresentationWindow::create", owner, dpiAware);
 			HWND presentationWindow = nullptr;
 			GuiThread::execute([&]()
 				{
@@ -34,7 +34,8 @@ namespace Gdi
 						owner,
 						nullptr,
 						nullptr,
-						nullptr);
+						nullptr,
+						dpiAware);
 
 					if (presentationWindow)
 					{

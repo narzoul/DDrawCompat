@@ -7,12 +7,12 @@
 #include <Common/Log.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
-#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 #include <Input/Input.h>
 #include <Overlay/Control.h>
 #include <Overlay/Window.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -179,42 +179,20 @@ namespace Overlay
 
 	void Window::updatePos()
 	{
-		RECT monitorRect = DDraw::RealPrimarySurface::getMonitorRect();
-		if (IsRectEmpty(&monitorRect))
-		{
-			HMONITOR monitor = nullptr;
-			HWND foregroundWindow = GetForegroundWindow();
-			if (foregroundWindow)
-			{
-				monitor = MonitorFromWindow(foregroundWindow, MONITOR_DEFAULTTONEAREST);
-			}
-			else
-			{
-				monitor = MonitorFromPoint({ 0, 0 }, MONITOR_DEFAULTTOPRIMARY);
-			}
-
-			MONITORINFO mi = {};
-			mi.cbSize = sizeof(mi);
-			CALL_ORIG_FUNC(GetMonitorInfoA)(monitor, &mi);
-			monitorRect = mi.rcMonitor;
-
-			if (IsRectEmpty(&monitorRect))
-			{
-				monitorRect = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
-			}
-		}
-
-		int scaleX = (monitorRect.right - monitorRect.left) / 640;
-		int scaleY = (monitorRect.bottom - monitorRect.top) / 480;
+		const RECT monitorRect = Win32::DisplayMode::getMonitorInfo(GetForegroundWindow()).rcMonitor;
+		int scaleX = (monitorRect.right - monitorRect.left) / VIRTUAL_SCREEN_WIDTH;
+		int scaleY = (monitorRect.bottom - monitorRect.top) / VIRTUAL_SCREEN_HEIGHT;
 		m_scaleFactor = std::min(scaleX, scaleY);
 		m_scaleFactor = std::max(1, m_scaleFactor);
 		m_rect = calculateRect({ monitorRect.left / m_scaleFactor, monitorRect.top / m_scaleFactor,
 			monitorRect.right / m_scaleFactor, monitorRect.bottom / m_scaleFactor });
 
-		CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, getTopmost(),
-			m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
-			(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
-			SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
+		{
+			CALL_ORIG_FUNC(SetWindowPos)(m_hwnd, getTopmost(),
+				m_rect.left * m_scaleFactor, m_rect.top * m_scaleFactor,
+				(m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
+				SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
+		}
 
 		if (Input::getCaptureWindow() == this)
 		{

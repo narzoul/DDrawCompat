@@ -11,7 +11,6 @@
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Gdi.h>
-#include <Gdi/Region.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
@@ -24,7 +23,6 @@ namespace
 	};
 
 	Compat::CriticalSection g_cs;
-	Gdi::Region g_region;
 	RECT g_bounds = {};
 	DWORD g_bpp = 0;
 	LONG g_width = 0;
@@ -38,27 +36,6 @@ namespace
 	RGBQUAD g_defaultPalette[256] = {};
 	RGBQUAD g_systemPalette[256] = {};
 	std::map<HDC, VirtualScreenDc> g_dcs;
-
-	BOOL CALLBACK addMonitorRectToRegion(
-		HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT lprcMonitor, LPARAM dwData)
-	{
-		MONITORINFOEXW mi = {};
-		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
-
-		auto res = Win32::DisplayMode::getDisplayResolution(mi.szDevice);
-		RECT rect = *lprcMonitor;
-		if (0 != res.cx && 0 != res.cy)
-		{
-			rect.right = rect.left + res.cx;
-			rect.bottom = rect.top + res.cy;
-		}
-
-		Gdi::Region& virtualScreenRegion = *reinterpret_cast<Gdi::Region*>(dwData);
-		Gdi::Region monitorRegion(rect);
-		virtualScreenRegion |= monitorRegion;
-		return TRUE;
-	}
 
 	RGBQUAD convertToRgbQuad(PALETTEENTRY entry)
 	{
@@ -199,12 +176,6 @@ namespace Gdi
 			return g_bounds;
 		}
 
-		Region getRegion()
-		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			return g_region;
-		}
-
 		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
@@ -278,13 +249,14 @@ namespace Gdi
 				if (g_isFullscreen)
 				{
 					g_bounds = DDraw::PrimarySurface::getMonitorRect();
-					g_region = g_bounds;
 				}
 				else
 				{
-					g_region.clear();
-					EnumDisplayMonitors(nullptr, nullptr, addMonitorRectToRegion, reinterpret_cast<LPARAM>(&g_region));
-					GetRgnBox(g_region, &g_bounds);
+					g_bounds = {};
+					for (const auto& mi : Win32::DisplayMode::getAllMonitorInfo())
+					{
+						UnionRect(&g_bounds, &g_bounds, &mi.second.rcMonitor);
+					}
 				}
 
 				g_bpp = Win32::DisplayMode::getBpp();

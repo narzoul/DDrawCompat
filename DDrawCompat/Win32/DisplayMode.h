@@ -1,10 +1,11 @@
 #pragma once
 
-#include <tuple>
+#include <map>
 
 #include <Windows.h>
 
 #include <Common/Comparison.h>
+#include <Gdi/Region.h>
 
 namespace Win32
 {
@@ -21,31 +22,29 @@ namespace Win32
 		struct EmulatedDisplayMode : DisplayMode
 		{
 			std::wstring deviceName;
-			RECT rect;
-			SIZE diff;
 		};
 
-		struct Resolution
+		struct MonitorInfo : MONITORINFOEXW
 		{
-			SIZE app;
-			SIZE display;
+			RECT rcReal;
+			RECT rcDpiAware;
+			RECT rcEmulated;
+			DWORD bpp;
+			DWORD dpiScale;
+			bool isEmulated;
 		};
 
-		SIZE getAppResolution(const std::wstring& deviceName);
+		std::ostream& operator<<(std::ostream& os, const MonitorInfo& mi);
+
+		std::map<HMONITOR, MonitorInfo> getAllMonitorInfo();
 		DWORD getBpp();
-		SIZE getDisplayResolution(const std::wstring& deviceName);
 		EmulatedDisplayMode getEmulatedDisplayMode();
-		MONITORINFOEXW getMonitorInfo(const std::wstring& deviceName);
-		Resolution getResolution(const std::wstring& deviceName);
+		const MonitorInfo& getMonitorInfo(HMONITOR monitor = nullptr);
+		const MonitorInfo& getMonitorInfo(HWND hwnd);
+		const MonitorInfo& getMonitorInfo(POINT pt);
+		const MonitorInfo& getMonitorInfo(const std::wstring& deviceName);
 		ULONG queryDisplaySettingsUniqueness();
 
 		void installHooks();
-
-		using ::operator<;
-
-		inline auto toTuple(const DisplayMode& dm)
-		{
-			return std::make_tuple(dm.width, dm.height, dm.bpp, dm.refreshRate);
-		}
 	}
 }

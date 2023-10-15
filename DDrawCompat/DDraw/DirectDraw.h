@@ -12,7 +12,6 @@ namespace DDraw
 {
 	namespace DirectDraw
 	{
-		DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd);
 		DDPIXELFORMAT getRgbPixelFormat(DWORD bpp);
 		LRESULT handleActivateApp(bool isActivated, std::function<LRESULT()> callOrigWndProc);
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd);

@@ -92,12 +92,10 @@ namespace DDraw
 		LOG_FUNC("PrimarySurface::create", &dd, desc, surface);
 		DDraw::RealPrimarySurface::destroyDefaultPrimary();
 
-		const auto& dm = DDraw::DirectDraw::getDisplayMode(*CompatPtr<IDirectDraw7>::from(&dd));
 		auto deviceName = D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName;
+		const auto& mi = Win32::DisplayMode::getMonitorInfo(deviceName);
 		auto prevMonitorRect = g_monitorRect;
-		g_monitorRect = Win32::DisplayMode::getMonitorInfo(deviceName).rcMonitor;
-		g_monitorRect.right = g_monitorRect.left + dm.dwWidth;
-		g_monitorRect.bottom = g_monitorRect.top + dm.dwHeight;
+		g_monitorRect = mi.rcEmulated;
 
 		HRESULT result = RealPrimarySurface::create(*CompatPtr<IDirectDraw>::from(&dd));
 		if (FAILED(result))
@@ -111,12 +109,12 @@ namespace DDraw
 		auto data = privateData.get();
 
 		desc.dwFlags |= DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT;
-		desc.dwWidth = dm.dwWidth;
-		desc.dwHeight = dm.dwHeight;
+		desc.dwWidth = g_monitorRect.right - g_monitorRect.left;
+		desc.dwHeight = g_monitorRect.bottom - g_monitorRect.top;
 		desc.ddsCaps.dwCaps &= ~(DDSCAPS_PRIMARYSURFACE | DDSCAPS_SYSTEMMEMORY |
 			DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM | DDSCAPS_NONLOCALVIDMEM);
 		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
-		desc.ddpfPixelFormat = dm.ddpfPixelFormat;
+		desc.ddpfPixelFormat = DirectDraw::getRgbPixelFormat(mi.bpp);
 
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))

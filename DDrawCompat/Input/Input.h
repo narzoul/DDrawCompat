@@ -18,7 +18,6 @@ namespace Input
 
 	Overlay::Control* getCapture();
 	Overlay::Window* getCaptureWindow();
-	POINT getCursorPos();
 	HWND getCursorWindow();
 	POINT getRelativeCursorPos();
 	void installHooks();

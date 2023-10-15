@@ -35,7 +35,7 @@ namespace
 
 		D3dDdi::ScopedCriticalSection lock;
 		Gdi::Region clipRgn(DDraw::DirectDrawClipper::getClipRgn(*clipper));
-		RECT monitorRect = DDraw::RealPrimarySurface::getMonitorRect();
+		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
 		RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 		clipRgn.offset(monitorRect.left, monitorRect.top);
 		clipRgn &= virtualScreenBounds;

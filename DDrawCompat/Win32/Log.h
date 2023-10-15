@@ -21,6 +21,7 @@ std::ostream& operator<<(std::ostream& os, const GESTURENOTIFYSTRUCT& gns);
 std::ostream& operator<<(std::ostream& os, const HDC__& dc);
 std::ostream& operator<<(std::ostream& os, const HELPINFO& hi);
 std::ostream& operator<<(std::ostream& os, const HFONT__& font);
+std::ostream& operator<<(std::ostream& os, const HINSTANCE__& inst);
 std::ostream& operator<<(std::ostream& os, const HRGN__& rgn);
 std::ostream& operator<<(std::ostream& os, const HWND__& wnd);
 std::ostream& operator<<(std::ostream& os, const LOGFONT& lf);

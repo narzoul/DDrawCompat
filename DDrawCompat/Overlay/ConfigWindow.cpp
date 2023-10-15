@@ -72,7 +72,8 @@ namespace
 namespace Overlay
 {
 	ConfigWindow::ConfigWindow()
-		: Window(nullptr, { 0, 0, 640, 480 }, WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
+		: Window(nullptr, { 0, 0, VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT },
+			WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
 		, m_buttonCount(0)
 		, m_focus(nullptr)
 	{

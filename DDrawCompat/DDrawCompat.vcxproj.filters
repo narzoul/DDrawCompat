@@ -705,6 +705,9 @@
     <ClInclude Include="Config\Settings\CrashDump.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Win32\DpiAwareness.h">
+      <Filter>Header Files\Win32</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1099,6 +1102,9 @@
     </ClCompile>
     <ClCompile Include="Config\Settings\ConfigRows.cpp">
       <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Win32\DpiAwareness.cpp">
+      <Filter>Source Files\Win32</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

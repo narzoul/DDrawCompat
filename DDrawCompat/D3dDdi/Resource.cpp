@@ -1270,10 +1270,8 @@ namespace D3dDdi
 
 		if (!IsRectEmpty(&g_presentationRect))
 		{
-			auto dstRect = DDraw::RealPrimarySurface::getMonitorRect();
-			OffsetRect(&dstRect, -dstRect.left, -dstRect.top);
-			presentLayeredWindows(*this, data.DstSubResourceIndex, dstRect,
-				Gdi::Window::getVisibleOverlayWindows(), dstRect);
+			presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
+				Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);
 		}
 
 		return LOG_RESULT(S_OK);
@@ -1294,7 +1292,7 @@ namespace D3dDdi
 				continue;
 			}
 
-			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left, visibleRect.bottom - visibleRect.top };
+			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left + 1, visibleRect.bottom - visibleRect.top + 1 };
 			auto& windowSurface = repo.getTempSysMemSurface(srcRect.right, srcRect.bottom);
 			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, D3DDDIFMT_A8R8G8B8);
 			if (!windowSurface.resource || !texture.resource)
@@ -1304,9 +1302,16 @@ namespace D3dDdi
 
 			HDC srcDc = GetWindowDC(layeredWindow.hwnd);
 			HDC dstDc = nullptr;
+			POINT srcOrig = { visibleRect.left - layeredWindow.rect.left, visibleRect.top - layeredWindow.rect.top };
 			windowSurface.surface->GetDC(windowSurface.surface, &dstDc);
-			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, srcRect.right, srcRect.bottom, srcDc,
-				visibleRect.left - layeredWindow.rect.left, visibleRect.top - layeredWindow.rect.top, SRCCOPY);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, srcRect.right - 1, srcRect.bottom - 1,
+				srcDc, srcOrig.x, srcOrig.y, SRCCOPY);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, srcRect.right - 1, 0, 1, srcRect.bottom - 1,
+				srcDc, srcOrig.x + srcRect.right - 2, srcOrig.y, SRCCOPY);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, srcRect.bottom - 1, srcRect.right - 1, 1,
+				srcDc, srcOrig.x, srcOrig.y + srcRect.bottom - 2, SRCCOPY);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, srcRect.right - 1, srcRect.bottom - 1, 1, 1,
+				srcDc, srcOrig.x + srcRect.right - 2, srcOrig.y + srcRect.bottom - 2, SRCCOPY);
 			windowSurface.surface->ReleaseDC(windowSurface.surface, dstDc);
 			ReleaseDC(layeredWindow.hwnd, srcDc);
 
@@ -1327,8 +1332,10 @@ namespace D3dDdi
 			}
 			Rect::transform(visibleRect, monitorRect, dstRect);
 
-			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect, D3DTEXF_POINT,
-				ck, (flags & ULW_ALPHA) ? &alpha : nullptr,
+			srcRect.right--;
+			srcRect.bottom--;
+			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect,
+				D3DTEXF_LINEAR | D3DTEXF_SRGB, ck, (flags & ULW_ALPHA) ? &alpha : nullptr,
 				layeredWindow.region);
 		}
 	}
@@ -1398,14 +1405,16 @@ namespace D3dDdi
 
 			const Int2 ar = m_device.getAdapter().getAspectRatio();
 			g_presentationRect = calculateScaledRect({ 0, 0, ar.x, ar.y }, DDraw::RealPrimarySurface::getMonitorRect());
-			auto& si = m_origData.pSurfList[0];
-			RECT primaryRect = { 0, 0, static_cast<LONG>(si.Width), static_cast<LONG>(si.Height) };
 
-			Gdi::Cursor::setMonitorClipRect(DDraw::PrimarySurface::getMonitorRect());
-			if (!EqualRect(&g_presentationRect, &primaryRect))
+			const auto& mi = m_device.getAdapter().getMonitorInfo();
+			auto clipRect = mi.rcEmulated;
+			if (!EqualRect(&mi.rcMonitor, &mi.rcReal))
 			{
-				Gdi::Cursor::setEmulated(true);
+				InflateRect(&clipRect, -1, -1);
 			}
+
+			Gdi::Cursor::setMonitorClipRect(clipRect);
+			Gdi::Cursor::setEmulated(mi.isEmulated);
 			Gdi::VirtualScreen::setFullscreenMode(m_origData.Flags.MatchGdiPrimary);
 		}
 		else

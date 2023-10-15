@@ -13,6 +13,9 @@ namespace Overlay
 	class Window : public Control
 	{
 	public:
+		static const LONG VIRTUAL_SCREEN_WIDTH = 640;
+		static const LONG VIRTUAL_SCREEN_HEIGHT = 480;
+
 		Window(Window* parentWindow, const RECT& rect, DWORD style, int alpha, const Input::HotKey& hotKey = {});
 		virtual ~Window() override;
 

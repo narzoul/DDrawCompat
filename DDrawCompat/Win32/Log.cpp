@@ -2,6 +2,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/Path.h>
 #include <Win32/Log.h>
 
 namespace
@@ -259,6 +260,14 @@ std::ostream& operator<<(std::ostream& os, const HFONT__& font)
 	return Compat::LogStruct(os)
 		<< static_cast<void*>(hfont)
 		<< lf;
+}
+
+std::ostream& operator<<(std::ostream& os, const HINSTANCE__& inst)
+{
+	os << "MOD";
+	return Compat::LogStruct(os)
+		<< static_cast<const void*>(&inst)
+		<< Compat::getModulePath(const_cast<HINSTANCE>(&inst));
 }
 
 std::ostream& operator<<(std::ostream& os, const HRGN__& rgn)

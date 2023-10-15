@@ -192,7 +192,7 @@ namespace Gdi
 
 			POINT pos = {};
 			CALL_ORIG_FUNC(GetCursorPos)(&pos);
-			SetCursorPos(pos.x, pos.y);
+			CALL_ORIG_FUNC(SetCursorPos)(pos.x, pos.y);
 		}
 
 		void setMonitorClipRect(const RECT& rect)

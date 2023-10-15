@@ -6,7 +6,7 @@ namespace Gdi
 {
 	namespace PresentationWindow
 	{
-		HWND create(HWND owner);
+		HWND create(HWND owner, bool dpiAware = false);
 
 		void installHooks();
 	}

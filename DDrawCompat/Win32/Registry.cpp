@@ -6,6 +6,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Dll/Dll.h>
 #include <Win32/Registry.h>
 
 typedef long NTSTATUS;
@@ -65,6 +66,19 @@ namespace
 	};
 
 #undef HKLM_SOFTWARE_KEY
+
+	LSTATUS WINAPI ddrawRegCreateKeyExA(HKEY hKey, LPCSTR lpSubKey, DWORD Reserved, LPSTR lpClass, DWORD dwOptions,
+		REGSAM samDesired, const LPSECURITY_ATTRIBUTES lpSecurityAttributes, PHKEY phkResult, LPDWORD lpdwDisposition)
+	{
+		LOG_FUNC("ddrawRegCreateKeyExA", hKey, lpSubKey, Reserved, lpClass, dwOptions, samDesired,
+			lpSecurityAttributes, phkResult, lpdwDisposition);
+		if (0 == lstrcmpi(lpSubKey, "Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers"))
+		{
+			return LOG_RESULT(E_ABORT);
+		}
+		return LOG_RESULT(RegCreateKeyExA(hKey, lpSubKey, Reserved, lpClass, dwOptions, samDesired,
+			lpSecurityAttributes, phkResult, lpdwDisposition));
+	}
 
 	bool filterType(DWORD type, const DWORD* flags)
 	{
@@ -424,6 +438,8 @@ namespace Win32
 			HOOK_REGISTRY_FUNCTION(RegGetValueW, regGetValueW);
 			HOOK_REGISTRY_FUNCTION(RegQueryValueExA, regQueryValueExA);
 			HOOK_REGISTRY_FUNCTION(RegQueryValueExW, regQueryValueExW);
+
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "RegCreateKeyExA", ddrawRegCreateKeyExA);
 		}
 	}
 }

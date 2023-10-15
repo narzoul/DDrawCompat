@@ -19,6 +19,7 @@
 #include <Gdi/Palette.h>
 #include <Gdi/Window.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 
 namespace
 {
@@ -310,7 +311,7 @@ namespace
 
 			MONITORINFOEX mi = {};
 			mi.cbSize = sizeof(mi);
-			GetMonitorInfo(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 
 			D3DKMT_OPENADAPTERFROMHDC data = {};
 			data.hDc = CreateDC(mi.szDevice, mi.szDevice, nullptr, nullptr);
@@ -374,11 +375,11 @@ namespace D3dDdi
 			HWND presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
 			if (presentationWindow && presentationWindow == data.hWindow)
 			{
-				rect = DDraw::RealPrimarySurface::getMonitorRect();
+				Win32::ScopedDpiAwareness dpiAwareness;
+				GetWindowRect(presentationWindow, &rect);
 				OffsetRect(&rect, -rect.left, -rect.top);
 				data.SrcRect = rect;
-				data.DstRect.right = data.DstRect.left + rect.right;
-				data.DstRect.bottom = data.DstRect.top + rect.bottom;
+				data.DstRect = rect;
 				if (1 == data.SubRectCnt)
 				{
 					data.pSrcSubRects = &rect;

@@ -327,6 +327,7 @@
     <ClInclude Include="Overlay\StatsWindow.h" />
     <ClInclude Include="Overlay\Window.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
+    <ClInclude Include="Win32\DpiAwareness.h" />
     <ClInclude Include="Win32\Log.h" />
     <ClInclude Include="Win32\MemoryManagement.h" />
     <ClInclude Include="Win32\Registry.h" />
@@ -460,6 +461,7 @@
     <ClCompile Include="Overlay\StatsWindow.cpp" />
     <ClCompile Include="Overlay\Window.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
+    <ClCompile Include="Win32\DpiAwareness.cpp" />
     <ClCompile Include="Win32\Log.cpp" />
     <ClCompile Include="Win32\MemoryManagement.cpp" />
     <ClCompile Include="Win32\Registry.cpp" />

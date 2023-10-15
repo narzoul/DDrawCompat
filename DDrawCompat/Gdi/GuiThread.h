@@ -16,8 +16,8 @@ namespace Gdi
 {
 	namespace GuiThread
 	{
-		HWND createWindow(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
-			int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam);
+		HWND createWindow(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle, int X, int Y,
+			int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam, bool dpiAware);
 		void deleteTaskbarTab(HWND hwnd);
 		void destroyWindow(HWND hwnd);
 		void setWindowRgn(HWND hwnd, Gdi::Region rgn);

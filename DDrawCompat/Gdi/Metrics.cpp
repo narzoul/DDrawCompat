@@ -12,11 +12,10 @@ namespace
 	int getAdjustedDisplayMetrics(int nIndex, int cxIndex)
 	{
 		int result = CALL_ORIG_FUNC(GetSystemMetrics)(nIndex);
-		auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
-		if (0 == dm.rect.left && 0 == dm.rect.top)
-		{
-			result += (nIndex == cxIndex) ? dm.diff.cx : dm.diff.cy;
-		}
+		auto mi = Win32::DisplayMode::getMonitorInfo();
+		result += (nIndex == cxIndex)
+			? (mi.rcEmulated.right - mi.rcMonitor.right)
+			: (mi.rcEmulated.bottom - mi.rcMonitor.bottom);
 		return result;
 	}
 

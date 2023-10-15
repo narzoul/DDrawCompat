@@ -12,6 +12,7 @@
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 
 namespace
 {
@@ -105,8 +106,8 @@ namespace Gdi
 {
 	namespace GuiThread
 	{
-		HWND createWindow(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle,
-			int X, int Y, int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam)
+		HWND createWindow(DWORD dwExStyle, LPCWSTR lpClassName, LPCWSTR lpWindowName, DWORD dwStyle, int X, int Y,
+			int nWidth, int nHeight, HWND hWndParent, HMENU hMenu, HINSTANCE hInstance, LPVOID lpParam, bool dpiAware)
 		{
 			// Workaround for ForceSimpleWindow shim
 			static auto createWindowExW = reinterpret_cast<decltype(&CreateWindowExW)>(
@@ -115,6 +116,7 @@ namespace Gdi
 			HWND hwnd = nullptr;
 			execute([&]()
 				{
+					Win32::ScopedDpiAwareness dpiAwareness(dpiAware);
 					hwnd = createWindowExW(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight,
 						hWndParent, hMenu, hInstance, lpParam);
 				});

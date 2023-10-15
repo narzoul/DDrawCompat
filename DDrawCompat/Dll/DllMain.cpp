@@ -28,6 +28,7 @@
 #include <Gdi/VirtualScreen.h>
 #include <Input/Input.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 #include <Win32/MemoryManagement.h>
 #include <Win32/Registry.h>
 #include <Win32/Thread.h>
@@ -149,12 +150,6 @@ namespace
 			(!Compat::isEqual(currentDllPath, dciman32DllPath) && GetModuleHandleW(dciman32DllPath.c_str()));
 	}
 
-	void logDpiAwareness(bool isSuccessful, DPI_AWARENESS_CONTEXT dpiAwareness, const char* funcName)
-	{
-		LOG_INFO << (isSuccessful ? "DPI awareness was successfully changed" : "Failed to change process DPI awareness")
-			<< " to \"" << Config::dpiAwareness.convertToString(dpiAwareness) << "\" via " << funcName;
-	}
-
 	void onDirectDrawCreate(GUID* lpGUID, LPDIRECTDRAW* lplpDD, IUnknown* /*pUnkOuter*/)
 	{
 		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(*lplpDD));
@@ -178,71 +173,6 @@ namespace
 			return LOG_RESULT(S_OK);
 		}
 		return LOG_RESULT(CALL_ORIG_PROC(SetAppCompatData)(param1, param2));
-	}
-
-	void setDpiAwareness()
-	{
-		auto dpiAwareness = Config::dpiAwareness.get();
-		if (!dpiAwareness)
-		{
-			return;
-		}
-
-		HMODULE user32 = LoadLibrary("user32");
-		auto isValidDpiAwarenessContext = reinterpret_cast<decltype(&IsValidDpiAwarenessContext)>(
-			Compat::getProcAddress(user32, "IsValidDpiAwarenessContext"));
-		auto setProcessDpiAwarenessContext = reinterpret_cast<decltype(&SetProcessDpiAwarenessContext)>(
-			Compat::getProcAddress(user32, "SetProcessDpiAwarenessContext"));
-		if (isValidDpiAwarenessContext && setProcessDpiAwarenessContext)
-		{
-			if (DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == dpiAwareness &&
-				!isValidDpiAwarenessContext(dpiAwareness))
-			{
-				dpiAwareness = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE;
-			}
-			
-			if (DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED == dpiAwareness &&
-				!isValidDpiAwarenessContext(dpiAwareness))
-			{
-				dpiAwareness = DPI_AWARENESS_CONTEXT_UNAWARE;
-			}
-
-			logDpiAwareness(setProcessDpiAwarenessContext(dpiAwareness), dpiAwareness, "SetProcessDpiAwarenessContext");
-			return;
-		}
-
-		auto setProcessDpiAwareness = reinterpret_cast<decltype(&SetProcessDpiAwareness)>(
-			Compat::getProcAddress(LoadLibrary("shcore"), "SetProcessDpiAwareness"));
-		if (setProcessDpiAwareness)
-		{
-			HRESULT result = S_OK;
-			if (DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE == dpiAwareness ||
-				DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == dpiAwareness)
-			{
-				dpiAwareness = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE;
-				result = setProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
-			}
-			else if (DPI_AWARENESS_CONTEXT_SYSTEM_AWARE == dpiAwareness)
-			{
-				result = setProcessDpiAwareness(PROCESS_SYSTEM_DPI_AWARE);
-			}
-			else
-			{
-				dpiAwareness = DPI_AWARENESS_CONTEXT_UNAWARE;
-				result = setProcessDpiAwareness(PROCESS_DPI_UNAWARE);
-			}
-
-			logDpiAwareness(SUCCEEDED(result), dpiAwareness, "SetProcessDpiAwareness");
-			return;
-		}
-
-		if (DPI_AWARENESS_CONTEXT_UNAWARE == dpiAwareness ||
-			DPI_AWARENESS_CONTEXT_UNAWARE_GDISCALED == dpiAwareness)
-		{
-			LOG_INFO << "DPI awareness was not changed";
-		}
-
-		logDpiAwareness(SetProcessDPIAware(), DPI_AWARENESS_CONTEXT_SYSTEM_AWARE, "SetProcessDPIAware");
 	}
 
 	LPTOP_LEVEL_EXCEPTION_FILTER WINAPI setUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter)
@@ -407,7 +337,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Compat::closeDbgEng();
 
 		CALL_ORIG_FUNC(timeBeginPeriod)(1);
-		setDpiAwareness();
+		Win32::DpiAwareness::init();
 		SetThemeAppProperties(0);
 		Time::init();
 		Win32::Thread::applyConfig();

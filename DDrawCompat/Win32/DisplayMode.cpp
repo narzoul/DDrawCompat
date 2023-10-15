@@ -9,7 +9,9 @@
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
-#include <Common/ScopedSrwLock.h>
+#include <Common/Log.h>
+#include <Common/Rect.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DisplayRefreshRate.h>
@@ -21,6 +23,7 @@
 #include <Gdi/GuiThread.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 
 BOOL WINAPI DWM8And16Bit_IsShimApplied_CallOut() { return FALSE; }
 ULONG WINAPI GdiEntry13() { return 0; }
@@ -62,7 +65,10 @@ namespace
 	DWORD g_desktopBpp = 0;
 	ULONG g_displaySettingsUniquenessBias = 0;
 	EmulatedDisplayMode g_emulatedDisplayMode = {};
-	Compat::SrwLock g_srwLock;
+	ULONG g_monitorInfoUniqueness = 0;
+	std::map<HMONITOR, Win32::DisplayMode::MonitorInfo> g_monitorInfo;
+	Win32::DisplayMode::MonitorInfo g_emptyMonitorInfo = {};
+	Compat::CriticalSection g_cs;
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut();
 	BOOL WINAPI seComHookInterface(CLSID* clsid, GUID* iid, DWORD unk1, DWORD unk2);
@@ -92,24 +98,10 @@ namespace
 
 	void setDwmDxFullscreenTransitionEvent();
 
-	void adjustMonitorInfo(MONITORINFO& mi)
-	{
-		Compat::ScopedSrwLockShared srwLock(g_srwLock);
-		if (!g_emulatedDisplayMode.deviceName.empty() &&
-			g_emulatedDisplayMode.rect.left == mi.rcMonitor.left &&
-			g_emulatedDisplayMode.rect.top == mi.rcMonitor.top)
-		{
-			mi.rcMonitor.right += g_emulatedDisplayMode.diff.cx;
-			mi.rcMonitor.bottom += g_emulatedDisplayMode.diff.cy;
-			mi.rcWork.right += g_emulatedDisplayMode.diff.cx;
-			mi.rcWork.bottom += g_emulatedDisplayMode.diff.cy;
-		}
-	}
-
 	template <typename Char>
 	LONG changeDisplaySettingsEx(const Char* lpszDeviceName, typename DevMode<Char>* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
-		DDraw::ScopedThreadLock lock;
+		DDraw::ScopedThreadLock ddLock;
 		auto desktopResolution = Config::desktopResolution.get();
 		if (!lpDevMode && 0 == dwflags && Config::Settings::DesktopResolution::DESKTOP != desktopResolution)
 		{
@@ -235,7 +227,7 @@ namespace
 		}
 
 		{
-			Compat::ScopedSrwLockExclusive srwLock(g_srwLock);
+			Compat::ScopedCriticalSection lock(g_cs);
 			++g_displaySettingsUniquenessBias;
 			if (lpDevMode)
 			{
@@ -246,13 +238,7 @@ namespace
 					g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
 				}
 				g_emulatedDisplayMode.refreshRate = currDevMode.dmDisplayFrequency;
-
 				g_emulatedDisplayMode.deviceName = getDeviceName(lpszDeviceName);
-				g_emulatedDisplayMode.rect = Win32::DisplayMode::getMonitorInfo(g_emulatedDisplayMode.deviceName).rcMonitor;
-				g_emulatedDisplayMode.rect.right = g_emulatedDisplayMode.rect.left + emulatedResolution.cx;
-				g_emulatedDisplayMode.rect.bottom = g_emulatedDisplayMode.rect.top + emulatedResolution.cy;
-				g_emulatedDisplayMode.diff.cx = emulatedResolution.cx - currDevMode.dmPelsWidth;
-				g_emulatedDisplayMode.diff.cy = emulatedResolution.cy - currDevMode.dmPelsHeight;
 			}
 			else
 			{
@@ -322,7 +308,7 @@ namespace
 			BOOL result = origEnumDisplaySettingsEx(lpszDeviceName, iModeNum, lpDevMode, dwFlags);
 			if (result)
 			{
-				Compat::ScopedSrwLockShared srwLock(g_srwLock);
+				Compat::ScopedCriticalSection lock(g_cs);
 				if (getDeviceName(lpszDeviceName) == g_emulatedDisplayMode.deviceName)
 				{
 					lpDevMode->dmBitsPerPel = g_emulatedDisplayMode.bpp;
@@ -388,20 +374,8 @@ namespace
 
 	ULONG WINAPI gdiEntry13()
 	{
-		Compat::ScopedSrwLockShared lock(g_srwLock);
+		Compat::ScopedCriticalSection lock(g_cs);
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
-	}
-
-	SIZE getAppResolution(const std::wstring& deviceName, SIZE displayResolution = {})
-	{
-		{
-			Compat::ScopedSrwLockShared srwLock(g_srwLock);
-			if (deviceName == g_emulatedDisplayMode.deviceName)
-			{
-				return { static_cast<LONG>(g_emulatedDisplayMode.width), static_cast<LONG>(g_emulatedDisplayMode.height) };
-			}
-		}
-		return 0 != displayResolution.cx ? displayResolution : Win32::DisplayMode::getDisplayResolution(deviceName);
 	}
 
 	template <typename Char>
@@ -464,17 +438,8 @@ namespace
 		case VERTRES:
 			if (Gdi::isDisplayDc(hdc))
 			{
-				MONITORINFO mi = {};
-				mi.cbSize = sizeof(mi);
-				GetMonitorInfo(getMonitorFromDc(hdc), &mi);
-				if (HORZRES == nIndex)
-				{
-					return LOG_RESULT(mi.rcMonitor.right - mi.rcMonitor.left);
-				}
-				else
-				{
-					return LOG_RESULT(mi.rcMonitor.bottom - mi.rcMonitor.top);
-				}
+				const auto& r = Win32::DisplayMode::getMonitorInfo().rcEmulated;
+				return HORZRES == nIndex ? (r.right - r.left) : (r.bottom - r.top);
 			}
 			break;
 
@@ -527,64 +492,13 @@ namespace
 		return mi.szDevice;
 	}
 
-	BOOL CALLBACK getMonitorFromDcEnum(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
-	{
-		auto& args = *reinterpret_cast<GetMonitorFromDcEnumArgs*>(dwData);
-
-		MONITORINFOEX mi = {};
-		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, &mi);
-
-		HDC dc = CreateDC(mi.szDevice, nullptr, nullptr, nullptr);
-		if (dc)
-		{
-			POINT org = {};
-			GetDCOrgEx(dc, &org);
-			DeleteDC(dc);
-			if (org == args.org)
-			{
-				args.hmonitor = hMonitor;
-				return FALSE;
-			}
-		}
-		return TRUE;
-	}
-	
-	HMONITOR getMonitorFromDc(HDC dc)
-	{
-		HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(dc);
-		if (hwnd)
-		{
-			return MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
-		}
-		
-		GetMonitorFromDcEnumArgs args = {};
-		GetDCOrgEx(dc, &args.org);
-		EnumDisplayMonitors(nullptr, nullptr, getMonitorFromDcEnum, reinterpret_cast<LPARAM>(&args));
-		return args.hmonitor ? args.hmonitor : MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY);
-	}
-
-	BOOL CALLBACK getMonitorInfoEnum(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM dwData)
-	{
-		MONITORINFOEXW mi = {};
-		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
-		auto& dest = *reinterpret_cast<MONITORINFOEXW*>(dwData);
-		if (0 == wcscmp(mi.szDevice, dest.szDevice))
-		{
-			dest = mi;
-			return FALSE;
-		}
-		return TRUE;
-	}
-
 	BOOL WINAPI getMonitorInfoA(HMONITOR hMonitor, LPMONITORINFO lpmi)
 	{
 		LOG_FUNC("GetMonitorInfoA", hMonitor, lpmi);
 		BOOL result = CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, lpmi);
 		if (result)
 		{
-			adjustMonitorInfo(*lpmi);
+			lpmi->rcMonitor = Win32::DisplayMode::getMonitorInfo(hMonitor).rcEmulated;
 		}
 		return LOG_RESULT(result);
 	}
@@ -595,7 +509,7 @@ namespace
 		BOOL result = CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, lpmi);
 		if (result)
 		{
-			adjustMonitorInfo(*lpmi);
+			lpmi->rcMonitor = Win32::DisplayMode::getMonitorInfo(hMonitor).rcEmulated;
 		}
 		return LOG_RESULT(result);
 	}
@@ -750,50 +664,129 @@ namespace
 			CloseHandle(dwmDxFullscreenTransitionEvent);
 		}
 	}
+
+	BOOL CALLBACK updateMonitorInfoEnum(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM /*dwData*/)
+	{
+		auto& mi = g_monitorInfo[hMonitor];
+		mi.cbSize = sizeof(MONITORINFOEXW);
+		CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &mi);
+
+		DEVMODEW dm = {};
+		dm.dmSize = sizeof(dm);
+		CALL_ORIG_FUNC(EnumDisplaySettingsExW)(mi.szDevice, ENUM_CURRENT_SETTINGS, &dm, 0);
+		mi.rcReal.left = dm.dmPosition.x;
+		mi.rcReal.top = dm.dmPosition.y;
+		mi.rcReal.right = dm.dmPosition.x + dm.dmPelsWidth;
+		mi.rcReal.bottom = dm.dmPosition.y + dm.dmPelsHeight;
+
+		mi.rcDpiAware = Win32::DpiAwareness::isMixedModeSupported() ? mi.rcReal : mi.rcMonitor;
+
+		mi.rcEmulated = mi.rcMonitor;
+		if (g_emulatedDisplayMode.deviceName == mi.szDevice)
+		{
+			mi.rcEmulated.right = mi.rcEmulated.left + g_emulatedDisplayMode.width;
+			mi.rcEmulated.bottom = mi.rcEmulated.top + g_emulatedDisplayMode.height;
+			mi.bpp = g_emulatedDisplayMode.bpp;
+			mi.isEmulated = true;
+		}
+		else
+		{
+			mi.bpp = g_desktopBpp;
+		}
+
+		mi.dpiScale = MulDiv(100, mi.rcReal.right - mi.rcReal.left, mi.rcMonitor.right - mi.rcMonitor.left);
+
+		if (0 == mi.rcMonitor.left && 0 == mi.rcMonitor.top)
+		{
+			g_monitorInfo[nullptr] = mi;
+		}
+
+		LOG_DEBUG << "updateMonitorInfoEnum: " << hMonitor << " " << mi;
+		return TRUE;
+	}
+
+	void updateMonitorInfo()
+	{
+		const auto uniqueness = gdiEntry13();
+		if (uniqueness != g_monitorInfoUniqueness || g_monitorInfo.empty())
+		{
+			g_monitorInfo.clear();
+			g_monitorInfoUniqueness = uniqueness;
+			EnumDisplayMonitors(nullptr, nullptr, &updateMonitorInfoEnum, 0);
+		}
+	}
 }
 
 namespace Win32
 {
 	namespace DisplayMode
 	{
-		SIZE getAppResolution(const std::wstring& deviceName)
+		std::ostream& operator<<(std::ostream& os, const MonitorInfo& mi)
 		{
-			return ::getAppResolution(deviceName);
+			return Compat::LogStruct(os)
+				<< mi.rcMonitor
+				<< mi.rcWork
+				<< Compat::hex(mi.dwFlags)
+				<< mi.szDevice
+				<< mi.rcReal
+				<< mi.rcDpiAware
+				<< mi.rcEmulated
+				<< mi.bpp
+				<< mi.dpiScale
+				<< mi.isEmulated;
+		}
+
+		std::map<HMONITOR, MonitorInfo> getAllMonitorInfo()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			updateMonitorInfo();
+			auto mi = g_monitorInfo;
+			mi.erase(nullptr);
+			return mi;
 		}
 
 		DWORD getBpp()
 		{
-			return getEmulatedDisplayMode().bpp;
-		}
-
-		SIZE getDisplayResolution(const std::wstring& deviceName)
-		{
-			DEVMODEW dm = {};
-			dm.dmSize = sizeof(dm);
-			CALL_ORIG_FUNC(EnumDisplaySettingsExW)(deviceName.c_str(), ENUM_CURRENT_SETTINGS, &dm, 0);
-			return { static_cast<LONG>(dm.dmPelsWidth), static_cast<LONG>(dm.dmPelsHeight) };
+			Compat::ScopedCriticalSection lock(g_cs);
+			return g_emulatedDisplayMode.bpp;
 		}
 
 		EmulatedDisplayMode getEmulatedDisplayMode()
 		{
-			Compat::ScopedSrwLockShared lock(g_srwLock);
+			Compat::ScopedCriticalSection lock(g_cs);
 			return g_emulatedDisplayMode;
 		}
 
-		MONITORINFOEXW getMonitorInfo(const std::wstring& deviceName)
+		const MonitorInfo& getMonitorInfo(HMONITOR monitor)
 		{
-			MONITORINFOEXW mi = {};
-			wcscpy_s(mi.szDevice, deviceName.c_str());
-			EnumDisplayMonitors(nullptr, nullptr, &getMonitorInfoEnum, reinterpret_cast<LPARAM>(&mi));
-			return mi;
+			Compat::ScopedCriticalSection lock(g_cs);
+			updateMonitorInfo();
+			auto it = g_monitorInfo.find(monitor);
+			return it != g_monitorInfo.end() ? it->second : g_emptyMonitorInfo;
 		}
 
-		Resolution getResolution(const std::wstring& deviceName)
+		const MonitorInfo& getMonitorInfo(HWND hwnd)
 		{
-			Resolution res = {};
-			res.display = getDisplayResolution(deviceName);
-			res.app = ::getAppResolution(deviceName, res.display);
-			return res;
+			return getMonitorInfo(hwnd ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) : nullptr);
+		}
+
+		const MonitorInfo& getMonitorInfo(POINT pt)
+		{
+			return getMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+		}
+
+		const MonitorInfo& getMonitorInfo(const std::wstring& deviceName)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			updateMonitorInfo();
+			for (const auto& mi : g_monitorInfo)
+			{
+				if (deviceName == mi.second.szDevice)
+				{
+					return mi.second;
+				}
+			}
+			return g_emptyMonitorInfo;
 		}
 
 		ULONG queryDisplaySettingsUniqueness()

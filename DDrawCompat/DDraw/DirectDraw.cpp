@@ -180,14 +180,6 @@ namespace DDraw
 {
 	namespace DirectDraw
 	{
-		DDSURFACEDESC2 getDisplayMode(CompatRef<IDirectDraw7> dd)
-		{
-			DDSURFACEDESC2 dm = {};
-			dm.dwSize = sizeof(dm);
-			dd->GetDisplayMode(&dd, &dm);
-			return dm;
-		}
-
 		DDPIXELFORMAT getRgbPixelFormat(DWORD bpp)
 		{
 			DDPIXELFORMAT pf = {};

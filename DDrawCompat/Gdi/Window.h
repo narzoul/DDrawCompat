@@ -21,12 +21,15 @@ namespace Gdi
 		std::vector<LayeredWindow> getVisibleLayeredWindows();
 		std::vector<LayeredWindow> getVisibleOverlayWindows();
 		HWND getFullscreenWindow();
+		int getRandomRgn(HDC hdc, HRGN hrgn, INT i);
+		Gdi::Region getWindowRgn(HWND hwnd);
 		bool isTopLevelWindow(HWND hwnd);
 		void onStyleChanged(HWND hwnd, WPARAM wParam);
 		void onSyncPaint(HWND hwnd);
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);
+		void setDpiAwareness(HWND hwnd, bool dpiAware);
 		void updateAll();
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner);
 	}

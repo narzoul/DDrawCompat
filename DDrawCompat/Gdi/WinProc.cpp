@@ -31,6 +31,7 @@
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 
 namespace
 {
@@ -51,7 +52,6 @@ namespace
 	};
 
 	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
-	decltype(&SetThreadDpiAwarenessContext) g_setThreadDpiAwarenessContext = nullptr;
 
 	wchar_t g_dummyWindowText;
 	std::map<HMENU, UINT> g_menuMaxHeight;
@@ -327,19 +327,8 @@ namespace
 		DeleteDC(dstDc);
 		ReleaseDC(presentationWindow, srcDc);
 
-		DPI_AWARENESS_CONTEXT prevContext = nullptr;
-		if (g_setThreadDpiAwarenessContext)
-		{
-			prevContext = g_setThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE);
-		}
-
+		Win32::ScopedDpiAwareness dpiAwareness;
 		g_dwmSetIconicThumbnail(hwnd, bmp, 0);
-
-		if (prevContext)
-		{
-			g_setThreadDpiAwarenessContext(prevContext);
-		}
-
 		DeleteObject(bmp);
 	}
 
@@ -368,6 +357,11 @@ namespace
 	BOOL WINAPI getMessageW(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
 	{
 		return getMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, CALL_ORIG_FUNC(GetMessageW));
+	}
+
+	int WINAPI getRandomRgn(HDC hdc, HRGN hrgn, INT i)
+	{
+		return Gdi::Window::getRandomRgn(hdc, hrgn, i);
 	}
 
 	LONG getWindowLong(HWND hWnd, int nIndex,
@@ -441,24 +435,22 @@ namespace
 			return;
 		}
 
-		HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY);
+		auto mi = Win32::DisplayMode::getMonitorInfo(hwnd);
 
-		MONITORINFO origMi = {};
-		origMi.cbSize = sizeof(origMi);
-		CALL_ORIG_FUNC(GetMonitorInfoA)(monitor, &origMi);
-
-		MONITORINFO mi = {};
-		mi.cbSize = sizeof(mi);
-		GetMonitorInfoA(monitor, &mi);
-
-		if (!EqualRect(&origMi.rcMonitor, &mi.rcMonitor))
+		if (!EqualRect(&mi.rcEmulated, &mi.rcMonitor))
 		{
 			RECT wr = {};
 			GetWindowRect(hwnd, &wr);
 			const LONG width = wr.right - wr.left;
 			const LONG height = wr.bottom - wr.top;
 
-			const RECT& mr = 0 == g_inMessageBox ? mi.rcWork : mi.rcMonitor;
+			if (0 == g_inMessageBox)
+			{
+				mi.rcWork.right = mi.rcWork.left + mi.rcEmulated.right - mi.rcEmulated.left;
+				mi.rcWork.bottom = mi.rcWork.top + mi.rcEmulated.bottom - mi.rcEmulated.top;
+			}
+
+			const RECT& mr = 0 == g_inMessageBox ? mi.rcWork : mi.rcEmulated;
 			const LONG left = (mr.left + mr.right - width) / 2;
 			const LONG top = (mr.top + mr.bottom - height) / 2;
 
@@ -506,11 +498,9 @@ namespace
 
 	void onGetMinMaxInfo(MINMAXINFO& mmi)
 	{
-		MONITORINFOEXA mi = {};
-		mi.cbSize = sizeof(mi);
-		GetMonitorInfoA(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
-		mmi.ptMaxSize.x = mi.rcMonitor.right - 2 * mmi.ptMaxPosition.x;
-		mmi.ptMaxSize.y = mi.rcMonitor.bottom - 2 * mmi.ptMaxPosition.y;
+		const auto& mi = Win32::DisplayMode::getMonitorInfo();
+		mmi.ptMaxSize.x = mi.rcEmulated.right - 2 * mmi.ptMaxPosition.x;
+		mmi.ptMaxSize.y = mi.rcEmulated.bottom - 2 * mmi.ptMaxPosition.y;
 	}
 
 	void onInitMenuPopup(HMENU menu)
@@ -861,6 +851,7 @@ namespace Gdi
 			HOOK_FUNCTION(user32, GetCursorPos, getCursorPos);
 			HOOK_FUNCTION(user32, GetMessageA, getMessageA);
 			HOOK_FUNCTION(user32, GetMessageW, getMessageW);
+			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);
 			HOOK_FUNCTION(user32, GetWindowLongW, getWindowLongW);
 			HOOK_FUNCTION(user32, MessageBoxA, messageBox<MessageBoxA>);
@@ -878,8 +869,6 @@ namespace Gdi
 
 			g_dwmSetIconicThumbnail = reinterpret_cast<decltype(&DwmSetIconicThumbnail)>(
 				GetProcAddress(GetModuleHandle("dwmapi"), "DwmSetIconicThumbnail"));
-			g_setThreadDpiAwarenessContext = reinterpret_cast<decltype(&SetThreadDpiAwarenessContext)>(
-				GetProcAddress(GetModuleHandle("user32"), "SetThreadDpiAwarenessContext"));
 
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "SetWindowLongA", ddrawSetWindowLongA);
 

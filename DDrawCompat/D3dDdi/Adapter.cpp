@@ -4,6 +4,7 @@
 
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
+#include <Common/Rect.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/DisplayAspectRatio.h>
 #include <Config/Settings/PalettizedTextures.h>
@@ -63,23 +64,23 @@ namespace D3dDdi
 	{
 	}
 
-	Int2 Adapter::getAspectRatio(Win32::DisplayMode::Resolution res) const
+	Int2 Adapter::getAspectRatio(SIZE appRes, SIZE displayRes) const
 	{
 		SIZE ar = Config::displayAspectRatio.get();
 		if (Config::Settings::DisplayAspectRatio::APP == ar)
 		{
-			return 0 != res.app.cx ? res.app : Win32::DisplayMode::getAppResolution(m_deviceName);
+			return 0 != appRes.cx ? appRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcEmulated);
 		}
 		else if (Config::Settings::DisplayAspectRatio::DISPLAY == ar)
 		{
-			return 0 != res.display.cx ? res.display : Win32::DisplayMode::getDisplayResolution(m_deviceName);
+			return 0 != displayRes.cx ? displayRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcReal);
 		}
 		return ar;
 	}
 
 	Int2 Adapter::getAspectRatio() const
 	{
-		return getAspectRatio({});
+		return getAspectRatio({}, {});
 	}
 
 	const Adapter::AdapterInfo& Adapter::findInfo() const
@@ -253,20 +254,23 @@ namespace D3dDdi
 			return 1;
 		}
 
-		const auto res = Win32::DisplayMode::getResolution(m_deviceName);
+		const auto& mi = Win32::DisplayMode::getMonitorInfo(m_deviceName);
+		auto displayRes = Rect::getSize(mi.rcReal);
+		auto appRes = Rect::getSize(mi.isEmulated ? mi.rcEmulated : mi.rcReal);
+
 		Int2 targetResolution = resolutionScale;
 		if (Config::Settings::ResolutionScale::APP == resolutionScale)
 		{
-			targetResolution = res.app;
+			targetResolution = appRes;
 		}
 		else if (Config::Settings::ResolutionScale::DISPLAY == resolutionScale)
 		{
-			targetResolution = res.display;
+			targetResolution = displayRes;
 		}
 
 		targetResolution *= abs(multiplier);
 
-		const Int2 ar = getAspectRatio(res);
+		const Int2 ar = getAspectRatio(appRes, displayRes);
 		if (targetResolution.y * ar.x / ar.y <= targetResolution.x)
 		{
 			targetResolution.x = targetResolution.y * ar.x / ar.y;
@@ -276,7 +280,7 @@ namespace D3dDdi
 			targetResolution.y = targetResolution.x * ar.y / ar.x;
 		}
 
-		const auto scaleFactor = Float2(targetResolution) / Float2(res.app);
+		const auto scaleFactor = Float2(targetResolution) / Float2(appRes);
 		return multiplier < 0 ? scaleFactor : ceil(scaleFactor);
 	}
 

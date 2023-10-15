@@ -17,7 +17,6 @@ namespace Gdi
 		void deleteDc(HDC dc);
 
 		RECT getBounds();
-		Region getRegion();
 		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect);
 
 		void init();
