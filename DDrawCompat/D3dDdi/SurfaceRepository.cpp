@@ -117,6 +117,21 @@ namespace D3dDdi
 		if (cursor != m_cursor)
 		{
 			m_cursor = cursor;
+
+			std::unique_ptr<HICON__, decltype(&DestroyCursor)> resizedCursor(reinterpret_cast<HCURSOR>(
+				CopyImage(cursor, IMAGE_CURSOR, 32, 32, LR_COPYRETURNORG | LR_COPYFROMRESOURCE)), DestroyCursor);
+			if (resizedCursor)
+			{
+				if (resizedCursor.get() == cursor)
+				{
+					resizedCursor.release();
+				}
+				else
+				{
+					cursor = resizedCursor.get();
+				}
+			}
+
 			ICONINFO iconInfo = {};
 			if (!GetIconInfo(cursor, &iconInfo))
 			{
