@@ -41,6 +41,8 @@ namespace D3dDdi
 		const auto& getMonitorInfo() const { return Win32::DisplayMode::getMonitorInfo(m_deviceName); }
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format) const;
 		const D3DDDI_ADAPTERFUNCS& getOrigVtable() const { return m_origVtable; }
+		D3DDDIFORMAT getRenderColorDepthSrcFormat(D3DDDIFORMAT appFormat) const;
+		D3DDDIFORMAT getRenderColorDepthDstFormat() const;
 		CompatWeakPtr<IDirectDraw7> getRepository() const { return m_repository; }
 		SIZE getScaledSize(Int2 size) const;
 		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format) const;
@@ -66,6 +68,7 @@ namespace D3dDdi
 		std::string getSupportedMsaaModes(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 		DWORD getSupportedZBufferBitDepths(const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
 		bool isEmulatedRenderTargetFormat(D3DDDIFORMAT format, const std::map<D3DDDIFORMAT, FORMATOP>& formatOps) const;
+		bool isSupportedRttFormat(D3DDDIFORMAT format) const;
 
 		HANDLE m_adapter;
 		D3DDDI_ADAPTERFUNCS m_origVtable;

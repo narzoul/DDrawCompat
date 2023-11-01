@@ -109,8 +109,10 @@ namespace
 		{ D3DDDIFMT_A8R3G3B2, FormatInfoXARGB(0, 8, 3, 3, 2) },
 		{ D3DDDIFMT_X4R4G4B4, FormatInfoXARGB(4, 0, 4, 4, 4) },
 
-		{ D3DDDIFMT_A8B8G8R8, FormatInfoXABGR(0, 8, 8, 8, 8) },
-		{ D3DDDIFMT_X8B8G8R8, FormatInfoXABGR(8, 0, 8, 8, 8) },
+		{ D3DDDIFMT_A2B10G10R10, FormatInfoXABGR(0, 2, 10, 10, 10) },
+		{ D3DDDIFMT_A8B8G8R8,    FormatInfoXABGR(0, 8, 8, 8, 8) },
+		{ D3DDDIFMT_X8B8G8R8,    FormatInfoXABGR(8, 0, 8, 8, 8) },
+		{ D3DDDIFMT_A2R10G10B10, FormatInfoXARGB(0, 2, 10, 10, 10) },
 
 		{ D3DDDIFMT_A8P8,     FormatInfoAP(8, 8) },
 		{ D3DDDIFMT_P8,       FormatInfoAP(0, 8) },
@@ -141,6 +143,11 @@ namespace
 
 	DDPIXELFORMAT getPixelFormat(const D3dDdi::FormatInfo& info)
 	{
+		if (info.red.bitCount > 8)
+		{
+			return {};
+		}
+
 		DDPIXELFORMAT pf = {};
 		pf.dwSize = sizeof(pf);
 		pf.dwFlags =

@@ -1136,9 +1136,6 @@
     <FxCompile Include="Shaders\VertexFixup.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
-    <FxCompile Include="Shaders\Gamma.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
     <FxCompile Include="Shaders\LockRef.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -1167,6 +1164,9 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\Point.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\PointNoFilter.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>

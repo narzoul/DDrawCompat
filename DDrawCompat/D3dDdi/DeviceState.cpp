@@ -48,6 +48,20 @@ namespace D3dDdi
 			m_state.m_device, &m_data, &m_state.m_pixelShaderConst[m_data.Register][0]);
 	}
 
+	DeviceState::TempPixelShaderConstB::TempPixelShaderConstB(
+		DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers)
+		: m_state(state)
+		, m_data(data)
+	{
+		state.m_device.getOrigVtable().pfnSetPixelShaderConstB(state.m_device, &data, registers);
+	}
+
+	DeviceState::TempPixelShaderConstB::~TempPixelShaderConstB()
+	{
+		m_state.m_device.getOrigVtable().pfnSetPixelShaderConstB(
+			m_state.m_device, &m_data, &m_state.m_pixelShaderConstB[m_data.Register][0]);
+	}
+
 	DeviceState::TempPixelShaderConstI::TempPixelShaderConstI(
 		DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTI& data, const ShaderConstI* registers)
 		: m_state(state)

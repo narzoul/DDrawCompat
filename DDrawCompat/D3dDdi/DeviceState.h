@@ -15,7 +15,9 @@ const UINT D3DTEXF_NONE = 0;
 const UINT D3DTEXF_POINT = 1;
 const UINT D3DTEXF_LINEAR = 2;
 const UINT D3DTEXF_ANISOTROPIC = 3;
-const UINT D3DTEXF_SRGB = 0x10000;
+const UINT D3DTEXF_SRGBREAD = 0x10000;
+const UINT D3DTEXF_SRGBWRITE = 0x20000;
+const UINT D3DTEXF_SRGB = D3DTEXF_SRGBREAD | D3DTEXF_SRGBWRITE;
 
 namespace D3dDdi
 {
@@ -57,6 +59,17 @@ namespace D3dDdi
 		private:
 			DeviceState& m_state;
 			D3DDDIARG_SETPIXELSHADERCONST m_data;
+		};
+
+		class TempPixelShaderConstB
+		{
+		public:
+			TempPixelShaderConstB(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers);
+			~TempPixelShaderConstB();
+
+		private:
+			DeviceState& m_state;
+			D3DDDIARG_SETPIXELSHADERCONSTB m_data;
 		};
 
 		class TempPixelShaderConstI

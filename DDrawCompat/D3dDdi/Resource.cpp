@@ -8,7 +8,6 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
-#include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
@@ -529,6 +528,12 @@ namespace D3dDdi
 			srcResource, subResourceIndex, getRect(subResourceIndex));
 	}
 
+	HRESULT Resource::copySubResourceRegion(UINT dstIndex, const RECT& dstRect,
+		HANDLE src, UINT srcIndex, const RECT& srcRect)
+	{
+		return copySubResourceRegion(*this, dstIndex, dstRect, src, srcIndex, srcRect);
+	}
+
 	HRESULT Resource::copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
 		HANDLE src, UINT srcIndex, const RECT& srcRect)
 	{
@@ -743,11 +748,7 @@ namespace D3dDdi
 
 		if (D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format)
 		{
-			switch (Config::renderColorDepth.get())
-			{
-			case 16: return D3DDDIFMT_R5G6B5;
-			case 32: return D3DDDIFMT_X8R8G8B8;
-			}
+			return m_device.getAdapter().getRenderColorDepthSrcFormat(m_fixedData.Format);
 		}
 		else if (m_fixedData.Flags.ZBuffer && Config::Settings::DepthFormat::APP != Config::depthFormat.get() &&
 			getFormatInfo(m_fixedData.Format).depth.bitCount != Config::depthFormat.get())
@@ -1212,7 +1213,7 @@ namespace D3dDdi
 		}
 
 		auto& repo = m_device.getRepo();
-		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight);
+		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight, srcResource->m_fixedData.Format);
 		auto rt = rtSurface.resource ? rtSurface.resource : this;
 		auto rtIndex = rtSurface.resource ? 0 : data.DstSubResourceIndex;
 		auto rtRect = rtSurface.resource ? data.SrcRect : data.DstRect;
@@ -1259,14 +1260,11 @@ namespace D3dDdi
 			m_device.getShaderBlitter().cursorBlt(*rt, rtIndex, rtRect, cursorInfo.hCursor, cursorInfo.ptScreenPos);
 		}
 
-		if (!rtSurface.resource)
+		if (rtSurface.resource)
 		{
-			return LOG_RESULT(S_OK);
+			m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *rt, 0, data.SrcRect);
+			clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 		}
-
-		m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *rt, 0, data.SrcRect);
-
-		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 
 		if (!IsRectEmpty(&g_presentationRect))
 		{
@@ -1468,7 +1466,7 @@ namespace D3dDdi
 
 		if (!srcResource.m_fixedData.Flags.Texture ||
 			D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool ||
-			(filter & D3DTEXF_SRGB) && !(srcResource.m_formatOp.Operations & FORMATOP_SRGBREAD))
+			(filter & D3DTEXF_SRGBREAD) && !(srcResource.m_formatOp.Operations & FORMATOP_SRGBREAD))
 		{
 			DWORD width = data.SrcRect.right - data.SrcRect.left;
 			DWORD height = data.SrcRect.bottom - data.SrcRect.top;
@@ -1498,11 +1496,11 @@ namespace D3dDdi
 		}
 
 		if (!dstResource.m_fixedData.Flags.RenderTarget && !dstResource.m_fixedData.Flags.ZBuffer ||
-			(filter & D3DTEXF_SRGB) && !(dstResource.m_formatOp.Operations & FORMATOP_SRGBWRITE))
+			(filter & D3DTEXF_SRGBWRITE) && !(dstResource.m_formatOp.Operations & FORMATOP_SRGBWRITE))
 		{
 			LONG width = data.DstRect.right - data.DstRect.left;
 			LONG height = data.DstRect.bottom - data.DstRect.top;
-			auto& rt = repo.getNextRenderTarget(width, height, srcRes);
+			auto& rt = repo.getNextRenderTarget(width, height, D3DDDIFMT_X8R8G8B8, srcRes);
 			if (!rt.resource)
 			{
 				return LOG_RESULT(E_OUTOFMEMORY);

@@ -40,10 +40,11 @@ namespace D3dDdi
 		SurfaceRepository();
 
 		Cursor getCursor(HCURSOR cursor);
+		Resource* getDitherTexture(DWORD size);
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
 		Resource* getGammaRampTexture();
-		const Surface& getNextRenderTarget(DWORD width, DWORD height,
+		const Surface& getNextRenderTarget(DWORD width, DWORD height, D3DDDIFORMAT format,
 			const Resource* currentSrcRt = nullptr, const Resource* currentDstRt = nullptr);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
@@ -74,10 +75,12 @@ namespace D3dDdi
 		Surface m_cursorMaskTexture;
 		Surface m_cursorColorTexture;
 		Surface m_cursorTempTexture;
+		Surface m_ditherTexture;
 		Surface m_gammaRampTexture;
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
 		std::array<Surface, 3> m_renderTargets;
+		std::array<Surface, 3> m_hqRenderTargets;
 		std::map<D3DDDIFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
 		Surface m_sysMemSurface;

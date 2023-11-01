@@ -8,6 +8,7 @@
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/DisplayAspectRatio.h>
 #include <Config/Settings/PalettizedTextures.h>
+#include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SupportedDepthFormats.h>
 #include <D3dDdi/Adapter.h>
@@ -226,6 +227,41 @@ namespace D3dDdi
 		return { levels.MsType, std::min(static_cast<UINT>(Config::antialiasing.getParam()), levels.QualityLevels - 1) };
 	}
 
+	D3DDDIFORMAT Adapter::getRenderColorDepthSrcFormat(D3DDDIFORMAT appFormat) const
+	{
+		switch (Config::renderColorDepth.get().first)
+		{
+		case 10:
+			if (isSupportedRttFormat(D3DDDIFMT_A2B10G10R10))
+			{
+				return D3DDDIFMT_A2B10G10R10;
+			}
+			if (isSupportedRttFormat(D3DDDIFMT_A2R10G10B10))
+			{
+				return D3DDDIFMT_A2R10G10B10;
+			}
+			[[fallthrough]];
+
+		case 8:
+			return D3DDDIFMT_X8R8G8B8;
+			
+		case 6:
+			return D3DDDIFMT_R5G6B5;
+		}
+
+		return appFormat;
+	}
+
+	D3DDDIFORMAT Adapter::getRenderColorDepthDstFormat() const
+	{
+		switch (Config::renderColorDepth.get().second)
+		{
+		case 6: return D3DDDIFMT_R5G6B5;
+		case 8: return D3DDDIFMT_X8R8G8B8;
+		}
+		return 16 == Win32::DisplayMode::getBpp() ? D3DDDIFMT_R5G6B5 : D3DDDIFMT_X8R8G8B8;
+	}
+
 	SIZE Adapter::getScaledSize(Int2 size) const
 	{
 		const auto scaleFactor = getScaleFactor();
@@ -347,6 +383,14 @@ namespace D3dDdi
 		auto replacementFormat = 0 != fi.alpha.bitCount ? D3DDDIFMT_A8R8G8B8 : D3DDDIFMT_X8R8G8B8;
 		it = formatOps.find(replacementFormat);
 		return it != formatOps.end() && (it->second.Operations & FORMATOP_OFFSCREEN_RENDERTARGET);
+	}
+
+	bool Adapter::isSupportedRttFormat(D3DDDIFORMAT format) const
+	{
+		auto it = m_info.formatOps.find(format);
+		return it != m_info.formatOps.end() &&
+			(it->second.Format & FORMATOP_OFFSCREEN_RENDERTARGET) &&
+			(it->second.Format & FORMATOP_TEXTURE);
 	}
 
 	HRESULT Adapter::pfnCloseAdapter()

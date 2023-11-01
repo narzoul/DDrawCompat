@@ -39,6 +39,8 @@ namespace D3dDdi
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
+		HRESULT copySubResourceRegion(UINT dstIndex, const RECT& dstRect,
+			HANDLE src, UINT srcIndex, const RECT& srcRect);
 		void disableClamp();
 		void* getLockPtr(UINT subResourceIndex);
 		RECT getRect(UINT subResourceIndex) const;

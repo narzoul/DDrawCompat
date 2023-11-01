@@ -18,6 +18,27 @@ namespace
 {
 	std::map<LUID, D3dDdi::SurfaceRepository> g_repositories;
 	bool g_enableSurfaceCheck = true;
+
+	void initDitherTexture(BYTE* tex, DWORD pitch, DWORD x, DWORD y, DWORD size, DWORD mul, DWORD value)
+	{
+		if (1 == size)
+		{
+			tex[y * pitch + x] = static_cast<BYTE>(value);
+		}
+		else
+		{
+			size /= 2;
+			initDitherTexture(tex, pitch, x, y, size, 4 * mul, value + 0 * mul);
+			initDitherTexture(tex, pitch, x + size, y, size, 4 * mul, value + 2 * mul);
+			initDitherTexture(tex, pitch, x, y + size, size, 4 * mul, value + 3 * mul);
+			initDitherTexture(tex, pitch, x + size, y + size, size, 4 * mul, value + 1 * mul);
+		}
+	}
+
+	void initDitherTexture(BYTE* tex, DWORD pitch, DWORD size)
+	{
+		initDitherTexture(tex, pitch, 0, 0, size, 1, 0);
+	}
 }
 
 namespace D3dDdi
@@ -201,6 +222,14 @@ namespace D3dDdi
 		return true;
 	}
 
+	Resource* SurfaceRepository::getDitherTexture(DWORD size)
+	{
+		return getInitializedResource(m_ditherTexture, size, size, D3DDDIFMT_L8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY,
+			[](const DDSURFACEDESC2& desc) {
+				initDitherTexture(static_cast<BYTE*>(desc.lpSurface), desc.lPitch, 16);
+			});
+	}
+
 	Resource* SurfaceRepository::getGammaRampTexture()
 	{
 		return getSurface(m_gammaRampTexture, 256, 3, D3DDDIFMT_L8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
@@ -245,19 +274,21 @@ namespace D3dDdi
 	}
 
 	const SurfaceRepository::Surface& SurfaceRepository::getNextRenderTarget(
-		DWORD width, DWORD height, const Resource* currentSrcRt, const Resource* currentDstRt)
+		DWORD width, DWORD height, D3DDDIFORMAT format, const Resource* currentSrcRt, const Resource* currentDstRt)
 	{
+		const bool hq = getFormatInfo(format).red.bitCount > 8;
+		auto& renderTargets = hq ? m_hqRenderTargets : m_renderTargets;
 		std::size_t index = 0;
-		while (index < m_renderTargets.size())
+		while (index < renderTargets.size())
 		{
-			auto rt = m_renderTargets[index].resource;
+			auto rt = renderTargets[index].resource;
 			if (!rt || rt != currentSrcRt && rt != currentDstRt)
 			{
 				break;
 			}
 			++index;
 		}
-		return getTempSurface(m_renderTargets[index], width, height, D3DDDIFMT_X8R8G8B8,
+		return getTempSurface(renderTargets[index], width, height, hq ? format : D3DDDIFMT_X8R8G8B8,
 			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
