@@ -170,6 +170,10 @@ namespace DDraw
 		{
 			return DDERR_NOTFOUND;
 		}
+		if (gdiSurface == g_primarySurface)
+		{
+			return DD_OK;
+		}
 		return g_primarySurface.get()->lpVtbl->Flip(g_primarySurface, gdiSurface, DDFLIP_WAIT);
 	}
 
