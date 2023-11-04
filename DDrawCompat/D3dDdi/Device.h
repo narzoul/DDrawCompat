@@ -54,6 +54,7 @@ namespace D3dDdi
 		HRESULT pfnUpdatePalette(const D3DDDIARG_UPDATEPALETTE* data, const PALETTEENTRY* paletteData);
 
 		Adapter& getAdapter() const { return m_adapter; }
+		std::pair<UINT, UINT> getColorKeyMethod();
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		RGBQUAD* getPalette(UINT paletteHandle) { return m_palettes[paletteHandle].data(); }
@@ -82,6 +83,7 @@ namespace D3dDdi
 
 	private:
 		HRESULT clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags);
+		UINT detectColorKeyMethod();
 		static void updateAllConfigNow();
 
 		D3DDDI_DEVICEFUNCS m_origVtable;
@@ -98,6 +100,7 @@ namespace D3dDdi
 		ShaderBlitter m_shaderBlitter;
 		std::vector<std::array<RGBQUAD, 256>> m_palettes;
 		std::vector<UINT> m_paletteFlags;
+		UINT m_autoColorKeyMethod;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

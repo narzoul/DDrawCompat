@@ -346,7 +346,7 @@ namespace D3dDdi
 
 	HANDLE DeviceState::mapPixelShader(HANDLE shader)
 	{
-		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get())
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != m_device.getColorKeyMethod().first)
 		{
 			return m_app.pixelShader;
 		}
@@ -360,7 +360,7 @@ namespace D3dDdi
 		if (!it->second.isModified)
 		{
 			ShaderAssembler shaderAssembler(it->second.tokens.data(), it->second.tokens.size());
-			if (shaderAssembler.addAlphaTest(Config::colorKeyMethod.getParam()))
+			if (shaderAssembler.addAlphaTest(m_device.getColorKeyMethod().second))
 			{
 				const auto& tokens = shaderAssembler.getTokens();
 				D3DDDIARG_CREATEPIXELSHADER data = {};
@@ -390,7 +390,7 @@ namespace D3dDdi
 
 		if (D3DDDIRS_COLORKEYENABLE == state)
 		{
-			if (Config::Settings::ColorKeyMethod::NATIVE != Config::colorKeyMethod.get())
+			if (Config::Settings::ColorKeyMethod::NATIVE != m_device.getColorKeyMethod().first)
 			{
 				return FALSE;
 			}
@@ -1213,12 +1213,12 @@ namespace D3dDdi
 	{
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
-		if (!m_app.textures[stage] || Config::Settings::ColorKeyMethod::NONE == Config::colorKeyMethod.get())
+		if (!m_app.textures[stage] || Config::Settings::ColorKeyMethod::NONE == m_device.getColorKeyMethod().first)
 		{
 			return;
 		}
 
-		if (Config::Settings::ColorKeyMethod::ALPHATEST == Config::colorKeyMethod.get())
+		if (Config::Settings::ColorKeyMethod::ALPHATEST == m_device.getColorKeyMethod().first)
 		{
 			const BOOL colorKeyEnabled = !m_app.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY];
 			if (colorKeyEnabled != m_pixelShaderConstB[stage][0])

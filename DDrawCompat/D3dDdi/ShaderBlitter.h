@@ -37,6 +37,7 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey);
+		void colorKeyTestBlt(const Resource& dstResource, const Resource& srcResource);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
@@ -63,8 +64,6 @@ namespace D3dDdi
 		static void setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp);
 
 	private:
-		const UINT BLT_SRCALPHA = 1;
-
 		struct ConvolutionParams
 		{
 			Float2 textureSize;

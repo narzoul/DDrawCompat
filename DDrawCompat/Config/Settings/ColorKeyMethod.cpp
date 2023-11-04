@@ -5,7 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		ColorKeyMethod::ColorKeyMethod()
-			: EnumSetting("ColorKeyMethod", "native", { "none", "native", "alphatest" })
+			: EnumSetting("ColorKeyMethod", "auto", { "auto", "none", "native", "alphatest" })
 		{
 		}
 

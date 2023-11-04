@@ -7,6 +7,7 @@
 #include <Common/CompatVtable.h>
 #include <Common/HResultException.h>
 #include <Common/Log.h>
+#include <Config/Settings/ColorKeyMethod.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceFuncs.h>
@@ -36,6 +37,7 @@ namespace D3dDdi
 		, m_drawPrimitive(*this)
 		, m_state(*this)
 		, m_shaderBlitter(*this)
+		, m_autoColorKeyMethod(Config::Settings::ColorKeyMethod::NONE)
 	{
 		D3DDDIARG_CREATEQUERY createQuery = {};
 		createQuery.QueryType = D3DDDIQUERYTYPE_EVENT;
@@ -115,6 +117,53 @@ namespace D3dDdi
 		return LOG_RESULT(result);
 	}
 
+	UINT Device::detectColorKeyMethod()
+	{
+		auto method = Config::Settings::ColorKeyMethod::NONE;
+
+		auto& repo = getRepo();
+		SurfaceRepository::Surface tex;
+		SurfaceRepository::Surface rt;
+		repo.getTempSurface(tex, 1, 1, D3DDDIFMT_X8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		repo.getTempSurface(rt, 1, 1, D3DDDIFMT_X8R8G8B8, DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+
+		if (tex.resource && rt.resource)
+		{
+			DDSURFACEDESC2 desc = {};
+			desc.dwSize = sizeof(desc);
+			tex.surface->Lock(tex.surface, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
+			if (desc.lpSurface)
+			{
+				static_cast<DWORD*>(desc.lpSurface)[0] = 0xFF;
+				tex.surface->Unlock(tex.surface, nullptr);
+
+				m_shaderBlitter.colorKeyTestBlt(*rt.resource, *tex.resource);
+
+				desc = {};
+				desc.dwSize = sizeof(desc);
+				rt.surface->Lock(rt.surface, nullptr, &desc, DDLOCK_READONLY | DDLOCK_WAIT, nullptr);
+				if (desc.lpSurface)
+				{
+					method = 0xFF == static_cast<DWORD*>(desc.lpSurface)[0]
+						? Config::Settings::ColorKeyMethod::ALPHATEST
+						: Config::Settings::ColorKeyMethod::NATIVE;
+					rt.surface->Unlock(rt.surface, nullptr);
+				}
+			}
+		}
+
+		if (Config::Settings::ColorKeyMethod::NONE == method)
+		{
+			LOG_ONCE("Auto-detected ColorKeyMethod: unknown, using native");
+		}
+		else
+		{
+			LOG_ONCE("Auto-detected ColorKeyMethod: " <<
+				(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
+		}
+		return method;
+	}
+
 	Device* Device::findDeviceByResource(HANDLE resource)
 	{
 		for (auto& device : s_devices)
@@ -138,6 +187,20 @@ namespace D3dDdi
 			}
 		}
 		return nullptr;
+	}
+
+	std::pair<UINT, UINT> Device::getColorKeyMethod()
+	{
+		const auto method = Config::colorKeyMethod.get();
+		if (Config::Settings::ColorKeyMethod::AUTO == method)
+		{
+			if (Config::Settings::ColorKeyMethod::NONE == m_autoColorKeyMethod)
+			{
+				m_autoColorKeyMethod = detectColorKeyMethod();
+			}
+			return { m_autoColorKeyMethod, Config::Settings::ColorKeyMethod::ALPHATEST == m_autoColorKeyMethod ? 1 : 0 };
+		}
+		return { method, Config::colorKeyMethod.getParam() };
 	}
 
 	Resource* Device::getGdiResource()
