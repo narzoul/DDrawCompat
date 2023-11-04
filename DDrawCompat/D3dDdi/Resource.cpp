@@ -1412,7 +1412,8 @@ namespace D3dDdi
 			}
 
 			Gdi::Cursor::setMonitorClipRect(clipRect);
-			Gdi::Cursor::setEmulated(mi.isEmulated);
+			DDraw::RealPrimarySurface::setEmulatedCursor(0 != g_presentationRect.left || 0 != g_presentationRect.top ||
+				Rect::getSize(mi.rcEmulated) != Rect::getSize(g_presentationRect));
 			Gdi::VirtualScreen::setFullscreenMode(m_origData.Flags.MatchGdiPrimary);
 		}
 		else
@@ -1421,7 +1422,7 @@ namespace D3dDdi
 
 			g_presentationRect = {};
 			Gdi::VirtualScreen::setFullscreenMode(false);
-			Gdi::Cursor::setEmulated(false);
+			DDraw::RealPrimarySurface::setEmulatedCursor(false);
 			Gdi::Cursor::setMonitorClipRect({});
 		}
 	}

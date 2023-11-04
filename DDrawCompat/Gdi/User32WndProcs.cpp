@@ -319,6 +319,11 @@ namespace
 	void fixPopupMenuPosition(WINDOWPOS& wp)
 	{
 		RECT mr = DDraw::PrimarySurface::getMonitorRect();
+		if (IsRectEmpty(&mr))
+		{
+			return;
+		}
+
 		if (wp.flags & SWP_NOSIZE)
 		{
 			RECT r = {};
@@ -433,7 +438,7 @@ namespace
 		{
 			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			auto& wp = *reinterpret_cast<WINDOWPOS*>(lParam);
-			if (Gdi::Cursor::isEmulated() && !(wp.flags & SWP_NOMOVE))
+			if (!(wp.flags & SWP_NOMOVE))
 			{
 				fixPopupMenuPosition(wp);
 			}

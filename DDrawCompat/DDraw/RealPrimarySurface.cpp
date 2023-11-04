@@ -58,6 +58,7 @@ namespace
 	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
 
+	bool g_emulatedCursor = false;
 	bool g_isFullscreen = false;
 	bool g_isExclusiveFullscreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
@@ -478,6 +479,11 @@ namespace
 			}
 		}
 		prevFullscreenWindow = fullscreenWindow;
+
+		if (Gdi::Cursor::isEmulated() != g_emulatedCursor)
+		{
+			Gdi::Cursor::setEmulated(g_emulatedCursor);
+		}
 	}
 
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
@@ -825,6 +831,11 @@ namespace DDraw
 	{
 		Compat::ScopedCriticalSection lock(g_presentCs);
 		g_qpcUpdatePresentationWindow = Time::queryPerformanceCounter() + Time::g_qpcFrequency / 5;
+	}
+
+	void RealPrimarySurface::setEmulatedCursor(bool emulated)
+	{
+		g_emulatedCursor = emulated;
 	}
 
 	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)

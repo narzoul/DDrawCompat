@@ -29,6 +29,7 @@ namespace DDraw
 		static void scheduleOverlayUpdate();
 		static void scheduleUpdate();
 		static void schedulePresentationWindowUpdate();
+		static void setEmulatedCursor(bool emulated);
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPresentationWindowTopmost();
 		static void setUpdateReady();

@@ -516,21 +516,23 @@ namespace
 
 	void onInitMenuPopup(HMENU menu)
 	{
-		if (Gdi::Cursor::isEmulated())
+		RECT mr = DDraw::PrimarySurface::getMonitorRect();
+		if (IsRectEmpty(&mr))
 		{
-			MENUINFO mi = {};
-			mi.cbSize = sizeof(mi);
-			mi.fMask = MIM_MAXHEIGHT;
-			GetMenuInfo(menu, &mi);
+			return;
+		}
 
-			RECT mr = DDraw::PrimarySurface::getMonitorRect();
-			UINT maxHeight = mr.bottom - mr.top;
-			if (0 == mi.cyMax || mi.cyMax > maxHeight)
-			{
-				g_menuMaxHeight[menu] = mi.cyMax;
-				mi.cyMax = maxHeight;
-				SetMenuInfo(menu, &mi);
-			}
+		MENUINFO mi = {};
+		mi.cbSize = sizeof(mi);
+		mi.fMask = MIM_MAXHEIGHT;
+		GetMenuInfo(menu, &mi);
+
+		UINT maxHeight = mr.bottom - mr.top;
+		if (0 == mi.cyMax || mi.cyMax > maxHeight)
+		{
+			g_menuMaxHeight[menu] = mi.cyMax;
+			mi.cyMax = maxHeight;
+			SetMenuInfo(menu, &mi);
 		}
 	}
 
