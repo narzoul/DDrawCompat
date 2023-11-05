@@ -14,7 +14,7 @@ namespace Config
 			static const int ALPHA = -1;
 
 			ConfigTransparency()
-				: MappedSetting("ConfigTransparency", "alpha(75)", { {"off", 100}, {"alpha", ALPHA} })
+				: MappedSetting("ConfigTransparency", "alpha(90)", { {"off", 100}, {"alpha", ALPHA} })
 			{
 			}
 
@@ -25,7 +25,7 @@ namespace Config
 
 			virtual ParamInfo getParamInfo() const override
 			{
-				return ALPHA == m_value ? ParamInfo{ "Alpha", 25, 100, 75 } : ParamInfo{};
+				return ALPHA == m_value ? ParamInfo{ "Alpha", 25, 100, 90 } : ParamInfo{};
 			}
 		};
 	}
