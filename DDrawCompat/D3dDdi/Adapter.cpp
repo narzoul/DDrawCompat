@@ -426,7 +426,7 @@ namespace D3dDdi
 		case D3DDDICAPS_DDRAW:
 		{
 			auto& caps = *static_cast<DDRAW_CAPS*>(pData->pData);
-			caps.Caps |= DDRAW_CAPS_COLORKEY;
+			caps.Caps |= DDRAW_CAPS_COLORKEY | DDRAW_CAPS_BLTDEPTHFILL;
 			caps.CKeyCaps = DDRAW_CKEYCAPS_SRCBLT;
 			caps.FxCaps = DDRAW_FXCAPS_BLTMIRRORLEFTRIGHT | DDRAW_FXCAPS_BLTMIRRORUPDOWN;
 			break;

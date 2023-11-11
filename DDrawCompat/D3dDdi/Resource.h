@@ -41,6 +41,7 @@ namespace D3dDdi
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
 		HRESULT copySubResourceRegion(UINT dstIndex, const RECT& dstRect,
 			HANDLE src, UINT srcIndex, const RECT& srcRect);
+		HRESULT depthFill(const D3DDDIARG_DEPTHFILL& data);
 		void disableClamp();
 		void* getLockPtr(UINT subResourceIndex);
 		RECT getRect(UINT subResourceIndex) const;
@@ -52,7 +53,7 @@ namespace D3dDdi
 		void prepareForCpuRead(UINT subResourceIndex);
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
-		void prepareForGpuWrite(UINT subResourceIndex);
+		Resource& prepareForGpuWrite(UINT subResourceIndex);
 		Resource& prepareForTextureRead(UINT stage);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void scaleRect(RECT& rect);

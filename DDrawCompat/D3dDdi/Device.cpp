@@ -351,25 +351,12 @@ namespace D3dDdi
 	HRESULT Device::pfnDepthFill(const D3DDDIARG_DEPTHFILL* data)
 	{
 		flushPrimitives();
-		auto resource = getResource(data->hResource);
-		auto customResource = resource->getCustomResource();
-		auto fi = getFormatInfo(resource->getFixedDesc().Format);
-		resource->prepareForGpuWrite(0);
-
-		m_state.setTempDepthStencil({ customResource ? *customResource : *resource });
-
-		RECT rect = data->DstRect;
-		resource->scaleRect(rect);
-
-		D3DDDIARG_CLEAR clear = {};
-		clear.Flags = D3DCLEAR_ZBUFFER;
-		clear.FillDepth = getComponentAsFloat(data->Depth, fi.depth);
-		if (0 != fi.stencil.bitCount)
+		auto it = m_resources.find(data->hResource);
+		if (it != m_resources.end())
 		{
-			clear.Flags |= D3DCLEAR_STENCIL;
-			clear.FillStencil = getComponent(data->Depth, fi.stencil);
+			return it->second->depthFill(*data);
 		}
-		return m_origVtable.pfnClear(m_device, &clear, 1, &rect);
+		return m_origVtable.pfnDepthFill(m_device, data);
 	}
 
 	HRESULT Device::pfnDestroyDevice()

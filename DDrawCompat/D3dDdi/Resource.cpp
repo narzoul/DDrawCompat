@@ -666,6 +666,30 @@ namespace D3dDdi
 		LOG_RESULT(m_lockResource.get());
 	}
 
+	HRESULT Resource::depthFill(const D3DDDIARG_DEPTHFILL& data)
+	{
+		auto& dstResource = prepareForGpuWrite(data.SubResourceIndex);
+		auto& si = dstResource.getFixedDesc().pSurfList[data.SubResourceIndex];
+
+		auto& state = m_device.getState();
+		state.flush();
+		state.setTempDepthStencil({ dstResource });
+		state.setTempViewport({ 0, 0, si.Width, si.Height });
+
+		RECT rect = data.DstRect;
+		scaleRect(rect);
+
+		D3DDDIARG_CLEAR clear = {};
+		clear.Flags = D3DCLEAR_ZBUFFER;
+		clear.FillDepth = getComponentAsFloat(data.Depth, m_formatInfo.depth);
+		if (0 != m_formatInfo.stencil.bitCount && 0 != dstResource.m_formatInfo.stencil.bitCount)
+		{
+			clear.Flags |= D3DCLEAR_STENCIL;
+			clear.FillStencil = getComponent(data.Depth, m_formatInfo.stencil);
+		}
+		return m_device.getOrigVtable().pfnClear(m_device, &clear, 1, &rect);
+	}
+
 	void Resource::disableClamp()
 	{
 		m_isClampable = false;
@@ -1114,7 +1138,7 @@ namespace D3dDdi
 		return *this;
 	}
 
-	void Resource::prepareForGpuWrite(UINT subResourceIndex)
+	Resource& Resource::prepareForGpuWrite(UINT subResourceIndex)
 	{
 		m_isColorKeyedSurfaceUpToDate = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
@@ -1124,12 +1148,14 @@ namespace D3dDdi
 				loadMsaaResource(subResourceIndex);
 				clearUpToDateFlags(subResourceIndex);
 				m_lockData[subResourceIndex].isMsaaUpToDate = true;
+				return *m_msaaSurface.resource;
 			}
 			else if (m_msaaResolvedSurface.resource)
 			{
 				loadMsaaResolvedResource(subResourceIndex);
 				clearUpToDateFlags(subResourceIndex);
 				m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
+				return *m_msaaResolvedSurface.resource;
 			}
 			else
 			{
@@ -1138,6 +1164,7 @@ namespace D3dDdi
 				m_lockData[subResourceIndex].isVidMemUpToDate = true;
 			}
 		}
+		return *this;
 	}
 
 	Resource& Resource::prepareForTextureRead(UINT stage)
