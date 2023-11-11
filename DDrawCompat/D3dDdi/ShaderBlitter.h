@@ -111,9 +111,9 @@ namespace D3dDdi
 
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
 		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
-		void drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight);
-		void setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
-			UINT textureAddress = D3DTADDRESS_CLAMP);
+		void drawRect(const RectF& rect);
+		void setTempTextureStage(UINT stage, const Resource& texture, UINT subResourceIndex,
+			const RECT& rect, UINT filter, UINT textureAddress = D3DTADDRESS_CLAMP);
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;

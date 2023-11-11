@@ -141,7 +141,6 @@ namespace D3dDdi
 		void setTempPixelShader(HANDLE shader);
 		void setTempRenderState(const D3DDDIARG_RENDERSTATE& renderState);
 		void setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
-		void setTempStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
 		void setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
 		void setTempTexture(UINT stage, HANDLE texture);
 		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
@@ -164,8 +163,6 @@ namespace D3dDdi
 		void updateStreamSource();
 
 	private:
-		friend class ScopedDeviceState;
-
 		enum ChangedState
 		{
 			CS_RENDER_STATE  = 1 << 0,

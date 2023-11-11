@@ -458,6 +458,10 @@ namespace D3dDdi
 		auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		if (!state.isLocked())
 		{
+			if (0 == m_batched.primitiveCount)
+			{
+				m_device.prepareForGpuWrite();
+			}
 			state.updateStreamSource();
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 			{
@@ -472,7 +476,6 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
-			m_device.prepareForGpuWrite();
 			state.flush();
 		}
 
@@ -509,6 +512,10 @@ namespace D3dDdi
 		auto& state = m_device.getState();
 		if (!state.isLocked())
 		{
+			if (0 == m_batched.primitiveCount)
+			{
+				m_device.prepareForGpuWrite();
+			}
 			state.updateStreamSource();
 		}
 
@@ -529,7 +536,6 @@ namespace D3dDdi
 			{
 				state.setSpriteMode(false);
 			}
-			m_device.prepareForGpuWrite();
 			state.flush();
 		}
 
@@ -639,10 +645,6 @@ namespace D3dDdi
 		}
 
 		LOG_DEBUG << "Flushing " << m_batched.primitiveCount << " primitives of type " << m_batched.primitiveType;
-		if (!m_device.getState().isLocked())
-		{
-			m_device.prepareForGpuWrite();
-		}
 		return m_batched.indices.empty() ? flush(flagBuffer) : flushIndexed(flagBuffer);
 	}
 

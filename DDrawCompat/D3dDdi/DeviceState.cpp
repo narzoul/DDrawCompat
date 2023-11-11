@@ -918,12 +918,6 @@ namespace D3dDdi
 		m_changedStates |= CS_RENDER_TARGET;
 	}
 
-	void DeviceState::setTempStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource)
-	{
-		setStreamSource(streamSource);
-		m_changedStates |= CS_STREAM_SOURCE;
-	}
-
 	void DeviceState::setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer)
 	{
 		setStreamSourceUm(streamSourceUm, umBuffer);

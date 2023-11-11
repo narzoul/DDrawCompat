@@ -220,7 +220,8 @@ namespace D3dDdi
 			state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_INVSRCALPHA });
 		}
 
-		setTempTextureStage(0, srcResource, srcRect, LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
+		setTempTextureStage(0, srcResource, srcSubResourceIndex, srcRect,
+			LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
 		if (flags & BLT_COLORKEYTEST)
 		{
 			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, 0xFF });
@@ -237,12 +238,13 @@ namespace D3dDdi
 			{
 				RectF dr = Rect::toRectF(sr);
 				Rect::transform(dr, srcRect, dstRect);
-				drawRect(sr, dr, srcSurface.Width, srcSurface.Height);
+				setTextureCoords(0, sr, srcSurface.Width, srcSurface.Height);
+				drawRect(dr);
 			}
 		}
 		else
 		{
-			drawRect(srcRect, Rect::toRectF(dstRect), srcSurface.Width, srcSurface.Height);
+			drawRect(Rect::toRectF(dstRect));
 		}
 
 		m_device.flushPrimitives();
@@ -411,12 +413,12 @@ namespace D3dDdi
 
 		if (flags & CF_GAMMARAMP)
 		{
-			setTempTextureStage(1, *gammaRampTexture, srcRect, D3DTEXF_LINEAR);
+			setTempTextureStage(1, *gammaRampTexture, 0, srcRect, D3DTEXF_LINEAR);
 		}
 
 		if (flags & CF_DITHERING)
 		{
-			setTempTextureStage(2, *ditherTexture, dstRect, D3DTEXF_POINT, D3DTADDRESS_WRAP);
+			setTempTextureStage(2, *ditherTexture, 0, dstRect, D3DTEXF_POINT, D3DTADDRESS_WRAP);
 			m_convolutionParams.maxRgb[0] = static_cast<float>(1 << dstFi.red.bitCount) - 1;
 			m_convolutionParams.maxRgb[1] = static_cast<float>(1 << dstFi.green.bitCount) - 1;
 			m_convolutionParams.maxRgb[2] = static_cast<float>(1 << dstFi.blue.bitCount) - 1;
@@ -547,9 +549,9 @@ namespace D3dDdi
 		if (cur.maskTexture)
 		{
 			cur.tempTexture->copySubResourceRegion(0, clippedSrcRect, dstResource, dstSubResourceIndex, clippedDstRect);
-			setTempTextureStage(1, *cur.maskTexture, clippedSrcRect, D3DTEXF_POINT);
-			setTempTextureStage(2, *cur.colorTexture, clippedSrcRect, D3DTEXF_POINT);
-			setTempTextureStage(3, *xorTexture, clippedSrcRect, D3DTEXF_POINT);
+			setTempTextureStage(1, *cur.maskTexture, 0, clippedSrcRect, D3DTEXF_POINT);
+			setTempTextureStage(2, *cur.colorTexture, 0, clippedSrcRect, D3DTEXF_POINT);
+			setTempTextureStage(3, *xorTexture, 0, clippedSrcRect, D3DTEXF_POINT);
 			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
 				m_psDrawCursor.get(), D3DTEXF_POINT);
 		}
@@ -566,7 +568,6 @@ namespace D3dDdi
 		LOG_FUNC("ShaderBlitter::depthBlt", static_cast<HANDLE>(dstResource), dstRect,
 			static_cast<HANDLE>(srcResource), srcRect, nullResource);
 
-		const auto& srcSurface = srcResource.getFixedDesc().pSurfList[0];
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
 
 		auto& state = m_device.getState();
@@ -595,13 +596,13 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0 });
 
-		setTempTextureStage(0, srcResource, srcRect, D3DTEXF_POINT);
+		setTempTextureStage(0, srcResource, 0, srcRect, D3DTEXF_POINT);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
 
 		DeviceState::TempStateLock lock(state);
-		drawRect(srcRect, Rect::toRectF(dstRect), srcSurface.Width, srcSurface.Height);
+		drawRect(Rect::toRectF(dstRect));
 		m_device.flushPrimitives();
 	}
 
@@ -643,14 +644,12 @@ namespace D3dDdi
 		}
 	}
 
-	void ShaderBlitter::drawRect(const RECT& srcRect, const RectF& dstRect, UINT srcWidth, UINT srcHeight)
+	void ShaderBlitter::drawRect(const RectF& rect)
 	{
-		m_vertices[0].xy = { dstRect.left - 0.5f, dstRect.top - 0.5f };
-		m_vertices[1].xy = { dstRect.right - 0.5f, dstRect.top - 0.5f };
-		m_vertices[2].xy = { dstRect.left - 0.5f, dstRect.bottom - 0.5f };
-		m_vertices[3].xy = { dstRect.right - 0.5f, dstRect.bottom - 0.5f };
-
-		setTextureCoords(0, srcRect, srcWidth, srcHeight);
+		m_vertices[0].xy = { rect.left - 0.5f, rect.top - 0.5f };
+		m_vertices[1].xy = { rect.right - 0.5f, rect.top - 0.5f };
+		m_vertices[2].xy = { rect.left - 0.5f, rect.bottom - 0.5f };
+		m_vertices[3].xy = { rect.right - 0.5f, rect.bottom - 0.5f };
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
 		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
@@ -677,7 +676,7 @@ namespace D3dDdi
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
 			static_cast<HANDLE>(lockRefResource));
 
-		setTempTextureStage(1, lockRefResource, srcRect, D3DTEXF_POINT);
+		setTempTextureStage(1, lockRefResource, dstSubResourceIndex, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 			m_psLockRef.get(), D3DTEXF_POINT);
 	}
@@ -710,7 +709,7 @@ namespace D3dDdi
 		unlock.hResource = *paletteTexture;
 		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
 
-		setTempTextureStage(1, *paletteTexture, srcRect, D3DTEXF_POINT);
+		setTempTextureStage(1, *paletteTexture, 0, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
 			m_psPaletteLookup.get(), D3DTEXF_POINT);
 	}
@@ -752,8 +751,8 @@ namespace D3dDdi
 		g_isGammaRampInvalidated = !g_isGammaRampDefault;
 	}
 
-	void ShaderBlitter::setTempTextureStage(UINT stage, const Resource& texture, const RECT& rect, UINT filter,
-		UINT textureAddress)
+	void ShaderBlitter::setTempTextureStage(UINT stage, const Resource& texture, UINT subResourceIndex,
+		const RECT& rect, UINT filter, UINT textureAddress)
 	{
 		auto& state = m_device.getState();
 		state.setTempTexture(stage, texture);
@@ -766,7 +765,7 @@ namespace D3dDdi
 		state.setTempTextureStageState({ stage, D3DDDITSS_SRGBTEXTURE, 0 != (filter & D3DTEXF_SRGBREAD) });
 		state.setTempRenderState({ static_cast<D3DDDIRENDERSTATETYPE>(D3DDDIRS_WRAP0 + stage), 0 });
 
-		auto& si = texture.getFixedDesc().pSurfList[0];
+		auto& si = texture.getFixedDesc().pSurfList[subResourceIndex];
 		setTextureCoords(stage, rect, si.Width, si.Height);
 	}
 

@@ -1362,6 +1362,7 @@ namespace D3dDdi
 
 	void Resource::setAsGdiResource(bool isGdiResource)
 	{
+		m_device.flushPrimitives();
 		m_lockResource.reset();
 		m_lockData.clear();
 		m_lockBuffer.reset();
