@@ -5,6 +5,7 @@
 #include <Windows.h>
 #include <winternl.h>
 
+#include <Common/BitSet.h>
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Path.h>
@@ -46,6 +47,7 @@ namespace
 	RECT g_monitorRect = {};
 	HHOOK g_keyboardHook = nullptr;
 	HHOOK g_mouseHook = nullptr;
+	BitSet<VK_LBUTTON, VK_OEM_CLEAR> g_keyState;
 
 	DInputMouseHookData g_dinputMouseHookData = {};
 	decltype(&PhysicalToLogicalPointForPerMonitorDPI) g_physicalToLogicalPointForPerMonitorDPI = nullptr;
@@ -126,11 +128,24 @@ namespace
 		if (HC_ACTION == nCode &&
 			(WM_KEYDOWN == wParam || WM_KEYUP == wParam || WM_SYSKEYDOWN == wParam || WM_SYSKEYUP == wParam))
 		{
+			auto llHook = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
+			if (static_cast<int>(llHook->vkCode) >= g_keyState.getMin() &&
+				static_cast<int>(llHook->vkCode) <= g_keyState.getMax())
+			{
+				if (WM_KEYDOWN == wParam || WM_SYSKEYDOWN == wParam)
+				{
+					g_keyState.set(llHook->vkCode);
+				}
+				else
+				{
+					g_keyState.reset(llHook->vkCode);
+				}
+			}
+
 			DWORD pid = 0;
 			GetWindowThreadProcessId(GetForegroundWindow(), &pid);
 			if (GetCurrentProcessId() == pid)
 			{
-				auto llHook = reinterpret_cast<const KBDLLHOOKSTRUCT*>(lParam);
 				for (auto& hotkey : g_hotKeys)
 				{
 					if (hotkey.first.vk == llHook->vkCode && Input::areModifierKeysDown(hotkey.first.modifiers))
@@ -235,7 +250,13 @@ namespace
 				{
 					UnhookWindowsHookEx(g_keyboardHook);
 				}
+
+				g_keyState.reset();
 				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_KEYBOARD_LL, &lowLevelKeyboardProc, nullptr, 0);
+				if (!g_keyboardHook)
+				{
+					LOG_ONCE("ERROR: Failed to install low level keyboard hook, error code: " << GetLastError());
+				}
 			});
 	}
 
@@ -251,12 +272,19 @@ namespace
 				g_origCursorPos = { MAXLONG, MAXLONG };
 				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_MOUSE_LL, &lowLevelMouseProc, nullptr, 0);
 
-				INPUT inputs[2] = {};
-				inputs[0].mi.dy = 1;
-				inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
-				inputs[1].mi.dx = 1;
-				inputs[1].mi.dwFlags = MOUSEEVENTF_MOVE;
-				SendInput(2, inputs, sizeof(INPUT));
+				if (g_mouseHook)
+				{
+					INPUT inputs[2] = {};
+					inputs[0].mi.dy = 1;
+					inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
+					inputs[1].mi.dx = 1;
+					inputs[1].mi.dwFlags = MOUSEEVENTF_MOVE;
+					SendInput(2, inputs, sizeof(INPUT));
+				}
+				else
+				{
+					LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
+				}
 			});
 	}
 
@@ -389,6 +417,25 @@ namespace Input
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
 
 		registerHotKey(Config::terminateHotKey.get(), onTerminate, nullptr, false);
+	}
+
+	bool isKeyDown(int vk)
+	{
+		switch (vk)
+		{
+		case VK_SHIFT:
+			return g_keyState.test(VK_LSHIFT) || g_keyState.test(VK_RSHIFT);
+		case VK_CONTROL:
+			return g_keyState.test(VK_LCONTROL) || g_keyState.test(VK_RCONTROL);
+		case VK_MENU:
+			return g_keyState.test(VK_LMENU) || g_keyState.test(VK_RMENU);
+		}
+
+		if (vk >= g_keyState.getMin() && vk <= g_keyState.getMax())
+		{
+			return g_keyState.test(vk);
+		}
+		return false;
 	}
 
 	void registerHotKey(const HotKey& hotKey, std::function<void(void*)> action, void* context, bool onKeyDown)

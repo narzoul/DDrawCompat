@@ -2,6 +2,7 @@
 
 #include <Config/Parser.h>
 #include <Input/HotKey.h>
+#include <Input/Input.h>
 
 namespace
 {
@@ -162,7 +163,7 @@ namespace
 		return modifiers.find(either) == modifiers.end() &&
 			modifiers.find(left) == modifiers.end() &&
 			modifiers.find(right) == modifiers.end() &&
-			(GetAsyncKeyState(either) & 0x8000);
+			Input::isKeyDown(either);
 	}
 
 	UINT getKeyCode(const std::string& name, const std::map<std::string, UINT>& keyNames)
@@ -223,7 +224,7 @@ namespace Input
 	{
 		for (auto modifier : modifiers)
 		{
-			if (0 == (GetAsyncKeyState(modifier) & 0x8000))
+			if (!isKeyDown(modifier))
 			{
 				return false;
 			}

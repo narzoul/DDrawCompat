@@ -29,6 +29,9 @@ public:
 		}
 	}
 
+	int getMax() const { return max; }
+	int getMin() const { return min; }
+
 	void reset()
 	{
 		m_bits.fill(0);
