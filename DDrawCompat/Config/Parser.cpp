@@ -93,6 +93,26 @@ namespace Config
 				setting.second.reset();
 			}
 
+			std::size_t maxNameLength = 0;
+			for (auto& setting : Config::getAllSettings())
+			{
+				if (setting.second.getName().length() > maxNameLength)
+				{
+					maxNameLength = setting.second.getName().length();
+				}
+			}
+
+#if 0
+			std::ofstream of("DDrawCompatDefaults.ini", std::ios::out | std::ios::trunc);
+			for (auto& setting : Config::getAllSettings())
+			{
+				const auto& name = setting.second.getName();
+				of << "# " << name << std::string(maxNameLength - name.length(), ' ')
+					<< " = " << setting.second.getValueStr() << std::endl;
+			}
+			of.close();
+#endif
+
 			loadConfigFile("global", Compat::getEnvPath("PROGRAMDATA") / "DDrawCompat" / "DDrawCompat.ini");
 			loadConfigFile("user", Compat::getEnvPath("LOCALAPPDATA") / "DDrawCompat" / "DDrawCompat.ini");
 			loadConfigFile("directory", Compat::replaceFilename(processPath, "DDrawCompat.ini"));
@@ -117,14 +137,9 @@ namespace Config
 				setting.second.setExportedValue();
 			}
 
-			std::size_t maxNameLength = 0;
 			std::size_t maxSourceLength = 0;
 			for (auto& setting : Config::getAllSettings())
 			{
-				if (setting.second.getName().length() > maxNameLength)
-				{
-					maxNameLength = setting.second.getName().length();
-				}
 				if (setting.second.getSource().length() > maxSourceLength)
 				{
 					maxSourceLength = setting.second.getSource().length();
