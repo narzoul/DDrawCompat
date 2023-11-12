@@ -235,8 +235,7 @@ namespace
 				{
 					UnhookWindowsHookEx(g_keyboardHook);
 				}
-				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
+				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_KEYBOARD_LL, &lowLevelKeyboardProc, nullptr, 0);
 			});
 	}
 
@@ -250,8 +249,7 @@ namespace
 				}
 
 				g_origCursorPos = { MAXLONG, MAXLONG };
-				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
+				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_MOUSE_LL, &lowLevelMouseProc, nullptr, 0);
 
 				INPUT inputs[2] = {};
 				inputs[0].mi.dy = 1;
@@ -284,7 +282,8 @@ namespace
 				// Disable the IgnoreAltTab shim
 				return nullptr;
 			}
-			else if (WH_MOUSE_LL == idHook &&
+			
+			if (WH_MOUSE_LL == idHook &&
 				(0 == _stricmp(moduleName.c_str(), "dinput") || 0 == _stricmp(moduleName.c_str(), "dinput8")))
 			{
 				g_dinputMouseHookData.origHookProc = lpfn;
@@ -296,6 +295,8 @@ namespace
 				lpfn = dinputLowLevelMouseProc;
 				Compat::hookIatFunction(hmod, "CallNextHookEx", dinputCallNextHookEx);
 			}
+
+			hmod = nullptr;
 		}
 
 		HHOOK result = origSetWindowsHookEx(idHook, lpfn, hmod, dwThreadId);
