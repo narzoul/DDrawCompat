@@ -339,7 +339,7 @@ namespace D3dDdi
 			{ 0, sizeof(m_convolutionParams) / sizeof(DeviceState::ShaderConstF) },
 			reinterpret_cast<DeviceState::ShaderConstF*>(&m_convolutionParams));
 
-		UINT filter = (p.support <= 1 && !boolParams.useSrgbRead) ? D3DTEXF_LINEAR : D3DTEXF_POINT;
+		UINT filter = (p.support > 0 && p.support <= 1 && !boolParams.useSrgbRead) ? D3DTEXF_LINEAR : D3DTEXF_POINT;
 		if (!boolParams.useSrgbRead && 0 != support.x)
 		{
 			filter |= D3DTEXF_SRGBREAD;
