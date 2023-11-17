@@ -238,7 +238,7 @@ namespace DDraw
 	{
 		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
-		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags | DDLOCK_NOSYSLOCK, hEvent);
+		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{
 			restoreOrigCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
