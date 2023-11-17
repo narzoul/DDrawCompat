@@ -94,6 +94,8 @@ namespace D3dDdi
 
 		AdapterInfo& info = s_adapterInfos.insert({ m_luid, {} }).first->second;
 		getCaps(D3DDDICAPS_GETD3D7CAPS, info.d3dExtendedCaps);
+
+		LOG_INFO << "Supported resource formats:";
 		info.formatOps = getFormatOps();
 
 		auto d3d9on12 = GetModuleHandle("d3d9on12");
@@ -108,11 +110,6 @@ namespace D3dDdi
 
 		LOG_INFO << "Supported z-buffer bit depths: " << bitDepthsToString(info.supportedZBufferBitDepths);
 		LOG_INFO << "Supported MSAA modes: " << getSupportedMsaaModes(info.formatOps);
-		LOG_INFO << "Supported resource formats:";
-		for (const auto& formatOp : info.formatOps)
-		{
-			LOG_INFO << "  " << formatOp.second;
-		}
 
 		for (const auto& depthFormat : g_depthFormats)
 		{
@@ -195,7 +192,11 @@ namespace D3dDdi
 		std::map<D3DDDIFORMAT, FORMATOP> result;
 		for (UINT i = 0; i < formatCount; ++i)
 		{
-			result[formatOps[i].Format] = formatOps[i];
+			if (D3DDDIFMT_UNKNOWN != formatOps[i].Format)
+			{
+				LOG_INFO << "  " << formatOps[i];
+				result[formatOps[i].Format] = formatOps[i];
+			}
 		}
 		return result;
 	}
@@ -415,7 +416,7 @@ namespace D3dDdi
 
 	HRESULT Adapter::pfnGetCaps(const D3DDDIARG_GETCAPS* pData)
 	{
-		HRESULT result = m_origVtable.pfnGetCaps(m_adapter, pData);
+		HRESULT result = D3DDDICAPS_GETFORMATDATA == pData->Type ? S_OK : m_origVtable.pfnGetCaps(m_adapter, pData);
 		if (FAILED(result))
 		{
 			return result;
