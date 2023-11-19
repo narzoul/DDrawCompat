@@ -31,6 +31,9 @@ namespace D3dDdi
 		ShaderBlitter& operator=(const ShaderBlitter&) = delete;
 		ShaderBlitter& operator=(ShaderBlitter&&) = delete;
 
+		void alphaBlendBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			ColorKeyInfo srcColorKey, BYTE alpha, const Gdi::Region& srcRgn);
 		void bilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -117,6 +120,7 @@ namespace D3dDdi
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
+		std::unique_ptr<void, ResourceDeleter> m_psAlphaBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psBilinear;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
@@ -134,4 +138,6 @@ namespace D3dDdi
 		ConvolutionParams m_convolutionParams;
 		std::array<Vertex, 4> m_vertices;
 	};
+
+	std::ostream& operator<<(std::ostream& os, ShaderBlitter::ColorKeyInfo ck);
 }

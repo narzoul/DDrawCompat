@@ -3,10 +3,12 @@
 #include <Config/Settings/DisplayFilter.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/Log/CommonLog.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Shaders/AlphaBlend.h>
 #include <Shaders/Bilinear.h>
 #include <Shaders/ColorKey.h>
 #include <Shaders/ColorKeyBlend.h>
@@ -29,7 +31,8 @@
 namespace
 {
 	const UINT BLT_SRCALPHA = 1;
-	const UINT BLT_COLORKEYTEST = 2;
+	const UINT BLT_PREMULTIPLIED = 2;
+	const UINT BLT_COLORKEYTEST = 4;
 
 	const UINT CF_HORIZONTAL = 1;
 	const UINT CF_GAMMARAMP = 2;
@@ -41,6 +44,11 @@ namespace
 
 	std::array<D3dDdi::DeviceState::ShaderConstF, 2> convertToShaderConst(D3dDdi::ShaderBlitter::ColorKeyInfo colorKeyInfo)
 	{
+		if (D3DDDIFMT_UNKNOWN == colorKeyInfo.format)
+		{
+			return {};
+		}
+
 		const auto& fi = D3dDdi::getFormatInfo(colorKeyInfo.format);
 		return { {
 			{
@@ -78,8 +86,16 @@ namespace
 
 namespace D3dDdi
 {
+	std::ostream& operator<<(std::ostream& os, ShaderBlitter::ColorKeyInfo ck)
+	{
+		return Compat::LogStruct(os)
+			<< Compat::hex(ck.colorKey)
+			<< ck.format;
+	}
+
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
+		, m_psAlphaBlend(createPixelShader(g_psAlphaBlend))
 		, m_psBilinear(createPixelShader(g_psBilinear))
 		, m_psColorKey(createPixelShader(g_psColorKey))
 		, m_psColorKeyBlend(createPixelShader(g_psColorKeyBlend))
@@ -104,6 +120,22 @@ namespace D3dDdi
 		{
 			m_vertices[i].rhw = 1;
 		}
+	}
+
+	void ShaderBlitter::alphaBlendBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+		ColorKeyInfo srcColorKey, BYTE alpha, const Gdi::Region& srcRgn)
+	{
+		LOG_FUNC("ShaderBlitter::alphaBlendBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
+			srcColorKey, static_cast<UINT>(alpha), static_cast<HRGN>(srcRgn));
+
+		auto ck = convertToShaderConst(srcColorKey);
+		ck[0][3] = alpha / 255.0f;
+		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
+		blt(dstResource, dstSubResourceIndex, dstRect,
+			srcResource, srcSubResourceIndex, srcRect,
+			m_psAlphaBlend.get(), D3DTEXF_LINEAR, BLT_SRCALPHA | BLT_PREMULTIPLIED, nullptr, srcRgn);
 	}
 
 	void ShaderBlitter::bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -156,7 +188,7 @@ namespace D3dDdi
 		HANDLE pixelShader, UINT filter, UINT flags, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader, filter,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader, Compat::hex(filter),
 			Compat::hex(flags), alpha, static_cast<HRGN>(srcRgn));
 
 		if (!m_vertexShaderDecl || !pixelShader)
@@ -214,9 +246,10 @@ namespace D3dDdi
 		}
 		else if (flags & BLT_SRCALPHA)
 		{
+			const UINT D3DBLEND_ONE = 2;
 			const UINT D3DBLEND_SRCALPHA = 5;
 			const UINT D3DBLEND_INVSRCALPHA = 6;
-			state.setTempRenderState({ D3DDDIRS_SRCBLEND, D3DBLEND_SRCALPHA });
+			state.setTempRenderState({ D3DDDIRS_SRCBLEND, (flags & BLT_PREMULTIPLIED) ? D3DBLEND_ONE : D3DBLEND_SRCALPHA });
 			state.setTempRenderState({ D3DDDIRS_DESTBLEND, D3DBLEND_INVSRCALPHA });
 		}
 

@@ -478,6 +478,7 @@
     <None Include="Shaders\CubicConvolution.hlsli" />
   </ItemGroup>
   <ItemGroup>
+    <FxCompile Include="Shaders\AlphaBlend.hlsl" />
     <FxCompile Include="Shaders\Bilinear.hlsl" />
     <FxCompile Include="Shaders\ColorKey.hlsl" />
     <FxCompile Include="Shaders\ColorKeyBlend.hlsl" />

@@ -15,6 +15,10 @@ namespace Gdi
 			HWND hwnd;
 			RECT rect;
 			Gdi::Region region;
+			HDC dc;
+			COLORREF colorKey;
+			BYTE alpha;
+			BYTE alphaFormat;
 		};
 
 		HWND getPresentationWindow(HWND hwnd);
@@ -31,6 +35,8 @@ namespace Gdi
 		void present(Gdi::Region excludeRegion);
 		void setDpiAwareness(HWND hwnd, bool dpiAware);
 		void updateAll();
+		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
+			COLORREF colorKey, BYTE alpha, BYTE alphaFormat);
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner);
 	}
 }

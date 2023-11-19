@@ -755,6 +755,36 @@ namespace
 		}
 	}
 
+	BOOL WINAPI updateLayeredWindow(HWND hWnd, HDC hdcDst, POINT* pptDst, SIZE* psize,
+		HDC hdcSrc, POINT* pptSrc, COLORREF crKey, BLENDFUNCTION* pblend, DWORD dwFlags)
+	{
+		LOG_FUNC("UpdateLayeredWindow", hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
+		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindow)(
+			hWnd, hdcDst, pptDst, psize, hdcSrc, pptSrc, crKey, pblend, dwFlags);
+		if (result)
+		{
+			Gdi::Window::updateLayeredWindowInfo(hWnd, hdcSrc, pptSrc,
+				(dwFlags & ULW_COLORKEY) ? crKey : CLR_INVALID,
+				((dwFlags & ULW_ALPHA) && pblend) ? pblend->SourceConstantAlpha : 255,
+				pblend ? pblend->AlphaFormat : 0);
+		}
+		return LOG_RESULT(result);
+	}
+
+	BOOL WINAPI updateLayeredWindowIndirect(HWND hwnd, const UPDATELAYEREDWINDOWINFO* pULWInfo)
+	{
+		LOG_FUNC("UpdateLayeredWindowIndirect", hwnd, pULWInfo);
+		BOOL result = CALL_ORIG_FUNC(UpdateLayeredWindowIndirect)(hwnd, pULWInfo);
+		if (result && pULWInfo)
+		{
+			Gdi::Window::updateLayeredWindowInfo(hwnd, pULWInfo->hdcSrc, pULWInfo->pptSrc,
+				(pULWInfo->dwFlags & ULW_COLORKEY) ? pULWInfo->crKey : CLR_INVALID,
+				((pULWInfo->dwFlags & ULW_ALPHA) && pULWInfo->pblend) ? pULWInfo->pblend->SourceConstantAlpha : 255,
+				pULWInfo->pblend ? pULWInfo->pblend->AlphaFormat : 0);
+		}
+		return LOG_RESULT(result);
+	}
+
 	void CALLBACK winEventProc(
 		HWINEVENTHOOK /*hWinEventHook*/,
 		DWORD event,
@@ -880,6 +910,8 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
+			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
 			g_dwmSetIconicThumbnail = reinterpret_cast<decltype(&DwmSetIconicThumbnail)>(
 				GetProcAddress(GetModuleHandle("dwmapi"), "DwmSetIconicThumbnail"));

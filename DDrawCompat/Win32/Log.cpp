@@ -134,6 +134,15 @@ std::ostream& operator<<(std::ostream& os, const BITMAPINFOHEADER& bmih)
 		<< bmih.biClrImportant;
 }
 
+std::ostream& operator<<(std::ostream& os, const BLENDFUNCTION& bf)
+{
+	return Compat::LogStruct(os)
+		<< static_cast<UINT>(bf.BlendOp)
+		<< static_cast<UINT>(bf.BlendFlags)
+		<< static_cast<UINT>(bf.SourceConstantAlpha)
+		<< static_cast<UINT>(bf.AlphaFormat);
+}
+
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis)
 {
 	return Compat::LogStruct(os)

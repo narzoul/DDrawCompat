@@ -1317,18 +1317,46 @@ namespace D3dDdi
 				continue;
 			}
 
+			D3DDDIFORMAT format = D3DDDIFMT_X8R8G8B8;
+			COLORREF colorKey = 0;
+			BYTE alpha = 0;
+			DWORD flags = 0;
+			if (layeredWindow.dc)
+			{
+				colorKey = layeredWindow.colorKey;
+				alpha = layeredWindow.alpha;
+				if (CLR_INVALID != colorKey)
+				{
+					flags |= ULW_COLORKEY;
+				}
+				if (255 != alpha)
+				{
+					flags |= ULW_ALPHA;
+				}
+
+				if (layeredWindow.alphaFormat & AC_SRC_ALPHA)
+				{
+					format = D3DDDIFMT_A8R8G8B8;
+				}
+			}
+			else
+			{
+				GetLayeredWindowAttributes(layeredWindow.hwnd, &colorKey, &alpha, &flags);
+			}
+
 			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left + 1, visibleRect.bottom - visibleRect.top + 1 };
 			auto& windowSurface = repo.getTempSysMemSurface(srcRect.right, srcRect.bottom);
-			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, D3DDDIFMT_A8R8G8B8);
+			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, format);
 			if (!windowSurface.resource || !texture.resource)
 			{
 				continue;
 			}
 
-			HDC srcDc = GetWindowDC(layeredWindow.hwnd);
+			HDC srcDc = layeredWindow.dc ? layeredWindow.dc : GetWindowDC(layeredWindow.hwnd);
 			HDC dstDc = nullptr;
 			POINT srcOrig = { visibleRect.left - layeredWindow.rect.left, visibleRect.top - layeredWindow.rect.top };
 			windowSurface.surface->GetDC(windowSurface.surface, &dstDc);
+
 			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, srcRect.right - 1, srcRect.bottom - 1,
 				srcDc, srcOrig.x, srcOrig.y, SRCCOPY);
 			CALL_ORIG_FUNC(BitBlt)(dstDc, srcRect.right - 1, 0, 1, srcRect.bottom - 1,
@@ -1337,16 +1365,16 @@ namespace D3dDdi
 				srcDc, srcOrig.x, srcOrig.y + srcRect.bottom - 2, SRCCOPY);
 			CALL_ORIG_FUNC(BitBlt)(dstDc, srcRect.right - 1, srcRect.bottom - 1, 1, 1,
 				srcDc, srcOrig.x + srcRect.right - 2, srcOrig.y + srcRect.bottom - 2, SRCCOPY);
+
 			windowSurface.surface->ReleaseDC(windowSurface.surface, dstDc);
-			ReleaseDC(layeredWindow.hwnd, srcDc);
+			if (!layeredWindow.dc)
+			{
+				ReleaseDC(layeredWindow.hwnd, srcDc);
+			}
 
 			copySubResourceRegion(*texture.resource, 0, srcRect, *windowSurface.resource, 0, srcRect);
 			windowSurface.resource->notifyLock(0);
 
-			COLORREF colorKey = 0;
-			BYTE alpha = 0;
-			DWORD flags = 0;
-			GetLayeredWindowAttributes(layeredWindow.hwnd, &colorKey, &alpha, &flags);
 			const ShaderBlitter::ColorKeyInfo ck = { colorKey,
 				(flags & ULW_COLORKEY) ? D3DDDIFMT_A8R8G8B8 : D3DDDIFMT_UNKNOWN };
 
@@ -1359,9 +1387,17 @@ namespace D3dDdi
 
 			srcRect.right--;
 			srcRect.bottom--;
-			blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect,
-				D3DTEXF_LINEAR | D3DTEXF_SRGB, ck, (flags & ULW_ALPHA) ? &alpha : nullptr,
-				layeredWindow.region);
+			if (layeredWindow.dc)
+			{
+				blitter.alphaBlendBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect,
+					ck, (flags & ULW_ALPHA) ? alpha : 255, layeredWindow.region);
+			}
+			else
+			{
+				blitter.textureBlt(dst, dstSubResourceIndex, visibleRect, *texture.resource, 0, srcRect,
+					D3DTEXF_LINEAR | D3DTEXF_SRGB, ck, (flags & ULW_ALPHA) ? &alpha : nullptr,
+					layeredWindow.region);
+			}
 		}
 	}
 

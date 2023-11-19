@@ -5,6 +5,7 @@
 #include <dwmapi.h>
 
 #include <Common/Log.h>
+#include <Common/Rect.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -23,6 +24,74 @@
 
 namespace
 {
+	class LayeredWindowContent
+	{
+	public:
+		~LayeredWindowContent()
+		{
+			destroy();
+		}
+
+		BYTE getAlpha() const { return m_alpha; }
+		BYTE getAlphaFormat() const { return m_alphaFormat; }
+		COLORREF getColorKey() const { return m_colorKey; }
+		HDC getDc() const { return m_dc; }
+
+		void set(HWND hwnd, HDC hdcSrc, const POINT* pptSrc, COLORREF colorKey, BYTE alpha, BYTE alphaFormat)
+		{
+			if (hdcSrc)
+			{
+				RECT wr = {};
+				GetWindowRect(hwnd, &wr);
+				const SIZE size = Rect::getSize(wr);
+
+				if (size != m_size)
+				{
+					destroy();
+					m_size = size;
+					m_dc = CreateCompatibleDC(nullptr);
+					m_origBmp = SelectObject(m_dc, CALL_ORIG_FUNC(CreateBitmap)(size.cx, size.cy, 1, 32, nullptr));
+				}
+
+				CALL_ORIG_FUNC(BitBlt)(m_dc, 0, 0, size.cx, size.cy,
+					hdcSrc, pptSrc ? pptSrc->x : 0, pptSrc ? pptSrc->y : 0, SRCCOPY);
+
+				if (alphaFormat & AC_SRC_ALPHA)
+				{
+					BITMAP bm = {};
+					GetObject(GetCurrentObject(hdcSrc, OBJ_BITMAP), sizeof(bm), &bm);
+					if (32 != bm.bmBitsPixel)
+					{
+						alphaFormat &= ~AC_SRC_ALPHA;
+					}
+				}
+			}
+
+			m_colorKey = colorKey;
+			m_alpha = alpha;
+			m_alphaFormat = alphaFormat;
+		}
+
+	private:
+		void destroy()
+		{
+			if (m_dc)
+			{
+				DeleteObject(SelectObject(m_dc, m_origBmp));
+				DeleteDC(m_dc);
+				m_dc = nullptr;
+				m_origBmp = nullptr;
+			}
+		}
+
+		HDC m_dc = nullptr;
+		HGDIOBJ m_origBmp = nullptr;
+		SIZE m_size = {};
+		COLORREF m_colorKey = CLR_INVALID;
+		BYTE m_alpha = 255;
+		BYTE m_alphaFormat = 0;
+	};
+
 	struct UpdateWindowContext
 	{
 		Gdi::Region obscuredRegion;
@@ -39,6 +108,7 @@ namespace
 		RECT clientRect;
 		Gdi::Region visibleRegion;
 		Gdi::Region invalidatedRegion;
+		LayeredWindowContent layeredWindowContent;
 		bool isMenu;
 		bool isLayered;
 		bool isDpiAware;
@@ -88,57 +158,6 @@ namespace
 		SelectClipRgn(screenDc, nullptr);
 		ReleaseDC(nullptr, screenDc);
 		return true;
-	}
-
-	void presentLayeredWindow(CompatWeakPtr<IDirectDrawSurface7> dst,
-		HWND hwnd, RECT wr, const RECT& monitorRect, HDC& dstDc, Gdi::Region* rgn = nullptr, bool isMenu = false)
-	{
-		if (!dst)
-		{
-			throw true;
-		}
-
-		if (!dstDc)
-		{
-			dst->GetDC(dst, &dstDc);
-			if (!dstDc)
-			{
-				throw false;
-			}
-		}
-
-		OffsetRect(&wr, -monitorRect.left, -monitorRect.top);
-		if (rgn)
-		{
-			rgn->offset(-monitorRect.left, -monitorRect.top);
-		}
-
-		HDC windowDc = GetWindowDC(hwnd);
-		if (rgn)
-		{
-			SelectClipRgn(dstDc, *rgn);
-		}
-
-		COLORREF colorKey = 0;
-		BYTE alpha = 255;
-		DWORD flags = ULW_ALPHA;
-		if (isMenu || CALL_ORIG_FUNC(GetLayeredWindowAttributes)(hwnd, &colorKey, &alpha, &flags))
-		{
-			if (flags & LWA_COLORKEY)
-			{
-				CALL_ORIG_FUNC(TransparentBlt)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, colorKey);
-			}
-			else
-			{
-				BLENDFUNCTION blend = {};
-				blend.SourceConstantAlpha = alpha;
-				CALL_ORIG_FUNC(AlphaBlend)(dstDc, wr.left, wr.top, wr.right - wr.left, wr.bottom - wr.top,
-					windowDc, 0, 0, wr.right - wr.left, wr.bottom - wr.top, blend);
-			}
-		}
-
-		CALL_ORIG_FUNC(ReleaseDC)(hwnd, windowDc);
 	}
 
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
@@ -351,7 +370,14 @@ namespace Gdi
 				auto& window = **it;
 				if (window.isLayered && !window.visibleRegion.isEmpty())
 				{
-					layeredWindows.push_back({ window.hwnd, window.windowRect, window.visibleRegion });
+					layeredWindows.push_back({
+						window.hwnd,
+						window.windowRect,
+						window.visibleRegion,
+						window.layeredWindowContent.getDc(),
+						window.layeredWindowContent.getColorKey(),
+						window.layeredWindowContent.getAlpha(),
+						window.layeredWindowContent.getAlphaFormat() });
 				}
 			}
 			return layeredWindows;
@@ -637,6 +663,21 @@ namespace Gdi
 				}
 
 				Gdi::GuiThread::destroyWindow(prevPresentationWindow);
+			}
+		}
+
+		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
+			COLORREF colorKey, BYTE alpha, BYTE alphaFormat)
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			auto it = g_windows.find(hwnd);
+			if (it != g_windows.end())
+			{
+				it->second.layeredWindowContent.set(hwnd, hdcSrc, pptSrc, colorKey, alpha, alphaFormat);
+				if (DDraw::RealPrimarySurface::isFullscreen())
+				{
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				}
 			}
 		}
 

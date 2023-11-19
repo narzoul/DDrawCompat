@@ -40,6 +40,10 @@ namespace Gdi
 					if (presentationWindow)
 					{
 						CALL_ORIG_FUNC(SetLayeredWindowAttributes)(presentationWindow, 0, 255, LWA_ALPHA);
+						if (owner)
+						{
+							AttachThreadInput(GetCurrentThreadId(), GetWindowThreadProcessId(owner, nullptr), FALSE);
+						}
 					}
 				});
 			return LOG_RESULT(presentationWindow);

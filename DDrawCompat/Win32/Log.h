@@ -7,6 +7,7 @@
 std::ostream& operator<<(std::ostream& os, const BITMAP& bm);
 std::ostream& operator<<(std::ostream& os, const BITMAPINFO& bmi);
 std::ostream& operator<<(std::ostream& os, const BITMAPINFOHEADER& bmih);
+std::ostream& operator<<(std::ostream& os, const BLENDFUNCTION& bf);
 std::ostream& operator<<(std::ostream& os, const COMPAREITEMSTRUCT& cis);
 std::ostream& operator<<(std::ostream& os, const COPYDATASTRUCT& cds);
 std::ostream& operator<<(std::ostream& os, const CREATESTRUCTA& cs);
