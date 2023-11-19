@@ -117,6 +117,7 @@ namespace D3dDdi
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
 		SIZE getScaledSize();
+		bool isScaled(UINT subResourceIndex);
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		void loadFromLockRefResource(UINT subResourceIndex);
 		void loadMsaaResource(UINT subResourceIndex);
@@ -155,6 +156,7 @@ namespace D3dDdi
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;
 		bool m_isPrimary;
+		bool m_isPrimaryScalingNeeded;
 		bool m_isPalettizedTextureUpToDate;
 		bool m_isColorKeyedSurfaceUpToDate;
 	};

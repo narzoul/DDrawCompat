@@ -135,6 +135,7 @@ namespace D3dDdi
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface() || !g_enableConfig)
 		, m_isClampable(true)
 		, m_isPrimary(false)
+		, m_isPrimaryScalingNeeded(false)
 		, m_isPalettizedTextureUpToDate(false)
 		, m_isColorKeyedSurfaceUpToDate(false)
 	{
@@ -378,6 +379,12 @@ namespace D3dDdi
 		if (srcResource.m_lockResource)
 		{
 			srcResource.loadFromLockRefResource(data.SrcSubResourceIndex);
+		}
+
+		if (m_isPrimary && !m_isPrimaryScalingNeeded && srcResource.isScaled(data.SrcSubResourceIndex))
+		{
+			m_isPrimaryScalingNeeded = true;
+			updateConfig();
 		}
 
 		Resource* srcRes = &srcResource;
@@ -821,11 +828,23 @@ namespace D3dDdi
 	SIZE Resource::getScaledSize()
 	{
 		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
-		if (m_origData.Flags.RenderTarget || m_fixedData.Flags.ZBuffer)
+		if (m_isPrimary && m_isPrimaryScalingNeeded || m_origData.Flags.RenderTarget || m_fixedData.Flags.ZBuffer)
 		{
 			return m_device.getAdapter().getScaledSize(size);
 		}
 		return size;
+	}
+
+	bool Resource::isScaled(UINT subResourceIndex)
+	{
+		if (!m_msaaResolvedSurface.resource)
+		{
+			return false;
+		}
+
+		auto& si = m_fixedData.pSurfList[subResourceIndex];
+		auto& scaledSi = m_msaaResolvedSurface.resource->getFixedDesc().pSurfList[subResourceIndex];
+		return si.Width != scaledSi.Width || si.Height != scaledSi.Height;
 	}
 
 	bool Resource::isValidRect(UINT subResourceIndex, const RECT& rect)
