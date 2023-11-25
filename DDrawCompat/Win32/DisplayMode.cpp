@@ -250,6 +250,7 @@ namespace
 		SIZE res = lpDevMode ? emulatedResolution : makeSize(currDevMode.dmPelsWidth, currDevMode.dmPelsHeight);
 		EnumWindows(sendDisplayChange, (res.cy << 16) | res.cx);
 
+		ClipCursor(nullptr);
 		SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
 		Gdi::VirtualScreen::update();
 

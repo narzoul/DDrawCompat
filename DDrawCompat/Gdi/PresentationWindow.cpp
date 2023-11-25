@@ -1,6 +1,7 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Dll/Dll.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/PresentationWindow.h>
 
@@ -44,6 +45,7 @@ namespace Gdi
 						{
 							AttachThreadInput(GetCurrentThreadId(), GetWindowThreadProcessId(owner, nullptr), FALSE);
 						}
+						DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 					}
 				});
 			return LOG_RESULT(presentationWindow);
