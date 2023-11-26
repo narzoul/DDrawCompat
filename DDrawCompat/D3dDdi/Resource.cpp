@@ -1497,14 +1497,12 @@ namespace D3dDdi
 			Gdi::Cursor::setMonitorClipRect(clipRect);
 			DDraw::RealPrimarySurface::setEmulatedCursor(0 != g_presentationRect.left || 0 != g_presentationRect.top ||
 				Rect::getSize(mi.rcEmulated) != Rect::getSize(g_presentationRect));
-			Gdi::VirtualScreen::setFullscreenMode(m_origData.Flags.MatchGdiPrimary);
 		}
 		else
 		{
 			Gdi::Palette::setHardwarePalette(Gdi::Palette::getSystemPalette().data());
 
 			g_presentationRect = {};
-			Gdi::VirtualScreen::setFullscreenMode(false);
 			DDraw::RealPrimarySurface::setEmulatedCursor(false);
 			Gdi::Cursor::setMonitorClipRect({});
 		}

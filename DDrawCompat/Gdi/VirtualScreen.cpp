@@ -216,6 +216,7 @@ namespace Gdi
 
 		void setFullscreenMode(bool isFullscreen)
 		{
+			LOG_FUNC("VirtualScreen::setFullscreenMode", isFullscreen);
 			g_isFullscreen = isFullscreen;
 			update();
 		}
@@ -223,14 +224,13 @@ namespace Gdi
 		bool update()
 		{
 			LOG_FUNC("VirtualScreen::update");
-			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness() - 1;
+			static auto prevDisplaySettingsUniqueness = Win32::DisplayMode::queryEmulatedDisplaySettingsUniqueness() - 1;
 			static bool prevIsFullscreen = false;
 
 			if (prevIsFullscreen == g_isFullscreen)
 			{
 				Compat::ScopedCriticalSection lock(g_cs);
-				if (Win32::DisplayMode::queryDisplaySettingsUniqueness() == prevDisplaySettingsUniqueness &&
-					Win32::DisplayMode::getBpp() == g_bpp)
+				if (Win32::DisplayMode::queryEmulatedDisplaySettingsUniqueness() == prevDisplaySettingsUniqueness)
 				{
 					return LOG_RESULT(false);
 				}
@@ -240,7 +240,7 @@ namespace Gdi
 				D3dDdi::ScopedCriticalSection driverLock;
 				Compat::ScopedCriticalSection lock(g_cs);
 
-				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryDisplaySettingsUniqueness();
+				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryEmulatedDisplaySettingsUniqueness();
 				prevIsFullscreen = g_isFullscreen;
 
 				auto gdiResource = D3dDdi::Device::getGdiResource();

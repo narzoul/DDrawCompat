@@ -84,6 +84,7 @@ namespace DDraw
 		s_palette = nullptr;
 
 		DDraw::RealPrimarySurface::release();
+		Gdi::VirtualScreen::setFullscreenMode(false);
 	}
 
 	template <typename TDirectDraw, typename TSurface, typename TSurfaceDesc>
@@ -103,6 +104,8 @@ namespace DDraw
 			g_monitorRect = prevMonitorRect;
 			return LOG_RESULT(result);
 		}
+
+		Gdi::VirtualScreen::setFullscreenMode(RealPrimarySurface::isFullscreen());
 
 		const DWORD origCaps = desc.ddsCaps.dwCaps;
 		auto privateData(std::make_unique<PrimarySurface>(desc.dwFlags, origCaps));

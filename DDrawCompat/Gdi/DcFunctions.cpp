@@ -234,12 +234,7 @@ namespace
 				lpToScreen(hwnd, hdc, p) &&
 				HTMENU == SendMessage(hwnd, WM_NCHITTEST, 0, (p.y << 16) | (p.x & 0xFFFF)))
 			{
-				WINDOWINFO wi = {};
-				GetWindowInfo(hwnd, &wi);
-				Gdi::Region ncRegion(wi.rcWindow);
-				ncRegion -= wi.rcClient;
-				ncRegion.offset(-wi.rcClient.left, -wi.rcClient.top);
-				RedrawWindow(hwnd, nullptr, ncRegion, RDW_INVALIDATE | RDW_FRAME);
+				CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_NOSENDCHANGING);
 			}
 			else
 			{

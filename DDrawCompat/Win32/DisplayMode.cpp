@@ -103,7 +103,7 @@ namespace
 	{
 		DDraw::ScopedThreadLock ddLock;
 		auto desktopResolution = Config::desktopResolution.get();
-		if (!lpDevMode && 0 == dwflags && Config::Settings::DesktopResolution::DESKTOP != desktopResolution)
+		if (!lpDevMode && !(dwflags & CDS_TEST) && Config::Settings::DesktopResolution::DESKTOP != desktopResolution)
 		{
 			auto mi = Win32::DisplayMode::getMonitorInfo(getDeviceName(lpszDeviceName));
 			if (0 == mi.rcMonitor.left && 0 == mi.rcMonitor.top)
@@ -116,48 +116,44 @@ namespace
 				dm.dmPelsWidth = desktopResolution.cx;
 				dm.dmPelsHeight = desktopResolution.cy;
 
-				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, 0, nullptr))
+				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, dwflags, nullptr))
 				{
 					return DISP_CHANGE_SUCCESSFUL;
 				}
 			}
 		}
 
+		DevMode<Char> prevEmulatedDevMode = {};
+		prevEmulatedDevMode.dmSize = sizeof(prevEmulatedDevMode);
+		enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &prevEmulatedDevMode, 0);
+
 		DevMode<Char> targetDevMode = {};
 		SIZE emulatedResolution = {};
 		if (lpDevMode)
 		{
-			DevMode<Char> currDevMode = {};
-			currDevMode.dmSize = sizeof(currDevMode);
-			enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
-
 			targetDevMode = *lpDevMode;
 			targetDevMode.dmFields |= DM_BITSPERPEL;
 			targetDevMode.dmBitsPerPel = 32;
 			if (!(targetDevMode.dmFields & DM_PELSWIDTH))
 			{
 				targetDevMode.dmFields |= DM_PELSWIDTH;
-				targetDevMode.dmPelsWidth = currDevMode.dmPelsWidth;
+				targetDevMode.dmPelsWidth = prevEmulatedDevMode.dmPelsWidth;
 			}
 			if (!(targetDevMode.dmFields & DM_PELSHEIGHT))
 			{
 				targetDevMode.dmFields |= DM_PELSHEIGHT;
-				targetDevMode.dmPelsHeight = currDevMode.dmPelsHeight;
+				targetDevMode.dmPelsHeight = prevEmulatedDevMode.dmPelsHeight;
 			}
 			if (!(targetDevMode.dmFields & DM_DISPLAYFREQUENCY))
 			{
 				targetDevMode.dmFields |= DM_DISPLAYFREQUENCY;
-				targetDevMode.dmDisplayFrequency = currDevMode.dmDisplayFrequency;
+				targetDevMode.dmDisplayFrequency = prevEmulatedDevMode.dmDisplayFrequency;
 			}
 
 			emulatedResolution = makeSize(targetDevMode.dmPelsWidth, targetDevMode.dmPelsHeight);
 			auto supportedDisplayModeMap(getSupportedDisplayModeMap(lpszDeviceName, 0));
 			if (supportedDisplayModeMap.find(emulatedResolution) == supportedDisplayModeMap.end())
 			{
-				if (!(dwflags & CDS_TEST))
-				{
-					setDwmDxFullscreenTransitionEvent();
-				}
 				return DISP_CHANGE_BADMODE;
 			}
 
@@ -197,6 +193,7 @@ namespace
 			origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &prevDevMode, 0);
 		}
 
+		const auto prevDisplaySettingsUniqueness = CALL_ORIG_FUNC(GdiEntry13);
 		LONG result = 0;
 		if (lpDevMode)
 		{
@@ -212,11 +209,7 @@ namespace
 			return result;
 		}
 
-		DevMode<Char> currDevMode = {};
-		currDevMode.dmSize = sizeof(currDevMode);
-		origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
-
-		if (0 == memcmp(&currDevMode, &prevDevMode, sizeof(currDevMode)))
+		if (CALL_ORIG_FUNC(GdiEntry13) == prevDisplaySettingsUniqueness)
 		{
 			setDwmDxFullscreenTransitionEvent();
 		}
@@ -226,9 +219,12 @@ namespace
 			return result;
 		}
 
+		DevMode<Char> currDevMode = {};
+		currDevMode.dmSize = sizeof(currDevMode);
+		origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
+
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			++g_displaySettingsUniquenessBias;
 			if (lpDevMode)
 			{
 				g_emulatedDisplayMode.width = emulatedResolution.cx;
@@ -237,7 +233,7 @@ namespace
 				{
 					g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
 				}
-				g_emulatedDisplayMode.refreshRate = currDevMode.dmDisplayFrequency;
+				g_emulatedDisplayMode.refreshRate = targetDevMode.dmDisplayFrequency;
 				g_emulatedDisplayMode.deviceName = getDeviceName(lpszDeviceName);
 			}
 			else
@@ -245,15 +241,27 @@ namespace
 				g_emulatedDisplayMode = {};
 				g_emulatedDisplayMode.bpp = g_desktopBpp;
 			}
+
+			DevMode<Char> currEmulatedDevMode = {};
+			currEmulatedDevMode.dmSize = sizeof(currEmulatedDevMode);
+			enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currEmulatedDevMode, 0);
+
+			if (0 != memcmp(&prevEmulatedDevMode, &currEmulatedDevMode, sizeof(currEmulatedDevMode)))
+			{
+				++g_displaySettingsUniquenessBias;
+			}
 		}
 
-		SIZE res = lpDevMode ? emulatedResolution : makeSize(currDevMode.dmPelsWidth, currDevMode.dmPelsHeight);
-		EnumWindows(sendDisplayChange, (res.cy << 16) | res.cx);
+		const SIZE res = lpDevMode ? emulatedResolution : makeSize(currDevMode.dmPelsWidth, currDevMode.dmPelsHeight);
+		if (res.cx != static_cast<LONG>(prevEmulatedDevMode.dmPelsWidth) ||
+			res.cy != static_cast<LONG>(prevEmulatedDevMode.dmPelsHeight))
+		{
+			ClipCursor(nullptr);
+			SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
+			EnumWindows(sendDisplayChange, (res.cy << 16) | res.cx);
+		}
 
-		ClipCursor(nullptr);
-		SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
 		Gdi::VirtualScreen::update();
-
 		return result;
 	}
 
@@ -793,6 +801,11 @@ namespace Win32
 		ULONG queryDisplaySettingsUniqueness()
 		{
 			return CALL_ORIG_FUNC(GdiEntry13)();
+		}
+
+		ULONG queryEmulatedDisplaySettingsUniqueness()
+		{
+			return gdiEntry13();
 		}
 
 		void installHooks()
