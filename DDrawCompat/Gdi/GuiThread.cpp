@@ -3,6 +3,8 @@
 
 #include <Common/Log.h>
 #include <Common/Hook.h>
+#include <Config/Settings/ConfigHotKey.h>
+#include <Config/Settings/StatsHotKey.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -79,11 +81,17 @@ namespace
 			return 0;
 		}
 
-		Overlay::StatsWindow statsWindow;
-		g_statsWindow = &statsWindow;
+		if (0 != Config::statsHotKey.get().vk)
+		{
+			static Overlay::StatsWindow statsWindow;
+			g_statsWindow = &statsWindow;
+		}
 
-		Overlay::ConfigWindow configWindow;
-		g_configWindow = &configWindow;
+		if (0 != Config::configHotKey.get().vk)
+		{
+			static Overlay::ConfigWindow configWindow;
+			g_configWindow = &configWindow;
+		}
 
 		{
 			D3dDdi::ScopedCriticalSection lock;

@@ -1,10 +1,12 @@
 #pragma once
 
+#include <array>
 #include <list>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <Config/Settings/StatsRows.h>
 #include <Overlay/StatsControl.h>
 #include <Overlay/StatsEventGroup.h>
 #include <Overlay/StatsQueue.h>
@@ -18,6 +20,7 @@ namespace Overlay
 	public:
 		StatsWindow();
 
+		bool isRowEnabled(Config::Settings::StatsRows::Values row) const { return m_isRowEnabled[row]; }
 		void updateStats();
 
 		uint32_t m_presentCount;
@@ -33,6 +36,7 @@ namespace Overlay
 		{
 			const char* name;
 			StatsControl::UpdateFunc updateFunc;
+			StatsQueue* statsQueue;
 			DWORD style;
 		};
 
@@ -43,6 +47,7 @@ namespace Overlay
 
 		static LONG getWidth();
 
+		std::array<bool, Config::Settings::StatsRows::VALUE_COUNT> m_isRowEnabled;
 		std::list<StatsControl> m_statsControls;
 		std::vector<StatsRow> m_statsRows;
 		uint64_t m_tickCount;

@@ -9,9 +9,15 @@ class StatsEventGroup
 public:
 	StatsEventGroup();
 
-	void add();
+	void add() { if (m_isEnabled) { addImpl(); } }
+	void enable();
 
 	StatsEventCount m_count;
 	StatsEventTime m_time;
 	StatsEventRate m_rate;
+
+private:
+	void addImpl();
+
+	bool m_isEnabled;
 };

@@ -7,7 +7,7 @@ StatsEventTime::StatsEventTime()
 {
 }
 
-void StatsEventTime::add(TickCount tickCount, long long qpcNow)
+void StatsEventTime::addImpl(TickCount tickCount, long long qpcNow)
 {
 	if (0 != m_qpcLast && qpcNow - m_qpcLast < s_history_time * Time::g_qpcFrequency)
 	{

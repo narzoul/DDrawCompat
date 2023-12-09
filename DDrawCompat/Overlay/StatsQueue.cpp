@@ -1,9 +1,14 @@
+#include <array>
+
 #include <Config/Settings/StatsAggregateTime.h>
+#include <Config/Settings/StatsColumns.h>
 #include <Config/Settings/StatsUpdateRate.h>
 #include <Overlay/StatsQueue.h>
 
 namespace
 {
+	std::array<bool, Config::Settings::StatsColumns::VALUE_COUNT> g_isColumnEnabled = {};
+
 	bool greaterEqual(StatsQueue::Stat a, StatsQueue::Stat b)
 	{
 		return a >= b;
@@ -17,9 +22,23 @@ namespace
 
 StatsQueueInitializer::StatsQueueInitializer()
 {
+	for (auto statsColumnIndex : Config::statsColumns.get())
+	{
+		g_isColumnEnabled[statsColumnIndex] = true;
+	}
+
 	s_update_rate = Config::statsUpdateRate.get();
 	s_history_time = Config::statsAggregateTime.get();
-	s_history_size = s_history_time * s_update_rate;
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::AVG] ||
+		g_isColumnEnabled[Config::Settings::StatsColumns::MIN] ||
+		g_isColumnEnabled[Config::Settings::StatsColumns::MAX])
+	{
+		s_history_size = s_history_time * s_update_rate;
+	}
+	else
+	{
+		s_history_size = 1;
+	}
 }
 
 uint32_t StatsQueueInitializer::s_history_size = 0;
@@ -36,6 +55,7 @@ StatsQueue::StatsQueue()
 	, m_max(0)
 	, m_totalSampleCount(0)
 	, m_totalSum(0)
+	, m_isEnabled(false)
 {
 }
 
@@ -71,8 +91,14 @@ StatsQueue::Stats StatsQueue::getRawStats(TickCount tickCount)
 	setTickCount(tickCount);
 	Stats stats = {};
 	const uint32_t index = (m_currentTickCount - 1) % s_history_size;
-	stats.cur = getAvg(m_sums[index], m_sampleCounts[index]);
-	stats.avg = getAvg(m_totalSum, m_totalSampleCount);
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::CUR])
+	{
+		stats.cur = getAvg(m_sums[index], m_sampleCounts[index]);
+	}
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::AVG])
+	{
+		stats.avg = getAvg(m_totalSum, m_totalSampleCount);
+	}
 	stats.min = m_minQueue.empty() ? NAN : m_minQueue.front().stat;
 	stats.max = m_maxQueue.empty() ? NAN : m_maxQueue.front().stat;
 	return stats;
@@ -86,10 +112,22 @@ StatsQueue::SampleCount StatsQueue::getSampleCount(TickCount tickCount) const
 StatsQueue::Stats StatsQueue::getStats(TickCount tickCount)
 {
 	Stats stats = getRawStats(tickCount);
-	stats.cur = convert(stats.cur);
-	stats.avg = convert(stats.avg);
-	stats.min = convert(stats.min);
-	stats.max = convert(stats.max);
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::CUR])
+	{
+		stats.cur = convert(stats.cur);
+	}
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::AVG])
+	{
+		stats.avg = convert(stats.avg);
+	}
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::MIN])
+	{
+		stats.min = convert(stats.min);
+	}
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::MAX])
+	{
+		stats.max = convert(stats.max);
+	}
 	return stats;
 }
 
@@ -105,8 +143,14 @@ void StatsQueue::push()
 	m_sampleCounts[index] = m_sampleCount;
 	m_sums[index] = m_sum;
 
-	pushToMinMaxQueue(m_minQueue, m_min, lessEqual);
-	pushToMinMaxQueue(m_maxQueue, m_max, greaterEqual);
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::MIN])
+	{
+		pushToMinMaxQueue(m_minQueue, m_min, lessEqual);
+	}
+	if (g_isColumnEnabled[Config::Settings::StatsColumns::MAX])
+	{
+		pushToMinMaxQueue(m_maxQueue, m_max, greaterEqual);
+	}
 
 	m_sampleCount = 0;
 	m_sum = 0;

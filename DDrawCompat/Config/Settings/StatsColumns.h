@@ -9,7 +9,7 @@ namespace Config
 		class StatsColumns : public EnumListSetting
 		{
 		public:
-			enum Values { CUR, AVG, MIN, MAX, LABEL };
+			enum Values { CUR, AVG, MIN, MAX, LABEL, VALUE_COUNT };
 
 			StatsColumns()
 				: EnumListSetting("StatsColumns", "label, cur, avg, min, max", { "cur", "avg", "min", "max", "label" })

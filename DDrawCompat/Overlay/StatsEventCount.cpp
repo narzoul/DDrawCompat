@@ -9,12 +9,6 @@ StatsEventCount::StatsEventCount()
 {
 }
 
-void StatsEventCount::add(TickCount tickCount)
-{
-	setTickCount(tickCount);
-	m_sampleCount++;
-}
-
 void StatsEventCount::finalize(SampleCount& sampleCount, Stat& sum, Stat& min, Stat& max)
 {
 	const uint32_t index = getCurrentTickCount() % s_update_rate;

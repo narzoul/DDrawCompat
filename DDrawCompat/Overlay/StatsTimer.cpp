@@ -36,14 +36,14 @@ void StatsTimer::resetTickCount()
 	m_qpcSum = 0;
 }
 
-void StatsTimer::start()
+void StatsTimer::startImpl()
 {
 	auto qpcStart = Time::queryPerformanceCounter();
 	setTickCount(getTickCount(qpcStart));
 	m_qpcStart = qpcStart;
 }
 
-void StatsTimer::stop()
+void StatsTimer::stopImpl()
 {
 	auto qpcEnd = Time::queryPerformanceCounter();
 	setTickCount(getTickCount(qpcEnd));

@@ -35,7 +35,9 @@ public:
 	void addSample(TickCount tickCount, Stat stat);
 	Stats getStats(TickCount tickCount);
 
+	void enable() { m_isEnabled = true; }
 	TickCount getCurrentTickCount() const { return m_currentTickCount; }
+	bool isEnabled() const { return m_isEnabled; }
 
 	static long long getQpc(TickCount tickCount)
 	{
@@ -79,4 +81,5 @@ private:
 	Stat m_max;
 	SampleCount m_totalSampleCount;
 	Stat m_totalSum;
+	bool m_isEnabled;
 };

@@ -7,7 +7,14 @@ class StatsEventCount : public StatsQueue
 public:
 	StatsEventCount();
 
-	void add(TickCount tickCount);
+	void add(TickCount tickCount)
+	{
+		if (isEnabled())
+		{
+			setTickCount(tickCount);
+			m_sampleCount++;
+		}
+	}
 
 private:
 	virtual void finalize(SampleCount& sampleCount, Stat& sum, Stat& min, Stat& max) override;

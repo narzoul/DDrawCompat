@@ -25,7 +25,8 @@ namespace Config
 				LOCKTIME,
 				DDIUSAGE,
 				GDIOBJECTS,
-				DEBUG
+				DEBUG,
+				VALUE_COUNT
 			};
 
 			StatsRows()
