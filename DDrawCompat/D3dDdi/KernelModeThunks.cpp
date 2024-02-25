@@ -1,4 +1,5 @@
 #include <atomic>
+#include <filesystem>
 #include <string>
 
 #include <Windows.h>
@@ -232,6 +233,30 @@ namespace
 				info->SharedSystemMemorySize = std::min(info->SharedSystemMemorySize, maxMem);
 				break;
 			}
+			}
+		}
+		else if (!Config::forceD3D9On12.get() &&
+			KMTQAITYPE_UMDRIVERNAME == pData->Type &&
+			KMTUMDVERSION_DX9 == static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData)->Version)
+		{
+			D3DKMT_UMDFILENAMEINFO fn = {};
+			fn.Version = KMTUMDVERSION_DX12;
+			D3DKMT_QUERYADAPTERINFO data = *pData;
+			data.pPrivateDriverData = &fn;
+			data.PrivateDriverDataSize = sizeof(fn);
+			if (SUCCEEDED(D3DKMTQueryAdapterInfo(&data)))
+			{
+				std::filesystem::path path(fn.UmdFileName);
+				path.replace_filename("igd9trinity32.dll");
+				HMODULE mod = LoadLibraryExW(path.native().c_str(), nullptr, LOAD_LIBRARY_AS_DATAFILE);
+				if (mod)
+				{
+					FreeLibrary(mod);
+					memcpy(static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData)->UmdFileName,
+						path.wstring().c_str(), (path.native().length() + 1) * 2);
+					LOG_ONCE("Replacing D3D9On12 with igd9trinity32.dll");
+					return LOG_RESULT(S_OK);
+				}
 			}
 		}
 		return LOG_RESULT(result);

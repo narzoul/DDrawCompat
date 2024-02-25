@@ -100,10 +100,7 @@ namespace D3dDdi
 		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
 
 		m_device.getOrigVtable().pfnSetDepthStencil(m_device, &m_current.depthStencil);
-		m_device.getOrigVtable().pfnSetPixelShader(m_device, nullptr);
 		m_device.getOrigVtable().pfnSetRenderTarget(m_device, &m_current.renderTarget);
-		m_device.getOrigVtable().pfnSetVertexShaderDecl(m_device, nullptr);
-		m_device.getOrigVtable().pfnSetVertexShaderFunc(m_device, nullptr);
 		m_device.getOrigVtable().pfnSetViewport(m_device, &m_current.viewport);
 		m_device.getOrigVtable().pfnUpdateWInfo(m_device, &m_current.wInfo);
 		m_device.getOrigVtable().pfnSetZRange(m_device, &m_current.zRange);
@@ -836,7 +833,10 @@ namespace D3dDdi
 		}
 
 		m_device.flushPrimitives();
-		origSetShaderFunc(m_device, shader);
+		if (shader)
+		{
+			origSetShaderFunc(m_device, shader);
+		}
 		currentShader = shader;
 		return true;
 	}

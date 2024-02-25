@@ -319,7 +319,7 @@ namespace
 		g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
 		g_surfaceDesc = desc;
 
-		if (0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP))
+		if (g_isExclusiveFullscreen && 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP))
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
@@ -408,7 +408,7 @@ namespace
 		{
 			updatePresentationWindow();
 			*g_deviceWindowPtr = g_presentationWindow;
-			g_frontBuffer->Flip(g_frontBuffer, getBackBuffer(), DDFLIP_WAIT);
+			g_frontBuffer->Flip(g_frontBuffer, g_isExclusiveFullscreen ? getBackBuffer() : nullptr, DDFLIP_WAIT);
 			*g_deviceWindowPtr = g_deviceWindow;
 		}
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
@@ -522,7 +522,7 @@ namespace DDraw
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_CAPS | DDSD_BACKBUFFERCOUNT;
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
-		desc.dwBackBufferCount = 2;
+		desc.dwBackBufferCount = g_isExclusiveFullscreen ? 2 : 1;
 
 		auto prevIsFullscreen = g_isFullscreen;
 		g_isFullscreen = true;

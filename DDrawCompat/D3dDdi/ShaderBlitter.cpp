@@ -257,7 +257,8 @@ namespace D3dDdi
 			LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
 		if (flags & BLT_COLORKEYTEST)
 		{
-			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, 0xFF });
+			const DWORD testColor = getFormatInfo(D3DDDIFMT_R5G6B5).pixelFormat.dwGBitMask;
+			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, testColor });
 		}
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());

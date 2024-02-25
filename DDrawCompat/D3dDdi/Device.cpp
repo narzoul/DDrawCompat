@@ -124,8 +124,8 @@ namespace D3dDdi
 		auto& repo = getRepo();
 		SurfaceRepository::Surface tex;
 		SurfaceRepository::Surface rt;
-		repo.getTempSurface(tex, 1, 1, D3DDDIFMT_X8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
-		repo.getTempSurface(rt, 1, 1, D3DDDIFMT_X8R8G8B8, DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
+		repo.getTempSurface(tex, 1, 1, D3DDDIFMT_R5G6B5, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
+		repo.getTempSurface(rt, 1, 1, D3DDDIFMT_R5G6B5, DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
 
 		if (tex.resource && rt.resource)
 		{
@@ -134,7 +134,8 @@ namespace D3dDdi
 			tex.surface->Lock(tex.surface, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
 			if (desc.lpSurface)
 			{
-				static_cast<DWORD*>(desc.lpSurface)[0] = 0xFF;
+				const WORD testColor = static_cast<WORD>(getFormatInfo(D3DDDIFMT_R5G6B5).pixelFormat.dwGBitMask);
+				static_cast<WORD*>(desc.lpSurface)[0] = testColor;
 				tex.surface->Unlock(tex.surface, nullptr);
 
 				m_shaderBlitter.colorKeyTestBlt(*rt.resource, *tex.resource);
@@ -144,7 +145,7 @@ namespace D3dDdi
 				rt.surface->Lock(rt.surface, nullptr, &desc, DDLOCK_READONLY | DDLOCK_WAIT, nullptr);
 				if (desc.lpSurface)
 				{
-					method = 0xFF == static_cast<DWORD*>(desc.lpSurface)[0]
+					method = testColor == static_cast<WORD*>(desc.lpSurface)[0]
 						? Config::Settings::ColorKeyMethod::ALPHATEST
 						: Config::Settings::ColorKeyMethod::NATIVE;
 					rt.surface->Unlock(rt.surface, nullptr);
