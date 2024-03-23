@@ -6,6 +6,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <Win32/Registry.h>
 
@@ -41,6 +42,7 @@ namespace
 	template <auto origFunc>
 	const char* g_funcName = nullptr;
 
+	Compat::CriticalSection g_openKeysCs;
 	std::map<HKEY, std::wstring> g_openKeys;
 
 	const std::map<HKEY, std::wstring> g_predefinedKeys = {
@@ -121,10 +123,13 @@ namespace
 			return it->second;
 		}
 
-		it = g_openKeys.find(key);
-		if (it != g_openKeys.end())
 		{
-			return it->second;
+			Compat::ScopedCriticalSection lock(g_openKeysCs);
+			it = g_openKeys.find(key);
+			if (it != g_openKeys.end())
+			{
+				return it->second;
+			}
 		}
 
 		enum KEY_INFORMATION_CLASS
@@ -304,6 +309,7 @@ namespace
 		const auto result = CALL_ORIG_FUNC(RegCloseKey)(hKey);
 		if (ERROR_SUCCESS == result)
 		{
+			Compat::ScopedCriticalSection lock(g_openKeysCs);
 			g_openKeys.erase(hKey);
 		}
 		return LOG_RESULT(result);
@@ -352,6 +358,8 @@ namespace
 					keyName += L'\\';
 					keyName.append(lpSubKey, lpSubKey + getLength(lpSubKey));
 				}
+
+				Compat::ScopedCriticalSection lock(g_openKeysCs);
 				g_openKeys[*hkeyPtr] = keyName;
 			}
 		}
