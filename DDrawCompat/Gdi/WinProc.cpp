@@ -494,7 +494,7 @@ namespace
 	{
 		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
-			Gdi::Window::updateAll();
+			Gdi::Window::destroyWindow(hwnd);
 			Gdi::GuiThread::deleteTaskbarTab(hwnd);
 			return;
 		}
@@ -561,7 +561,7 @@ namespace
 		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			DDraw::RealPrimarySurface::setPresentationWindowTopmost();
-			Gdi::Window::updateAll();
+			Gdi::Window::updateWindowPos(hwnd);
 
 			if (g_dwmSetIconicThumbnail)
 			{
@@ -964,7 +964,19 @@ namespace Gdi
 				return;
 			}
 
-			Gdi::Window::updateAll();
+			DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
+			DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
+
+			BOOL disableTransitions = TRUE;
+			DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
+
+			const auto style = GetClassLong(hwnd, GCL_STYLE);
+			if (style & CS_DROPSHADOW)
+			{
+				CALL_ORIG_FUNC(SetClassLongA)(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
+			}
+
+			Gdi::Window::updateWindowPos(hwnd);
 		}
 		
 		void startFrame()

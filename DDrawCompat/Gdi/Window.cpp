@@ -2,8 +2,6 @@
 #include <map>
 #include <vector>
 
-#include <dwmapi.h>
-
 #include <Common/Log.h>
 #include <Common/Rect.h>
 #include <D3dDdi/KernelModeThunks.h>
@@ -128,23 +126,6 @@ namespace
 	std::map<HWND, Window> g_windows;
 	std::vector<Window*> g_windowZOrder;
 
-	std::map<HWND, Window>::iterator addWindow(HWND hwnd)
-	{
-		DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
-		DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
-
-		BOOL disableTransitions = TRUE;
-		DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
-
-		const auto style = GetClassLong(hwnd, GCL_STYLE);
-		if (style & CS_DROPSHADOW)
-		{
-			CALL_ORIG_FUNC(SetClassLongA)(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
-		}
-
-		return g_windows.emplace(hwnd, Window(hwnd)).first;
-	}
-
 	bool bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
 	{
 		if (dst.left == src.left && dst.top == src.top || clipRegion.isEmpty())
@@ -158,6 +139,16 @@ namespace
 		SelectClipRgn(screenDc, nullptr);
 		ReleaseDC(nullptr, screenDc);
 		return true;
+	}
+
+	auto removeWindow(std::map<HWND, Window>::iterator it)
+	{
+		if (it->second.presentationWindow)
+		{
+			Gdi::GuiThread::destroyWindow(it->second.presentationWindow);
+			it->second.presentationWindow = nullptr;
+		}
+		return g_windows.erase(it);
 	}
 
 	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
@@ -258,16 +249,20 @@ namespace
 			return TRUE;
 		}
 
+		const bool isWindowVisible = IsWindowVisible(hwnd);
+		const bool isVisible = isWindowVisible && !IsIconic(hwnd);
 		auto it = g_windows.find(hwnd);
 		if (it == g_windows.end())
 		{
-			it = addWindow(hwnd);
+			if (!isWindowVisible)
+			{
+				return TRUE;
+			}
+			it = g_windows.emplace(hwnd, Window(hwnd)).first;
 		}
-		g_windowZOrder.push_back(&it->second);
 
 		const LONG exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
 		const bool isLayered = it->second.isMenu || (exStyle & WS_EX_LAYERED);
-		const bool isVisible = IsWindowVisible(hwnd) && !IsIconic(hwnd);
 
 		if (isLayered != it->second.isLayered)
 		{
@@ -340,12 +335,21 @@ namespace
 				context.invalidatedRegion |= visibleRegion - it->second.visibleRegion;
 			}
 
-			if (it->second.presentationWindow &&
-				(!isVisible || it->second.presentationWindow != DDraw::RealPrimarySurface::getPresentationWindow()))
+			if (it->second.presentationWindow && isVisible &&
+				it->second.presentationWindow != DDraw::RealPrimarySurface::getPresentationWindow())
 			{
 				Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, Gdi::Window::getWindowRgn(hwnd));
 				Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
 			}
+		}
+
+		if (isWindowVisible)
+		{
+			g_windowZOrder.push_back(&it->second);
+		}
+		else
+		{
+			removeWindow(it);
 		}
 		return TRUE;
 	}
@@ -355,6 +359,25 @@ namespace Gdi
 {
 	namespace Window
 	{
+		void destroyWindow(HWND hwnd)
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			auto it = g_windows.find(hwnd);
+			if (it == g_windows.end())
+			{
+				return;
+			}
+
+			if (it->second.visibleRegion.isEmpty())
+			{
+				removeWindow(it);
+			}
+			else
+			{
+				updateAll();
+			}
+		}
+
 		HWND getPresentationWindow(HWND hwnd)
 		{
 			D3dDdi::ScopedCriticalSection lock;
@@ -613,11 +636,7 @@ namespace Gdi
 				{
 					if (g_windowZOrder.end() == std::find(g_windowZOrder.begin(), g_windowZOrder.end(), &it->second))
 					{
-						if (it->second.presentationWindow)
-						{
-							GuiThread::destroyWindow(it->second.presentationWindow);
-						}
-						it = g_windows.erase(it);
+						it = removeWindow(it);
 					}
 					else
 					{
@@ -723,6 +742,22 @@ namespace Gdi
 					CALL_ORIG_FUNC(SetWindowPos)(presentationWindow,
 						wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags | SWP_NOSIZE);
 				});
+		}
+
+		void updateWindowPos(HWND hwnd)
+		{
+			if (IsWindowVisible(hwnd) && !IsIconic(hwnd))
+			{
+				updateAll();
+				return;
+			}
+
+			D3dDdi::ScopedCriticalSection lock;
+			auto it = g_windows.find(hwnd);
+			if (it != g_windows.end() && !it->second.visibleRegion.isEmpty())
+			{
+				updateAll();
+			}
 		}
 	}
 }

@@ -21,6 +21,7 @@ namespace Gdi
 			BYTE alphaFormat;
 		};
 
+		void destroyWindow(HWND hwnd);
 		HWND getPresentationWindow(HWND hwnd);
 		std::vector<LayeredWindow> getVisibleLayeredWindows();
 		std::vector<LayeredWindow> getVisibleOverlayWindows();
@@ -38,5 +39,6 @@ namespace Gdi
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
 			COLORREF colorKey, BYTE alpha, BYTE alphaFormat);
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner);
+		void updateWindowPos(HWND hwnd);
 	}
 }
