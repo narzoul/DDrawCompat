@@ -53,11 +53,16 @@ namespace
 		}
 
 		DWORD rgnSize = GetRegionData(rgn, 0, nullptr);
-		std::vector<unsigned char> rgnData(rgnSize);
-		GetRegionData(rgn, rgnSize, reinterpret_cast<RGNDATA*>(rgnData.data()));
+		std::vector<unsigned char> rgnDataBuf(std::max<DWORD>(rgnSize, sizeof(RGNDATA)));
+		RGNDATA* rgnData = reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
+		GetRegionData(rgn, rgnSize, rgnData);
+		if (0 == rgnData->rdh.nCount)
+		{
+			rgnData->rdh.nCount = 1;
+		}
 
 		clipper->SetHWnd(&clipper, 0, nullptr);
-		clipper->SetClipList(&clipper, rgnData.empty() ? nullptr : reinterpret_cast<RGNDATA*>(rgnData.data()), 0);
+		clipper->SetClipList(&clipper, rgnData, 0);
 	}
 
 	HRESULT STDMETHODCALLTYPE GetHWnd(IDirectDrawClipper* This, HWND* lphWnd)
@@ -199,13 +204,9 @@ namespace DDraw
 
 		void update()
 		{
-			if (g_isInvalidated)
+			for (auto& clipperData : g_clipperData)
 			{
-				g_isInvalidated = false;
-				for (auto& clipperData : g_clipperData)
-				{
-					updateWindowClipList(*clipperData.first, clipperData.second);
-				}
+				updateWindowClipList(*clipperData.first, clipperData.second);
 			}
 		}
 

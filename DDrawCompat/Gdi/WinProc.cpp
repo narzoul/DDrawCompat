@@ -372,7 +372,8 @@ namespace
 
 	int WINAPI getRandomRgn(HDC hdc, HRGN hrgn, INT i)
 	{
-		return Gdi::Window::getRandomRgn(hdc, hrgn, i);
+		LOG_FUNC("GetRandomRgn", hdc, hrgn, i);
+		return LOG_RESULT(Gdi::Window::getRandomRgn(hdc, hrgn, i));
 	}
 
 	LONG getWindowLong(HWND hWnd, int nIndex,
