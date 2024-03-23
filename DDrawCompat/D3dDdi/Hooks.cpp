@@ -115,7 +115,10 @@ namespace
 
 		D3dDdi::ScopedCriticalSection lock;
 		D3dDdi::AdapterCallbacks::hookVtable(*pOpenData->pAdapterCallbacks, pOpenData->Version);
+		auto origInterface = pOpenData->Interface;
+		pOpenData->Interface = 9;
 		HRESULT result = origOpenAdapter();
+		pOpenData->Interface = origInterface;
 		if (SUCCEEDED(result))
 		{
 			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, pOpenData->DriverVersion);

@@ -80,7 +80,6 @@ namespace D3dDdi
 		const auto origFormat = data.Format;
 		const auto origMipLevels = data.MipLevels;
 		const auto origFlags = data.Flags.Value;
-		auto& adapterInfo = m_adapter.getInfo();
 
 		if (D3DDDIFMT_P8 == data.Format)
 		{
@@ -89,21 +88,6 @@ namespace D3dDdi
 			{
 				data.Flags.Texture = 1;
 				data.MipLevels = 1;
-			}
-		}
-		else if (adapterInfo.isD3D9On12)
-		{
-			if (D3DDDIFMT_D16 == data.Format)
-			{
-				data.Format = FOURCC_DF16;
-			}
-			else if (D3DDDIFMT_X8D24 == data.Format)
-			{
-				data.Format = FOURCC_DF24;
-			}
-			else if (D3DDDIFMT_S8D24 == data.Format)
-			{
-				data.Format = FOURCC_INTZ;
 			}
 		}
 

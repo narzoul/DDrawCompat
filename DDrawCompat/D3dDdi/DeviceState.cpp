@@ -1103,7 +1103,7 @@ namespace D3dDdi
 		m_changedRenderStates.forEach([&](UINT stateIndex)
 			{
 				const auto state = static_cast<D3DDDIRENDERSTATETYPE>(stateIndex);
-		setRenderState({ state, mapRsValue(state, m_app.renderState[state]) });
+				setRenderState({ state, mapRsValue(state, m_app.renderState[state]) });
 			});
 		m_changedRenderStates.reset();
 	}

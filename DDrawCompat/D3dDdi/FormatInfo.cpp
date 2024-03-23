@@ -131,9 +131,11 @@ namespace
 		{ D3DDDIFMT_D24X8,    FormatInfoDXS(24, 8, 0) },
 		{ D3DDDIFMT_D16,      FormatInfoDXS(16, 0, 0) },
 
-		{ D3DDDIFMT_S1D15,    FormatInfoXSD(0, 1, 15) },
-		{ D3DDDIFMT_S8D24,    FormatInfoXSD(0, 8, 24) },
-		{ D3DDDIFMT_X8D24,    FormatInfoXSD(8, 0, 24) },
+		{ D3DDDIFMT_S1D15,     FormatInfoXSD(0, 1, 15) },
+		{ D3DDDIFMT_S8D24,     FormatInfoXSD(0, 8, 24) },
+		{ D3DDDIFMT_X8D24,     FormatInfoXSD(8, 0, 24) },
+		{ D3dDdi::FOURCC_DF16, FormatInfoXSD(0, 0, 16) },
+		{ D3dDdi::FOURCC_INTZ, FormatInfoXSD(0, 8, 24) }
 	};
 
 	DWORD getMask(const D3dDdi::FormatInfo::Component& component)

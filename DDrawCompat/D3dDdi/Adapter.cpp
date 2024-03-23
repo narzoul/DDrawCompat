@@ -195,7 +195,15 @@ namespace D3dDdi
 			if (D3DDDIFMT_UNKNOWN != formatOps[i].Format)
 			{
 				LOG_INFO << "  " << formatOps[i];
-				result[formatOps[i].Format] = formatOps[i];
+				auto& formatOp = result[formatOps[i].Format];
+				formatOp.Format = formatOps[i].Format;
+				formatOp.Operations |= formatOps[i].Operations;
+				formatOp.FlipMsTypes |= formatOps[i].FlipMsTypes;
+				formatOp.BltMsTypes |= formatOps[i].BltMsTypes;
+				if (formatOps[i].PrivateFormatBitCount > formatOp.PrivateFormatBitCount)
+				{
+					formatOp.PrivateFormatBitCount = formatOps[i].PrivateFormatBitCount;
+				}
 			}
 		}
 		return result;
@@ -211,14 +219,29 @@ namespace D3dDdi
 
 		const auto& info(getInfo());
 		auto it = info.formatOps.find(format);
-		if (it == info.formatOps.end() || 0 == it->second.BltMsTypes)
+		if (it == info.formatOps.end())
 		{
 			return { D3DDDIMULTISAMPLE_NONE, 0 };
 		}
 
-		while (samples > D3DDDIMULTISAMPLE_NONMASKABLE && !(it->second.BltMsTypes & (1 << (samples - 1))))
+		auto msTypes = it->second.BltMsTypes;
+		if (0 == msTypes && (FOURCC_DF16 == it->first || FOURCC_INTZ == it->first))
+		{
+			auto replacement = info.formatOps.find(FOURCC_DF16 == it->first ? D3DDDIFMT_D16 : D3DDDIFMT_S8D24);
+			if (replacement != info.formatOps.end())
+			{
+				msTypes = replacement->second.BltMsTypes;
+			}
+		}
+
+		while (samples > 0 && !(msTypes & (1 << (samples - 1))))
 		{
 			--samples;
+		}
+
+		if (0 == samples)
+		{
+			return { D3DDDIMULTISAMPLE_NONE, 0 };
 		}
 
 		DDIMULTISAMPLEQUALITYLEVELSDATA levels = {};
