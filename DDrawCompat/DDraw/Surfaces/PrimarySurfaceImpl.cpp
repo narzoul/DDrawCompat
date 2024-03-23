@@ -200,8 +200,23 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetDC(TSurface* This, HDC* lphDC)
 	{
+		if (RealPrimarySurface::isLost())
+		{
+			return DDERR_SURFACELOST;
+		}
+
 		RealPrimarySurface::flush();
-		return SurfaceImpl::GetDC(This, lphDC);
+		HRESULT result = SurfaceImpl::GetDC(This, lphDC);
+		if (SUCCEEDED(result))
+		{
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_lock.add();
+			}
+			RealPrimarySurface::scheduleUpdate();
+		}
+		return result;
 	}
 
 	template <typename TSurface>
@@ -241,6 +256,12 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_lock.add();
+			}
+			RealPrimarySurface::scheduleUpdate();
 		}
 		return result;
 	}
@@ -251,11 +272,6 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
-			auto statsWindow = Gdi::GuiThread::getStatsWindow();
-			if (statsWindow)
-			{
-				statsWindow->m_lock.add();
-			}
 			RealPrimarySurface::scheduleUpdate();
 		}
 		return result;
@@ -300,11 +316,6 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::Unlock(This, lpRect);
 		if (SUCCEEDED(result))
 		{
-			auto statsWindow = Gdi::GuiThread::getStatsWindow();
-			if (statsWindow)
-			{
-				statsWindow->m_lock.add();
-			}
 			RealPrimarySurface::scheduleUpdate();
 		}
 		return result;

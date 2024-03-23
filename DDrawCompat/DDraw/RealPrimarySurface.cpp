@@ -46,7 +46,10 @@ namespace
 {
 	const unsigned DELAYED_FLIP_MODE_TIMEOUT_MS = 200;
 
+	CompatPtr<IDirectDrawSurface7> getBackBuffer();
+	CompatPtr<IDirectDrawSurface7> getLastSurface();
 	void onRelease();
+	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src);
 	void updatePresentationWindow();
 
 	CompatWeakPtr<IDirectDrawSurface7> g_defaultPrimary;
@@ -82,9 +85,6 @@ namespace
 	HWND g_presentationWindow = nullptr;
 	long long g_qpcUpdatePresentationWindow = 0;
 
-	CompatPtr<IDirectDrawSurface7> getBackBuffer();
-	CompatPtr<IDirectDrawSurface7> getLastSurface();
-
 	void bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
 	{
 		if (!g_isFullscreen)
@@ -93,20 +93,7 @@ namespace
 
 			if (g_presentationWindow)
 			{
-				D3dDdi::ScopedCriticalSection lock;
-				auto srcResource = D3dDdi::Device::findResource(
-					DDraw::DirectDrawSurface::getDriverResourceHandle(src.get()));
-				auto bbResource = D3dDdi::Device::findResource(
-					DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
-
-				D3DDDIARG_BLT blt = {};
-				blt.hSrcResource = *srcResource;
-				blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(src.get());
-				blt.SrcRect = DDraw::PrimarySurface::getMonitorRect();
-				blt.hDstResource = *bbResource;
-				blt.DstSubResourceIndex = 0;
-				blt.DstRect = g_monitorRect;
-				bbResource->presentationBlt(blt, srcResource);
+				presentationBlt(*g_windowedBackBuffer, src);
 			}
 
 			Gdi::Window::present(*g_frontBuffer, g_presentationWindow ? *g_windowedBackBuffer : src, *g_clipper);
@@ -116,7 +103,7 @@ namespace
 		auto backBuffer(getBackBuffer());
 		if (backBuffer)
 		{
-			backBuffer->Blt(backBuffer, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
+			presentationBlt(*backBuffer, src);
 		}
 	}
 
@@ -346,6 +333,28 @@ namespace
 		g_qpcUpdateStart = g_qpcLastUpdate;
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
 		g_flipEndVsyncCount = g_presentEndVsyncCount;
+	}
+
+	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src)
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		auto srcResource = D3dDdi::Device::findResource(
+			DDraw::DirectDrawSurface::getDriverResourceHandle(src.get()));
+		auto dstResource = D3dDdi::Device::findResource(
+			DDraw::DirectDrawSurface::getDriverResourceHandle(dst.get()));
+		if (!srcResource || !dstResource)
+		{
+			return;
+		}
+
+		D3DDDIARG_BLT blt = {};
+		blt.hSrcResource = *srcResource;
+		blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(src.get());
+		blt.SrcRect = DDraw::PrimarySurface::getMonitorRect();
+		blt.hDstResource = *dstResource;
+		blt.DstSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(dst.get());
+		blt.DstRect = g_monitorRect;
+		dstResource->presentationBlt(blt, srcResource);
 	}
 
 	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
@@ -720,14 +729,15 @@ namespace DDraw
 			src = DDraw::PrimarySurface::getGdiPrimary();
 		}
 
+		updateNow(src, isOverlayOnly);
+
 		RECT emptyRect = {};
 		HRESULT result = src ? src->BltFast(src, 0, 0, src, &emptyRect, DDBLTFAST_WAIT) : DD_OK;
 		if (DDERR_SURFACEBUSY == result || DDERR_LOCKEDSURFACES == result)
 		{
-			return 1;
+			scheduleUpdate();
 		}
 
-		updateNow(src, isOverlayOnly);
 		return 0;
 	}
 
