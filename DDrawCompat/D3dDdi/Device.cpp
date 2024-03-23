@@ -15,6 +15,7 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/ShaderAssembler.h>
 #include <DDraw/ScopedThreadLock.h>
+#include <Gdi/DcFunctions.h>
 
 namespace
 {
@@ -462,7 +463,9 @@ namespace D3dDdi
 			d.hSrcResource = resource->prepareForGpuRead(data->SrcSubResourceIndex);
 		}
 
+		Gdi::DcFunctions::disableDibRedirection(true);
 		HRESULT result = m_origVtable.pfnPresent(m_device, &d);
+		Gdi::DcFunctions::disableDibRedirection(false);
 		updateAllConfigNow();
 		return result;
 	}
@@ -481,7 +484,9 @@ namespace D3dDdi
 			}
 		}
 
+		Gdi::DcFunctions::disableDibRedirection(true);
 		HRESULT result = m_origVtable.pfnPresent1(m_device, data);
+		Gdi::DcFunctions::disableDibRedirection(false);
 		updateAllConfigNow();
 		return result;
 	}
