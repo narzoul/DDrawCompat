@@ -252,7 +252,8 @@ namespace
 				}
 
 				g_keyState.reset();
-				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_KEYBOARD_LL, &lowLevelKeyboardProc, nullptr, 0);
+				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
 				if (!g_keyboardHook)
 				{
 					LOG_ONCE("ERROR: Failed to install low level keyboard hook, error code: " << GetLastError());
@@ -270,7 +271,8 @@ namespace
 				}
 
 				g_origCursorPos = { MAXLONG, MAXLONG };
-				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(WH_MOUSE_LL, &lowLevelMouseProc, nullptr, 0);
+				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
 
 				if (g_mouseHook)
 				{
@@ -323,8 +325,6 @@ namespace
 				lpfn = dinputLowLevelMouseProc;
 				Compat::hookIatFunction(hmod, "CallNextHookEx", dinputCallNextHookEx);
 			}
-
-			hmod = nullptr;
 		}
 
 		HHOOK result = origSetWindowsHookEx(idHook, lpfn, hmod, dwThreadId);
