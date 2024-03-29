@@ -20,11 +20,139 @@ namespace
 {
 	const UINT WM_USER_EXECUTE = WM_USER;
 
+	struct EnumWindowsArgs
+	{
+		WNDENUMPROC lpEnumFunc;
+		LPARAM lParam;
+	};
+
 	unsigned g_threadId = 0;
 	Overlay::ConfigWindow* g_configWindow = nullptr;
 	Overlay::StatsWindow* g_statsWindow = nullptr;
 	HWND g_messageWindow = nullptr;
 	bool g_isReady = false;
+
+	BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam)
+	{
+		if (Gdi::GuiThread::isGuiThreadWindow(hwnd))
+		{
+			return TRUE;
+		}
+		auto& args = *reinterpret_cast<EnumWindowsArgs*>(lParam);
+		return args.lpEnumFunc(hwnd, args.lParam);
+	}
+
+	BOOL WINAPI enumChildWindows(HWND hWndParent, WNDENUMPROC lpEnumFunc, LPARAM lParam)
+	{
+		LOG_FUNC("EnumWindows", hWndParent, lpEnumFunc, lParam);
+		if (!lpEnumFunc)
+		{
+			return LOG_RESULT(CALL_ORIG_FUNC(EnumChildWindows)(hWndParent, lpEnumFunc, lParam));
+		}
+		EnumWindowsArgs args = { lpEnumFunc, lParam };
+		return LOG_RESULT(CALL_ORIG_FUNC(EnumChildWindows)(hWndParent, enumWindowsProc, reinterpret_cast<LPARAM>(&args)));
+	}
+
+	BOOL WINAPI enumDesktopWindows(HDESK hDesktop, WNDENUMPROC lpfn, LPARAM lParam)
+	{
+		LOG_FUNC("EnumDesktopWindows", hDesktop, lpfn, lParam);
+		if (!lpfn)
+		{
+			return LOG_RESULT(CALL_ORIG_FUNC(EnumDesktopWindows)(hDesktop, lpfn, lParam));
+		}
+		EnumWindowsArgs args = { lpfn, lParam };
+		return LOG_RESULT(CALL_ORIG_FUNC(EnumDesktopWindows)(hDesktop, enumWindowsProc, reinterpret_cast<LPARAM>(&args)));
+	}
+
+	BOOL WINAPI enumThreadWindows(DWORD dwThreadId, WNDENUMPROC lpfn, LPARAM lParam)
+	{
+		LOG_FUNC("EnumThreadWindows", dwThreadId, lpfn, lParam);
+		if (lpfn && dwThreadId == g_threadId)
+		{
+			return LOG_RESULT(FALSE);
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(EnumThreadWindows)(dwThreadId, lpfn, lParam));
+	}
+
+	BOOL WINAPI enumWindows(WNDENUMPROC lpEnumFunc, LPARAM lParam)
+	{
+		LOG_FUNC("EnumWindows", lpEnumFunc, lParam);
+		if (!lpEnumFunc)
+		{
+			return LOG_RESULT(CALL_ORIG_FUNC(EnumWindows)(lpEnumFunc, lParam));
+		}
+		EnumWindowsArgs args = { lpEnumFunc, lParam };
+		return LOG_RESULT(CALL_ORIG_FUNC(EnumWindows)(enumWindowsProc, reinterpret_cast<LPARAM>(&args)));
+	}
+
+	template <typename Char, typename FindWindowExProc>
+	HWND WINAPI findWindowEx(HWND hWndParent, HWND hWndChildAfter, const Char* lpszClass, const Char* lpszWindow,
+		FindWindowExProc origFindWindowEx)
+	{
+		HWND hwnd = origFindWindowEx(hWndParent, hWndChildAfter, lpszClass, lpszWindow);
+		while (hwnd && Gdi::GuiThread::isGuiThreadWindow(hwnd))
+		{
+			hwnd = origFindWindowEx(hWndParent, hwnd, lpszClass, lpszWindow);
+		}
+		return hwnd;
+	}
+
+	HWND WINAPI findWindowA(LPCSTR lpClassName, LPCSTR lpWindowName)
+	{
+		LOG_FUNC("FindWindowA", lpClassName, lpWindowName);
+		return LOG_RESULT(findWindowEx(nullptr, nullptr, lpClassName, lpWindowName, CALL_ORIG_FUNC(FindWindowExA)));
+	}
+
+	HWND WINAPI findWindowW(LPCWSTR lpClassName, LPCWSTR lpWindowName)
+	{
+		LOG_FUNC("FindWindowW", lpClassName, lpWindowName);
+		return LOG_RESULT(findWindowEx(nullptr, nullptr, lpClassName, lpWindowName, CALL_ORIG_FUNC(FindWindowExW)));
+	}
+
+	HWND WINAPI findWindowExA(HWND hWndParent, HWND hWndChildAfter, LPCSTR lpszClass, LPCSTR lpszWindow)
+	{
+		LOG_FUNC("FindWindowExA", hWndParent, hWndChildAfter, lpszClass, lpszWindow);
+		return LOG_RESULT(findWindowEx(hWndParent, hWndChildAfter, lpszClass, lpszWindow, CALL_ORIG_FUNC(FindWindowExA)));
+	}
+
+	HWND WINAPI findWindowExW(HWND hWndParent, HWND hWndChildAfter, LPCWSTR lpszClass, LPCWSTR lpszWindow)
+	{
+		LOG_FUNC("FindWindowExW", hWndParent, hWndChildAfter, lpszClass, lpszWindow);
+		return LOG_RESULT(findWindowEx(hWndParent, hWndChildAfter, lpszClass, lpszWindow, CALL_ORIG_FUNC(FindWindowExW)));
+	}
+
+	HWND getNonGuiThreadWindow(HWND hWnd, UINT uCmd)
+	{
+		while (hWnd && Gdi::GuiThread::isGuiThreadWindow(hWnd))
+		{
+			hWnd = CALL_ORIG_FUNC(GetWindow)(hWnd, uCmd);
+		}
+		return hWnd;
+	}
+
+	HWND WINAPI getTopWindow(HWND hWnd)
+	{
+		LOG_FUNC("GetTopWindow", hWnd);
+		return LOG_RESULT(getNonGuiThreadWindow(CALL_ORIG_FUNC(GetTopWindow)(hWnd), GW_HWNDNEXT));
+	}
+
+	HWND WINAPI getWindow(HWND hWnd, UINT uCmd)
+	{
+		LOG_FUNC("GetWindow", hWnd, uCmd);
+		HWND result = CALL_ORIG_FUNC(GetWindow)(hWnd, uCmd);
+		switch (uCmd)
+		{
+		case GW_CHILD:
+		case GW_HWNDFIRST:
+		case GW_HWNDNEXT:
+			return LOG_RESULT(getNonGuiThreadWindow(result, GW_HWNDNEXT));
+
+		case GW_HWNDLAST:
+		case GW_HWNDPREV:
+			return LOG_RESULT(getNonGuiThreadWindow(result, GW_HWNDPREV));
+		}
+		return LOG_RESULT(result);
+	}
 
 	BOOL CALLBACK initChildWindow(HWND hwnd, LPARAM /*lParam*/)
 	{
@@ -39,7 +167,7 @@ namespace
 		if (GetCurrentProcessId() == windowPid)
 		{
 			Gdi::WinProc::onCreateWindow(hwnd);
-			EnumChildWindows(hwnd, &initChildWindow, 0);
+			CALL_ORIG_FUNC(EnumChildWindows)(hwnd, &initChildWindow, 0);
 			if (8 == Win32::DisplayMode::getBpp())
 			{
 				PostMessage(hwnd, WM_PALETTECHANGED, reinterpret_cast<WPARAM>(GetDesktopWindow()), 0);
@@ -96,7 +224,7 @@ namespace
 		{
 			D3dDdi::ScopedCriticalSection lock;
 			g_isReady = true;
-			EnumWindows(initTopLevelWindow, 0);
+			CALL_ORIG_FUNC(EnumWindows)(initTopLevelWindow, 0);
 		}
 
 		MSG msg = {};
@@ -168,6 +296,22 @@ namespace Gdi
 			return g_statsWindow;
 		}
 
+		void installHooks()
+		{
+			Dll::createThread(messageWindowThreadProc, &g_threadId, THREAD_PRIORITY_TIME_CRITICAL, 0);
+
+			HOOK_FUNCTION(user32, EnumChildWindows, enumChildWindows);
+			HOOK_FUNCTION(user32, EnumDesktopWindows, enumDesktopWindows);
+			HOOK_FUNCTION(user32, EnumThreadWindows, enumThreadWindows);
+			HOOK_FUNCTION(user32, EnumWindows, enumWindows);
+			HOOK_FUNCTION(user32, FindWindowA, findWindowA);
+			HOOK_FUNCTION(user32, FindWindowW, findWindowW);
+			HOOK_FUNCTION(user32, FindWindowExA, findWindowExA);
+			HOOK_FUNCTION(user32, FindWindowExW, findWindowExW);
+			HOOK_FUNCTION(user32, GetTopWindow, getTopWindow);
+			HOOK_FUNCTION(user32, GetWindow, getWindow);
+		}
+
 		bool isGuiThreadWindow(HWND hwnd)
 		{
 			return GetWindowThreadProcessId(hwnd, nullptr) == g_threadId;
@@ -187,11 +331,6 @@ namespace Gdi
 						rgn.release();
 					}
 				});
-		}
-
-		void start()
-		{
-			Dll::createThread(messageWindowThreadProc, &g_threadId, THREAD_PRIORITY_TIME_CRITICAL, 0);
 		}
 	}
 }

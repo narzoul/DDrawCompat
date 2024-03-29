@@ -128,7 +128,6 @@ namespace
 			LOG_INFO << "Installing GDI hooks";
 			Gdi::installHooks();
 			Compat::closeDbgEng();
-			Gdi::GuiThread::start();
 			LOG_INFO << "Finished installing hooks";
 			Dll::g_isHooked = true;
 		}

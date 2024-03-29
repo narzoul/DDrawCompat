@@ -258,7 +258,7 @@ namespace
 		{
 			ClipCursor(nullptr);
 			SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
-			EnumWindows(sendDisplayChange, (res.cy << 16) | res.cx);
+			CALL_ORIG_FUNC(EnumWindows)(sendDisplayChange, (res.cy << 16) | res.cx);
 		}
 
 		Gdi::VirtualScreen::update();
@@ -439,7 +439,7 @@ namespace
 		case COLORRES:
 			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
-				return 24;
+				return LOG_RESULT(24);
 			}
 			break;
 
@@ -448,7 +448,7 @@ namespace
 			if (Gdi::isDisplayDc(hdc))
 			{
 				const auto& r = Win32::DisplayMode::getMonitorInfo().rcEmulated;
-				return HORZRES == nIndex ? (r.right - r.left) : (r.bottom - r.top);
+				return LOG_RESULT(HORZRES == nIndex ? (r.right - r.left) : (r.bottom - r.top));
 			}
 			break;
 
@@ -456,7 +456,7 @@ namespace
 		case NUMRESERVED:
 			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
-				return 20;
+				return LOG_RESULT(20);
 			}
 			break;
 
@@ -470,7 +470,7 @@ namespace
 		case SIZEPALETTE:
 			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
-				return 256;
+				return LOG_RESULT(256);
 			}
 			break;
 		}

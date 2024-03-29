@@ -32,6 +32,6 @@ namespace Gdi
 		bool isGuiThreadWindow(HWND hwnd);
 		bool isReady();
 
-		void start();
+		void installHooks();
 	}
 }

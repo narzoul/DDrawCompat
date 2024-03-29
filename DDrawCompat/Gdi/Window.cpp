@@ -630,7 +630,7 @@ namespace Gdi
 			{
 				D3dDdi::ScopedCriticalSection lock;
 				g_windowZOrder.clear();
-				EnumWindows(updateWindow, reinterpret_cast<LPARAM>(&context));
+				CALL_ORIG_FUNC(EnumWindows)(updateWindow, reinterpret_cast<LPARAM>(&context));
 
 				for (auto it = g_windows.begin(); it != g_windows.end();)
 				{
@@ -711,7 +711,7 @@ namespace Gdi
 			wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
 			if (IsWindowVisible(owner))
 			{
-				wp.hwndInsertAfter = GetWindow(owner, GW_HWNDPREV);
+				wp.hwndInsertAfter = CALL_ORIG_FUNC(GetWindow)(owner, GW_HWNDPREV);
 				if (!wp.hwndInsertAfter)
 				{
 					wp.hwndInsertAfter = (GetWindowLong(owner, GWL_EXSTYLE) & WS_EX_TOPMOST) ? HWND_TOPMOST : HWND_TOP;

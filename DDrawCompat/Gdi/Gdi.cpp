@@ -76,6 +76,7 @@ namespace Gdi
 		Cursor::installHooks();
 		Font::installHooks();
 		WinProc::installHooks();
+		GuiThread::installHooks();
 	}
 
 	bool isDisplayDc(HDC dc)
@@ -87,7 +88,7 @@ namespace Gdi
 
 	void redraw(HRGN rgn)
 	{
-		EnumWindows(&redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
+		CALL_ORIG_FUNC(EnumWindows)(&redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
 	}
 
 	void redrawWindow(HWND hwnd, HRGN rgn)
