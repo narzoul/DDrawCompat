@@ -53,7 +53,7 @@ namespace D3dDdi
 
 		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
 		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
-		static void setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository);
+		static void setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository, bool isPrimary);
 
 	private:
 		const AdapterInfo& findInfo() const;

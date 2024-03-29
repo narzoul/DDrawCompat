@@ -17,6 +17,7 @@
 namespace
 {
 	std::map<LUID, D3dDdi::SurfaceRepository> g_repositories;
+	D3dDdi::SurfaceRepository* g_primaryRepository = nullptr;
 	bool g_enableSurfaceCheck = true;
 
 	void initDitherTexture(BYTE* tex, DWORD pitch, DWORD x, DWORD y, DWORD size, DWORD mul, DWORD value)
@@ -297,6 +298,11 @@ namespace D3dDdi
 		return getSurface(m_paletteTexture, 256, 1, D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 	}
 
+	SurfaceRepository& SurfaceRepository::getPrimary()
+	{
+		return *g_primaryRepository;
+	}
+
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
 		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount, DWORD caps2)
 	{
@@ -384,6 +390,11 @@ namespace D3dDdi
 			m_releasedSurfaces.push_back(surface);
 			surface = {};
 		}
+	}
+
+	void SurfaceRepository::setAsPrimary()
+	{
+		g_primaryRepository = this;
 	}
 
 	bool SurfaceRepository::s_inCreateSurface = false;

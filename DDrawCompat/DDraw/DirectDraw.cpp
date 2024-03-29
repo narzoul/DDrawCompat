@@ -284,9 +284,9 @@ namespace DDraw
 				}
 				repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL);
 				it = repositories.insert({ adapterInfo.luid, repo }).first;
+				D3dDdi::Adapter::setRepository(adapterInfo.luid, it->second, !guid);
 				repo.detach();
 			}
-			D3dDdi::Adapter::setRepository(adapterInfo.luid, it->second);
 		}
 
 		void suppressEmulatedDirectDraw(GUID*& guid)

@@ -53,9 +53,11 @@ namespace D3dDdi
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempTexture(DWORD width, DWORD height, D3DDDIFORMAT format);
 		void release(Surface& surface);
+		void setAsPrimary();
 		void setRepository(CompatWeakPtr<IDirectDraw7> dd) { m_dd = dd; }
 
 		static SurfaceRepository& get(const Adapter& adapter);
+		static SurfaceRepository& getPrimary();
 		static bool inCreateSurface() { return s_inCreateSurface; }
 		static void enableSurfaceCheck(bool enable);
 

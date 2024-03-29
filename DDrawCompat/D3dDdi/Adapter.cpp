@@ -496,14 +496,19 @@ namespace D3dDdi
 		return result;
 	}
 
-	void Adapter::setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository)
+	void Adapter::setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository, bool isPrimary)
 	{
 		for (auto& adapter : s_adapters)
 		{
 			if (adapter.second.m_luid == luid)
 			{
 				adapter.second.m_repository = repository;
-				SurfaceRepository::get(adapter.second).setRepository(repository);
+				auto& surfaceRepo = SurfaceRepository::get(adapter.second);
+				surfaceRepo.setRepository(repository);
+				if (isPrimary)
+				{
+					surfaceRepo.setAsPrimary();
+				}
 			}
 		}
 	}
