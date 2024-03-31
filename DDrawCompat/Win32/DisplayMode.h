@@ -43,6 +43,7 @@ namespace Win32
 		const MonitorInfo& getMonitorInfo(HWND hwnd);
 		const MonitorInfo& getMonitorInfo(POINT pt);
 		const MonitorInfo& getMonitorInfo(const std::wstring& deviceName);
+		RECT getRealBounds();
 		ULONG queryDisplaySettingsUniqueness();
 		ULONG queryEmulatedDisplaySettingsUniqueness();
 

@@ -318,12 +318,7 @@ namespace
 
 	void fixPopupMenuPosition(WINDOWPOS& wp)
 	{
-		RECT mr = DDraw::PrimarySurface::getMonitorRect();
-		if (IsRectEmpty(&mr))
-		{
-			return;
-		}
-
+		RECT mr = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(wp.hwnd, MONITOR_DEFAULTTOPRIMARY)).rcEmulated;
 		if (wp.flags & SWP_NOSIZE)
 		{
 			RECT r = {};

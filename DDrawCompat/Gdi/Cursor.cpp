@@ -26,16 +26,15 @@ namespace
 	{
 		LOG_FUNC("ClipCursor", lpRect);
 		Compat::ScopedCriticalSection lock(g_cs);
-		BOOL result = CALL_ORIG_FUNC(ClipCursor)(lpRect);
-		if (!result || IsRectEmpty(&g_monitorClipRect))
+		if (IsRectEmpty(&g_monitorClipRect))
 		{
-			return LOG_RESULT(result);
+			return LOG_RESULT(CALL_ORIG_FUNC(ClipCursor)(lpRect));
 		}
 
-		CALL_ORIG_FUNC(GetClipCursor)(&g_clipRect);
-		RECT rect = intersectRect(g_clipRect, g_monitorClipRect);
+		g_clipRect = lpRect ? *lpRect : Win32::DisplayMode::getRealBounds();
+		const RECT rect = intersectRect(g_clipRect, g_monitorClipRect);
 		CALL_ORIG_FUNC(ClipCursor)(&rect);
-		return LOG_RESULT(result);
+		return LOG_RESULT(TRUE);
 	}
 
 	BOOL WINAPI getClipCursor(LPRECT lpRect)
@@ -180,13 +179,13 @@ namespace Gdi
 
 		void setEmulated(bool isEmulated)
 		{
-			LOG_FUNC("Cursor::setEmulated", isEmulated);
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (isEmulated == g_isEmulated)
 			{
 				return;
 			}
 
+			LOG_DEBUG << "Cursor::setEmulated: " << isEmulated;
 			g_isEmulated = isEmulated;
 			g_prevCursorInfo = {};
 
@@ -197,7 +196,12 @@ namespace Gdi
 
 		void setMonitorClipRect(const RECT& rect)
 		{
-			LOG_FUNC("Cursor::setMonitorClipRect", rect);
+			if (EqualRect(&rect, &g_monitorClipRect))
+			{
+				return;
+			}
+
+			LOG_DEBUG << "Cursor::setMonitorClipRect: " << rect;
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (IsRectEmpty(&rect))
 			{

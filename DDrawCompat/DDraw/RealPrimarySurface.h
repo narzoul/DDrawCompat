@@ -13,23 +13,20 @@ namespace DDraw
 	{
 	public:
 		static HRESULT create(CompatRef<IDirectDraw> dd);
-		static void destroyDefaultPrimary();
 		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static int flush();
-		static HWND getPresentationWindow();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
-		static RECT getMonitorRect();
+		static HWND getPresentationWindow();
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
 		static HWND getTopmost();
 		static void init();
+		static bool isExclusiveFullscreen();
 		static bool isFullscreen();
 		static bool isLost();
 		static void release();
 		static HRESULT restore();
 		static void scheduleOverlayUpdate();
 		static void scheduleUpdate();
-		static void schedulePresentationWindowUpdate();
-		static void setEmulatedCursor(bool emulated);
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPresentationWindowTopmost();
 		static void setUpdateReady();

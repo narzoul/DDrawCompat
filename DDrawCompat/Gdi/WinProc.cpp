@@ -517,11 +517,12 @@ namespace
 
 	void onInitMenuPopup(HMENU menu)
 	{
-		RECT mr = DDraw::PrimarySurface::getMonitorRect();
-		if (IsRectEmpty(&mr))
+		auto deviceName = Win32::DisplayMode::getEmulatedDisplayMode().deviceName;
+		if (deviceName.empty())
 		{
 			return;
 		}
+		const RECT& mr = Win32::DisplayMode::getMonitorInfo(deviceName).rcEmulated;
 
 		MENUINFO mi = {};
 		mi.cbSize = sizeof(mi);

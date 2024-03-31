@@ -142,10 +142,6 @@ namespace
 				if (wasFullscreen != isFullscreen)
 				{
 					tagSurface->setFullscreenWindow(isFullscreen ? hWnd : nullptr);
-					if (DDraw::RealPrimarySurface::getSurface())
-					{
-						DDraw::RealPrimarySurface::restore();
-					}
 				}
 			}
 		}

@@ -6,6 +6,7 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDraw.h>
+#include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
@@ -147,13 +148,31 @@ namespace Gdi
 			}
 
 			auto primary(DDraw::PrimarySurface::getPrimary());
-			CompatPtr<IUnknown> ddUnk;
-			primary->GetDDInterface(primary, reinterpret_cast<void**>(&ddUnk.getRef()));
-			CompatPtr<IDirectDraw7> dd(ddUnk);
+			if (!primary)
+			{
+				return nullptr;
+			}
 
-			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
+			auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*primary);
+			if (!resource)
+			{
+				return nullptr;
+			}
+
+			auto device = D3dDdi::Device::findDeviceByResource(resource);
+			if (!device)
+			{
+				return nullptr;
+			}
+
+			auto dd(device->getRepo().getDirectDraw());
+			if (!dd)
+			{
+				return nullptr;
+			}
+
 			CompatPtr<IDirectDrawSurface7> surface;
-			dd.get()->lpVtbl->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
+			dd->CreateSurface(dd, &desc, &surface.getRef(), nullptr);
 			return surface;
 		}
 
@@ -248,7 +267,7 @@ namespace Gdi
 
 				if (g_isFullscreen)
 				{
-					g_bounds = DDraw::PrimarySurface::getMonitorRect();
+					g_bounds = DDraw::PrimarySurface::getMonitorInfo().rcEmulated;
 				}
 				else
 				{

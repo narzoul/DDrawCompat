@@ -13,6 +13,7 @@
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
+#include <Gdi/VirtualScreen.h>
 
 namespace
 {
@@ -298,7 +299,7 @@ namespace D3dDdi
 		return getSurface(m_paletteTexture, 256, 1, D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
 	}
 
-	SurfaceRepository& SurfaceRepository::getPrimary()
+	SurfaceRepository& SurfaceRepository::getPrimaryRepo()
 	{
 		return *g_primaryRepository;
 	}
@@ -351,6 +352,44 @@ namespace D3dDdi
 			(D3DDDIFMT_P8 == format ? 0 : DDSCAPS_TEXTURE) | DDSCAPS_VIDEOMEMORY);
 	}
 
+	CompatPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedBackBuffer(DWORD width, DWORD height)
+	{
+		return getSurface(m_windowedBackBuffer, width, height, D3DDDIFMT_X8R8G8B8,
+			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY).surface;
+	}
+
+	CompatWeakPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedPrimary()
+	{
+		if (m_windowedPrimary)
+		{
+			if (SUCCEEDED(m_windowedPrimary->IsLost(m_windowedPrimary)))
+			{
+				return m_windowedPrimary;
+			}
+			m_windowedPrimary.release();
+		}
+
+		DDSURFACEDESC2 desc = {};
+		desc.dwSize = sizeof(desc);
+		desc.dwFlags = DDSD_CAPS;
+		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
+		HRESULT result = m_dd->CreateSurface(m_dd, &desc, &m_windowedPrimary.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			LOG_ONCE("ERROR: Failed to create primary surface in repository: " << Compat::hex(result) << " " << desc);
+		}
+
+		return m_windowedPrimary;
+	}
+
+	CompatPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedSrc(RECT rect)
+	{
+		CompatPtr<IDirectDrawSurface7> src;
+		auto desc = Gdi::VirtualScreen::getSurfaceDesc(rect);
+		m_dd->CreateSurface(m_dd, &desc, &src.getRef(), nullptr);
+		return src;
+	}
+
 	bool SurfaceRepository::hasAlpha(CompatRef<IDirectDrawSurface7> surface)
 	{
 		DDSURFACEDESC2 desc = {};
@@ -392,7 +431,7 @@ namespace D3dDdi
 		}
 	}
 
-	void SurfaceRepository::setAsPrimary()
+	void SurfaceRepository::setAsPrimaryRepo()
 	{
 		g_primaryRepository = this;
 	}

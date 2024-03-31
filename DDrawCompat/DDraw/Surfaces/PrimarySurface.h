@@ -5,6 +5,7 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
 #include <DDraw/Surfaces/Surface.h>
+#include <Win32/DisplayMode.h>
 
 namespace DDraw
 {
@@ -21,12 +22,12 @@ namespace DDraw
 		static CompatPtr<IDirectDrawSurface7> getGdiSurface();
 		static CompatPtr<IDirectDrawSurface7> getBackBuffer();
 		static CompatPtr<IDirectDrawSurface7> getLastSurface();
-		static RECT getMonitorRect();
-		static CompatWeakPtr<IDirectDrawSurface7> getGdiPrimary();
+		static const Win32::DisplayMode::MonitorInfo& getMonitorInfo();
 		static CompatWeakPtr<IDirectDrawSurface7> getPrimary();
 		static HANDLE getFrontResource();
 		static HANDLE getGdiResource();
 		static DWORD getOrigCaps();
+		static void onLost();
 		static void updatePalette();
 
 		template <typename TSurface>

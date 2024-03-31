@@ -46,10 +46,10 @@ namespace
 		GetRandomRgn(dc, rgn, SYSRGN);
 		CALL_ORIG_FUNC(ReleaseDC)(data.hwnd, dc);
 
-		RECT primaryRect = DDraw::PrimarySurface::getMonitorRect();
-		if (0 != primaryRect.left || 0 != primaryRect.top)
+		auto& mi = DDraw::PrimarySurface::getMonitorInfo();
+		if (0 != mi.rcEmulated.left || 0 != mi.rcEmulated.top)
 		{
-			rgn.offset(-primaryRect.left, -primaryRect.top);
+			rgn.offset(-mi.rcEmulated.left, -mi.rcEmulated.top);
 		}
 
 		DWORD rgnSize = GetRegionData(rgn, 0, nullptr);

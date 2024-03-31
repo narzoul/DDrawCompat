@@ -40,6 +40,7 @@ namespace D3dDdi
 		SurfaceRepository();
 
 		Cursor getCursor(HCURSOR cursor);
+		CompatWeakPtr<IDirectDraw7> getDirectDraw() { return m_dd; }
 		Resource* getDitherTexture(DWORD size);
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
@@ -52,12 +53,15 @@ namespace D3dDdi
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
 		const Surface& getTempTexture(DWORD width, DWORD height, D3DDDIFORMAT format);
+		CompatPtr<IDirectDrawSurface7> getWindowedBackBuffer(DWORD width, DWORD height);
+		CompatWeakPtr<IDirectDrawSurface7> getWindowedPrimary();
+		CompatPtr<IDirectDrawSurface7> getWindowedSrc(RECT rect);
 		void release(Surface& surface);
-		void setAsPrimary();
+		void setAsPrimaryRepo();
 		void setRepository(CompatWeakPtr<IDirectDraw7> dd) { m_dd = dd; }
 
 		static SurfaceRepository& get(const Adapter& adapter);
-		static SurfaceRepository& getPrimary();
+		static SurfaceRepository& getPrimaryRepo();
 		static bool inCreateSurface() { return s_inCreateSurface; }
 		static void enableSurfaceCheck(bool enable);
 
@@ -86,6 +90,8 @@ namespace D3dDdi
 		std::map<D3DDDIFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
 		Surface m_sysMemSurface;
+		Surface m_windowedBackBuffer;
+		CompatPtr<IDirectDrawSurface7> m_windowedPrimary;
 		
 		static bool s_inCreateSurface;
 	};

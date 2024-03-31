@@ -35,7 +35,7 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_adapter; }
 
-		Int2 getAspectRatio() const;
+		SIZE getAspectRatio() const;
 		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
 		const auto& getMonitorInfo() const { return Win32::DisplayMode::getMonitorInfo(m_deviceName); }
@@ -61,7 +61,7 @@ namespace D3dDdi
 		template <typename Data>
 		HRESULT getCaps(D3DDDICAPS_TYPE type, Data& data, UINT size = sizeof(Data)) const;
 
-		Int2 getAspectRatio(SIZE appRes, SIZE displayRes) const;
+		SIZE getAspectRatio(SIZE appRes, SIZE displayRes) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFixedFormatOps(const AdapterInfo& info) const;
 		std::map<D3DDDIFORMAT, FORMATOP> getFormatOps() const;
 		Float2 getScaleFactor() const;

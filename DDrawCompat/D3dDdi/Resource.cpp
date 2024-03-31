@@ -25,38 +25,36 @@
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
-#include <Win32/DisplayMode.h>
 
 namespace
 {
 	D3DDDI_RESOURCEFLAGS getResourceTypeFlags();
 
 	const UINT g_resourceTypeFlags = getResourceTypeFlags().Value;
-	RECT g_presentationRect = {};
 	
 	bool g_enableConfig = true;
 	D3DDDIFORMAT g_formatOverride = D3DDDIFMT_UNKNOWN;
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> g_msaaOverride = {};
+	bool g_readOnlyLock = false;
 
-	RECT calculateScaledRect(const RECT& srcRect, const RECT& dstRect)
+	RECT applyDisplayAspectRatio(const RECT& rect, const SIZE& ar)
 	{
-		const int srcWidth = srcRect.right - srcRect.left;
-		const int srcHeight = srcRect.bottom - srcRect.top;
-		const int dstWidth = dstRect.right - dstRect.left;
-		const int dstHeight = dstRect.bottom - dstRect.top;
+		LONG width = rect.right;
+		LONG height = rect.bottom;
+		SIZE offset = {};
 
-		RECT rect = { 0, 0, dstWidth, dstHeight };
-		if (dstWidth * srcHeight > dstHeight * srcWidth)
+		if (width * ar.cy > height * ar.cx)
 		{
-			rect.right = dstHeight * srcWidth / srcHeight;
+			width = height * ar.cx / ar.cy;
+			offset.cx = (rect.right - width) / 2;
 		}
 		else
 		{
-			rect.bottom = dstWidth * srcHeight / srcWidth;
+			height = width * ar.cy / ar.cx;
+			offset.cy = (rect.bottom - height) / 2;
 		}
 
-		OffsetRect(&rect, (dstWidth - rect.right) / 2, (dstHeight - rect.bottom) / 2);
-		return rect;
+		return { offset.cx, offset.cy, offset.cx + width, offset.cy + height };
 	}
 
 	LONG divCeil(LONG n, LONG d)
@@ -151,11 +149,6 @@ namespace D3dDdi
 			throw HResultException(E_FAIL);
 		}
 
-		if (m_origData.Flags.MatchGdiPrimary)
-		{
-			setFullscreenMode(true);
-		}
-
 		fixResourceData();
 		m_formatInfo = getFormatInfo(m_fixedData.Format);
 		m_formatConfig = m_fixedData.Format;
@@ -209,11 +202,6 @@ namespace D3dDdi
 
 	Resource::~Resource()
 	{
-		if (m_origData.Flags.MatchGdiPrimary)
-		{
-			setFullscreenMode(false);
-		}
-
 		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface || m_lockRefSurface.surface)
 		{
 			auto& repo = m_device.getRepo();
@@ -225,7 +213,7 @@ namespace D3dDdi
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
-		if (!m_fixedData.Flags.MatchGdiPrimary && !isValidRect(data.DstSubResourceIndex, data.DstRect))
+		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
 		{
 			return S_OK;
 		}
@@ -241,11 +229,6 @@ namespace D3dDdi
 		if (!srcResource->isValidRect(data.SrcSubResourceIndex, data.SrcRect))
 		{
 			return S_OK;
-		}
-
-		if (m_fixedData.Flags.MatchGdiPrimary)
-		{
-			return presentationBlt(data, srcResource);
 		}
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
@@ -570,7 +553,7 @@ namespace D3dDdi
 	void Resource::createGdiLockResource()
 	{
 		LOG_FUNC("Resource::createGdiLockResource");
-		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorRect()));
+		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorInfo().rcEmulated));
 		if (!gdiSurfaceDesc.lpSurface)
 		{
 			return;
@@ -716,7 +699,8 @@ namespace D3dDdi
 	{
 		if (m_fixedData.Flags.MatchGdiPrimary)
 		{
-			RECT r = DDraw::RealPrimarySurface::getMonitorRect();
+			auto& mi = DDraw::PrimarySurface::getMonitorInfo();
+			RECT r = DDraw::RealPrimarySurface::isExclusiveFullscreen() ? mi.rcReal : mi.rcDpiAware;
 			if (!IsRectEmpty(&r))
 			{
 				for (auto& surface : m_fixedData.surfaceData)
@@ -1042,6 +1026,11 @@ namespace D3dDdi
 			return E_ABORT;
 		}
 
+		if (g_readOnlyLock)
+		{
+			data.Flags.ReadOnly = true;
+		}
+
 		if (m_lockResource || m_isOversized)
 		{
 			return bltLock(data);
@@ -1264,6 +1253,7 @@ namespace D3dDdi
 	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource* srcResource)
 	{
 		LOG_FUNC("Resource::presentationBlt", data, *srcResource);
+		m_device.flushPrimitives();
 		if (srcResource->m_lockResource)
 		{
 			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate &&
@@ -1279,10 +1269,7 @@ namespace D3dDdi
 		LONG srcWidth = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Width;
 		LONG srcHeight = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Height;
 		data.SrcRect = { 0, 0, srcWidth, srcHeight };
-		if (!IsRectEmpty(&g_presentationRect))
-		{
-			data.DstRect = g_presentationRect;
-		}
+		data.DstRect = applyDisplayAspectRatio(data.DstRect, m_device.getAdapter().getAspectRatio());
 
 		auto& repo = m_device.getRepo();
 		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight, srcResource->m_fixedData.Format);
@@ -1319,11 +1306,8 @@ namespace D3dDdi
 			copySubResourceRegion(*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect);
 		}
 
-		if (!IsRectEmpty(&g_presentationRect))
-		{
-			presentLayeredWindows(*rt, rtIndex, rtRect,
-				Gdi::Window::getVisibleLayeredWindows(), DDraw::PrimarySurface::getMonitorRect());
-		}
+		auto& mi = m_device.getAdapter().getMonitorInfo();
+		presentLayeredWindows(*rt, rtIndex, rtRect, Gdi::Window::getVisibleLayeredWindows(), mi.rcEmulated);
 
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
 		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
@@ -1338,11 +1322,8 @@ namespace D3dDdi
 			clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 		}
 
-		if (!IsRectEmpty(&g_presentationRect))
-		{
-			presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
-				Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);
-		}
+		presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
+			Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);
 
 		return LOG_RESULT(S_OK);
 	}
@@ -1499,41 +1480,6 @@ namespace D3dDdi
 		g_formatOverride = format;
 	}
 
-	void Resource::setFullscreenMode(bool isFullscreen)
-	{
-		if (!IsRectEmpty(&g_presentationRect) == isFullscreen)
-		{
-			return;
-		}
-
-		if (isFullscreen)
-		{
-			DDraw::PrimarySurface::updatePalette();
-
-			const Int2 ar = m_device.getAdapter().getAspectRatio();
-			g_presentationRect = calculateScaledRect({ 0, 0, ar.x, ar.y }, DDraw::RealPrimarySurface::getMonitorRect());
-
-			const auto& mi = m_device.getAdapter().getMonitorInfo();
-			auto clipRect = mi.rcEmulated;
-			if (!EqualRect(&mi.rcMonitor, &mi.rcReal))
-			{
-				InflateRect(&clipRect, -1, -1);
-			}
-
-			Gdi::Cursor::setMonitorClipRect(clipRect);
-			DDraw::RealPrimarySurface::setEmulatedCursor(0 != g_presentationRect.left || 0 != g_presentationRect.top ||
-				Rect::getSize(mi.rcEmulated) != Rect::getSize(g_presentationRect));
-		}
-		else
-		{
-			Gdi::Palette::setHardwarePalette(Gdi::Palette::getSystemPalette().data());
-
-			g_presentationRect = {};
-			DDraw::RealPrimarySurface::setEmulatedCursor(false);
-			Gdi::Cursor::setMonitorClipRect({});
-		}
-	}
-
 	void Resource::setPaletteHandle(UINT paletteHandle)
 	{
 		m_paletteHandle = paletteHandle;
@@ -1544,6 +1490,11 @@ namespace D3dDdi
 	{
 		m_palettizedTexture = &resource;
 		resource.m_isPalettizedTextureUpToDate = false;
+	}
+
+	void Resource::setReadOnlyLock(bool readOnly)
+	{
+		g_readOnlyLock = readOnly;
 	}
 
 	HRESULT Resource::shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter)
@@ -1716,7 +1667,8 @@ namespace D3dDdi
 		if (m_isSurfaceRepoResource || D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || D3DDDIFMT_P8 == m_fixedData.Format ||
 			m_fixedData.Flags.MatchGdiPrimary ||
 			!m_isPrimary && !m_origData.Flags.RenderTarget && !m_fixedData.Flags.ZBuffer ||
-			!m_fixedData.Flags.ZBuffer && !m_lockResource)
+			!m_fixedData.Flags.ZBuffer && !m_lockResource ||
+			m_fixedData.MipLevels > 1)
 		{
 			return;
 		}

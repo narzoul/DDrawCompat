@@ -14,6 +14,7 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/ShaderAssembler.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <Gdi/DcFunctions.h>
 
@@ -221,8 +222,7 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Device::setGdiResourceHandle", resource);
 		ScopedCriticalSection lock;
-		if ((!resource && !g_gdiResource) ||
-			(g_gdiResource && resource == *g_gdiResource))
+		if (resource == g_gdiResourceHandle)
 		{
 			return;
 		}
@@ -393,6 +393,7 @@ namespace D3dDdi
 			{
 				g_gdiResourceHandle = nullptr;
 				g_gdiResource = nullptr;
+				DDraw::PrimarySurface::onLost();
 			}
 			m_drawPrimitive.removeSysMemVertexBuffer(resource);
 			m_state.onDestroyResource(res, resource);

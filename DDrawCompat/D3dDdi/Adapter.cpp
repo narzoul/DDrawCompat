@@ -65,7 +65,7 @@ namespace D3dDdi
 	{
 	}
 
-	Int2 Adapter::getAspectRatio(SIZE appRes, SIZE displayRes) const
+	SIZE Adapter::getAspectRatio(SIZE appRes, SIZE displayRes) const
 	{
 		SIZE ar = Config::displayAspectRatio.get();
 		if (Config::Settings::DisplayAspectRatio::APP == ar)
@@ -79,7 +79,7 @@ namespace D3dDdi
 		return ar;
 	}
 
-	Int2 Adapter::getAspectRatio() const
+	SIZE Adapter::getAspectRatio() const
 	{
 		return getAspectRatio({}, {});
 	}
@@ -330,14 +330,14 @@ namespace D3dDdi
 
 		targetResolution *= abs(multiplier);
 
-		const Int2 ar = getAspectRatio(appRes, displayRes);
-		if (targetResolution.y * ar.x / ar.y <= targetResolution.x)
+		const SIZE ar = getAspectRatio(appRes, displayRes);
+		if (targetResolution.y * ar.cx / ar.cy <= targetResolution.x)
 		{
-			targetResolution.x = targetResolution.y * ar.x / ar.y;
+			targetResolution.x = targetResolution.y * ar.cx / ar.cy;
 		}
 		else
 		{
-			targetResolution.y = targetResolution.x * ar.y / ar.x;
+			targetResolution.y = targetResolution.x * ar.cy / ar.cx;
 		}
 
 		const auto scaleFactor = Float2(targetResolution) / Float2(appRes);
@@ -507,7 +507,7 @@ namespace D3dDdi
 				surfaceRepo.setRepository(repository);
 				if (isPrimary)
 				{
-					surfaceRepo.setAsPrimary();
+					surfaceRepo.setAsPrimaryRepo();
 				}
 			}
 		}

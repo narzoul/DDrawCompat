@@ -125,6 +125,7 @@ namespace
 
 	std::map<HWND, Window> g_windows;
 	std::vector<Window*> g_windowZOrder;
+	HWND g_fullscreenWindow = nullptr;
 
 	bool bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
 	{
@@ -139,6 +140,25 @@ namespace
 		SelectClipRgn(screenDc, nullptr);
 		ReleaseDC(nullptr, screenDc);
 		return true;
+	}
+
+	HWND findFullscreenWindow()
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		auto allMi = Win32::DisplayMode::getAllMonitorInfo();
+		for (auto& window : g_windows)
+		{
+			for (const auto& mi : allMi)
+				if (!window.second.isLayered &&
+					window.second.windowRect.left <= mi.second.rcEmulated.left &&
+					window.second.windowRect.top <= mi.second.rcEmulated.top &&
+					window.second.windowRect.right >= mi.second.rcEmulated.right &&
+					window.second.windowRect.bottom >= mi.second.rcEmulated.bottom)
+				{
+					return window.first;
+				}
+		}
+		return nullptr;
 	}
 
 	auto removeWindow(std::map<HWND, Window>::iterator it)
@@ -447,21 +467,7 @@ namespace Gdi
 		HWND getFullscreenWindow()
 		{
 			D3dDdi::ScopedCriticalSection lock;
-			RECT mr = DDraw::PrimarySurface::getMonitorRect();
-			for (auto& window : g_windows)
-			{
-				if (!window.second.isLayered &&
-					window.second.windowRect.left <= mr.left &&
-					window.second.windowRect.top <= mr.top &&
-					window.second.windowRect.right >= mr.right &&
-					window.second.windowRect.bottom >= mr.bottom &&
-					IsWindowVisible(window.first) &&
-					!IsIconic(window.first))
-				{
-					return window.first;
-				}
-			}
-			return nullptr;
+			return g_fullscreenWindow;
 		}
 
 		int getRandomRgn(HDC hdc, HRGN hrgn, INT i)
@@ -548,29 +554,6 @@ namespace Gdi
 			RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
 		}
 
-		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
-			CompatRef<IDirectDrawClipper> clipper)
-		{
-			D3dDdi::ScopedCriticalSection lock;
-			auto presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
-			if (presentationWindow && IsWindowVisible(presentationWindow))
-			{
-				clipper->SetHWnd(&clipper, 0, presentationWindow);
-				dst->Blt(&dst, nullptr, &src, nullptr, DDBLT_WAIT, nullptr);
-				return;
-			}
-
-			auto mr = DDraw::PrimarySurface::getMonitorRect();
-			for (auto window : g_windowZOrder)
-			{
-				if (window->presentationWindow && !window->visibleRegion.isEmpty())
-				{
-					clipper->SetHWnd(&clipper, 0, window->presentationWindow);
-					dst->Blt(&dst, &mr, &src, nullptr, DDBLT_WAIT, nullptr);
-				}
-			}
-		}
-
 		void present(Gdi::Region excludeRegion)
 		{
 			D3dDdi::ScopedCriticalSection lock;
@@ -643,6 +626,8 @@ namespace Gdi
 						++it;
 					}
 				}
+
+				g_fullscreenWindow = findFullscreenWindow();
 
 				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 				{

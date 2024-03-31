@@ -567,7 +567,7 @@ namespace D3dDdi
 		pt.y -= cur.hotspot.y;
 		RECT srcRect = { pt.x, pt.y, pt.x + cur.size.cx, pt.y + cur.size.cy };
 
-		RECT monitorRect = DDraw::PrimarySurface::getMonitorRect();
+		RECT monitorRect = m_device.getAdapter().getMonitorInfo().rcEmulated;
 		RECT clippedSrcRect = {};
 		IntersectRect(&clippedSrcRect, &srcRect, &monitorRect);
 		if (IsRectEmpty(&clippedSrcRect))

@@ -46,22 +46,15 @@ namespace
 {
 	const unsigned DELAYED_FLIP_MODE_TIMEOUT_MS = 200;
 
-	CompatPtr<IDirectDrawSurface7> getBackBuffer();
-	CompatPtr<IDirectDrawSurface7> getLastSurface();
 	void onRelease();
-	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src);
-	void updatePresentationWindow();
-
-	CompatWeakPtr<IDirectDrawSurface7> g_defaultPrimary;
+	void updatePresentationParams();
 
 	CompatWeakPtr<IDirectDrawSurface7> g_frontBuffer;
 	CompatWeakPtr<IDirectDrawSurface7> g_windowedBackBuffer;
 	CompatWeakPtr<IDirectDrawClipper> g_clipper;
 	RECT g_monitorRect = {};
-	DDSURFACEDESC2 g_surfaceDesc = {};
 	DDraw::IReleaseNotifier g_releaseNotifier(onRelease);
 
-	bool g_emulatedCursor = false;
 	bool g_isFullscreen = false;
 	bool g_isExclusiveFullscreen = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
@@ -83,127 +76,6 @@ namespace
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
 	HWND g_presentationWindow = nullptr;
-	long long g_qpcUpdatePresentationWindow = 0;
-
-	void bltToPrimaryChain(CompatRef<IDirectDrawSurface7> src)
-	{
-		if (!g_isFullscreen)
-		{
-			updatePresentationWindow();
-
-			if (g_presentationWindow)
-			{
-				presentationBlt(*g_windowedBackBuffer, src);
-			}
-
-			Gdi::Window::present(*g_frontBuffer, g_presentationWindow ? *g_windowedBackBuffer : src, *g_clipper);
-			return;
-		}
-
-		auto backBuffer(getBackBuffer());
-		if (backBuffer)
-		{
-			presentationBlt(*backBuffer, src);
-		}
-	}
-
-	BOOL WINAPI createDefaultPrimaryEnum(
-		GUID* lpGUID, LPSTR /*lpDriverDescription*/, LPSTR lpDriverName, LPVOID lpContext, HMONITOR /*hm*/)
-	{
-		auto& deviceName = *static_cast<std::wstring*>(lpContext);
-		if (deviceName != std::wstring(lpDriverName, lpDriverName + strlen(lpDriverName)))
-		{
-			return TRUE;
-		}
-
-		auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
-		LOG_DEBUG << "Creating " << (tagSurface ? "fullscreen" : "windowed") << " default primary";
-
-		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
-		if (tagSurface)
-		{
-			DDSURFACEDESC desc = {};
-			desc.dwSize = sizeof(desc);
-			desc.dwFlags = DDSD_CAPS;
-			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-
-			CompatPtr<IDirectDraw> dd(tagSurface->getDD());
-			CompatPtr<IDirectDrawSurface> primary;
-			dd.get()->lpVtbl->CreateSurface(dd, &desc, &primary.getRef(), nullptr);
-			g_defaultPrimary = CompatPtr<IDirectDrawSurface7>(primary).detach();
-		}
-		else
-		{
-			CompatPtr<IDirectDraw7> dd;
-			if (FAILED(CALL_ORIG_PROC(DirectDrawCreateEx)(
-				lpGUID, reinterpret_cast<void**>(&dd.getRef()), IID_IDirectDraw7, nullptr)))
-			{
-				return FALSE;
-			}
-			DDraw::DirectDraw::onCreate(lpGUID, *dd);
-
-			if (FAILED(dd.get()->lpVtbl->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL)))
-			{
-				return FALSE;
-			}
-
-			DDSURFACEDESC2 desc = {};
-			desc.dwSize = sizeof(desc);
-			desc.dwFlags = DDSD_CAPS;
-			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
-			dd.get()->lpVtbl->CreateSurface(dd, &desc, &g_defaultPrimary.getRef(), nullptr);
-		}
-
-		return nullptr != g_defaultPrimary;
-	}
-
-	void createDefaultPrimary()
-	{
-		if (!Dll::g_isHooked ||
-			(g_defaultPrimary ? SUCCEEDED(g_defaultPrimary->IsLost(g_defaultPrimary)) : g_frontBuffer))
-		{
-			return;
-		}
-
-		DDraw::RealPrimarySurface::destroyDefaultPrimary();
-
-		auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
-		if (dm.deviceName.empty())
-		{
-			return;
-		}
-
-		CALL_ORIG_PROC(DirectDrawEnumerateExA)(createDefaultPrimaryEnum, &dm.deviceName, DDENUM_ATTACHEDSECONDARYDEVICES);
-	}
-
-	CompatPtr<IDirectDrawSurface7> createWindowedBackBuffer(DDraw::TagSurface& tagSurface, DWORD width, DWORD height)
-	{
-		auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*tagSurface.getDDS());
-		if (!resource)
-		{
-			LOG_INFO << "ERROR: createWindowedBackBuffer: driver resource handle not found";
-			return nullptr;
-		}
-
-		auto device = D3dDdi::Device::findDeviceByResource(resource);
-		if (!device)
-		{
-			LOG_INFO << "ERROR: createWindowedBackBuffer: device not found";
-			return nullptr;
-		}
-
-		auto& repo = device->getRepo();
-		D3dDdi::SurfaceRepository::Surface surface = {};
-		repo.getSurface(surface, width, height, D3DDDIFMT_X8R8G8B8,
-			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
-		if (!surface.surface)
-		{
-			LOG_INFO << "ERROR: createWindowedBackBuffer: surface creation failed";
-			return nullptr;
-		}
-
-		return surface.surface;
-	}
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer()
 	{
@@ -272,27 +144,14 @@ namespace
 	{
 		LOG_FUNC("RealPrimarySurface::onRelease");
 
-		if (g_windowedBackBuffer)
-		{
-			auto resource = D3dDdi::Device::findResource(
-				DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
-			resource->setFullscreenMode(false);
-		}
-
-		DDraw::RealPrimarySurface::schedulePresentationWindowUpdate();
-
-		g_defaultPrimary = nullptr;
 		g_frontBuffer = nullptr;
 		g_lastFlipSurface = nullptr;
 		g_windowedBackBuffer.release();
-		g_clipper.release();
 		g_isFullscreen = false;
-		g_surfaceDesc = {};
 		g_tagSurface = nullptr;
 
 		g_deviceWindow = nullptr;
 		g_deviceWindowPtr = nullptr;
-		g_monitorRect = {};
 	}
 
 	void onRestore()
@@ -301,20 +160,10 @@ namespace
 		desc.dwSize = sizeof(desc);
 		g_frontBuffer->GetSurfaceDesc(g_frontBuffer, &desc);
 
-		g_clipper.release();
-		CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
-		g_frontBuffer->SetClipper(g_frontBuffer, g_clipper);
-		g_surfaceDesc = desc;
-
 		if (g_isExclusiveFullscreen && 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP))
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
-		}
-
-		if (g_windowedBackBuffer)
-		{
-			g_windowedBackBuffer->Restore(g_windowedBackBuffer);
 		}
 
 		auto gdiResource = DDraw::PrimarySurface::getGdiResource();
@@ -323,7 +172,7 @@ namespace
 			D3dDdi::Device::setGdiResourceHandle(gdiResource);
 		}
 
-		updatePresentationWindow();
+		updatePresentationParams();
 
 		Compat::ScopedCriticalSection lock(g_presentCs);
 		g_isOverlayUpdatePending = false;
@@ -337,6 +186,7 @@ namespace
 
 	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src)
 	{
+		LOG_FUNC("RealPrimarySurface::presentationBlt", dst, src);
 		D3dDdi::ScopedCriticalSection lock;
 		auto srcResource = D3dDdi::Device::findResource(
 			DDraw::DirectDrawSurface::getDriverResourceHandle(src.get()));
@@ -350,16 +200,16 @@ namespace
 		D3DDDIARG_BLT blt = {};
 		blt.hSrcResource = *srcResource;
 		blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(src.get());
-		blt.SrcRect = DDraw::PrimarySurface::getMonitorRect();
+		blt.SrcRect = srcResource->getRect(blt.SrcSubResourceIndex);
 		blt.hDstResource = *dstResource;
 		blt.DstSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(dst.get());
-		blt.DstRect = g_monitorRect;
+		blt.DstRect = dstResource->getRect(blt.DstSubResourceIndex);
 		dstResource->presentationBlt(blt, srcResource);
 	}
 
-	void presentToPrimaryChain(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
+	void present(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
-		LOG_FUNC("RealPrimarySurface::presentToPrimaryChain", src, isOverlayOnly);
+		LOG_FUNC("RealPrimarySurface::present", src, isOverlayOnly);
 
 		Gdi::VirtualScreen::update();
 
@@ -391,19 +241,137 @@ namespace
 				Input::updateCursor();
 			});
 
-		if (!g_frontBuffer || !src || DDraw::RealPrimarySurface::isLost())
+		if (src ? !g_isFullscreen : !g_presentationWindow)
 		{
 			Gdi::Window::present(nullptr);
 			return;
 		}
 
-		Gdi::Region excludeRegion(DDraw::PrimarySurface::getMonitorRect());
+		const bool useFlip = src && g_isFullscreen;
+		Win32::DisplayMode::MonitorInfo mi = {};
+		CompatWeakPtr<IDirectDrawSurface7> frontBuffer;
+		CompatPtr<IDirectDrawSurface7> backBuffer;
+		CompatPtr<IDirectDrawSurface7> windowedSrc;
+
+		if (src)
+		{
+			mi = DDraw::PrimarySurface::getMonitorInfo();
+			frontBuffer = g_frontBuffer;
+			if (g_isFullscreen)
+			{
+				backBuffer = getBackBuffer();
+			}
+		}
+		else
+		{
+			mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(g_presentationWindow, MONITOR_DEFAULTTOPRIMARY));
+			if (!DDraw::TagSurface::findFullscreenWindow())
+			{
+				frontBuffer = D3dDdi::SurfaceRepository::getPrimaryRepo().getWindowedPrimary();
+			}
+		}
+
+		if (g_presentationWindow && !backBuffer)
+		{
+			D3dDdi::SurfaceRepository* repo = nullptr;
+			if (src)
+			{
+				auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*frontBuffer);
+				if (!resource)
+				{
+					return;
+				}
+
+				auto device = D3dDdi::Device::findDeviceByResource(resource);
+				if (!device)
+				{
+					return;
+				}
+				repo = &device->getRepo();
+			}
+			else
+			{
+				repo = &D3dDdi::SurfaceRepository::getPrimaryRepo();
+				windowedSrc = repo->getWindowedSrc(mi.rcEmulated);
+				if (!windowedSrc)
+				{
+					return;
+				}
+				src = windowedSrc;
+			}
+
+			backBuffer = repo->getWindowedBackBuffer(
+				mi.rcDpiAware.right - mi.rcDpiAware.left, mi.rcDpiAware.bottom - mi.rcDpiAware.top);
+			if (!backBuffer)
+			{
+				return;
+			}
+		}
+
+		Gdi::Region excludeRegion(mi.rcEmulated);
 		Gdi::Window::present(excludeRegion);
-		bltToPrimaryChain(*src);
+		presentationBlt(*backBuffer, *src);
+		if (useFlip)
+		{
+			if (g_isExclusiveFullscreen)
+			{
+				frontBuffer->Flip(frontBuffer, backBuffer, DDFLIP_WAIT);
+			}
+			else
+			{
+				*g_deviceWindowPtr = g_presentationWindow;
+				frontBuffer->Flip(frontBuffer, nullptr, DDFLIP_WAIT);
+				*g_deviceWindowPtr = g_deviceWindow;
+			}
+		}
+		else if (frontBuffer)
+		{
+			if (!g_clipper)
+			{
+				CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
+			}
+			g_clipper->SetHWnd(g_clipper, 0, g_presentationWindow);
+			frontBuffer->SetClipper(frontBuffer, g_clipper);
+			frontBuffer->Blt(frontBuffer, nullptr, backBuffer, nullptr, DDBLT_WAIT, nullptr);
+		}
+		else
+		{
+			HDC dstDc = GetWindowDC(g_presentationWindow);
+			HDC srcDc = nullptr;
+			D3dDdi::Resource::setReadOnlyLock(true);
+			backBuffer->GetDC(backBuffer, &srcDc);
+			D3dDdi::Resource::setReadOnlyLock(false);
+			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, mi.rcDpiAware.right - mi.rcDpiAware.left, mi.rcDpiAware.bottom - mi.rcDpiAware.top,
+				srcDc, 0, 0, SRCCOPY);
+			backBuffer->ReleaseDC(backBuffer, srcDc);
+			ReleaseDC(g_presentationWindow, dstDc);
+		}
+	}
+
+	void setFullscreenPresentationMode(const Win32::DisplayMode::MonitorInfo& mi)
+	{
+		if (IsRectEmpty(&mi.rcDpiAware))
+		{
+			Gdi::Cursor::setEmulated(false);
+			Gdi::Cursor::setMonitorClipRect({});
+		}
+		else
+		{
+			auto clipRect = mi.rcEmulated;
+			if (!EqualRect(&mi.rcMonitor, &mi.rcReal))
+			{
+				InflateRect(&clipRect, -1, -1);
+			}
+
+			Gdi::Cursor::setMonitorClipRect(clipRect);
+			Gdi::Cursor::setEmulated(true);
+		}
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
+		present(src, isOverlayOnly);
+
 		{
 			Compat::ScopedCriticalSection lock(g_presentCs);
 			g_isOverlayUpdatePending = false;
@@ -411,40 +379,28 @@ namespace
 			g_isUpdateReady = false;
 		}
 
-		presentToPrimaryChain(src, isOverlayOnly);
-
-		if (g_isFullscreen)
-		{
-			updatePresentationWindow();
-			*g_deviceWindowPtr = g_presentationWindow;
-			g_frontBuffer->Flip(g_frontBuffer, g_isExclusiveFullscreen ? getBackBuffer() : nullptr, DDFLIP_WAIT);
-			*g_deviceWindowPtr = g_deviceWindow;
-		}
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
 	}
 
-	void updatePresentationWindow()
+	void updatePresentationParams()
 	{
-		LOG_FUNC("RealPrimarySurface::updatePresentationWindow");
+		LOG_FUNC("RealPrimarySurface::updatePresentationParams");
 
 		HWND fullscreenWindow = nullptr;
 		if (isProcessActive())
 		{
 			if (g_isFullscreen && IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
 			{
-				if (g_isExclusiveFullscreen)
-				{
-					return;
-				}
 				fullscreenWindow = g_deviceWindow;
 			}
-			else if (g_frontBuffer && DDraw::PrimarySurface::getPrimary() && SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
+			else
 			{
 				fullscreenWindow = Gdi::Window::getFullscreenWindow();
 			}
 		}
 		else if (g_isFullscreen)
 		{
+			setFullscreenPresentationMode({});
 			return;
 		}
 
@@ -455,26 +411,27 @@ namespace
 			fullscreenPresentationWindow = Gdi::Window::getPresentationWindow(fullscreenWindow);
 		}
 
-		if (g_windowedBackBuffer)
-		{
-			auto resource = D3dDdi::Device::findResource(
-				DDraw::DirectDrawSurface::getDriverResourceHandle(*g_windowedBackBuffer));
-			resource->setFullscreenMode(fullscreenPresentationWindow);
-		}
-
 		g_presentationWindow = fullscreenPresentationWindow;
 
 		if (g_presentationWindow)
 		{
+			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(g_presentationWindow, MONITOR_DEFAULTTOPRIMARY));
+			auto& mr = mi.rcDpiAware;
+
 			Gdi::GuiThread::execute([&]()
 				{
 					Win32::ScopedDpiAwareness dpiAwareness;
-					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, g_monitorRect.left, g_monitorRect.top, 0, 0,
+					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, mr.left, mr.top, 0, 0,
 						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER | SWP_SHOWWINDOW | SWP_NOSIZE);
-					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, nullptr, 0, 0,
-						g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top,
+					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, nullptr, 0, 0, mr.right - mr.left, mr.bottom - mr.top,
 						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
 				});
+
+			setFullscreenPresentationMode(mi);
+		}
+		else
+		{
+			setFullscreenPresentationMode({});
 		}
 
 		static HWND prevFullscreenWindow = nullptr;
@@ -488,11 +445,6 @@ namespace
 			}
 		}
 		prevFullscreenWindow = fullscreenWindow;
-
-		if (Gdi::Cursor::isEmulated() != g_emulatedCursor)
-		{
-			Gdi::Cursor::setEmulated(g_emulatedCursor);
-		}
 	}
 
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)
@@ -521,11 +473,6 @@ namespace DDraw
 	HRESULT RealPrimarySurface::create(CompatRef<IDirectDraw> dd)
 	{
 		LOG_FUNC("RealPrimarySurface::create", &dd);
-		DDraw::ScopedThreadLock lock;
-		const auto& mi = Win32::DisplayMode::getMonitorInfo(
-			D3dDdi::KernelModeThunks::getAdapterInfo(*CompatPtr<IDirectDraw7>::from(&dd)).deviceName);
-		auto prevMonitorRect = g_monitorRect;
-		g_monitorRect = g_isExclusiveFullscreen ? mi.rcReal : mi.rcDpiAware;
 
 		DDSURFACEDESC desc = {};
 		desc.dwSize = sizeof(desc);
@@ -533,15 +480,11 @@ namespace DDraw
 		desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE | DDSCAPS_3DDEVICE | DDSCAPS_COMPLEX | DDSCAPS_FLIP;
 		desc.dwBackBufferCount = g_isExclusiveFullscreen ? 2 : 1;
 
-		auto prevIsFullscreen = g_isFullscreen;
-		g_isFullscreen = true;
 		CompatPtr<IDirectDrawSurface> surface;
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface.getRef(), nullptr);
 
 		if (DDERR_NOEXCLUSIVEMODE == result)
 		{
-			g_isFullscreen = false;
-			g_monitorRect = mi.rcDpiAware;
 			desc.dwFlags = DDSD_CAPS;
 			desc.ddsCaps.dwCaps = DDSCAPS_PRIMARYSURFACE;
 			desc.dwBackBufferCount = 0;
@@ -550,9 +493,7 @@ namespace DDraw
 
 		if (FAILED(result))
 		{
-			LOG_INFO << "ERROR: Failed to create the real primary surface: " << Compat::hex(result);
-			g_monitorRect = prevMonitorRect;
-			g_isFullscreen = prevIsFullscreen;
+			LOG_ONCE("ERROR: Failed to create the real primary surface: " << Compat::hex(result));
 			return result;
 		}
 
@@ -560,23 +501,13 @@ namespace DDraw
 		auto tagSurface = DDraw::TagSurface::get(ddLcl);
 		if (!tagSurface)
 		{
-			LOG_INFO << "ERROR: TagSurface not found";
-			g_monitorRect = prevMonitorRect;
-			g_isFullscreen = prevIsFullscreen;
+			LOG_ONCE("ERROR: TagSurface not found");
 			return DDERR_GENERIC;
 		}
 
-		if (0 == desc.dwBackBufferCount)
-		{
-			g_windowedBackBuffer = createWindowedBackBuffer(*tagSurface,
-				g_monitorRect.right - g_monitorRect.left, g_monitorRect.bottom - g_monitorRect.top).detach();
-			if (!g_windowedBackBuffer)
-			{
-				g_monitorRect = prevMonitorRect;
-				g_isFullscreen = prevIsFullscreen;
-				return DDERR_GENERIC;
-			}
-		}
+		g_isFullscreen = 0 != desc.dwBackBufferCount;
+		auto& mi = PrimarySurface::getMonitorInfo();
+		g_monitorRect = g_isFullscreen && g_isExclusiveFullscreen ? mi.rcReal : mi.rcDpiAware;
 
 		g_tagSurface = tagSurface;
 		g_frontBuffer = CompatPtr<IDirectDrawSurface7>::from(surface.get()).detach();
@@ -588,15 +519,6 @@ namespace DDraw
 
 		onRestore();
 		return DD_OK;
-	}
-
-	void RealPrimarySurface::destroyDefaultPrimary()
-	{
-		if (g_defaultPrimary)
-		{
-			LOG_DEBUG << "Destroying default primary";
-			g_defaultPrimary.release();
-		}
 	}
 
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
@@ -658,20 +580,7 @@ namespace DDraw
 			lastOverlayCheckVsyncCount = vsyncCount;
 		}
 
-		bool isPresentationWindowUpdateNeeded = false;
-
-		{
-			Compat::ScopedCriticalSection lock(g_presentCs);
-			isPresentationWindowUpdateNeeded =
-				0 != g_qpcUpdatePresentationWindow && Time::queryPerformanceCounter() - g_qpcUpdatePresentationWindow >= 0 ||
-				!isProcessActive();
-		}
-
-		if (isPresentationWindowUpdateNeeded)
-		{
-			g_qpcUpdatePresentationWindow = 0;
-			updatePresentationWindow();
-		}
+		updatePresentationParams();
 
 		bool isOverlayOnly = false;
 
@@ -712,21 +621,12 @@ namespace DDraw
 			}
 		}
 
-		createDefaultPrimary();
-		if (!g_defaultPrimary && g_frontBuffer && FAILED(g_frontBuffer->IsLost(g_frontBuffer)))
-		{
-			restore();
-		}
-
 		auto primary(DDraw::PrimarySurface::getPrimary());
 		CompatWeakPtr<IDirectDrawSurface7> src;
-		if (primary && SUCCEEDED(primary->IsLost(primary)))
+		if (primary && SUCCEEDED(primary->IsLost(primary)) &&
+			g_frontBuffer && SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
 		{
 			src = g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : primary;
-		}
-		else
-		{
-			src = DDraw::PrimarySurface::getGdiPrimary();
 		}
 
 		updateNow(src, isOverlayOnly);
@@ -753,11 +653,6 @@ namespace DDraw
 		return gammaControl->GetGammaRamp(gammaControl, 0, rampData);
 	}
 
-	RECT RealPrimarySurface::getMonitorRect()
-	{
-		return g_monitorRect;
-	}
-
 	HWND RealPrimarySurface::getPresentationWindow()
 	{
 		return g_presentationWindow;
@@ -780,6 +675,11 @@ namespace DDraw
 		Dll::createThread(&updateThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 	}
 
+	bool RealPrimarySurface::isExclusiveFullscreen()
+	{
+		return g_isExclusiveFullscreen;
+	}
+
 	bool RealPrimarySurface::isFullscreen()
 	{
 		return g_isFullscreen;
@@ -799,22 +699,21 @@ namespace DDraw
 
 	HRESULT RealPrimarySurface::restore()
 	{
+		LOG_FUNC("RealPrimarySurface::restore");
 		DDraw::ScopedThreadLock lock;
-		if (g_defaultPrimary)
-		{
-			destroyDefaultPrimary();
-			createDefaultPrimary();
-			return DD_OK;
-		}
-
 		auto dd(g_tagSurface->getDD());
 		if (g_isFullscreen && FAILED(dd->TestCooperativeLevel(dd)))
 		{
 			return DDERR_NOEXCLUSIVEMODE;
 		}
 
-		release();
-		return create(*CompatPtr<IDirectDraw>::from(dd.get()));
+		HRESULT result = g_frontBuffer->Restore(g_frontBuffer);
+		if (SUCCEEDED(result))
+		{
+			release();
+			return create(*CompatPtr<IDirectDraw>::from(dd.get()));
+		}
+		return LOG_RESULT(result);
 	}
 
 	void RealPrimarySurface::scheduleOverlayUpdate()
@@ -835,17 +734,6 @@ namespace DDraw
 			g_lastUpdateThreadId = GetCurrentThreadId();
 		}
 		g_isUpdateReady = false;
-	}
-
-	void RealPrimarySurface::schedulePresentationWindowUpdate()
-	{
-		Compat::ScopedCriticalSection lock(g_presentCs);
-		g_qpcUpdatePresentationWindow = Time::queryPerformanceCounter() + Time::g_qpcFrequency / 5;
-	}
-
-	void RealPrimarySurface::setEmulatedCursor(bool emulated)
-	{
-		g_emulatedCursor = emulated;
 	}
 
 	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)

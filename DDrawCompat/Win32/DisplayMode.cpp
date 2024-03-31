@@ -68,6 +68,7 @@ namespace
 	ULONG g_monitorInfoUniqueness = 0;
 	std::map<HMONITOR, Win32::DisplayMode::MonitorInfo> g_monitorInfo;
 	Win32::DisplayMode::MonitorInfo g_emptyMonitorInfo = {};
+	RECT g_realBounds = {};
 	Compat::CriticalSection g_cs;
 
 	BOOL WINAPI dwm8And16BitIsShimAppliedCallOut();
@@ -710,6 +711,7 @@ namespace
 			g_monitorInfo[nullptr] = mi;
 		}
 
+		UnionRect(&g_realBounds, &g_realBounds, &mi.rcReal);
 		LOG_DEBUG << "updateMonitorInfoEnum: " << hMonitor << " " << mi;
 		return TRUE;
 	}
@@ -721,6 +723,7 @@ namespace
 		{
 			g_monitorInfo.clear();
 			g_monitorInfoUniqueness = uniqueness;
+			g_realBounds = {};
 			EnumDisplayMonitors(nullptr, nullptr, &updateMonitorInfoEnum, 0);
 		}
 	}
@@ -796,6 +799,13 @@ namespace Win32
 				}
 			}
 			return g_emptyMonitorInfo;
+		}
+
+		RECT getRealBounds()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			updateMonitorInfo();
+			return g_realBounds;
 		}
 
 		ULONG queryDisplaySettingsUniqueness()

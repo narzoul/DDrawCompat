@@ -59,7 +59,6 @@ namespace D3dDdi
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
 		void setAsPrimary();
-		void setFullscreenMode(bool isFullscreen);
 		void setPaletteHandle(UINT paletteHandle);
 		void setPalettizedTexture(Resource& resource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
@@ -68,6 +67,7 @@ namespace D3dDdi
 
 		static void enableConfig(bool enable);
 		static void setFormatOverride(D3DDDIFORMAT format);
+		static void setReadOnlyLock(bool readOnly);
 
 	private:
 		class Data : public D3DDDIARG_CREATERESOURCE2

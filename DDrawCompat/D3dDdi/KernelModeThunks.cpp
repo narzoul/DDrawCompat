@@ -3,12 +3,14 @@
 #include <string>
 
 #include <Windows.h>
+#include <VersionHelpers.h>
 
 #include <Common/Log.h>
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
 #include <Config/Settings/ForceD3D9On12.h>
+#include <Config/Settings/FullscreenMode.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Log/KernelModeThunksLog.h>
@@ -398,7 +400,7 @@ namespace D3dDdi
 		{
 			static RECT rect = {};
 			HWND presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
-			if (presentationWindow && presentationWindow == data.hWindow)
+			if (presentationWindow)
 			{
 				Win32::ScopedDpiAwareness dpiAwareness;
 				GetWindowRect(presentationWindow, &rect);
