@@ -49,6 +49,7 @@ namespace
 	{
 		WNDPROC wndProcA;
 		WNDPROC wndProcW;
+		WNDPROC ddrawOrigWndProc;
 	};
 
 	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
@@ -175,17 +176,7 @@ namespace
 			break;
 		}
 
-		LRESULT result = 0;
-		if (WM_ACTIVATEAPP == uMsg && Dll::g_origDDrawModule == Compat::getModuleHandleFromAddress(
-			reinterpret_cast<void*>(GetWindowLongA(hwnd, GWL_WNDPROC))))
-		{
-			result = DDraw::DirectDraw::handleActivateApp(wParam, [=]() {
-				return callWindowProc(wndProc, hwnd, uMsg, wParam, lParam); });
-		}
-		else
-		{
-			result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
-		}
+		LRESULT result = callWindowProc(wndProc, hwnd, uMsg, wParam, lParam);
 
 		switch (uMsg)
 		{
@@ -282,7 +273,18 @@ namespace
 		LOG_FUNC("ddrawSetWindowLongA", hWnd, nIndex, dwNewLong);
 		if (GWL_WNDPROC == nIndex)
 		{
-			return setWindowLongA(hWnd, GWL_WNDPROC, dwNewLong);
+			auto origWndProc = setWindowLongA(hWnd, GWL_WNDPROC, dwNewLong);
+			if (Dll::g_origDDrawModule == Compat::getModuleHandleFromAddress(reinterpret_cast<void*>(dwNewLong)))
+			{
+				Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
+				auto it = g_windowProc.find(hWnd);
+				if (it != g_windowProc.end())
+				{
+					it->second.ddrawOrigWndProc = reinterpret_cast<WNDPROC>(origWndProc);
+				}
+				DDraw::DirectDraw::hookDDrawWindowProc(reinterpret_cast<WNDPROC>(dwNewLong));
+			}
+			return origWndProc;
 		}
 
 		if (GWL_STYLE == nIndex)
@@ -381,7 +383,7 @@ namespace
 	{
 		if (GWL_WNDPROC == nIndex)
 		{
-			Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
+			Compat::ScopedSrwLockShared lock(g_windowProcSrwLock);
 			auto it = g_windowProc.find(hWnd);
 			if (it != g_windowProc.end())
 			{
@@ -405,8 +407,9 @@ namespace
 
 	WindowProc getWindowProc(HWND hwnd)
 	{
-		Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
-		return g_windowProc[hwnd];
+		Compat::ScopedSrwLockShared lock(g_windowProcSrwLock);
+		auto it = g_windowProc.find(hwnd);
+		return it != g_windowProc.end() ? it->second : WindowProc{};
 	}
 
 	std::wstring getWindowText(HWND hwnd, WNDPROC wndProc)
@@ -881,6 +884,13 @@ namespace Gdi
 					++it;
 				}
 			}
+		}
+
+		WNDPROC getDDrawOrigWndProc(HWND hwnd)
+		{
+			Compat::ScopedSrwLockShared lock(g_windowProcSrwLock);
+			auto it = g_windowProc.find(hwnd);
+			return it != g_windowProc.end() ? it->second.ddrawOrigWndProc : nullptr;
 		}
 
 		void installHooks()

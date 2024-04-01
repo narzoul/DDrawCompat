@@ -19,6 +19,7 @@ namespace DDraw
 		static TagSurface* findFullscreenWindow(HWND hwnd = nullptr);
 
 		CompatPtr<IDirectDraw7> getDD();
+		DWORD getExclusiveOwnerThreadId() { return m_exclusiveOwnerThreadId; }
 		bool isFullscreen() const { return m_fullscreenWindow; }
 		void setFullscreenWindow(HWND hwnd);
 		LONG setWindowStyle(LONG style);
@@ -28,6 +29,7 @@ namespace DDraw
 		static HRESULT create(CompatRef<IDirectDraw> dd);
 
 		DDRAWI_DIRECTDRAW_INT m_ddInt;
+		DWORD m_exclusiveOwnerThreadId;
 		HWND m_fullscreenWindow;
 		LONG m_fullscreenWindowStyle;
 		LONG m_fullscreenWindowExStyle;

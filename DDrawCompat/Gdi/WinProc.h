@@ -7,6 +7,7 @@ namespace Gdi
 	namespace WinProc
 	{
 		void dllThreadDetach();
+		WNDPROC getDDrawOrigWndProc(HWND hwnd);
 		void installHooks();
 		void onCreateWindow(HWND hwnd);
 		void startFrame();

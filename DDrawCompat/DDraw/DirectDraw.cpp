@@ -22,10 +22,17 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
+#include <Gdi/WinProc.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/Thread.h>
 
 namespace
 {
+	WNDPROC g_origDDrawWindowProc = nullptr;
+
+	LRESULT handleActivateApp(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
+	LRESULT handleSize(HWND hwnd, WPARAM wParam, LPARAM lParam);
+
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>
 	HRESULT STDMETHODCALLTYPE CreateSurface(
 		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc, TSurface** lplpDDSurface, IUnknown* pUnkOuter)
@@ -156,6 +163,99 @@ namespace
 		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
 	}
 
+	LRESULT WINAPI ddrawWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	{
+		LOG_FUNC("ddrawWindowProc", hwnd, uMsg, wParam, lParam);
+		switch (uMsg)
+		{
+		case WM_ACTIVATEAPP:
+			return LOG_RESULT(handleActivateApp(hwnd, wParam, lParam, Gdi::WinProc::getDDrawOrigWndProc(hwnd)));
+		case WM_SIZE:
+			return LOG_RESULT(handleSize(hwnd, wParam, lParam));
+		}
+		return LOG_RESULT(g_origDDrawWindowProc(hwnd, uMsg, wParam, lParam));
+	}
+
+	LRESULT handleActivateApp(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
+	{
+		LOG_FUNC("DirectDraw::handleActivateApp", hwnd, wParam, lParam, origWndProc);
+
+		if (origWndProc)
+		{
+			auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
+			if (tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId())
+			{
+				if (!wParam)
+				{
+					ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
+				}
+				return LOG_RESULT(CallWindowProcA(origWndProc, hwnd, WM_ACTIVATEAPP, wParam, lParam));
+			}
+		}
+
+		if (Config::Settings::AltTabFix::OFF == Config::altTabFix.get())
+		{
+			return LOG_RESULT(g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam));
+		}
+
+		DDraw::ScopedThreadLock lock;
+		const bool keepPrimary = Config::Settings::AltTabFix::KEEPVIDMEM == Config::altTabFix.get();
+		std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
+		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
+			{
+				auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
+				if (!(lcl->dwFlags & DDRAWISURF_INVALID) &&
+					(keepPrimary || !(surface.getOrigCaps() & DDSCAPS_PRIMARYSURFACE)))
+				{
+					lcl->dwFlags |= DDRAWISURF_INVALID;
+					surfacesToRestore.insert(lcl);
+				}
+			});
+
+		LRESULT result = g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam);
+
+		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
+			{
+				auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
+				auto it = surfacesToRestore.find(lcl);
+				if (it != surfacesToRestore.end())
+				{
+					lcl->dwFlags &= ~DDRAWISURF_INVALID;
+					surfacesToRestore.erase(it);
+				}
+			});
+
+		if (wParam && keepPrimary)
+		{
+			auto realPrimary(DDraw::RealPrimarySurface::getSurface());
+			if (realPrimary)
+			{
+				realPrimary->Restore(realPrimary);
+				auto gdiResource = DDraw::PrimarySurface::getGdiResource();
+				if (gdiResource)
+				{
+					D3dDdi::Device::setGdiResourceHandle(gdiResource);
+				}
+			}
+		}
+
+		return LOG_RESULT(result);
+	}
+
+	LRESULT handleSize(HWND hwnd, WPARAM wParam, LPARAM lParam)
+	{
+		LOG_FUNC("DirectDraw::handleSize", hwnd, wParam, lParam);
+		LRESULT result = 0;
+		auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
+		if (tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId())
+		{
+			Win32::Thread::skipWaitingForExclusiveModeMutex(true);
+		}
+		result = g_origDDrawWindowProc(hwnd, WM_SIZE, wParam, lParam);
+		Win32::Thread::skipWaitingForExclusiveModeMutex(false);
+		return LOG_RESULT(result);
+	}
+
 	template <typename Vtable>
 	constexpr void setCompatVtable(Vtable& vtable)
 	{
@@ -213,56 +313,19 @@ namespace DDraw
 			return pf;
 		}
 
-		LRESULT handleActivateApp(bool isActivated, std::function<LRESULT()> callOrigWndProc)
+		void hookDDrawWindowProc(WNDPROC ddrawWndProc)
 		{
-			LOG_FUNC("handleActivateApp", isActivated, callOrigWndProc);
-			if (Config::Settings::AltTabFix::OFF == Config::altTabFix.get())
+			LOG_FUNC("DirectDraw::hookDDrawWindowProc", ddrawWndProc);
+			static bool isHooked = false;
+			if (isHooked)
 			{
-				return LOG_RESULT(callOrigWndProc());
+				return;
 			}
+			isHooked = true;
 
-			DDraw::ScopedThreadLock lock;
-			const bool keepPrimary = Config::Settings::AltTabFix::KEEPVIDMEM == Config::altTabFix.get();
-			std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
-			DDraw::Surface::enumSurfaces([&](const Surface& surface)
-				{
-					auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
-					if (!(lcl->dwFlags & DDRAWISURF_INVALID) &&
-						(keepPrimary || !(surface.getOrigCaps() & DDSCAPS_PRIMARYSURFACE)))
-					{
-						lcl->dwFlags |= DDRAWISURF_INVALID;
-						surfacesToRestore.insert(lcl);
-					}
-				});
-
-			LRESULT result = callOrigWndProc();
-
-			DDraw::Surface::enumSurfaces([&](const Surface& surface)
-				{
-					auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
-					auto it = surfacesToRestore.find(lcl);
-					if (it != surfacesToRestore.end())
-					{
-						lcl->dwFlags &= ~DDRAWISURF_INVALID;
-						surfacesToRestore.erase(it);
-					}
-				});
-
-			if (isActivated && keepPrimary)
-			{
-				auto realPrimary(DDraw::RealPrimarySurface::getSurface());
-				if (realPrimary)
-				{
-					realPrimary->Restore(realPrimary);
-					auto gdiResource = DDraw::PrimarySurface::getGdiResource();
-					if (gdiResource)
-					{
-						D3dDdi::Device::setGdiResourceHandle(gdiResource);
-					}
-				}
-			}
-
-			return LOG_RESULT(result);
+			g_origDDrawWindowProc = ddrawWndProc;
+			Compat::hookFunction(reinterpret_cast<void*&>(g_origDDrawWindowProc), ddrawWindowProc, "ddrawWindowProc");
+			Compat::closeDbgEng();
 		}
 
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)

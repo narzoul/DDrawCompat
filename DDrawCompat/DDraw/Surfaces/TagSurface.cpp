@@ -14,6 +14,7 @@ namespace DDraw
 	TagSurface::TagSurface(DWORD origFlags, DWORD origCaps, DDRAWI_DIRECTDRAW_LCL* ddLcl)
 		: Surface(origFlags, origCaps)
 		, m_ddInt{}
+		, m_exclusiveOwnerThreadId(0)
 		, m_fullscreenWindow(nullptr)
 		, m_fullscreenWindowStyle(0)
 		, m_fullscreenWindowExStyle(0)
@@ -100,6 +101,7 @@ namespace DDraw
 		}
 		HWND prevFullscreenWindow = m_fullscreenWindow;
 		m_fullscreenWindow = hwnd;
+		m_exclusiveOwnerThreadId = hwnd ? GetCurrentThreadId() : 0;
 
 		if (Config::removeBorders.get())
 		{

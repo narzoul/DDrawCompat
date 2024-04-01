@@ -7,6 +7,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 #include <Config/Settings/CpuAffinity.h>
 #include <Config/Settings/CpuAffinityRotation.h>
@@ -20,8 +21,32 @@ namespace
 	bool g_cpuAffinityRotationEnabled = false;
 	std::map<BYTE, BYTE> g_nextProcessor;
 
+	HANDLE g_exclusiveModeMutex = nullptr;
+	thread_local bool g_skipWaitingForExclusiveModeMutex = false;
+
 	std::string maskToString(ULONG_PTR mask);
 	void setNextProcessorSet(DWORD fromSet, DWORD toSet);
+
+	HANDLE WINAPI ddrawOpenMutexW(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCWSTR lpName)
+	{
+		LOG_FUNC("ddrawOpenMutexW", dwDesiredAccess, bInheritHandle, lpName);
+		auto result = CALL_ORIG_FUNC(OpenMutexW)(dwDesiredAccess, bInheritHandle, lpName);
+		if (SUCCEEDED(result) && lpName && 0 == lstrcmpW(lpName, L"Local\\__DDrawExclMode__"))
+		{
+			g_exclusiveModeMutex = result;
+		}
+		return LOG_RESULT(result);
+	}
+
+	DWORD WINAPI ddrawWaitForSingleObject(HANDLE hHandle, DWORD dwMilliseconds)
+	{
+		LOG_FUNC("ddrawWaitForSingleObject", hHandle, dwMilliseconds);
+		if (hHandle && hHandle == g_exclusiveModeMutex && g_skipWaitingForExclusiveModeMutex)
+		{
+			return WAIT_OBJECT_0;
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(WaitForSingleObject)(hHandle, dwMilliseconds));
+	}
 
 	std::map<BYTE, std::vector<DWORD>> getProcessorSets()
 	{
@@ -280,6 +305,9 @@ namespace Win32
 			HOOK_FUNCTION(kernel32, SetProcessAffinityMask, setProcessAffinityMask);
 			HOOK_FUNCTION(kernel32, SetProcessPriorityBoost, setProcessPriorityBoost);
 			HOOK_FUNCTION(kernel32, SetThreadPriorityBoost, setThreadPriorityBoost);
+
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "OpenMutexW", ddrawOpenMutexW);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "WaitForSingleObject", ddrawWaitForSingleObject);
 		}
 
 		void rotateCpuAffinity()
@@ -302,6 +330,11 @@ namespace Win32
 			{
 				LOG_ONCE("ERROR: Failed to set rotated CPU affinity: " << maskToString(g_cpuAffinity));
 			}
+		}
+
+		void skipWaitingForExclusiveModeMutex(bool skip)
+		{
+			g_skipWaitingForExclusiveModeMutex = skip;
 		}
 	}
 }
