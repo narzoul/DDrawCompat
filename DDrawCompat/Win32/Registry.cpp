@@ -265,7 +265,7 @@ namespace
 		{
 		case REG_SZ:
 			src = value->str;
-			*length = (getLength(value->str) + (flags ? 1 : 0)) * sizeof(Char);
+			*length = (getLength(value->str) + 1) * sizeof(Char);
 			break;
 
 		default:
