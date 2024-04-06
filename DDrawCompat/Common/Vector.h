@@ -1,10 +1,6 @@
 #pragma once
 
-#include <algorithm>
 #include <array>
-#include <cmath>
-
-#include <Windows.h>
 
 #include <Common/Log.h>
 
@@ -144,7 +140,6 @@ Vector<Elem, size> unaryOperation(Operator op, const Vector<Elem, size>& vec)
 
 #define DEFINE_VECTOR_BUILTIN_BINARY_OPERATOR(op) DEFINE_VECTOR_BINARY_OPERATOR(operator ## op, x op y)
 #define DEFINE_VECTOR_STD_BINARY_OPERATOR(op) DEFINE_VECTOR_BINARY_OPERATOR(op, std::op(x, y))
-#define DEFINE_VECTOR_STD_UNARY_OPERATOR(op) DEFINE_VECTOR_UNARY_OPERATOR(op, std::op(x))
 
 DEFINE_VECTOR_BUILTIN_BINARY_OPERATOR(+);
 DEFINE_VECTOR_BUILTIN_BINARY_OPERATOR(-);
@@ -154,8 +149,8 @@ DEFINE_VECTOR_BUILTIN_BINARY_OPERATOR(/);
 DEFINE_VECTOR_STD_BINARY_OPERATOR(max);
 DEFINE_VECTOR_STD_BINARY_OPERATOR(min);
 
-DEFINE_VECTOR_STD_UNARY_OPERATOR(ceil);
-DEFINE_VECTOR_STD_UNARY_OPERATOR(floor);
+DEFINE_VECTOR_UNARY_OPERATOR(ceil, ceilf(x));
+DEFINE_VECTOR_UNARY_OPERATOR(floor, floorf(x));
 
 #undef DEFINE_VECTOR_BINARY_OPERATOR
 #undef DEFINE_VECTOR_UNARY_OPERATOR
