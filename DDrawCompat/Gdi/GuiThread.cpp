@@ -13,6 +13,7 @@
 #include <Gdi/WinProc.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
+#include <Overlay/Steam.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
 
@@ -178,16 +179,13 @@ namespace
 
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
-		LOG_FUNC("messageWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
-
 		if (WM_USER_EXECUTE == uMsg)
 		{
 			auto& func = *reinterpret_cast<const std::function<void()>*>(lParam);
 			func();
-			return LOG_RESULT(0);
+			return 0;
 		}
-
-		return LOG_RESULT(CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam));
+		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
 	unsigned WINAPI messageWindowThreadProc(LPVOID /*lpParameter*/)
@@ -230,7 +228,6 @@ namespace
 		MSG msg = {};
 		while (CALL_ORIG_FUNC(GetMessageA)(&msg, nullptr, 0, 0))
 		{
-			TranslateMessage(&msg);
 			DispatchMessage(&msg);
 		}
 
@@ -276,6 +273,7 @@ namespace Gdi
 
 		void destroyWindow(HWND hwnd)
 		{
+			Overlay::Steam::onDestroyWindow(hwnd);
 			PostMessage(hwnd, WM_CLOSE, 0, 0);
 		}
 

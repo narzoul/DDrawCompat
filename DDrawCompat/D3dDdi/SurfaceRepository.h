@@ -57,8 +57,7 @@ namespace D3dDdi
 		CompatWeakPtr<IDirectDrawSurface7> getWindowedPrimary();
 		CompatPtr<IDirectDrawSurface7> getWindowedSrc(RECT rect);
 		void release(Surface& surface);
-		void setAsPrimaryRepo();
-		void setRepository(CompatWeakPtr<IDirectDraw7> dd) { m_dd = dd; }
+		void setRepository(CompatWeakPtr<IDirectDraw7> dd);
 
 		static SurfaceRepository& get(const Adapter& adapter);
 		static SurfaceRepository& getPrimaryRepo();

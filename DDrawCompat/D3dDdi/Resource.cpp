@@ -25,6 +25,7 @@
 #include <Gdi/Palette.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
+#include <Overlay/Steam.h>
 
 namespace
 {
@@ -244,7 +245,14 @@ namespace D3dDdi
 			return S_OK;
 		}
 
-		if (shouldBltViaCpu(data, *srcResource))
+		auto steamResources = Overlay::Steam::getResources();
+		if (steamResources.rtResource == srcResource && steamResources.bbResource)
+		{
+			srcResource = steamResources.bbResource;
+			data.hSrcResource = *steamResources.bbResource;
+			data.SrcSubResourceIndex = steamResources.bbSubResourceIndex;
+		}
+		else if (shouldBltViaCpu(data, *srcResource))
 		{
 			return bltViaCpu(data, *srcResource);
 		}
@@ -1014,7 +1022,7 @@ namespace D3dDdi
 
 	HRESULT Resource::lock(D3DDDIARG_LOCK& data)
 	{
-		if (D3DDDIMULTISAMPLE_NONE != m_fixedData.MultisampleType)
+		if (D3DDDIMULTISAMPLE_NONE != m_fixedData.MultisampleType || FOURCC_NULL == m_fixedData.Format)
 		{
 			return E_FAIL;
 		}
@@ -1324,6 +1332,8 @@ namespace D3dDdi
 
 		presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
 			Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);
+
+		Overlay::Steam::render(*this, data.DstSubResourceIndex);
 
 		return LOG_RESULT(S_OK);
 	}

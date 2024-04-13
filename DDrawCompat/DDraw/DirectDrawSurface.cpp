@@ -6,6 +6,8 @@
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <DDraw/Visitors/DirectDrawSurfaceVtblVisitor.h>
+#include <D3dDdi/Device.h>
+#include <D3dDdi/SurfaceRepository.h>
 
 #define SET_COMPAT_METHOD(method) \
 	vtable.method = &callImpl<decltype(&DDraw::SurfaceImpl<TSurface>::method), &DDraw::SurfaceImpl<TSurface>::method, \
@@ -90,6 +92,12 @@ namespace DDraw
 			AddAttachedSurfacesContext context = { &surface };
 			surface->EnumAttachedSurfaces(&surface, &context, &addAttachedSurfaces);
 			return context.surfaces;
+		}
+
+		D3dDdi::SurfaceRepository* getSurfaceRepository(HANDLE resource)
+		{
+			auto device = D3dDdi::Device::findDeviceByResource(resource);
+			return device ? &device->getRepo() : nullptr;
 		}
 
 		template <typename Vtable>

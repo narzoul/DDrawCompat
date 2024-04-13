@@ -325,6 +325,7 @@
     <ClInclude Include="Overlay\StatsEventRate.h" />
     <ClInclude Include="Overlay\StatsTimer.h" />
     <ClInclude Include="Overlay\StatsWindow.h" />
+    <ClInclude Include="Overlay\Steam.h" />
     <ClInclude Include="Overlay\Window.h" />
     <ClInclude Include="Win32\DisplayMode.h" />
     <ClInclude Include="Win32\DpiAwareness.h" />
@@ -459,6 +460,7 @@
     <ClCompile Include="Overlay\StatsEventRate.cpp" />
     <ClCompile Include="Overlay\StatsTimer.cpp" />
     <ClCompile Include="Overlay\StatsWindow.cpp" />
+    <ClCompile Include="Overlay\Steam.cpp" />
     <ClCompile Include="Overlay\Window.cpp" />
     <ClCompile Include="Win32\DisplayMode.cpp" />
     <ClCompile Include="Win32\DpiAwareness.cpp" />

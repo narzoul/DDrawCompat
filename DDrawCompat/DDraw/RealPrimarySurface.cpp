@@ -38,6 +38,7 @@
 #include <Gdi/WinProc.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
+#include <Overlay/Steam.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
 #include <Win32/Thread.h>
@@ -276,18 +277,7 @@ namespace
 			D3dDdi::SurfaceRepository* repo = nullptr;
 			if (src)
 			{
-				auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*frontBuffer);
-				if (!resource)
-				{
-					return;
-				}
-
-				auto device = D3dDdi::Device::findDeviceByResource(resource);
-				if (!device)
-				{
-					return;
-				}
-				repo = &device->getRepo();
+				repo = DDraw::DirectDrawSurface::getSurfaceRepository(*frontBuffer);
 			}
 			else
 			{
@@ -364,7 +354,7 @@ namespace
 			}
 
 			Gdi::Cursor::setMonitorClipRect(clipRect);
-			Gdi::Cursor::setEmulated(true);
+			Gdi::Cursor::setEmulated(!Overlay::Steam::isOverlayOpen());
 		}
 	}
 
@@ -568,6 +558,7 @@ namespace DDraw
 		static UINT lastOverlayCheckVsyncCount = 0;
 		if (vsyncCount != lastOverlayCheckVsyncCount)
 		{
+			updatePresentationParams();
 			setPresentationWindowTopmost();
 			Gdi::Cursor::update();
 			Gdi::Caret::blink();
@@ -577,10 +568,9 @@ namespace DDraw
 				statsWindow->updateStats();
 				g_qpcLastUpdate = Time::queryPerformanceCounter();
 			}
+			Overlay::Steam::flush();
 			lastOverlayCheckVsyncCount = vsyncCount;
 		}
-
-		updatePresentationParams();
 
 		bool isOverlayOnly = false;
 

@@ -27,6 +27,7 @@
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Input/Input.h>
+#include <Overlay/Steam.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
 #include <Win32/MemoryManagement.h>
@@ -82,7 +83,9 @@ namespace
 	{
 		if (!Dll::g_isHooked)
 		{
+			Dll::g_isHooked = true;
 			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
+			Overlay::Steam::installHooks();
 			LOG_INFO << "Installing display mode hooks";
 			Win32::DisplayMode::installHooks();
 			LOG_INFO << "Installing registry hooks";
@@ -129,7 +132,6 @@ namespace
 			Gdi::installHooks();
 			Compat::closeDbgEng();
 			LOG_INFO << "Finished installing hooks";
-			Dll::g_isHooked = true;
 		}
 	}
 
@@ -244,6 +246,8 @@ namespace
 	Dll::g_origProcs.proc = Compat::getProcAddress(origModule, #proc);
 
 #define HOOK_DDRAW_PROC(proc) \
+	Dll::g_newProcs.proc = reinterpret_cast<FARPROC>( \
+		static_cast<decltype(&proc)>(&directDrawFunc<&Dll::Procs::proc, decltype(&proc)>)); \
 	Compat::hookFunction( \
 		reinterpret_cast<void*&>(Dll::g_origProcs.proc), \
 		static_cast<decltype(&proc)>(&directDrawFunc<&Dll::Procs::proc, decltype(&proc)>), \
@@ -302,7 +306,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 			return FALSE;
 		}
 
-		Dll::g_origDDrawModule = LoadLibraryW((systemPath / "ddraw.dll").c_str());
+		auto origDDrawModulePath = systemPath / "ddraw.dll";
+		Dll::g_origDDrawModule = LoadLibraryW(origDDrawModulePath.c_str());
 		if (!Dll::g_origDDrawModule)
 		{
 			LOG_INFO << "ERROR: Failed to load system ddraw.dll from " << systemPath.u8string();
@@ -323,6 +328,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		Dll::g_jmpTargetProcs = Dll::g_origProcs;
+		Overlay::Steam::init(origDDrawModulePath.c_str());
 
 		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);
 		Compat::hookFunction(reinterpret_cast<void*&>(Dll::g_origProcs.SetAppCompatData),

@@ -13,6 +13,7 @@
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderAssembler.h>
+#include <Overlay/Steam.h>
 #include <Shaders/VertexFixup.h>
 
 #define LOG_DS LOG_DEBUG << "DeviceState::" << __func__ << ": "
@@ -1117,7 +1118,19 @@ namespace D3dDdi
 		auto depthStencil = m_app.depthStencil;
 		bool isTransformed = getVertexDecl().isTransformed;
 
-		Resource* resource = m_device.getResource(renderTarget.hRenderTarget);
+		Resource* resource = nullptr;
+		auto steamResources = Overlay::Steam::getResources();
+		if (steamResources.bbResource && *steamResources.rtResource == renderTarget.hRenderTarget)
+		{
+			resource = steamResources.bbResource;
+			renderTarget.hRenderTarget = *steamResources.bbResource;
+			renderTarget.SubResourceIndex = steamResources.bbSubResourceIndex;
+		}
+		else
+		{
+			resource = m_device.getResource(renderTarget.hRenderTarget);
+		}
+		
 		if (resource)
 		{
 			auto customResource = resource->getCustomResource();
@@ -1129,11 +1142,11 @@ namespace D3dDdi
 			if (isTransformed)
 			{
 				scissorRect = makeRect(scaledVp);
-				auto& si = resource->getOrigDesc().pSurfList[renderTarget.SubResourceIndex];
+				auto& si = resource->getFixedDesc().pSurfList[renderTarget.SubResourceIndex];
 				vp = { 0, 0, si.Width, si.Height };
 				if (customResource)
 				{
-					auto& scaledSi = customResource->getOrigDesc().pSurfList[renderTarget.SubResourceIndex];
+					auto& scaledSi = customResource->getFixedDesc().pSurfList[renderTarget.SubResourceIndex];
 					scaledVp = { 0, 0, scaledSi.Width, scaledSi.Height };
 				}
 				else

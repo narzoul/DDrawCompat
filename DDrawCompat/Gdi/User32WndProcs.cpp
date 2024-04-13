@@ -206,22 +206,22 @@ namespace
 			{
 			case HTLEFT:
 			case HTRIGHT:
-				SetCursor(LoadCursor(nullptr, IDC_SIZEWE));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_SIZEWE));
 				return TRUE;
 
 			case HTTOP:
 			case HTBOTTOM:
-				SetCursor(LoadCursor(nullptr, IDC_SIZENS));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_SIZENS));
 				return TRUE;
 
 			case HTTOPLEFT:
 			case HTBOTTOMRIGHT:
-				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_SIZENWSE));
 				return TRUE;
 
 			case HTBOTTOMLEFT:
 			case HTTOPRIGHT:
-				SetCursor(LoadCursor(nullptr, IDC_SIZENESW));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_SIZENESW));
 				return TRUE;
 			}
 
@@ -247,7 +247,7 @@ namespace
 			}
 			else
 			{
-				SetCursor(LoadCursor(nullptr, IDC_ARROW));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_ARROW));
 			}
 			return FALSE;
 		}
@@ -530,7 +530,7 @@ namespace
 		case WM_SETCURSOR:
 			if (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))
 			{
-				SetCursor(LoadCursor(nullptr, IDC_SIZENWSE));
+				SetCursor(CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_SIZENWSE));
 			}
 			return TRUE;
 		}

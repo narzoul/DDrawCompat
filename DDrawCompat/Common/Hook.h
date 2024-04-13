@@ -14,8 +14,10 @@
 namespace Compat
 {
 	void closeDbgEng();
-	std::string funcPtrToStr(void* funcPtr);
-	HMODULE getModuleHandleFromAddress(void* address);
+	std::string funcPtrToStr(const void* funcPtr);
+	unsigned getInstructionSize(void* instruction);
+	DWORD getModuleFileOffset(const void* address);
+	HMODULE getModuleHandleFromAddress(const void* address);
 
 	template <auto origFunc>
 	decltype(origFunc) g_origFuncPtr = origFunc;

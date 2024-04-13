@@ -153,19 +153,13 @@ namespace Gdi
 				return nullptr;
 			}
 
-			auto resource = DDraw::DirectDrawSurface::getDriverResourceHandle(*primary);
-			if (!resource)
+			auto repo = DDraw::DirectDrawSurface::getSurfaceRepository(*DDraw::PrimarySurface::getPrimary());
+			if (!repo)
 			{
 				return nullptr;
 			}
 
-			auto device = D3dDdi::Device::findDeviceByResource(resource);
-			if (!device)
-			{
-				return nullptr;
-			}
-
-			auto dd(device->getRepo().getDirectDraw());
+			auto dd(repo->getDirectDraw());
 			if (!dd)
 			{
 				return nullptr;

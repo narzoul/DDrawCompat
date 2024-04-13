@@ -36,6 +36,7 @@ namespace D3dDdi
 		operator HANDLE() const { return m_adapter; }
 
 		SIZE getAspectRatio() const;
+		GUID* getGuid() const { return m_guid; }
 		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
 		const auto& getMonitorInfo() const { return Win32::DisplayMode::getMonitorInfo(m_deviceName); }
@@ -53,7 +54,7 @@ namespace D3dDdi
 
 		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
 		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
-		static void setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository, bool isPrimary);
+		static void setRepository(LUID luid, GUID* guid, CompatWeakPtr<IDirectDraw7> repository);
 
 	private:
 		const AdapterInfo& findInfo() const;
@@ -74,6 +75,8 @@ namespace D3dDdi
 		D3DDDI_ADAPTERFUNCS m_origVtable;
 		UINT m_runtimeVersion;
 		UINT m_driverVersion;
+		GUID* m_guid;
+		GUID m_guidBuf;
 		LUID m_luid;
 		std::wstring m_deviceName;
 		CompatWeakPtr<IDirectDraw7> m_repository;

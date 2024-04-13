@@ -12,7 +12,7 @@ namespace
 	LRESULT CALLBACK presentationWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		LOG_FUNC("presentationWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
-		return CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam);
+		return LOG_RESULT(CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam));
 	}
 }
 
@@ -27,7 +27,7 @@ namespace Gdi
 			GuiThread::execute([&]()
 				{
 					presentationWindow = GuiThread::createWindow(
-						WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | (owner ? 0 : WS_EX_TOOLWINDOW),
+						WS_EX_LAYERED | WS_EX_TRANSPARENT | WS_EX_NOPARENTNOTIFY | WS_EX_NOACTIVATE | (owner ? 0 : WS_EX_TOOLWINDOW),
 						reinterpret_cast<const wchar_t*>(g_classAtom),
 						nullptr,
 						WS_DISABLED | WS_POPUP,
@@ -56,6 +56,7 @@ namespace Gdi
 			WNDCLASS wc = {};
 			wc.lpfnWndProc = &presentationWindowProc;
 			wc.hInstance = Dll::g_currentModule;
+			wc.hCursor = CALL_ORIG_FUNC(LoadCursorA)(nullptr, IDC_ARROW);
 			wc.lpszClassName = "DDrawCompatPresentationWindow";
 			g_classAtom = CALL_ORIG_FUNC(RegisterClassA)(&wc);
 		}

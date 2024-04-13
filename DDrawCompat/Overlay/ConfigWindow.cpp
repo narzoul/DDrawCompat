@@ -32,6 +32,7 @@
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
 #include <Overlay/StatsWindow.h>
+#include <Overlay/Steam.h>
 
 namespace
 {
@@ -275,6 +276,11 @@ namespace Overlay
 	{
 		if (isVisible != Window::isVisible())
 		{
+			if (isVisible && Overlay::Steam::isOverlayOpen())
+			{
+				return;
+			}
+
 			Window::setVisible(isVisible);
 			Input::setCapture(isVisible ? this : nullptr);
 			setFocus(nullptr);

@@ -431,9 +431,13 @@ namespace D3dDdi
 		}
 	}
 
-	void SurfaceRepository::setAsPrimaryRepo()
+	void SurfaceRepository::setRepository(CompatWeakPtr<IDirectDraw7> dd)
 	{
-		g_primaryRepository = this;
+		m_dd = dd;
+		if (!g_primaryRepository)
+		{
+			g_primaryRepository = this;
+		}
 	}
 
 	bool SurfaceRepository::s_inCreateSurface = false;

@@ -17,6 +17,7 @@
 #include <Gdi/PresentationWindow.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
+#include <Overlay/Steam.h>
 #include <Overlay/Window.h>
 #include <Win32/DisplayMode.h>
 
@@ -156,6 +157,12 @@ namespace
 						}
 						return 1;
 					}
+				}
+
+				auto steamWindow = Overlay::Steam::getWindow();
+				if (steamWindow)
+				{
+					PostMessage(steamWindow, wParam, llHook->vkCode, 0);
 				}
 			}
 		}

@@ -58,6 +58,8 @@ namespace D3dDdi
 		, m_origVtable(CompatVtable<D3DDDI_ADAPTERFUNCS>::s_origVtable)
 		, m_runtimeVersion(data.Version)
 		, m_driverVersion(data.DriverVersion)
+		, m_guid(nullptr)
+		, m_guidBuf{}
 		, m_luid(KernelModeThunks::getLastOpenAdapterInfo().luid)
 		, m_deviceName(KernelModeThunks::getLastOpenAdapterInfo().deviceName)
 		, m_repository{}
@@ -496,19 +498,20 @@ namespace D3dDdi
 		return result;
 	}
 
-	void Adapter::setRepository(LUID luid, CompatWeakPtr<IDirectDraw7> repository, bool isPrimary)
+	void Adapter::setRepository(LUID luid, GUID* guid, CompatWeakPtr<IDirectDraw7> repository)
 	{
 		for (auto& adapter : s_adapters)
 		{
 			if (adapter.second.m_luid == luid)
 			{
+				if (guid)
+				{
+					adapter.second.m_guidBuf = *guid;
+					adapter.second.m_guid = &adapter.second.m_guidBuf;
+				}
 				adapter.second.m_repository = repository;
 				auto& surfaceRepo = SurfaceRepository::get(adapter.second);
 				surfaceRepo.setRepository(repository);
-				if (isPrimary)
-				{
-					surfaceRepo.setAsPrimaryRepo();
-				}
 			}
 		}
 	}

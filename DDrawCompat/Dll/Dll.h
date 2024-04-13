@@ -80,6 +80,7 @@ namespace Dll
 	extern HMODULE g_origDciman32Module;
 	extern Procs g_origProcs;
 	extern Procs g_jmpTargetProcs;
+	extern Procs g_newProcs;
 	extern bool g_isHooked;
 }
 

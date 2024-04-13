@@ -273,6 +273,27 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETVERTEXSHADERCONST&
 		<< val.Count;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXBLT& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hDstResource
+		<< val.hSrcResource
+		<< val.CubeMapFace
+		<< val.DstPoint
+		<< val.SrcRect;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXBLT1& val)
+{
+	return Compat::LogStruct(os)
+		<< val.hDstResource
+		<< val.hSrcResource
+		<< val.CubeMapFace
+		<< val.DstPoint
+		<< val.SrcRect
+		<< Compat::hex(val.CopyFlags);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val)
 {
 	return Compat::LogStruct(os)

@@ -34,6 +34,8 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETRENDERTARGET& val)
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETSTREAMSOURCEUM& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_SETVERTEXSHADERCONST& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXBLT& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXBLT1& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UPDATEPALETTE& val);

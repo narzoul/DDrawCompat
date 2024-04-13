@@ -10,6 +10,7 @@ namespace Dll
 	HMODULE g_origDciman32Module = nullptr;
 	Procs g_origProcs = {};
 	Procs g_jmpTargetProcs = {};
+	Procs g_newProcs = {};
 	bool g_isHooked = false;
 
 	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority, unsigned initFlags)

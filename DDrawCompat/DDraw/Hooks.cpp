@@ -97,9 +97,6 @@ namespace DDraw
 {
 	void installHooks(CompatPtr<IDirectDraw7> dd7)
 	{
-		DDraw::DirectDraw::onCreate(nullptr, *dd7);
-		RealPrimarySurface::init();
-
 		g_origInitialize = dd7.get()->lpVtbl->Initialize;
 		Compat::hookFunction(reinterpret_cast<void*&>(g_origInitialize), initialize, "IDirectDrawVtbl::Initialize");
 
@@ -107,5 +104,8 @@ namespace DDraw
 		hookDirectDrawClipper(*dd7);
 		hookDirectDrawPalette(*dd7);
 		hookDirectDrawSurface(*dd7);
+
+		DDraw::DirectDraw::onCreate(nullptr, *dd7);
+		DDraw::RealPrimarySurface::init();
 	}
 }

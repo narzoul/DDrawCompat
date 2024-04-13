@@ -708,6 +708,9 @@
     <ClInclude Include="Win32\DpiAwareness.h">
       <Filter>Header Files\Win32</Filter>
     </ClInclude>
+    <ClInclude Include="Overlay\Steam.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1105,6 +1108,9 @@
     </ClCompile>
     <ClCompile Include="Win32\DpiAwareness.cpp">
       <Filter>Source Files\Win32</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\Steam.cpp">
+      <Filter>Source Files\Overlay</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

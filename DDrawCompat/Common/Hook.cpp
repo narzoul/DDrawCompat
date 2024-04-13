@@ -105,28 +105,6 @@ namespace
 		return ntHeaders;
 	}
 
-	unsigned getInstructionSize(void* instruction)
-	{
-		const unsigned MAX_INSTRUCTION_SIZE = 15;
-		HRESULT result = g_debugDataSpaces->WriteVirtual(g_debugBase, instruction, MAX_INSTRUCTION_SIZE, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("ERROR: DbgEng: WriteVirtual failed: " << Compat::hex(result));
-			return 0;
-		}
-
-		ULONG64 endOffset = 0;
-		result = g_debugControl->Disassemble(g_debugBase, 0, nullptr, 0, nullptr, &endOffset);
-		if (FAILED(result))
-		{
-			LOG_ONCE("ERROR: DbgEng: Disassemble failed: " << Compat::hex(result) << " "
-				<< Compat::hexDump(instruction, MAX_INSTRUCTION_SIZE));
-			return 0;
-		}
-
-		return static_cast<unsigned>(endOffset - g_debugBase);
-	}
-
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName)
 	{
 		BYTE* targetFunc = static_cast<BYTE*>(origFuncPtr);
@@ -193,7 +171,7 @@ namespace
 		BYTE* dst = trampoline;
 		while (src - targetFunc < 5)
 		{
-			unsigned instructionSize = getInstructionSize(src);
+			unsigned instructionSize = Compat::getInstructionSize(src);
 			if (0 == instructionSize)
 			{
 				return;
@@ -223,13 +201,12 @@ namespace
 		memset(targetFunc + 5, 0xCC, src - targetFunc - 5);
 		VirtualProtect(targetFunc, src - targetFunc, PAGE_EXECUTE_READ, &oldProtect);
 
-		FlushInstructionCache(GetCurrentProcess(), nullptr, 0);
+		origFuncPtr = trampoline;
+		CALL_ORIG_FUNC(FlushInstructionCache)(GetCurrentProcess(), nullptr, 0);
 
 		HMODULE module = nullptr;
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
 			reinterpret_cast<char*>(targetFunc), &module);
-
-		origFuncPtr = trampoline;
 	}
 
 	bool initDbgEng()
@@ -339,7 +316,7 @@ namespace Compat
 		g_isDbgEngInitialized = false;
 	}
 
-	std::string funcPtrToStr(void* funcPtr)
+	std::string funcPtrToStr(const void* funcPtr)
 	{
 		std::ostringstream oss;
 		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
@@ -355,11 +332,63 @@ namespace Compat
 		return oss.str();
 	}
 
-	HMODULE getModuleHandleFromAddress(void* address)
+	unsigned getInstructionSize(void* instruction)
+	{
+		const unsigned MAX_INSTRUCTION_SIZE = 15;
+		HRESULT result = g_debugDataSpaces->WriteVirtual(g_debugBase, instruction, MAX_INSTRUCTION_SIZE, nullptr);
+		if (FAILED(result))
+		{
+			LOG_ONCE("ERROR: DbgEng: WriteVirtual failed: " << Compat::hex(result));
+			return 0;
+		}
+
+		ULONG64 endOffset = 0;
+		result = g_debugControl->Disassemble(g_debugBase, 0, nullptr, 0, nullptr, &endOffset);
+		if (FAILED(result))
+		{
+			LOG_ONCE("ERROR: DbgEng: Disassemble failed: " << Compat::hex(result) << " "
+				<< Compat::hexDump(instruction, MAX_INSTRUCTION_SIZE));
+			return 0;
+		}
+
+		return static_cast<unsigned>(endOffset - g_debugBase);
+	}
+
+	DWORD getModuleFileOffset(const void* address)
+	{
+		LOG_FUNC("getModuleFileOffset", address);
+		HMODULE mod = getModuleHandleFromAddress(address);
+		if (!mod)
+		{
+			return LOG_RESULT(0);
+		}
+
+		PIMAGE_NT_HEADERS ntHeaders = getImageNtHeaders(mod);
+		if (!ntHeaders)
+		{
+			return LOG_RESULT(0);
+		}
+
+		DWORD offset = static_cast<const BYTE*>(address) - reinterpret_cast<const BYTE*>(mod);
+		auto sectionHeader =  reinterpret_cast<IMAGE_SECTION_HEADER*>(
+			&ntHeaders->OptionalHeader.DataDirectory[ntHeaders->OptionalHeader.NumberOfRvaAndSizes]);
+		for (unsigned i = 0; i < ntHeaders->FileHeader.NumberOfSections; ++i)
+		{
+			if (offset >= sectionHeader->VirtualAddress &&
+				offset < sectionHeader->VirtualAddress + sectionHeader->SizeOfRawData)
+			{
+				return LOG_RESULT(sectionHeader->PointerToRawData + offset - sectionHeader->VirtualAddress);
+			}
+			sectionHeader++;
+		}
+		return LOG_RESULT(0);
+	}
+
+	HMODULE getModuleHandleFromAddress(const void* address)
 	{
 		HMODULE module = nullptr;
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
-			static_cast<char*>(address), &module);
+			static_cast<const char*>(address), &module);
 		return module;
 	}
 
