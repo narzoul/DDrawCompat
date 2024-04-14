@@ -1188,6 +1188,10 @@ namespace D3dDdi
 		{
 			setScissorRect(scissorRect);
 		}
+		else
+		{
+			m_current.scissorRect = {};
+		}
 	}
 
 	void DeviceState::updateShaders()
