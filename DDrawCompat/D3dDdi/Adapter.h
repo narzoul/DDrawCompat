@@ -25,6 +25,7 @@ namespace D3dDdi
 			DWORD supportedZBufferBitDepths;
 			bool isMsaaDepthResolveSupported;
 			bool isD3D9On12;
+			bool isTrinity;
 		};
 
 		Adapter(const D3DDDIARG_OPENADAPTER& data);

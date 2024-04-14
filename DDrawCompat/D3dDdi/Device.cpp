@@ -105,6 +105,13 @@ namespace D3dDdi
 
 	UINT Device::detectColorKeyMethod()
 	{
+		LOG_FUNC("Device::detectColorKeyMethod");
+		if (m_adapter.getInfo().isTrinity)
+		{
+			LOG_ONCE("Auto-detected ColorKeyMethod: alphatest");
+			return LOG_RESULT(Config::Settings::ColorKeyMethod::ALPHATEST);
+		}
+
 		auto method = Config::Settings::ColorKeyMethod::NONE;
 
 		auto& repo = getRepo();
@@ -148,7 +155,7 @@ namespace D3dDdi
 			LOG_ONCE("Auto-detected ColorKeyMethod: " <<
 				(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
 		}
-		return method;
+		return LOG_RESULT(method);
 	}
 
 	Device* Device::findDeviceByResource(HANDLE resource)

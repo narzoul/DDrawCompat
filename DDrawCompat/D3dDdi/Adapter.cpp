@@ -102,6 +102,10 @@ namespace D3dDdi
 
 		auto d3d9on12 = GetModuleHandle("d3d9on12");
 		info.isD3D9On12 = d3d9on12 && d3d9on12 == Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
+
+		auto trinity = GetModuleHandle("igd9trinity32");
+		info.isTrinity = trinity && trinity == Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
+
 		info.isMsaaDepthResolveSupported =
 			!info.isD3D9On12 &&
 			info.formatOps.find(FOURCC_RESZ) != info.formatOps.end() &&
