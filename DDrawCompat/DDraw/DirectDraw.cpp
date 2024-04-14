@@ -183,11 +183,17 @@ namespace
 		if (origWndProc)
 		{
 			auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
-			if (tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId())
+			if (tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId() ||
+				Config::Settings::AltTabFix::NOACTIVATEAPP == Config::altTabFix.get())
 			{
 				if (!wParam)
 				{
 					ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
+				}
+				if (Config::Settings::AltTabFix::NOACTIVATEAPP == Config::altTabFix.get() &&
+					0 == Config::altTabFix.getParam())
+				{
+					return LOG_RESULT(0);
 				}
 				return LOG_RESULT(CallWindowProcA(origWndProc, hwnd, WM_ACTIVATEAPP, wParam, lParam));
 			}
