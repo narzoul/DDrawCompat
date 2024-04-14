@@ -199,7 +199,7 @@ namespace
 		}
 
 		DDraw::ScopedThreadLock lock;
-		const bool keepPrimary = Config::Settings::AltTabFix::KEEPVIDMEM == Config::altTabFix.get();
+		const bool keepPrimary = Config::altTabFix.getParam();
 		std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
 		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
 			{
