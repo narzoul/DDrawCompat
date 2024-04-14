@@ -8,6 +8,15 @@ namespace Config
 	{
 	}
 
+	void ListSetting::appendToList(std::string& list, const std::string& value)
+	{
+		if (!list.empty())
+		{
+			list += ", ";
+		}
+		list += value;
+	}
+
 	void ListSetting::setValue(const std::string& value)
 	{
 		std::vector<std::string> values;

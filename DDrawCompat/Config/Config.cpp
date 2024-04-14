@@ -43,6 +43,7 @@
 #include <Config/Settings/SupportedResolutions.h>
 #include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/SupportedTextureFormats.h>
+#include <Config/Settings/SurfacePatches.h>
 #include <Config/Settings/TerminateHotKey.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
@@ -97,6 +98,7 @@ namespace Config
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::SupportedDepthFormats supportedDepthFormats;
 	Settings::SupportedTextureFormats supportedTextureFormats;
+	Settings::SurfacePatches surfacePatches;
 	Settings::TerminateHotKey terminateHotKey;
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;

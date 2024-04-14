@@ -1,7 +1,8 @@
 #include <map>
 
-#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/AlignSysMemSurfaces.h>
+#include <Config/Settings/SurfacePatches.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
@@ -29,6 +30,7 @@ namespace
 	LONG g_width = 0;
 	LONG g_height = 0;
 	DWORD g_pitch = 0;
+	DWORD g_startOffset = 0;
 	HANDLE g_surfaceFileMapping = nullptr;
 	void* g_surfaceView = nullptr;
 	bool g_isFullscreen = false;
@@ -82,7 +84,7 @@ namespace
 		}
 
 		void* bits = nullptr;
-		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, Config::alignSysMemSurfaces.get());
+		return CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &bits, section, g_startOffset);
 	}
 }
 
@@ -206,7 +208,7 @@ namespace Gdi
 			desc.ddpfPixelFormat = DDraw::DirectDraw::getRgbPixelFormat(g_bpp);
 			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_SYSTEMMEMORY;
 			desc.lPitch = g_pitch;
-			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + Config::alignSysMemSurfaces.get() +
+			desc.lpSurface = static_cast<unsigned char*>(g_surfaceView) + g_startOffset +
 				(rect.top - g_bounds.top) * g_pitch +
 				(rect.left - g_bounds.left) * g_bpp / 8;
 			return desc;
@@ -287,9 +289,15 @@ namespace Gdi
 					CloseHandle(g_surfaceFileMapping);
 				}
 
+				auto totalExtraRows = Config::surfacePatches.getTop() + Config::surfacePatches.getBottom();
 				g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
-					g_pitch * g_height + 8, nullptr);
+					(g_height + totalExtraRows) * g_pitch + DDraw::Surface::ALIGNMENT, nullptr);
 				g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
+
+				auto start = static_cast<BYTE*>(g_surfaceView);
+				start += Config::surfacePatches.getTop() * g_pitch;
+				start = static_cast<BYTE*>(DDraw::Surface::alignBuffer(start));
+				g_startOffset = start - static_cast<BYTE*>(g_surfaceView);
 
 				for (auto& dc : g_dcs)
 				{

@@ -9,6 +9,7 @@
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
+#include <Config/Settings/SurfacePatches.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
@@ -620,11 +621,20 @@ namespace D3dDdi
 			}
 		}
 
+		unsigned topExtraRows = 0;
+		unsigned totalExtraRows = 0;
+		if (1 == m_fixedData.SurfCount && !m_origData.Flags.Texture)
+		{
+			topExtraRows = Config::surfacePatches.getTop();
+			totalExtraRows = topExtraRows + Config::surfacePatches.getBottom();
+		}
+
 		std::uintptr_t bufferSize = reinterpret_cast<std::uintptr_t>(surfaceInfo.back().pSysMem) +
-			surfaceInfo.back().SysMemPitch * surfaceInfo.back().Height + ALIGNMENT;
+			surfaceInfo.back().SysMemPitch * (surfaceInfo.back().Height + totalExtraRows) + ALIGNMENT;
 		m_lockBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bufferSize));
 
-		BYTE* bufferStart = static_cast<BYTE*>(DDraw::Surface::alignBuffer(m_lockBuffer.get()));
+		BYTE* bufferStart = static_cast<BYTE*>(DDraw::Surface::alignBuffer(
+			static_cast<BYTE*>(m_lockBuffer.get()) + topExtraRows * surfaceInfo.back().SysMemPitch));
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
 			surfaceInfo[i].pSysMem = bufferStart + reinterpret_cast<uintptr_t>(surfaceInfo[i].pSysMem);

@@ -711,6 +711,9 @@
     <ClInclude Include="Overlay\Steam.h">
       <Filter>Header Files\Overlay</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SurfacePatches.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1111,6 +1114,9 @@
     </ClCompile>
     <ClCompile Include="Overlay\Steam.cpp">
       <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\SurfacePatches.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
