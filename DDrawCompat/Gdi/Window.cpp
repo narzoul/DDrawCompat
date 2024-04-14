@@ -290,7 +290,7 @@ namespace
 			if (!isLayered)
 			{
 				it->second.presentationWindow = Gdi::PresentationWindow::create(hwnd);
-				Gdi::WinProc::updatePresentationWindowText(hwnd);
+				Gdi::Window::updatePresentationWindowText(it->second.presentationWindow);
 			}
 			else if (it->second.presentationWindow)
 			{
@@ -662,7 +662,7 @@ namespace Gdi
 
 				if (it->second.presentationWindow)
 				{
-					Gdi::WinProc::updatePresentationWindowText(hwnd);
+					updatePresentationWindowText(it->second.presentationWindow);
 					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, getWindowRgn(hwnd));
 				}
 
@@ -727,6 +727,11 @@ namespace Gdi
 					CALL_ORIG_FUNC(SetWindowPos)(presentationWindow,
 						wp.hwndInsertAfter, wp.x, wp.y, wp.cx, wp.cy, wp.flags | SWP_NOSIZE);
 				});
+		}
+
+		void updatePresentationWindowText(HWND presentationWindow)
+		{
+			PostMessageW(presentationWindow, WM_NULL, WM_GETTEXT, WM_SETTEXT);
 		}
 
 		void updateWindowPos(HWND hwnd)

@@ -9,9 +9,23 @@ namespace
 {
 	ATOM g_classAtom = 0;
 
+	std::wstring getWindowText(HWND hwnd)
+	{
+		const UINT MAX_LEN = 256;
+		wchar_t windowText[MAX_LEN] = {};
+		InternalGetWindowText(hwnd, windowText, MAX_LEN);
+		return windowText;
+	}
+
 	LRESULT CALLBACK presentationWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		LOG_FUNC("presentationWindowProc", Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
+		if (WM_NULL == uMsg && WM_GETTEXT == wParam && WM_SETTEXT == lParam)
+		{
+			std::wstring windowText(L"[DDrawCompat] " + getWindowText(GetParent(hwnd)));
+			SetWindowTextW(hwnd, windowText.c_str());
+			return LOG_RESULT(0);
+		}
 		return LOG_RESULT(CALL_ORIG_FUNC(DefWindowProcA)(hwnd, uMsg, wParam, lParam));
 	}
 }

@@ -33,6 +33,7 @@ namespace Gdi
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
 			COLORREF colorKey, BYTE alpha, BYTE alphaFormat);
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner);
+		void updatePresentationWindowText(HWND presentationWindow);
 		void updateWindowPos(HWND hwnd);
 	}
 }
