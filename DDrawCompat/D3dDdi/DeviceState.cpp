@@ -386,6 +386,11 @@ namespace D3dDdi
 			return value & (D3DWRAPCOORD_0 | D3DWRAPCOORD_1 | D3DWRAPCOORD_2 | D3DWRAPCOORD_3);
 		}
 
+		if (D3DDDIRS_ALPHAREF == state)
+		{
+			return value & 0xFF;
+		}
+
 		if (D3DDDIRS_COLORKEYENABLE == state)
 		{
 			if (Config::Settings::ColorKeyMethod::NATIVE != m_device.getColorKeyMethod().first)
