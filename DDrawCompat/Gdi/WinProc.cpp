@@ -337,13 +337,20 @@ namespace
 			*lpPoint = *g_cursorPos;
 			return TRUE;
 		}
-		return CALL_ORIG_FUNC(GetCursorPos)(lpPoint);
+
+		BOOL result = CALL_ORIG_FUNC(GetCursorPos)(lpPoint);
+		if (result)
+		{
+			Gdi::Cursor::clip(*lpPoint);
+		}
+		return result;
 	}
 
 	BOOL WINAPI getMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
 		decltype(&GetMessageA) origGetMessage)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
+		Gdi::Cursor::clip();
 		return origGetMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
 	}
 
@@ -564,6 +571,7 @@ namespace
 		decltype(&PeekMessageA) origPeekMessage)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
+		Gdi::Cursor::clip();
 		BOOL result = origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
 		if (!g_isFrameStarted || Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get())
 		{

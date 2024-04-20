@@ -6,6 +6,8 @@ namespace Gdi
 {
 	namespace Cursor
 	{
+		void clip();
+		void clip(POINT& pt);
 		CURSORINFO getEmulatedCursorInfo();
 		void installHooks();
 		bool isEmulated();

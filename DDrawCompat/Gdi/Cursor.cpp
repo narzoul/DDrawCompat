@@ -62,9 +62,13 @@ namespace
 		LOG_FUNC("GetCursorInfo", pci);
 		Compat::ScopedCriticalSection lock(g_cs);
 		BOOL result = CALL_ORIG_FUNC(GetCursorInfo)(pci);
-		if (result && pci->hCursor == g_nullCursor)
+		if (result)
 		{
-			pci->hCursor = g_cursor;
+			if (pci->hCursor == g_nullCursor)
+			{
+				pci->hCursor = g_cursor;
+			}
+			Gdi::Cursor::clip(pci->ptScreenPos);
 		}
 		return LOG_RESULT(result);
 	}
@@ -121,6 +125,33 @@ namespace Gdi
 {
 	namespace Cursor
 	{
+		void clip()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			if (!IsRectEmpty(&g_monitorClipRect))
+			{
+				POINT cp = {};
+				CALL_ORIG_FUNC(GetCursorPos)(&cp);
+				if (!PtInRect(&g_monitorClipRect, cp))
+				{
+					clip(cp);
+					CALL_ORIG_FUNC(SetCursorPos)(cp.x, cp.y);
+				}
+			}
+		}
+
+		void clip(POINT& pt)
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			if (!IsRectEmpty(&g_monitorClipRect))
+			{
+				pt.x = std::max(pt.x, g_monitorClipRect.left);
+				pt.x = std::min(pt.x, g_monitorClipRect.right);
+				pt.y = std::max(pt.y, g_monitorClipRect.top);
+				pt.y = std::min(pt.y, g_monitorClipRect.bottom);
+			}
+		}
+
 		CURSORINFO getEmulatedCursorInfo()
 		{
 			CURSORINFO ci = {};
@@ -139,6 +170,7 @@ namespace Gdi
 					ci.hCursor = nullptr;
 					ci.flags = 0;
 				}
+				clip(ci.ptScreenPos);
 			}
 
 			return ci;

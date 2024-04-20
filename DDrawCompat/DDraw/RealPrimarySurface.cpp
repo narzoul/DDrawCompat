@@ -340,22 +340,8 @@ namespace
 
 	void setFullscreenPresentationMode(const Win32::DisplayMode::MonitorInfo& mi)
 	{
-		if (IsRectEmpty(&mi.rcDpiAware))
-		{
-			Gdi::Cursor::setEmulated(false);
-			Gdi::Cursor::setMonitorClipRect({});
-		}
-		else
-		{
-			auto clipRect = mi.rcEmulated;
-			if (!EqualRect(&mi.rcMonitor, &mi.rcReal))
-			{
-				InflateRect(&clipRect, -1, -1);
-			}
-
-			Gdi::Cursor::setMonitorClipRect(clipRect);
-			Gdi::Cursor::setEmulated(!Overlay::Steam::isOverlayOpen());
-		}
+		Gdi::Cursor::setEmulated(!IsRectEmpty(&mi.rcEmulated) && !Overlay::Steam::isOverlayOpen());
+		Gdi::Cursor::setMonitorClipRect(mi.rcEmulated);
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
