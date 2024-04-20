@@ -28,6 +28,7 @@ namespace DDraw
 		static HANDLE getGdiResource();
 		static DWORD getOrigCaps();
 		static void onLost();
+		static void setAsRenderTarget();
 		static void updatePalette();
 
 		template <typename TSurface>

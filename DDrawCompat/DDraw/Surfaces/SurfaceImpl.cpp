@@ -123,6 +123,12 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT SurfaceImpl<TSurface>::AddAttachedSurface(TSurface* This, TSurface* lpDDSAttachedSurface)
+	{
+		return getOrigVtable(This).AddAttachedSurface(This, lpDDSAttachedSurface);
+	}
+
+	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)

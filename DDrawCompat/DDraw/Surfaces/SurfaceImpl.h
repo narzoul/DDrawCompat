@@ -24,6 +24,7 @@ namespace DDraw
 		SurfaceImpl(Surface* data);
 		virtual ~SurfaceImpl();
 
+		virtual HRESULT AddAttachedSurface(TSurface* This, TSurface* lpDDSAttachedSurface);
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 			DWORD dwFlags, LPDDBLTFX lpDDBltFx);
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,

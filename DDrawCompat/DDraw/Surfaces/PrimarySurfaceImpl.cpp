@@ -85,6 +85,22 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT PrimarySurfaceImpl<TSurface>::AddAttachedSurface(TSurface* This, TSurface* lpDDSAttachedSurface)
+	{
+		HRESULT result = getOrigVtable(This).AddAttachedSurface(This, lpDDSAttachedSurface);
+		if (SUCCEEDED(result) && !(PrimarySurface::getOrigCaps() & DDSCAPS_3DDEVICE))
+		{
+			TDdsCaps caps = {};
+			getOrigVtable(This).GetCaps(lpDDSAttachedSurface, &caps);
+			if (caps.dwCaps & DDSCAPS_3DDEVICE)
+			{
+				PrimarySurface::setAsRenderTarget();
+			}
+		}
+		return result;
+	}
+
+	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Blt(
 		TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 		DWORD dwFlags, LPDDBLTFX lpDDBltFx)

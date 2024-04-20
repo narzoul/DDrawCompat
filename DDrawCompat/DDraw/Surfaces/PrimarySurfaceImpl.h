@@ -15,6 +15,7 @@ namespace DDraw
 	public:
 		PrimarySurfaceImpl(Surface* data);
 
+		virtual HRESULT AddAttachedSurface(TSurface* This, TSurface* lpDDSAttachedSurface) override;
 		virtual HRESULT Blt(TSurface* This, LPRECT lpDestRect, TSurface* lpDDSrcSurface, LPRECT lpSrcRect,
 			DWORD dwFlags, LPDDBLTFX lpDDBltFx) override;
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,

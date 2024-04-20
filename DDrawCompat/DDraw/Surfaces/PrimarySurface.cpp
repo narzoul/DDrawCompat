@@ -84,6 +84,11 @@ namespace DDraw
 		desc.ddsCaps.dwCaps |= DDSCAPS_OFFSCREENPLAIN;
 		desc.ddpfPixelFormat = DirectDraw::getRgbPixelFormat(g_monitorInfo.bpp);
 
+		if (!(desc.dwFlags & DDSD_BACKBUFFERCOUNT))
+		{
+			desc.ddsCaps.dwCaps |= DDSCAPS_3DDEVICE;
+		}
+
 		result = Surface::create(dd, desc, surface, std::move(privateData));
 		if (FAILED(result))
 		{
@@ -275,6 +280,16 @@ namespace DDraw
 		} while (SUCCEEDED(result) && surface != m_surface);
 
 		Surface::restore();
+	}
+
+	void PrimarySurface::setAsRenderTarget()
+	{
+		g_origCaps |= DDSCAPS_3DDEVICE;
+		auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*g_primarySurface));
+		if (resource)
+		{
+			resource->setAsPrimary();
+		}
 	}
 
 	void PrimarySurface::updateFrontResource()

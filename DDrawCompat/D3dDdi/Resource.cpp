@@ -1274,8 +1274,7 @@ namespace D3dDdi
 		m_device.flushPrimitives();
 		if (srcResource->m_lockResource)
 		{
-			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate &&
-				!srcResource->m_origData.Flags.RenderTarget)
+			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
 			{
 				srcResource->m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate = false;
 				srcResource->m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate = false;
@@ -1488,11 +1487,9 @@ namespace D3dDdi
 	void Resource::setAsPrimary()
 	{
 		D3dDdi::ScopedCriticalSection lock;
-		if (!m_isPrimary)
-		{
-			m_isPrimary = true;
-			updateConfig();
-		}
+		m_isPrimary = true;
+		m_origData.Flags.RenderTarget = DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_3DDEVICE ? 1 : 0;
+		updateConfig();
 	}
 
 	void Resource::setFormatOverride(D3DDDIFORMAT format)

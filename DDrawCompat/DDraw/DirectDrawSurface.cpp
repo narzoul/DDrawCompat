@@ -59,6 +59,7 @@ namespace
 	constexpr void setCompatVtable(Vtable& vtable)
 	{
 		typedef GetSurfaceType<Vtable>::Type TSurface;
+		SET_COMPAT_METHOD(AddAttachedSurface);
 		SET_COMPAT_METHOD(Blt);
 		SET_COMPAT_METHOD(BltFast);
 		SET_COMPAT_METHOD(Flip);
