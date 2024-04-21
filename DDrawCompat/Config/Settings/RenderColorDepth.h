@@ -10,7 +10,7 @@ namespace Config
 		{
 		public:
 			RenderColorDepth()
-				: MappedSetting("RenderColorDepth", "appd8", {
+				: MappedSetting("RenderColorDepth", "32", {
 					{ "app", { 0, 8 } },
 					{ "appd8", { 8, 0 } },
 					{ "appd10", { 10, 0 } },
