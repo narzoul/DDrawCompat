@@ -1521,6 +1521,17 @@ namespace D3dDdi
 		if (D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
 			dstResource.canCopySubResource(data, srcResource))
 		{
+			if (dstResource.m_fixedData.Format != srcResource.m_fixedData.Format &&
+				(D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
+					D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool))
+			{
+				auto subResourceIndex = D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool
+					? data.SrcSubResourceIndex : data.DstSubResourceIndex;
+				copySubResourceRegion(m_handle, subResourceIndex, data.SrcRect,
+					data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
+				return LOG_RESULT(dstResource.copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
+					m_handle, subResourceIndex, data.SrcRect));
+			}
 			return LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
 		}
 
