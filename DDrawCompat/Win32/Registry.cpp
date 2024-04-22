@@ -448,6 +448,7 @@ namespace Win32
 			HOOK_REGISTRY_FUNCTION(RegQueryValueExW, regQueryValueExW);
 
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "RegCreateKeyExA", ddrawRegCreateKeyExA);
+			Compat::hookIatFunction(Dll::g_origDDrawModule, "RegQueryValueExA", regQueryValueExA);
 		}
 	}
 }
