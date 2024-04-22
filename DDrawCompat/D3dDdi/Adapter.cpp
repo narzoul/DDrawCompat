@@ -434,7 +434,10 @@ namespace D3dDdi
 	HRESULT Adapter::pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData)
 	{
 		DeviceCallbacks::hookVtable(*pCreateData->pCallbacks, m_runtimeVersion);
+		auto origInterface = pCreateData->Interface;
+		pCreateData->Interface = 9;
 		HRESULT result = m_origVtable.pfnCreateDevice(m_adapter, pCreateData);
+		pCreateData->Interface = origInterface;
 		if (SUCCEEDED(result))
 		{
 			DeviceFuncs::hookVtable(*pCreateData->pDeviceFuncs, m_driverVersion);
