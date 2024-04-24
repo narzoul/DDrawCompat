@@ -780,17 +780,20 @@ namespace DDraw
 		g_qpcPrevWaitEnd = qpcWaitEnd;
 		g_qpcDelayedFlipEnd = qpcWaitEnd;
 
-		Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
-		while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
 		{
-			Time::waitForNextTick();
-			flush();
-			qpcNow = Time::queryPerformanceCounter();
-		}
+			DDraw::ScopedThreadUnlock unlock;
+			Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
+			while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
+			{
+				Time::waitForNextTick();
+				flush();
+				qpcNow = Time::queryPerformanceCounter();
+			}
 
-		while (qpcWaitEnd - qpcNow > 0)
-		{
-			qpcNow = Time::queryPerformanceCounter();
+			while (qpcWaitEnd - qpcNow > 0)
+			{
+				qpcNow = Time::queryPerformanceCounter();
+			}
 		}
 		g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
 	}

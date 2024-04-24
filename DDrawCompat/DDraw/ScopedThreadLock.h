@@ -17,4 +17,18 @@ namespace DDraw
 			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
 	};
+
+	class ScopedThreadUnlock
+	{
+	public:
+		ScopedThreadUnlock()
+		{
+			Dll::g_origProcs.ReleaseDDThreadLock();
+		}
+
+		~ScopedThreadUnlock()
+		{
+			Dll::g_origProcs.AcquireDDThreadLock();
+		}
+	};
 }
