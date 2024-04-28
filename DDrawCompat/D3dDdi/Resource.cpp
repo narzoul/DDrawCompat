@@ -1675,6 +1675,15 @@ namespace D3dDdi
 			return true;
 		}
 
+		if (m_isPrimary)
+		{
+			auto origCaps = DDraw::PrimarySurface::getOrigCaps();
+			if ((origCaps & DDSCAPS_SYSTEMMEMORY) && !(origCaps & DDSCAPS_FLIP))
+			{
+				return true;
+			}
+		}
+
 		if (m_lockData.empty() ||
 			!m_lockData[data.DstSubResourceIndex].isSysMemUpToDate ||
 			Time::qpcToMs(Time::queryPerformanceCounter() - m_lockData[data.DstSubResourceIndex].qpcLastCpuAccess) > 200)

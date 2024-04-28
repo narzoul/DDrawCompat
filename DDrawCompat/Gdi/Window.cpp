@@ -554,15 +554,32 @@ namespace Gdi
 			RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
 		}
 
+		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
+			CompatRef<IDirectDrawClipper> clipper)
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			auto mr = DDraw::PrimarySurface::getMonitorInfo().rcEmulated;
+			for (auto window : g_windowZOrder)
+			{
+				if (window->presentationWindow && !window->visibleRegion.isEmpty())
+				{
+					clipper->SetHWnd(&clipper, 0, window->presentationWindow);
+					dst->Blt(&dst, &mr, &src, nullptr, DDBLT_WAIT, nullptr);
+				}
+			}
+		}
+
 		void present(Gdi::Region excludeRegion)
 		{
 			D3dDdi::ScopedCriticalSection lock;
 			std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
 			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
+			auto fsPresentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
 
 			for (auto window : g_windowZOrder)
 			{
-				if (!window->presentationWindow)
+				if (!window->presentationWindow ||
+					window->presentationWindow == fsPresentationWindow)
 				{
 					continue;
 				}

@@ -242,8 +242,9 @@ namespace
 				Input::updateCursor();
 			});
 
-		if (src ? !g_isFullscreen : !g_presentationWindow)
+		if (!src && !g_presentationWindow)
 		{
+			LOG_DEBUG << "Present mode: windowed GDI";
 			Gdi::Window::present(nullptr);
 			return;
 		}
@@ -277,7 +278,7 @@ namespace
 			D3dDdi::SurfaceRepository* repo = nullptr;
 			if (src)
 			{
-				repo = DDraw::DirectDrawSurface::getSurfaceRepository(*frontBuffer);
+				repo = DDraw::DirectDrawSurface::getSurfaceRepository(*g_tagSurface->getDDS());
 			}
 			else
 			{
@@ -300,15 +301,21 @@ namespace
 
 		Gdi::Region excludeRegion(mi.rcEmulated);
 		Gdi::Window::present(excludeRegion);
-		presentationBlt(*backBuffer, *src);
+		if (backBuffer)
+		{
+			presentationBlt(*backBuffer, *src);
+		}
+
 		if (useFlip)
 		{
 			if (g_isExclusiveFullscreen)
 			{
+				LOG_DEBUG << "Present mode: exclusive fullscreen flip";
 				frontBuffer->Flip(frontBuffer, backBuffer, DDFLIP_WAIT);
 			}
 			else
 			{
+				LOG_DEBUG << "Present mode: borderless fullscreen flip";
 				*g_deviceWindowPtr = g_presentationWindow;
 				frontBuffer->Flip(frontBuffer, nullptr, DDFLIP_WAIT);
 				*g_deviceWindowPtr = g_deviceWindow;
@@ -320,12 +327,23 @@ namespace
 			{
 				CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &g_clipper.getRef(), nullptr);
 			}
-			g_clipper->SetHWnd(g_clipper, 0, g_presentationWindow);
 			frontBuffer->SetClipper(frontBuffer, g_clipper);
-			frontBuffer->Blt(frontBuffer, nullptr, backBuffer, nullptr, DDBLT_WAIT, nullptr);
+
+			if (g_presentationWindow)
+			{
+				LOG_DEBUG << "Present mode: windowed fullscreen blt";
+				g_clipper->SetHWnd(g_clipper, 0, g_presentationWindow);
+				frontBuffer->Blt(frontBuffer, nullptr, backBuffer, nullptr, DDBLT_WAIT, nullptr);
+			}
+			else
+			{
+				LOG_DEBUG << "Present mode: windowed blt";
+				Gdi::Window::present(*frontBuffer, *src, *g_clipper);
+			}
 		}
 		else
 		{
+			LOG_DEBUG << "Present mode: windowed fullscreen GDI";
 			HDC dstDc = GetWindowDC(g_presentationWindow);
 			HDC srcDc = nullptr;
 			D3dDdi::Resource::setReadOnlyLock(true);
@@ -346,6 +364,7 @@ namespace
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
+		updatePresentationParams();
 		present(src, isOverlayOnly);
 
 		{
@@ -545,7 +564,6 @@ namespace DDraw
 		if (vsyncCount != lastOverlayCheckVsyncCount)
 		{
 			updatePresentationParams();
-			setPresentationWindowTopmost();
 			Gdi::Cursor::update();
 			Gdi::Caret::blink();
 			auto statsWindow = Gdi::GuiThread::getStatsWindow();

@@ -228,8 +228,11 @@ namespace
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (lpDevMode)
 			{
-				g_emulatedDisplayMode.width = emulatedResolution.cx;
-				g_emulatedDisplayMode.height = emulatedResolution.cy;
+				if (lpDevMode->dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT))
+				{
+					g_emulatedDisplayMode.width = emulatedResolution.cx;
+					g_emulatedDisplayMode.height = emulatedResolution.cy;
+				}
 				if (lpDevMode->dmFields & DM_BITSPERPEL)
 				{
 					g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
@@ -322,8 +325,11 @@ namespace
 				if (getDeviceName(lpszDeviceName) == g_emulatedDisplayMode.deviceName)
 				{
 					lpDevMode->dmBitsPerPel = g_emulatedDisplayMode.bpp;
-					lpDevMode->dmPelsWidth = g_emulatedDisplayMode.width;
-					lpDevMode->dmPelsHeight = g_emulatedDisplayMode.height;
+					if (0 != g_emulatedDisplayMode.width)
+					{
+						lpDevMode->dmPelsWidth = g_emulatedDisplayMode.width;
+						lpDevMode->dmPelsHeight = g_emulatedDisplayMode.height;
+					}
 				}
 				else
 				{
@@ -694,8 +700,11 @@ namespace
 		mi.rcEmulated = mi.rcMonitor;
 		if (g_emulatedDisplayMode.deviceName == mi.szDevice)
 		{
-			mi.rcEmulated.right = mi.rcEmulated.left + g_emulatedDisplayMode.width;
-			mi.rcEmulated.bottom = mi.rcEmulated.top + g_emulatedDisplayMode.height;
+			if (0 != g_emulatedDisplayMode.width)
+			{
+				mi.rcEmulated.right = mi.rcEmulated.left + g_emulatedDisplayMode.width;
+				mi.rcEmulated.bottom = mi.rcEmulated.top + g_emulatedDisplayMode.height;
+			}
 			mi.bpp = g_emulatedDisplayMode.bpp;
 			mi.isEmulated = true;
 		}
