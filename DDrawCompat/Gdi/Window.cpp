@@ -355,22 +355,14 @@ namespace
 				context.invalidatedRegion |= visibleRegion - it->second.visibleRegion;
 			}
 
-			if (it->second.presentationWindow && isVisible &&
+			if (it->second.presentationWindow &&
 				it->second.presentationWindow != DDraw::RealPrimarySurface::getPresentationWindow())
 			{
-				Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, Gdi::Window::getWindowRgn(hwnd));
 				Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
 			}
 		}
 
-		if (isWindowVisible)
-		{
-			g_windowZOrder.push_back(&it->second);
-		}
-		else
-		{
-			removeWindow(it);
-		}
+		g_windowZOrder.push_back(&it->second);
 		return TRUE;
 	}
 }
@@ -713,6 +705,7 @@ namespace Gdi
 			wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
 			if (IsWindowVisible(owner))
 			{
+				Gdi::GuiThread::setWindowRgn(presentationWindow, getWindowRgn(owner));
 				wp.hwndInsertAfter = CALL_ORIG_FUNC(GetWindow)(owner, GW_HWNDPREV);
 				if (!wp.hwndInsertAfter)
 				{

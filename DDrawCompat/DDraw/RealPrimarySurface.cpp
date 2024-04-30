@@ -749,7 +749,8 @@ namespace DDraw
 			Gdi::GuiThread::execute([&]()
 				{
 					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, 0, 0, 0, 0,
-					SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER);
+						SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER |
+						(IsWindowVisible(GetWindow(g_presentationWindow, GW_OWNER)) ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 				});
 		}
 	}
