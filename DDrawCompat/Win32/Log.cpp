@@ -51,6 +51,7 @@ namespace
 	std::ostream& logDevMode(std::ostream& os, const DevMode& dm)
 	{
 		return Compat::LogStruct(os)
+			<< Compat::hex(dm.dmFields)
 			<< dm.dmPelsWidth
 			<< dm.dmPelsHeight
 			<< dm.dmBitsPerPel

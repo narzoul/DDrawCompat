@@ -132,6 +132,12 @@ namespace
 		SIZE emulatedResolution = {};
 		if (lpDevMode)
 		{
+			if ((lpDevMode->dmFields & DM_BITSPERPEL) &&
+				8 != lpDevMode->dmBitsPerPel && 16 != lpDevMode->dmBitsPerPel && 32 != lpDevMode->dmBitsPerPel)
+			{
+				return DISP_CHANGE_BADMODE;
+			}
+
 			targetDevMode = *lpDevMode;
 			targetDevMode.dmFields |= DM_BITSPERPEL;
 			targetDevMode.dmBitsPerPel = 32;
