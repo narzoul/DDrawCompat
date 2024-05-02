@@ -97,7 +97,7 @@ namespace D3dDdi
 			desc.dwBackBufferCount = surfaceCount - 1;
 		}
 
-		if (0 == desc.ddpfPixelFormat.dwFlags)
+		if (0 == desc.ddpfPixelFormat.dwFlags || D3dDdi::FOURCC_INTZ == format || D3dDdi::FOURCC_DF16 == format)
 		{
 			desc.ddpfPixelFormat = getPixelFormat((caps & DDSCAPS_ZBUFFER) ? D3DDDIFMT_D16 : D3DDDIFMT_X8R8G8B8);
 			D3dDdi::Resource::setFormatOverride(format);
