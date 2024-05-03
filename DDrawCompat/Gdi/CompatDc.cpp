@@ -20,6 +20,7 @@ namespace Gdi
 			auto gdiResource = D3dDdi::Device::getGdiResource();
 			if (gdiResource)
 			{
+				gdiResource->getDevice().flushPrimitives();
 				D3dDdi::SurfaceRepository::enableSurfaceCheck(false);
 				if (isReadOnly)
 				{
