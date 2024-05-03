@@ -40,6 +40,9 @@ Additional dependencies:
 - Windows 10 SDK & DDK (see WindowsTargetPlatformVersion in [DDrawCompat.vcxproj](DDrawCompat/DDrawCompat.vcxproj) for the exact version)
 - Git for Windows (optional, needed for proper DLL versioning)
 
+### Contributing
+Pull Requests are not accepted. Please use [Issues](https://github.com/narzoul/DDrawCompat/issues) to report bugs or request new features.
+
 ### License
 Source code is licensed under the [BSD Zero Clause License](LICENSE.txt).
 
