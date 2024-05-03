@@ -30,7 +30,7 @@ namespace Config
 			};
 
 			StatsRows()
-				: EnumListSetting("StatsRows", "label, presentrate, fliprate, blitcount, lockcount, ddiusage",
+				: EnumListSetting("StatsRows", "label, presentrate, fliprate, blitcount, lockcount",
 					{
 						"label",
 						"presentcount",
