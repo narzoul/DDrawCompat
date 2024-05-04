@@ -315,6 +315,37 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	LSTATUS WINAPI regEnumValueW(HKEY hKey, DWORD dwIndex, LPWSTR lpValueName, LPDWORD lpcchValueName,
+		LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
+	{
+		LOG_FUNC("RegEnumValueW", hKey, dwIndex, lpValueName, lpcchValueName, lpReserved, lpType, lpData, lpcbData);
+		if (lpValueName && lpcchValueName && !lpReserved && !lpType && !lpData && !lpcbData)
+		{
+			auto keyName(getKeyName(hKey));
+			if (L"HKEY_LOCAL_MACHINE\\Software\\Microsoft\\DirectShow\\DoNotUse" == keyName)
+			{
+				if (0 == dwIndex)
+				{
+					const std::wstring CLSID_VMR9(L"{51B4ABF3-748F-4E3B-A276-C828330E926A}");
+					if (*lpcchValueName < CLSID_VMR9.length() + 1)
+					{
+						return LOG_RESULT(ERROR_MORE_DATA);
+					}
+
+					memcpy(lpValueName, CLSID_VMR9.c_str(), 2 * (CLSID_VMR9.length() + 1));
+					*lpcchValueName = CLSID_VMR9.length();
+					return LOG_RESULT(ERROR_SUCCESS);
+				}
+				else
+				{
+					dwIndex--;
+				}
+			}
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(RegEnumValueW)(hKey, dwIndex, lpValueName, lpcchValueName,
+			lpReserved, lpType, lpData, lpcbData));
+	}
+
 	template <typename Char, typename OrigFunc>
 	LONG regGetValue(HKEY hkey, const Char* lpSubKey, const Char* lpValue,
 		DWORD dwFlags, LPDWORD pdwType, PVOID pvData, LPDWORD pcbData, OrigFunc origFunc, const char* funcName)
@@ -442,6 +473,7 @@ namespace Win32
 			HOOK_REGISTRY_OPEN_FUNCTION(RegOpenKeyTransactedW);
 
 			HOOK_REGISTRY_FUNCTION(RegCloseKey, regCloseKey);
+			HOOK_REGISTRY_FUNCTION(RegEnumValueW, regEnumValueW);
 			HOOK_REGISTRY_FUNCTION(RegGetValueA, regGetValueA);
 			HOOK_REGISTRY_FUNCTION(RegGetValueW, regGetValueW);
 			HOOK_REGISTRY_FUNCTION(RegQueryValueExA, regQueryValueExA);
