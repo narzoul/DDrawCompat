@@ -29,7 +29,6 @@ namespace Gdi
 		Gdi::Region getWindowRgn(HWND hwnd);
 		bool isTopLevelWindow(HWND hwnd);
 		void onStyleChanged(HWND hwnd, WPARAM wParam);
-		void onSyncPaint(HWND hwnd);
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);

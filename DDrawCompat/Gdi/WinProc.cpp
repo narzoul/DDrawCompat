@@ -147,7 +147,8 @@ namespace
 		case WM_SYNCPAINT:
 			if (Gdi::Window::isTopLevelWindow(hwnd))
 			{
-				Gdi::Window::onSyncPaint(hwnd);
+				RECT emptyRect = {};
+				RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
 				return 0;
 			}
 			break;

@@ -95,6 +95,7 @@ namespace
 		Gdi::Region obscuredRegion;
 		Gdi::Region invalidatedRegion;
 		Gdi::Region virtualScreenRegion;
+		std::vector<HWND> invalidatedWindows;
 		DWORD processId;
 	};
 
@@ -105,7 +106,6 @@ namespace
 		RECT windowRect;
 		RECT clientRect;
 		Gdi::Region visibleRegion;
-		Gdi::Region invalidatedRegion;
 		LayeredWindowContent layeredWindowContent;
 		bool isMenu;
 		bool isLayered;
@@ -171,7 +171,7 @@ namespace
 		return g_windows.erase(it);
 	}
 
-	void updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
+	bool updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
 		const Gdi::Region& oldVisibleRegion, Gdi::Region& invalidatedRegion)
 	{
 		LOG_FUNC("Window::updatePosition", window.hwnd, oldWindowRect, oldClientRect,
@@ -250,11 +250,15 @@ namespace
 			}
 		}
 
-		window.invalidatedRegion = window.visibleRegion - preservedRegion;
-		if (!window.invalidatedRegion.isEmpty())
+		auto invalidatedWindowRegion = window.visibleRegion - preservedRegion;
+		if (!invalidatedWindowRegion.isEmpty())
 		{
-			window.invalidatedRegion.offset(-window.clientRect.left, -window.clientRect.top);
+			invalidatedWindowRegion.offset(-window.clientRect.left, -window.clientRect.top);
+			RedrawWindow(window.hwnd, nullptr, invalidatedWindowRegion,
+				RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
+			return true;
 		}
+		return false;
 	}
 
 	BOOL CALLBACK updateWindow(HWND hwnd, LPARAM lParam)
@@ -345,9 +349,10 @@ namespace
 
 		if (!isLayered)
 		{
-			if (!it->second.visibleRegion.isEmpty())
+			if (!it->second.visibleRegion.isEmpty() &&
+				updatePosition(it->second, wi.rcWindow, wi.rcClient, visibleRegion, context.invalidatedRegion))
 			{
-				updatePosition(it->second, wi.rcWindow, wi.rcClient, visibleRegion, context.invalidatedRegion);
+				context.invalidatedWindows.push_back(hwnd);
 			}
 
 			if (exStyle & WS_EX_TRANSPARENT)
@@ -525,27 +530,6 @@ namespace Gdi
 			}
 		}
 
-		void onSyncPaint(HWND hwnd)
-		{
-			LOG_FUNC("Window::onSyncPaint", hwnd);
-
-			{
-				D3dDdi::ScopedCriticalSection lock;
-				auto it = g_windows.find(hwnd);
-				if (it == g_windows.end())
-				{
-					return;
-				}
-
-				RedrawWindow(hwnd, nullptr, it->second.invalidatedRegion,
-					RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN);
-				it->second.invalidatedRegion.clear();
-			}
-
-			RECT emptyRect = {};
-			RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
-		}
-
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper)
 		{
@@ -617,7 +601,6 @@ namespace Gdi
 			UpdateWindowContext context;
 			context.processId = GetCurrentProcessId();
 			context.virtualScreenRegion = VirtualScreen::getBounds();
-			std::vector<HWND> invalidatedWindows;
 
 			{
 				D3dDdi::ScopedCriticalSection lock;
@@ -637,18 +620,9 @@ namespace Gdi
 				}
 
 				g_fullscreenWindow = findFullscreenWindow();
-
-				for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
-				{
-					auto& window = **it;
-					if (!window.invalidatedRegion.isEmpty())
-					{
-						invalidatedWindows.push_back(window.hwnd);
-					}
-				}
 			}
 
-			for (auto hwnd : invalidatedWindows)
+			for (auto hwnd : context.invalidatedWindows)
 			{
 				SendNotifyMessage(hwnd, WM_SYNCPAINT, 0, 0);
 			}
