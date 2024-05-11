@@ -116,7 +116,7 @@ namespace
 			if (SUCCEEDED(result))
 			{
 				CompatVtable<IDirectDraw7Vtbl>::s_origVtable = *dd7.get()->lpVtbl;
-				dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL);
+				dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
 			}
 			if (FAILED(result))
 			{

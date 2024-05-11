@@ -32,7 +32,6 @@ namespace
 {
 	const UINT BLT_SRCALPHA = 1;
 	const UINT BLT_PREMULTIPLIED = 2;
-	const UINT BLT_COLORKEYTEST = 4;
 
 	const UINT CF_HORIZONTAL = 1;
 	const UINT CF_GAMMARAMP = 2;
@@ -225,7 +224,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_DITHERENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_ALPHABLENDENABLE, (flags & BLT_SRCALPHA) || alpha });
 		state.setTempRenderState({ D3DDDIRS_FOGENABLE, FALSE });
-		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, 0 != (flags & BLT_COLORKEYTEST) });
+		state.setTempRenderState({ D3DDDIRS_COLORKEYENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_STENCILENABLE, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPING, FALSE });
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
@@ -255,11 +254,6 @@ namespace D3dDdi
 
 		setTempTextureStage(0, srcResource, srcSubResourceIndex, srcRect,
 			LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
-		if (flags & BLT_COLORKEYTEST)
-		{
-			const DWORD testColor = getFormatInfo(D3DDDIFMT_R5G6B5).pixelFormat.dwGBitMask;
-			state.setTempTextureStageState({ 0, D3DDDITSS_TEXTURECOLORKEYVAL, testColor });
-		}
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
 
@@ -292,12 +286,6 @@ namespace D3dDdi
 		blt(dstResource, dstSubResourceIndex, dstResource.getRect(dstSubResourceIndex),
 			srcResource, srcSubResourceIndex, srcResource.getRect(srcSubResourceIndex),
 			m_psColorKeyBlend.get(), D3DTEXF_POINT);
-	}
-
-	void ShaderBlitter::colorKeyTestBlt(const Resource& dstResource, const Resource& srcResource)
-	{
-		blt(dstResource, 0, dstResource.getRect(0), srcResource, 0, srcResource.getRect(0),
-			m_psTextureSampler.get(), D3DTEXF_POINT, BLT_COLORKEYTEST);
 	}
 
 	void ShaderBlitter::convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

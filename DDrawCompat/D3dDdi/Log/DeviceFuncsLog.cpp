@@ -318,6 +318,12 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UPDATEPALETTE& val)
 		<< val.NumEntries;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VALIDATETEXTURESTAGESTATE& val)
+{
+	return Compat::LogStruct(os)
+		<< val.NumPasses;
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VIEWPORTINFO& val)
 {
 	return Compat::LogStruct(os)

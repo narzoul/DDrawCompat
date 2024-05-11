@@ -40,7 +40,6 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, UINT blurPercent);
 		void colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
 			const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey);
-		void colorKeyTestBlt(const Resource& dstResource, const Resource& srcResource);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,

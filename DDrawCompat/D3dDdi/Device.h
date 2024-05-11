@@ -52,6 +52,7 @@ namespace D3dDdi
 		HRESULT pfnSetPalette(const D3DDDIARG_SETPALETTE* data);
 		HRESULT pfnUnlock(const D3DDDIARG_UNLOCK* data);
 		HRESULT pfnUpdatePalette(const D3DDDIARG_UPDATEPALETTE* data, const PALETTEENTRY* paletteData);
+		HRESULT pfnValidateDevice(D3DDDIARG_VALIDATETEXTURESTAGESTATE* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
 		std::pair<UINT, UINT> getColorKeyMethod();

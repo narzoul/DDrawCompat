@@ -6,9 +6,7 @@
 #include <Config/Settings/SoftwareDevice.h>
 #include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/VertexBufferMemoryType.h>
-#include <D3dDdi/Device.h>
 #include <D3dDdi/FormatInfo.h>
-#include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/Surface.h>
@@ -49,13 +47,12 @@ namespace
 			}
 		}
 
-		if (SUCCEEDED(result))
+		if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
 		{
-			if constexpr (std::is_same_v<TDirect3d, IDirect3D7>)
+			if (SUCCEEDED(result))
 			{
 				Direct3d::Direct3dDevice::hookVtable(*(*lplpD3DDevice)->lpVtbl);
 			}
-			Direct3d::onCreateDevice(iid, *CompatPtr<IDirectDrawSurface7>::from(lpDDS));
 		}
 		return result;
 	}
@@ -149,19 +146,6 @@ namespace Direct3d
 	D3DVERTEXBUFFERDESC getVertexBufferDesc()
 	{
 		return g_vbDesc;
-	}
-
-	void onCreateDevice(const IID& iid, IDirectDrawSurface7& surface)
-	{
-		if (IID_IDirect3DHALDevice == iid || IID_IDirect3DTnLHalDevice == iid)
-		{
-			auto device = D3dDdi::Device::findDeviceByResource(
-				DDraw::DirectDrawSurface::getDriverResourceHandle(surface));
-			if (device)
-			{
-				device->getState().flush();
-			}
-		}
 	}
 
 	const IID& replaceDevice(const IID& iid)

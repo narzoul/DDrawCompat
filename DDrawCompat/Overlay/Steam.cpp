@@ -224,7 +224,7 @@ namespace
 				return false;
 			}
 
-			result = g_dd->lpVtbl->SetCooperativeLevel(g_dd, nullptr, DDSCL_NORMAL);
+			result = g_dd->lpVtbl->SetCooperativeLevel(g_dd, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
 			if (FAILED(result))
 			{
 				LOG_ONCE("Failed to set cooperative level for Steam overlay: " << Compat::hex(result));

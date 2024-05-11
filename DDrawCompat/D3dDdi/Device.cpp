@@ -106,55 +106,23 @@ namespace D3dDdi
 	UINT Device::detectColorKeyMethod()
 	{
 		LOG_FUNC("Device::detectColorKeyMethod");
-		if (m_adapter.getInfo().isTrinity)
+
+		auto method = Config::Settings::ColorKeyMethod::NATIVE;
+		if (m_adapter.getInfo().isD3D9On12)
 		{
-			LOG_ONCE("Auto-detected ColorKeyMethod: alphatest");
-			return LOG_RESULT(Config::Settings::ColorKeyMethod::ALPHATEST);
-		}
-
-		auto method = Config::Settings::ColorKeyMethod::NONE;
-
-		auto& repo = getRepo();
-		SurfaceRepository::Surface tex;
-		SurfaceRepository::Surface rt;
-		repo.getTempSurface(tex, 1, 1, D3DDDIFMT_R5G6B5, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
-		repo.getTempSurface(rt, 1, 1, D3DDDIFMT_R5G6B5, DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY);
-
-		if (tex.resource && rt.resource)
-		{
-			DDSURFACEDESC2 desc = {};
-			desc.dwSize = sizeof(desc);
-			tex.surface->Lock(tex.surface, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
-			if (desc.lpSurface)
-			{
-				const WORD testColor = static_cast<WORD>(getFormatInfo(D3DDDIFMT_R5G6B5).pixelFormat.dwGBitMask);
-				static_cast<WORD*>(desc.lpSurface)[0] = testColor;
-				tex.surface->Unlock(tex.surface, nullptr);
-
-				m_shaderBlitter.colorKeyTestBlt(*rt.resource, *tex.resource);
-
-				desc = {};
-				desc.dwSize = sizeof(desc);
-				rt.surface->Lock(rt.surface, nullptr, &desc, DDLOCK_READONLY | DDLOCK_WAIT, nullptr);
-				if (desc.lpSurface)
-				{
-					method = testColor == static_cast<WORD*>(desc.lpSurface)[0]
-						? Config::Settings::ColorKeyMethod::ALPHATEST
-						: Config::Settings::ColorKeyMethod::NATIVE;
-					rt.surface->Unlock(rt.surface, nullptr);
-				}
-			}
-		}
-
-		if (Config::Settings::ColorKeyMethod::NONE == method)
-		{
-			LOG_ONCE("Auto-detected ColorKeyMethod: unknown, using native");
+			method = Config::Settings::ColorKeyMethod::ALPHATEST;
 		}
 		else
 		{
-			LOG_ONCE("Auto-detected ColorKeyMethod: " <<
-				(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
+			auto trinity = GetModuleHandle("igd9trinity32");
+			if (trinity && trinity == Compat::getModuleHandleFromAddress(m_origVtable.pfnDrawPrimitive))
+			{
+				method = Config::Settings::ColorKeyMethod::ALPHATEST;
+			}
 		}
+
+		LOG_ONCE("Auto-detected ColorKeyMethod: " <<
+			(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
 		return LOG_RESULT(method);
 	}
 
@@ -556,6 +524,12 @@ namespace D3dDdi
 			}
 		}
 		return S_OK;
+	}
+
+	HRESULT Device::pfnValidateDevice(D3DDDIARG_VALIDATETEXTURESTAGESTATE* data)
+	{
+		m_state.flush();
+		return m_origVtable.pfnValidateDevice(m_device, data);
 	}
 
 	void Device::updateAllConfig()

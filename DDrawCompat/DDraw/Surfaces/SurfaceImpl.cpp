@@ -7,12 +7,10 @@
 #include <Common/CompatPtr.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
-#include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
-#include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Direct3d/Direct3d.h>
@@ -263,10 +261,6 @@ namespace DDraw
 			m_data->setSizeOverride(1, 1);
 			result = getOrigVtable(This).QueryInterface(This, iid, obp);
 			m_data->setSizeOverride(0, 0);
-		}
-		if (SUCCEEDED(result))
-		{
-			Direct3d::onCreateDevice(iid, *m_data->m_surface);
 		}
 		return result;
 	}

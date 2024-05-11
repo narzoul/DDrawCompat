@@ -69,6 +69,7 @@ namespace
 		SET_DEVICE_FUNC(pfnSetPalette);
 		SET_DEVICE_FUNC(pfnUnlock);
 		SET_DEVICE_FUNC(pfnUpdatePalette);
+		SET_DEVICE_FUNC(pfnValidateDevice);
 
 		SET_DEVICE_STATE_FUNC(pfnCreatePixelShader);
 		SET_DEVICE_STATE_FUNC(pfnCreateVertexShaderDecl);

@@ -39,6 +39,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXBLT1& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_TEXTURESTAGESTATE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UNLOCK& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_UPDATEPALETTE& val);
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VALIDATETEXTURESTAGESTATE& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_VIEWPORTINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_WINFO& val);
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_ZRANGE& val);

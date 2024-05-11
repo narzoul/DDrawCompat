@@ -347,7 +347,7 @@ namespace DDraw
 				{
 					return;
 				}
-				repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL);
+				repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
 				it = repositories.insert({ adapterInfo.luid, repo }).first;
 				D3dDdi::Adapter::setRepository(adapterInfo.luid, guid, it->second);
 				repo.detach();
