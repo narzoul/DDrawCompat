@@ -485,7 +485,7 @@ namespace D3dDdi
 			m_pixelShaders.emplace(data->ShaderHandle,
 				PixelShader{ std::vector<UINT>(code, code + data->CodeSize / 4),
 				std::unique_ptr<void, ResourceDeleter>(
-					nullptr, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc)),
+					nullptr, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader)),
 				    shaderAssembler.getTextureStageCount(), false });
 		}
 		return result;
