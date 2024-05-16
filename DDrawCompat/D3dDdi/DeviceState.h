@@ -156,7 +156,6 @@ namespace D3dDdi
 		Resource* getTextureResource(UINT stage);
 		UINT getTextureStageCount() const;
 		const VertexDecl& getVertexDecl() const;
-		HANDLE getVertexFixupDecl() const { return m_vsVertexFixup.get(); }
 		bool isLocked() const { return m_isLocked; }
 		void onDestroyResource(Resource* resource, HANDLE resourceHandle);
 		void updateConfig();
@@ -183,13 +182,14 @@ namespace D3dDdi
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createVertexShader(const BYTE(&code)[N])
 		{
-			return createVertexShader(code, N);
+			return createVertexShader(reinterpret_cast<const UINT*>(code), N);
 		}
 
-		std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const BYTE* code, UINT size);
+		std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const UINT* code, UINT size);
 		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 
+		HANDLE getVsVertexFixup();
 		bool isColorKeyUsed();
 		HANDLE mapPixelShader(HANDLE shader);
 		UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value);
@@ -245,10 +245,10 @@ namespace D3dDdi
 		VertexDecl* m_vertexDecl;
 		UINT m_changedStates;
 		UINT m_maxChangedTextureStage;
-		UINT m_usedTextureStages;
+		UINT m_texCoordIndexes;
 		BitSet<D3DDDIRS_ZENABLE, D3DDDIRS_BLENDOPALPHA> m_changedRenderStates;
 		std::array<BitSet<D3DDDITSS_TEXTUREMAP, D3DDDITSS_TEXTURECOLORKEYVAL>, 8> m_changedTextureStageStates;
-		std::unique_ptr<void, ResourceDeleter> m_vsVertexFixup;
+		std::map<UINT, std::unique_ptr<void, ResourceDeleter>> m_vsVertexFixups;
 		std::array<Resource*, 8> m_textureResource;
 		std::map<HANDLE, PixelShader> m_pixelShaders;
 		PixelShader* m_pixelShader;

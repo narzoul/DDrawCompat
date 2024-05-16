@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <ostream>
 #include <set>
 #include <string>
@@ -15,6 +16,7 @@ namespace D3dDdi
 		ShaderAssembler(const UINT* code, DWORD size);
 
 		bool addAlphaTest(UINT alphaRef);
+		void applyTexCoordIndexes(const std::array<UINT, 8>& texCoordIndexes);
 		std::string disassemble();
 		UINT getTextureStageCount();
 		const std::vector<UINT>& getTokens() const { return m_tokens; }

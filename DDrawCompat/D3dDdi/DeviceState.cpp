@@ -90,8 +90,8 @@ namespace D3dDdi
 		, m_vertexDecl(nullptr)
 		, m_changedStates(0)
 		, m_maxChangedTextureStage(0)
+		, m_texCoordIndexes(0)
 		, m_changedTextureStageStates{}
-		, m_vsVertexFixup(createVertexShader(g_vsVertexFixup))
 		, m_textureResource{}
 		, m_pixelShader(nullptr)
 		, m_isLocked(false)
@@ -187,6 +187,7 @@ namespace D3dDdi
 		{
 			m_current.textureStageState[i].fill(UNINITIALIZED_STATE);
 			m_current.textureStageState[i][D3DDDITSS_TEXCOORDINDEX] = i;
+			m_texCoordIndexes |= i << (i * 3);
 
 			// When ADDRESSU or ADDRESSV is set to CLAMP, their value is overridden by D3DTSS_ADDRESS.
 			// Setting this to CLAMP makes them behave as expected, instead of as WRAP,
@@ -224,11 +225,11 @@ namespace D3dDdi
 		updateConfig();
 	}
 
-	std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const BYTE* code, UINT size)
+	std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const UINT* code, UINT size)
 	{
 		D3DDDIARG_CREATEVERTEXSHADERFUNC data = {};
 		data.Size = size;
-		if (FAILED(m_device.getOrigVtable().pfnCreateVertexShaderFunc(m_device, &data, reinterpret_cast<const UINT*>(code))))
+		if (FAILED(m_device.getOrigVtable().pfnCreateVertexShaderFunc(m_device, &data, code)))
 		{
 			return nullptr;
 		}
@@ -324,6 +325,26 @@ namespace D3dDdi
 	{
 		static const VertexDecl emptyDecl = {};
 		return m_vertexDecl ? *m_vertexDecl : emptyDecl;
+	}
+
+	HANDLE DeviceState::getVsVertexFixup()
+	{
+		auto it = m_vsVertexFixups.find(m_texCoordIndexes);
+		if (it != m_vsVertexFixups.end())
+		{
+			return it->second.get();
+		}
+
+		std::array<UINT, 8> texCoordIndexes = {};
+		for (UINT i = 0; i < 8; ++i)
+		{
+			texCoordIndexes[i] = m_app.textureStageState[i][D3DDDITSS_TEXCOORDINDEX];
+		}
+
+		D3dDdi::ShaderAssembler shaderAssembler(reinterpret_cast<const UINT*>(g_vsVertexFixup), sizeof(g_vsVertexFixup));
+		shaderAssembler.applyTexCoordIndexes(texCoordIndexes);
+		return m_vsVertexFixups.emplace(m_texCoordIndexes,
+			createVertexShader(shaderAssembler.getTokens().data(), shaderAssembler.getTokens().size() * 4)).first->second.get();
 	}
 
 	bool DeviceState::isColorKeyUsed()
@@ -668,6 +689,12 @@ namespace D3dDdi
 			}
 			m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 			m_changedStates |= CS_RENDER_STATE;
+		}
+		else if (D3DDDITSS_TEXCOORDINDEX == data->State)
+		{
+			m_texCoordIndexes &= ~(7 << (data->Stage * 3));
+			m_texCoordIndexes |= data->Value << (data->Stage * 3);
+			m_changedStates |= CS_SHADER;
 		}
 
 		m_app.textureStageState[data->Stage][data->State] = data->Value;
@@ -1203,14 +1230,7 @@ namespace D3dDdi
 	{
 		setPixelShader(mapPixelShader(m_app.pixelShader));
 		setVertexShaderDecl(m_app.vertexShaderDecl);
-		if (getVertexDecl().isTransformed)
-		{
-			setVertexShaderFunc(m_vsVertexFixup.get());
-		}
-		else
-		{
-			setVertexShaderFunc(m_app.vertexShaderFunc);
-		}
+		setVertexShaderFunc(getVertexDecl().isTransformed ? getVsVertexFixup() : m_app.vertexShaderFunc);
 	}
 
 	void DeviceState::updateStreamSource()

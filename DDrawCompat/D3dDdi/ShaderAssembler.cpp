@@ -359,6 +359,68 @@ namespace D3dDdi
 		return true;
 	}
 
+	void ShaderAssembler::applyTexCoordIndexes(const std::array<UINT, 8>& texCoordIndexes)
+	{
+		LOG_FUNC("ShaderAssembler::applyTexCoordIndex", Compat::array(texCoordIndexes.data(), texCoordIndexes.size()));
+		LOG_DEBUG << "Original bytecode: " << Compat::hexDump(m_tokens.data(), m_tokens.size() * 4);
+		LOG_DEBUG << disassemble();
+
+		RestorePos restorePos(m_pos);
+		m_pos = 0;
+		std::array<UINT, 8> tcIndexToRegNum = {};
+		std::array<UINT, 16> regNumToTcIndex = {};
+		regNumToTcIndex.fill(UINT_MAX);
+
+		while (nextInstruction())
+		{
+			const auto instruction = getToken<InstructionToken>();
+			if (D3DSIO_DCL == instruction.opcode)
+			{
+				const auto usage = getToken<UINT32>(1);
+				if (D3DDECLUSAGE_TEXCOORD == (usage & D3DSP_DCL_USAGE_MASK))
+				{
+					const auto tcIndex = (usage & D3DSP_DCL_USAGEINDEX_MASK) >> D3DSP_DCL_USAGEINDEX_SHIFT;
+					const auto dst = getToken<UINT32>(2);
+					const auto regNum = dst & D3DSP_REGNUM_MASK;
+					tcIndexToRegNum[tcIndex] = regNum;
+					regNumToTcIndex[regNum] = tcIndex;
+				}
+				continue;
+			}
+
+			const auto it = g_instructionMap.find(instruction.opcode);
+			if (it == g_instructionMap.end())
+			{
+				continue;
+			}
+
+			for (UINT i = 0; i < it->second.srcCount; ++i)
+			{
+				UINT& src = m_tokens[m_pos + 1 + it->second.dstCount + i];
+				const auto regType = getRegisterType(src);
+				if (D3DSPR_INPUT != regType)
+				{
+					continue;
+				}
+
+				const auto origRegNum = src & D3DSP_REGNUM_MASK;
+				const auto origTcIndex = regNumToTcIndex[origRegNum];
+				if (origTcIndex >= texCoordIndexes.size())
+				{
+					continue;
+				}
+
+				const auto mappedTcIndex = texCoordIndexes[origTcIndex] & 7;
+				const auto mappedRegNum = tcIndexToRegNum[mappedTcIndex];
+				src &= ~D3DSP_REGNUM_MASK;
+				src |= mappedRegNum;
+			}
+		}
+
+		LOG_DEBUG << "Modified bytecode: " << Compat::hexDump(m_tokens.data(), m_tokens.size() * 4);
+		LOG_DEBUG << disassemble();
+	}
+
 	std::string ShaderAssembler::disassemble()
 	{
 		if (Config::Settings::LogLevel::DEBUG != Compat::Log::getLogLevel())
