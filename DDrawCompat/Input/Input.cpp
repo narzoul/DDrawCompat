@@ -260,7 +260,7 @@ namespace
 
 				g_keyState.reset();
 				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_currentModule, 0);
+					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_origDDrawModule, 0);
 				if (!g_keyboardHook)
 				{
 					LOG_ONCE("ERROR: Failed to install low level keyboard hook, error code: " << GetLastError());
@@ -279,7 +279,7 @@ namespace
 
 				g_origCursorPos = { MAXLONG, MAXLONG };
 				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_currentModule, 0);
+					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
 
 				if (g_mouseHook)
 				{
