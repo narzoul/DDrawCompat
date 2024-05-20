@@ -20,6 +20,7 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
 #include <DDraw/LogUsedResourceFormat.h>
+#include <DDraw/ScopedThreadLock.h>
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
@@ -81,58 +82,66 @@ namespace
 
 	void installHooks()
 	{
-		if (!Dll::g_isHooked)
+		if (Dll::g_isHooked)
 		{
-			Dll::g_isHooked = true;
-			DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
-			Overlay::Steam::installHooks();
-			LOG_INFO << "Installing display mode hooks";
-			Win32::DisplayMode::installHooks();
-			LOG_INFO << "Installing registry hooks";
-			Win32::Registry::installHooks();
-			LOG_INFO << "Installing Direct3D driver hooks";
-			D3dDdi::installHooks();
-			Gdi::VirtualScreen::init();
-
-			CompatPtr<IDirectDraw> dd;
-			HRESULT result = CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
-			if (FAILED(result))
-			{
-				LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
-				return;
-			}
-
-			CompatPtr<IDirectDraw7> dd7;
-			result = CALL_ORIG_PROC(DirectDrawCreateEx)(
-				nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
-			if (FAILED(result))
-			{
-				LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
-				return;
-			}
-
-			CompatVtable<IDirectDrawVtbl>::s_origVtable = *dd.get()->lpVtbl;
-			result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
-			if (SUCCEEDED(result))
-			{
-				CompatVtable<IDirectDraw7Vtbl>::s_origVtable = *dd7.get()->lpVtbl;
-				dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
-			}
-			if (FAILED(result))
-			{
-				LOG_INFO << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
-				return;
-			}
-
-			LOG_INFO << "Installing DirectDraw hooks";
-			DDraw::installHooks(dd7);
-			LOG_INFO << "Installing Direct3D hooks";
-			Direct3d::installHooks(dd, dd7);
-			LOG_INFO << "Installing GDI hooks";
-			Gdi::installHooks();
-			Compat::closeDbgEng();
-			LOG_INFO << "Finished installing hooks";
+			return;
 		}
+
+		DDraw::ScopedThreadLock lock;
+		if (Dll::g_isHooked)
+		{
+			return;
+		}
+		Dll::g_isHooked = true;
+
+		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
+		Overlay::Steam::installHooks();
+		LOG_INFO << "Installing display mode hooks";
+		Win32::DisplayMode::installHooks();
+		LOG_INFO << "Installing registry hooks";
+		Win32::Registry::installHooks();
+		LOG_INFO << "Installing Direct3D driver hooks";
+		D3dDdi::installHooks();
+		Gdi::VirtualScreen::init();
+
+		CompatPtr<IDirectDraw> dd;
+		HRESULT result = CALL_ORIG_PROC(DirectDrawCreate)(nullptr, &dd.getRef(), nullptr);
+		if (FAILED(result))
+		{
+			LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
+			return;
+		}
+
+		CompatPtr<IDirectDraw7> dd7;
+		result = CALL_ORIG_PROC(DirectDrawCreateEx)(
+			nullptr, reinterpret_cast<void**>(&dd7.getRef()), IID_IDirectDraw7, nullptr);
+		if (FAILED(result))
+		{
+			LOG_INFO << "ERROR: Failed to create a DirectDraw object for hooking: " << Compat::hex(result);
+			return;
+		}
+
+		CompatVtable<IDirectDrawVtbl>::s_origVtable = *dd.get()->lpVtbl;
+		result = dd->SetCooperativeLevel(dd, nullptr, DDSCL_NORMAL);
+		if (SUCCEEDED(result))
+		{
+			CompatVtable<IDirectDraw7Vtbl>::s_origVtable = *dd7.get()->lpVtbl;
+			dd7->SetCooperativeLevel(dd7, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
+		}
+		if (FAILED(result))
+		{
+			LOG_INFO << "ERROR: Failed to set the cooperative level for hooking: " << Compat::hex(result);
+			return;
+		}
+
+		LOG_INFO << "Installing DirectDraw hooks";
+		DDraw::installHooks(dd7);
+		LOG_INFO << "Installing Direct3D hooks";
+		Direct3d::installHooks(dd, dd7);
+		LOG_INFO << "Installing GDI hooks";
+		Gdi::installHooks();
+		Compat::closeDbgEng();
+		LOG_INFO << "Finished installing hooks";
 	}
 
 	unsigned WINAPI installHooksThreadProc(LPVOID /*lpParameter*/)

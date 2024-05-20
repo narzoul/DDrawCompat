@@ -336,6 +336,7 @@ namespace DDraw
 
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)
 		{
+			DDraw::ScopedThreadLock lock;
 			static std::map<LUID, CompatWeakPtr<IDirectDraw7>> repositories;
 			auto adapterInfo = D3dDdi::KernelModeThunks::getAdapterInfo(dd);
 			auto it = repositories.find(adapterInfo.luid);
