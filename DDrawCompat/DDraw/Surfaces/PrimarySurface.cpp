@@ -274,6 +274,13 @@ namespace DDraw
 			{
 				resource->setAsPrimary();
 			}
+
+			auto surf = DDraw::Surface::getSurface(*surface);
+			if (surf)
+			{
+				surf->setAsPrimary();
+			}
+
 			CompatPtr<IDirectDrawSurface7> next;
 			result = surface->GetAttachedSurface(surface, &caps, &next.getRef());
 			next.swap(surface);

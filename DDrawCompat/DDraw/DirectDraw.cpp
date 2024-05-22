@@ -199,7 +199,7 @@ namespace
 			}
 		}
 
-		if (Config::Settings::AltTabFix::OFF == Config::altTabFix.get())
+		if (Config::Settings::AltTabFix::KEEPVIDMEM != Config::altTabFix.get())
 		{
 			return LOG_RESULT(g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam));
 		}
@@ -211,7 +211,7 @@ namespace
 			{
 				auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
 				if (!(lcl->dwFlags & DDRAWISURF_INVALID) &&
-					(keepPrimary || !(surface.getOrigCaps() & DDSCAPS_PRIMARYSURFACE)))
+					(keepPrimary || !surface.isPrimary()))
 				{
 					lcl->dwFlags |= DDRAWISURF_INVALID;
 					surfacesToRestore.insert(lcl);
@@ -236,7 +236,7 @@ namespace
 			auto realPrimary(DDraw::RealPrimarySurface::getSurface());
 			if (realPrimary)
 			{
-				realPrimary->Restore(realPrimary);
+				DDraw::RealPrimarySurface::restore();
 				auto gdiResource = DDraw::PrimarySurface::getGdiResource();
 				if (gdiResource)
 				{

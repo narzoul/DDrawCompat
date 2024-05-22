@@ -52,6 +52,7 @@ namespace DDraw
 		, m_refCount(0)
 		, m_sizeOverride{}
 		, m_sysMemBuffer(nullptr, &heapFree)
+		, m_isPrimary(false)
 	{
 		g_surfaces.insert(this);
 	}

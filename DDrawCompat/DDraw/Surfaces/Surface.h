@@ -43,8 +43,10 @@ namespace DDraw
 		template <typename TSurface>
 		SurfaceImpl<TSurface>* getImpl() const;
 
+		bool isPrimary() const { return m_isPrimary; }
 		virtual void restore();
 
+		void setAsPrimary() { m_isPrimary = true; }
 		void setSizeOverride(DWORD width, DWORD height);
 
 	protected:
@@ -71,5 +73,6 @@ namespace DDraw
 		DWORD m_refCount;
 		SIZE m_sizeOverride;
 		std::unique_ptr<void, void(*)(void*)> m_sysMemBuffer;
+		bool m_isPrimary;
 	};
 }
