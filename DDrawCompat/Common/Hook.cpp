@@ -5,9 +5,8 @@
 #include <string>
 
 #include <Windows.h>
-#include <initguid.h>
-#include <DbgEng.h>
 
+#include <Common/Disasm.h>
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Path.h>
@@ -15,35 +14,7 @@
 
 namespace
 {
-	IDebugClient4* g_debugClient = nullptr;
-	IDebugControl* g_debugControl = nullptr;
-	IDebugSymbols* g_debugSymbols = nullptr;
-	IDebugDataSpaces4* g_debugDataSpaces = nullptr;
-	ULONG64 g_debugBase = 0;
-	bool g_isDbgEngInitialized = false;
-
-	LONG WINAPI dbgEngWinVerifyTrust(HWND hwnd, GUID* pgActionID, LPVOID pWVTData);
 	PIMAGE_NT_HEADERS getImageNtHeaders(HMODULE module);
-	bool initDbgEng();
-
-	FARPROC WINAPI dbgEngGetProcAddress(HMODULE hModule, LPCSTR lpProcName)
-	{
-		LOG_FUNC("dbgEngGetProcAddress", hModule, lpProcName);
-		if (0 == strcmp(lpProcName, "WinVerifyTrust"))
-		{
-			return LOG_RESULT(reinterpret_cast<FARPROC>(&dbgEngWinVerifyTrust));
-		}
-		return LOG_RESULT(GetProcAddress(hModule, lpProcName));
-	}
-
-	LONG WINAPI dbgEngWinVerifyTrust(
-		[[maybe_unused]] HWND hwnd,
-		[[maybe_unused]] GUID* pgActionID,
-		[[maybe_unused]] LPVOID pWVTData)
-	{
-		LOG_FUNC("dbgEngWinVerifyTrust", hwnd, pgActionID, pWVTData);
-		return LOG_RESULT(0);
-	}
 
 	FARPROC* findProcAddressInIat(HMODULE module, const char* procName)
 	{
@@ -159,11 +130,6 @@ namespace
 			return;
 		}
 
-		if (!initDbgEng())
-		{
-			return;
-		}
-
 		const DWORD trampolineSize = 32;
 		BYTE* trampoline = static_cast<BYTE*>(
 			VirtualAlloc(nullptr, trampolineSize, MEM_COMMIT | MEM_RESERVE, PAGE_EXECUTE_READWRITE));
@@ -171,7 +137,7 @@ namespace
 		BYTE* dst = trampoline;
 		while (src - targetFunc < 5)
 		{
-			unsigned instructionSize = Compat::getInstructionSize(src);
+			unsigned instructionSize = Compat::getInstructionLength(src);
 			if (0 == instructionSize)
 			{
 				return;
@@ -208,114 +174,10 @@ namespace
 		GetModuleHandleEx(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
 			reinterpret_cast<char*>(targetFunc), &module);
 	}
-
-	bool initDbgEng()
-	{
-		if (g_isDbgEngInitialized)
-		{
-			return 0 != g_debugBase;
-		}
-		g_isDbgEngInitialized = true;
-
-		if (!GetModuleHandle("dbghelp.dll"))
-		{
-			LoadLibraryW((Compat::getSystemPath() / "dbghelp.dll").c_str());
-		}
-
-		auto dbgEng = LoadLibraryW((Compat::getSystemPath() / "dbgeng.dll").c_str());
-		if (!dbgEng)
-		{
-			LOG_INFO << "ERROR: DbgEng: failed to load library";
-			return false;
-		}
-
-		Compat::hookIatFunction(dbgEng, "GetProcAddress", dbgEngGetProcAddress);
-
-		auto debugCreate = reinterpret_cast<decltype(&DebugCreate)>(Compat::getProcAddress(dbgEng, "DebugCreate"));
-		if (!debugCreate)
-		{
-			LOG_INFO << "ERROR: DbgEng: DebugCreate not found";
-			return false;
-		}
-
-		HRESULT result = S_OK;
-		if (FAILED(result = debugCreate(IID_IDebugClient4, reinterpret_cast<void**>(&g_debugClient))) ||
-			FAILED(result = g_debugClient->QueryInterface(IID_IDebugControl, reinterpret_cast<void**>(&g_debugControl))) ||
-			FAILED(result = g_debugClient->QueryInterface(IID_IDebugSymbols, reinterpret_cast<void**>(&g_debugSymbols))) ||
-			FAILED(result = g_debugClient->QueryInterface(IID_IDebugDataSpaces4, reinterpret_cast<void**>(&g_debugDataSpaces))))
-		{
-			LOG_INFO << "ERROR: DbgEng: object creation failed: " << Compat::hex(result);
-			return false;
-		}
-
-		result = g_debugClient->OpenDumpFileWide(Compat::getModulePath(Dll::g_currentModule).c_str(), 0);
-		if (FAILED(result))
-		{
-			LOG_INFO << "ERROR: DbgEng: OpenDumpFile failed: " << Compat::hex(result);
-			return false;
-		}
-
-		g_debugControl->SetEngineOptions(DEBUG_ENGOPT_DISABLE_MODULE_SYMBOL_LOAD);
-		result = g_debugControl->WaitForEvent(0, INFINITE);
-		if (FAILED(result))
-		{
-			LOG_INFO << "ERROR: DbgEng: WaitForEvent failed: " << Compat::hex(result);
-			return false;
-		}
-
-		DEBUG_MODULE_PARAMETERS dmp = {};
-		result = g_debugSymbols->GetModuleParameters(1, 0, 0, &dmp);
-		if (FAILED(result))
-		{
-			LOG_INFO << "ERROR: DbgEng: GetModuleParameters failed: " << Compat::hex(result);
-			return false;
-		}
-
-		ULONG size = 0;
-		result = g_debugDataSpaces->GetValidRegionVirtual(dmp.Base, dmp.Size, &g_debugBase, &size);
-		if (FAILED(result) || 0 == g_debugBase)
-		{
-			LOG_INFO << "ERROR: DbgEng: GetValidRegionVirtual failed: " << Compat::hex(result);
-			return false;
-		}
-
-		return true;
-	}
 }
 
 namespace Compat
 {
-	void closeDbgEng()
-	{
-		if (g_debugClient)
-		{
-			g_debugClient->EndSession(DEBUG_END_PASSIVE);
-		}
-		if (g_debugDataSpaces)
-		{
-			g_debugDataSpaces->Release();
-			g_debugDataSpaces = nullptr;
-		}
-		if (g_debugSymbols)
-		{
-			g_debugSymbols->Release();
-			g_debugSymbols = nullptr;
-		}
-		if (g_debugControl)
-		{
-			g_debugControl->Release();
-			g_debugControl = nullptr;
-		}
-		if (g_debugClient)
-		{
-			g_debugClient->Release();
-			g_debugClient = nullptr;
-		}
-
-		g_debugBase = 0;
-		g_isDbgEngInitialized = false;
-	}
-
 	std::string funcPtrToStr(const void* funcPtr)
 	{
 		std::ostringstream oss;
@@ -330,28 +192,6 @@ namespace Compat
 			oss << funcPtr;
 		}
 		return oss.str();
-	}
-
-	unsigned getInstructionSize(void* instruction)
-	{
-		const unsigned MAX_INSTRUCTION_SIZE = 15;
-		HRESULT result = g_debugDataSpaces->WriteVirtual(g_debugBase, instruction, MAX_INSTRUCTION_SIZE, nullptr);
-		if (FAILED(result))
-		{
-			LOG_ONCE("ERROR: DbgEng: WriteVirtual failed: " << Compat::hex(result));
-			return 0;
-		}
-
-		ULONG64 endOffset = 0;
-		result = g_debugControl->Disassemble(g_debugBase, 0, nullptr, 0, nullptr, &endOffset);
-		if (FAILED(result))
-		{
-			LOG_ONCE("ERROR: DbgEng: Disassemble failed: " << Compat::hex(result) << " "
-				<< Compat::hexDump(instruction, MAX_INSTRUCTION_SIZE));
-			return 0;
-		}
-
-		return static_cast<unsigned>(endOffset - g_debugBase);
 	}
 
 	DWORD getModuleFileOffset(const void* address)

@@ -13,9 +13,7 @@
 
 namespace Compat
 {
-	void closeDbgEng();
 	std::string funcPtrToStr(const void* funcPtr);
-	unsigned getInstructionSize(void* instruction);
 	DWORD getModuleFileOffset(const void* address);
 	HMODULE getModuleHandleFromAddress(const void* address);
 

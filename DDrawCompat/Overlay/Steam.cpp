@@ -1,3 +1,4 @@
+#include <Common/Disasm.h>
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Time.h>
@@ -157,7 +158,7 @@ namespace
 			unsigned totalInstructionSize = 0;
 			while (totalInstructionSize < 5)
 			{
-				unsigned instructionSize = Compat::getInstructionSize(instructions + totalInstructionSize);
+				unsigned instructionSize = Compat::getInstructionLength(instructions + totalInstructionSize);
 				if (0 == instructionSize)
 				{
 					return LOG_RESULT(nullptr);

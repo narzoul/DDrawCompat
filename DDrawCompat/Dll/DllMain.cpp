@@ -140,7 +140,6 @@ namespace
 		Direct3d::installHooks(dd, dd7);
 		LOG_INFO << "Installing GDI hooks";
 		Gdi::installHooks();
-		Compat::closeDbgEng();
 		LOG_INFO << "Finished installing hooks";
 	}
 
@@ -203,7 +202,7 @@ namespace
 			<< Compat::hex(ExceptionInfo->ExceptionRecord->ExceptionCode);
 
 		const auto writeDump = reinterpret_cast<decltype(&MiniDumpWriteDump)>(
-			GetProcAddress(GetModuleHandle("dbghelp"), "MiniDumpWriteDump"));
+			GetProcAddress(LoadLibraryA("dbghelp"), "MiniDumpWriteDump"));
 
 		if (writeDump)
 		{
@@ -348,7 +347,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::Thread::installHooks();
 		Win32::Version::installHooks();
 		Win32::Winmm::installHooks();
-		Compat::closeDbgEng();
 
 		CALL_ORIG_FUNC(timeBeginPeriod)(1);
 		Win32::DpiAwareness::init();

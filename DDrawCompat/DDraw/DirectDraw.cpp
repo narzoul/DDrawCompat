@@ -331,7 +331,6 @@ namespace DDraw
 
 			g_origDDrawWindowProc = ddrawWndProc;
 			Compat::hookFunction(reinterpret_cast<void*&>(g_origDDrawWindowProc), ddrawWindowProc, "ddrawWindowProc");
-			Compat::closeDbgEng();
 		}
 
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)
