@@ -1362,7 +1362,6 @@ namespace D3dDdi
 				continue;
 			}
 
-			D3DDDIFORMAT format = D3DDDIFMT_X8R8G8B8;
 			COLORREF colorKey = 0;
 			BYTE alpha = 0;
 			DWORD flags = 0;
@@ -1378,11 +1377,6 @@ namespace D3dDdi
 				{
 					flags |= ULW_ALPHA;
 				}
-
-				if (layeredWindow.alphaFormat & AC_SRC_ALPHA)
-				{
-					format = D3DDDIFMT_A8R8G8B8;
-				}
 			}
 			else
 			{
@@ -1391,7 +1385,7 @@ namespace D3dDdi
 
 			RECT srcRect = { 0, 0, visibleRect.right - visibleRect.left + 1, visibleRect.bottom - visibleRect.top + 1 };
 			auto& windowSurface = repo.getTempSysMemSurface(srcRect.right, srcRect.bottom);
-			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, format);
+			auto& texture = repo.getTempTexture(srcRect.right, srcRect.bottom, D3DDDIFMT_A8R8G8B8);
 			if (!windowSurface.resource || !texture.resource)
 			{
 				continue;
