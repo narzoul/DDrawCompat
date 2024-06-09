@@ -92,6 +92,51 @@ namespace
 		return LOG_RESULT(CALL_ORIG_FUNC(AnimateWindow)(hWnd, dwTime, dwFlags));
 	}
 
+	void clipMouseCoords(MSG& msg)
+	{
+		Gdi::Cursor::clip(msg.pt);
+
+		bool isClient = false;
+		if (msg.message >= WM_MOUSEFIRST && msg.message <= WM_MOUSELAST)
+		{
+			isClient = WM_MOUSEWHEEL != msg.message && WM_MOUSEHWHEEL != msg.message;
+		}
+		else if (msg.message >= WM_NCMOUSEMOVE && msg.message <= WM_NCMBUTTONDBLCLK ||
+			msg.message >= WM_NCXBUTTONDOWN && msg.message <= WM_NCXBUTTONDBLCLK ||
+			WM_NCHITTEST == msg.message)
+		{
+			isClient = false;
+		}
+		else if (WM_MOUSEHOVER == msg.message ||
+			WM_NCMOUSEHOVER == msg.message)
+		{
+			isClient = true;
+		}
+		else
+		{
+			return;
+		}
+
+		POINT pt = {};
+		pt.x = GET_X_LPARAM(msg.lParam);
+		pt.y = GET_Y_LPARAM(msg.lParam);
+
+		if (isClient)
+		{
+			ClientToScreen(msg.hwnd, &pt);
+		}
+
+		Gdi::Cursor::clip(pt);
+
+		if (isClient)
+		{
+			ScreenToClient(msg.hwnd, &pt);
+		}
+
+		reinterpret_cast<POINTS*>(&msg.lParam)->x = static_cast<SHORT>(pt.x);
+		reinterpret_cast<POINTS*>(&msg.lParam)->y = static_cast<SHORT>(pt.y);
+	}
+
 	template <auto func, typename Result, typename... Params>
 	Result WINAPI createDialog(Params... params)
 	{
@@ -351,8 +396,12 @@ namespace
 		decltype(&GetMessageA) origGetMessage)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
-		Gdi::Cursor::clip();
-		return origGetMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+		BOOL result = origGetMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax);
+		if (-1 != result)
+		{
+			clipMouseCoords(*lpMsg);
+		}
+		return result;
 	}
 
 	BOOL WINAPI getMessageA(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax)
@@ -572,8 +621,12 @@ namespace
 		decltype(&PeekMessageA) origPeekMessage)
 	{
 		DDraw::RealPrimarySurface::setUpdateReady();
-		Gdi::Cursor::clip();
 		BOOL result = origPeekMessage(lpMsg, hWnd, wMsgFilterMin, wMsgFilterMax, wRemoveMsg);
+		if (result)
+		{
+			clipMouseCoords(*lpMsg);
+		}
+
 		if (!g_isFrameStarted || Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get())
 		{
 			return result;

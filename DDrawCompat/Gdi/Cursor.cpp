@@ -37,16 +37,21 @@ namespace
 		return LOG_RESULT(TRUE);
 	}
 
-	BOOL WINAPI getClipCursor(LPRECT lpRect)
+	BOOL WINAPI getClipCursorInternal(LPRECT lpRect)
 	{
-		LOG_FUNC("GetClipCursor", lpRect);
 		Compat::ScopedCriticalSection lock(g_cs);
 		BOOL result = CALL_ORIG_FUNC(GetClipCursor)(lpRect);
 		if (result && !IsRectEmpty(&g_monitorClipRect))
 		{
 			*lpRect = g_clipRect;
 		}
-		return LOG_RESULT(result);
+		return result;
+	}
+
+	BOOL WINAPI getClipCursor(LPRECT lpRect)
+	{
+		LOG_FUNC("GetClipCursor", lpRect);
+		return LOG_RESULT(getClipCursorInternal(lpRect));
 	}
 
 	HCURSOR WINAPI getCursor()
@@ -125,31 +130,18 @@ namespace Gdi
 {
 	namespace Cursor
 	{
-		void clip()
-		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			if (!IsRectEmpty(&g_monitorClipRect))
-			{
-				POINT cp = {};
-				CALL_ORIG_FUNC(GetCursorPos)(&cp);
-				if (!PtInRect(&g_monitorClipRect, cp))
-				{
-					clip(cp);
-					CALL_ORIG_FUNC(SetCursorPos)(cp.x, cp.y);
-				}
-			}
-		}
-
 		void clip(POINT& pt)
 		{
-			Compat::ScopedCriticalSection lock(g_cs);
-			if (!IsRectEmpty(&g_monitorClipRect))
+			RECT r = {};
+			if (!getClipCursorInternal(&r))
 			{
-				pt.x = std::max(pt.x, g_monitorClipRect.left);
-				pt.x = std::min(pt.x, g_monitorClipRect.right);
-				pt.y = std::max(pt.y, g_monitorClipRect.top);
-				pt.y = std::min(pt.y, g_monitorClipRect.bottom);
+				return;
 			}
+
+			pt.x = std::max(pt.x, r.left);
+			pt.x = std::min(pt.x, r.right);
+			pt.y = std::max(pt.y, r.top);
+			pt.y = std::min(pt.y, r.bottom);
 		}
 
 		CURSORINFO getEmulatedCursorInfo()
