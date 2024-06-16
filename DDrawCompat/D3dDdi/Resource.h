@@ -53,7 +53,9 @@ namespace D3dDdi
 		void prepareForCpuRead(UINT subResourceIndex);
 		void prepareForCpuWrite(UINT subResourceIndex);
 		Resource& prepareForGpuRead(UINT subResourceIndex);
+		void prepareForGpuReadAll();
 		Resource& prepareForGpuWrite(UINT subResourceIndex);
+		void prepareForGpuWriteAll();
 		Resource& prepareForTextureRead(UINT stage);
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void scaleRect(RECT& rect);

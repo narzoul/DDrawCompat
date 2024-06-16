@@ -486,6 +486,18 @@ namespace D3dDdi
 		return S_OK;
 	}
 
+	HRESULT Device::pfnTexBlt(const D3DDDIARG_TEXBLT* data)
+	{
+		prepareForTextureBlt(data->hDstResource, data->hSrcResource);
+		return m_origVtable.pfnTexBlt(m_device, data);
+	}
+
+	HRESULT Device::pfnTexBlt1(const D3DDDIARG_TEXBLT1* data)
+	{
+		prepareForTextureBlt(data->hDstResource, data->hSrcResource);
+		return m_origVtable.pfnTexBlt1(m_device, data);
+	}
+
 	HRESULT Device::pfnUnlock(const D3DDDIARG_UNLOCK* data)
 	{
 		flushPrimitives();
@@ -530,6 +542,22 @@ namespace D3dDdi
 	{
 		m_state.flush();
 		return m_origVtable.pfnValidateDevice(m_device, data);
+	}
+
+	void Device::prepareForTextureBlt(HANDLE dstResource, HANDLE srcResource)
+	{
+		flushPrimitives();
+		auto it = m_resources.find(dstResource);
+		if (it != m_resources.end())
+		{
+			it->second->prepareForGpuWriteAll();
+		}
+
+		it = m_resources.find(srcResource);
+		if (it != m_resources.end())
+		{
+			it->second->prepareForGpuReadAll();
+		}
 	}
 
 	void Device::updateAllConfig()

@@ -33,6 +33,7 @@ namespace DDraw
 			CompatRef<TDirectDraw> dd, TSurfaceDesc desc, TSurface*& surface, std::unique_ptr<Surface> privateData);
 
 		static void enumSurfaces(const std::function<void(Surface&)>& callback);
+		static DDSCAPS2 getCurrentSurfaceCaps();
 
 		template <typename TSurface>
 		static Surface* getSurface(TSurface& dds);

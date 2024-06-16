@@ -601,7 +601,7 @@ namespace D3dDdi
 			m_isSurfaceRepoResource ||
 			0 == m_formatInfo.bytesPerPixel ||
 			0 != (m_fixedData.Flags.Value & flags.Value) ||
-			m_fixedData.Flags.Texture && !m_origData.Flags.RenderTarget && !m_origData.Flags.ZBuffer)
+			m_fixedData.Flags.Texture && (DDraw::Surface::getCurrentSurfaceCaps().dwCaps2 & 0x100000))   // managed texture
 		{
 			return;
 		}
@@ -1190,6 +1190,17 @@ namespace D3dDdi
 		return *this;
 	}
 
+	void Resource::prepareForGpuReadAll()
+	{
+		if (m_lockResource)
+		{
+			for (UINT i = 0; i < m_lockData.size(); ++i)
+			{
+				prepareForGpuRead(i);
+			}
+		}
+	}
+
 	Resource& Resource::prepareForGpuWrite(UINT subResourceIndex)
 	{
 		m_isColorKeyedSurfaceUpToDate = false;
@@ -1217,6 +1228,17 @@ namespace D3dDdi
 			}
 		}
 		return *this;
+	}
+
+	void Resource::prepareForGpuWriteAll()
+	{
+		if (m_lockResource)
+		{
+			for (UINT i = 0; i < m_lockData.size(); ++i)
+			{
+				prepareForGpuWrite(i);
+			}
+		}
 	}
 
 	Resource& Resource::prepareForTextureRead(UINT stage)
@@ -1817,6 +1839,7 @@ namespace D3dDdi
 		}
 
 		auto rect = getRect(0);
+		m_palettizedTexture->prepareForGpuReadAll();
 		m_device.getShaderBlitter().palettizedBlt(*this, 0, rect, *m_palettizedTexture, 0, rect, palettePtr);
 
 		m_palettizedTexture->m_isPalettizedTextureUpToDate = true;

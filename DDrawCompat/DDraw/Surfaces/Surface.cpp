@@ -16,6 +16,7 @@ DEFINE_GUID(IID_CompatSurfacePrivateData,
 
 namespace
 {
+	DDSCAPS2 g_currentSurfaceCaps = {};
 	std::set<DDraw::Surface*> g_surfaces;
 
 	void heapFree(void* p)
@@ -105,7 +106,9 @@ namespace DDraw
 			desc.ddsCaps.dwCaps &= ~(DDSCAPS_COMPLEX | DDSCAPS_MIPMAP);
 		}
 
+		memcpy(&g_currentSurfaceCaps, &desc.ddsCaps, sizeof(desc.ddsCaps));
 		HRESULT result = dd->CreateSurface(&dd, &desc, &surface, nullptr);
+		g_currentSurfaceCaps = {};
 		if (FAILED(result))
 		{
 			return result;
@@ -187,6 +190,11 @@ namespace DDraw
 		{
 			m_sysMemBuffer.reset();
 		}
+	}
+
+	DDSCAPS2 Surface::getCurrentSurfaceCaps()
+	{
+		return g_currentSurfaceCaps;
 	}
 
 	template <>

@@ -50,6 +50,8 @@ namespace D3dDdi
 		HRESULT pfnPresent(const D3DDDIARG_PRESENT* data);
 		HRESULT pfnPresent1(D3DDDIARG_PRESENT1* data);
 		HRESULT pfnSetPalette(const D3DDDIARG_SETPALETTE* data);
+		HRESULT pfnTexBlt(const D3DDDIARG_TEXBLT* data);
+		HRESULT pfnTexBlt1(const D3DDDIARG_TEXBLT1* data);
 		HRESULT pfnUnlock(const D3DDDIARG_UNLOCK* data);
 		HRESULT pfnUpdatePalette(const D3DDDIARG_UPDATEPALETTE* data, const PALETTEENTRY* paletteData);
 		HRESULT pfnValidateDevice(D3DDDIARG_VALIDATETEXTURESTAGESTATE* data);
@@ -85,6 +87,7 @@ namespace D3dDdi
 	private:
 		HRESULT clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags);
 		UINT detectColorKeyMethod();
+		void prepareForTextureBlt(HANDLE dstResource, HANDLE srcResource);
 		static void updateAllConfigNow();
 
 		D3DDDI_DEVICEFUNCS m_origVtable;
