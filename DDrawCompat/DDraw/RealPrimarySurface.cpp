@@ -45,8 +45,6 @@
 
 namespace
 {
-	const unsigned DELAYED_FLIP_MODE_TIMEOUT_MS = 200;
-
 	void onRelease();
 	void updatePresentationParams();
 
@@ -62,15 +60,11 @@ namespace
 	DDraw::TagSurface* g_tagSurface = nullptr;
 
 	Compat::CriticalSection g_presentCs;
-	bool g_isDelayedFlipPending = false;
 	bool g_isOverlayUpdatePending = false;
 	bool g_isUpdatePending = false;
 	bool g_isUpdateReady = false;
-	DWORD g_lastUpdateThreadId = 0;
-	long long g_qpcLastUpdate = 0;
 	long long g_qpcUpdateStart = 0;
 
-	long long g_qpcDelayedFlipEnd = 0;
 	UINT g_flipEndVsyncCount = 0;
 	UINT g_presentEndVsyncCount = 0;
 
@@ -179,8 +173,7 @@ namespace
 		g_isOverlayUpdatePending = false;
 		g_isUpdatePending = false;
 		g_isUpdateReady = false;
-		g_qpcLastUpdate = Time::queryPerformanceCounter() - Time::msToQpc(DELAYED_FLIP_MODE_TIMEOUT_MS);
-		g_qpcUpdateStart = g_qpcLastUpdate;
+		g_qpcUpdateStart = Time::queryPerformanceCounter();
 		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
 		g_flipEndVsyncCount = g_presentEndVsyncCount;
 	}
@@ -519,23 +512,10 @@ namespace DDraw
 	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
 		const DWORD flipInterval = getFlipInterval(flags);
-		if (0 == flipInterval ||
-			Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcLastUpdate) < DELAYED_FLIP_MODE_TIMEOUT_MS)
-		{
-			PrimarySurface::waitForIdle();
-			Compat::ScopedCriticalSection lock(g_presentCs);
-			g_isDelayedFlipPending = true;
-			g_isOverlayUpdatePending = false;
-			g_isUpdatePending = false;
-			g_isUpdateReady = false;
-			g_lastUpdateThreadId = GetCurrentThreadId();
-		}
-		else
-		{
-			D3dDdi::KernelModeThunks::waitForVsyncCounter(g_presentEndVsyncCount);
-			g_isUpdateReady = true;
-			flush();
-		}
+		PrimarySurface::waitForIdle();
+
+		Compat::ScopedCriticalSection lock(g_presentCs);
+		scheduleUpdate();
 		g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + flipInterval;
 
 		if (0 != flipInterval)
@@ -548,7 +528,6 @@ namespace DDraw
 			g_lastFlipSurface = nullptr;
 		}
 
-		g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
 		return DD_OK;
 	}
 
@@ -570,7 +549,6 @@ namespace DDraw
 			if (statsWindow && statsWindow->isVisible())
 			{
 				statsWindow->updateStats();
-				g_qpcLastUpdate = Time::queryPerformanceCounter();
 			}
 			Overlay::Steam::flush();
 			lastOverlayCheckVsyncCount = vsyncCount;
@@ -591,19 +569,8 @@ namespace DDraw
 					}
 					g_isUpdateReady = true;
 				}
-				else if (g_isDelayedFlipPending)
-				{
-					auto msSinceDelayedFlipEnd = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcDelayedFlipEnd);
-					if (msSinceDelayedFlipEnd < 3)
-					{
-						return 3 - static_cast<int>(msSinceDelayedFlipEnd);
-					}
-					g_isDelayedFlipPending = false;
-					g_isUpdateReady = true;
-				}
 				else if (g_isOverlayUpdatePending)
 				{
-					g_qpcLastUpdate = Time::queryPerformanceCounter();
 					g_isUpdateReady = true;
 					isOverlayOnly = true;
 				}
@@ -620,7 +587,7 @@ namespace DDraw
 		if (primary && SUCCEEDED(primary->IsLost(primary)) &&
 			g_frontBuffer && SUCCEEDED(g_frontBuffer->IsLost(g_frontBuffer)))
 		{
-			src = g_isDelayedFlipPending ? g_lastFlipSurface->getDDS() : primary;
+			src = primary;
 		}
 
 		updateNow(src, isOverlayOnly);
@@ -719,13 +686,10 @@ namespace DDraw
 	void RealPrimarySurface::scheduleUpdate()
 	{
 		Compat::ScopedCriticalSection lock(g_presentCs);
-		g_qpcLastUpdate = Time::queryPerformanceCounter();
 		if (!g_isUpdatePending)
 		{
-			g_qpcUpdateStart = g_qpcLastUpdate;
+			g_qpcUpdateStart = Time::queryPerformanceCounter();
 			g_isUpdatePending = true;
-			g_isDelayedFlipPending = false;
-			g_lastUpdateThreadId = GetCurrentThreadId();
 		}
 		g_isUpdateReady = false;
 	}
@@ -758,10 +722,9 @@ namespace DDraw
 	void RealPrimarySurface::setUpdateReady()
 	{
 		Compat::ScopedCriticalSection lock(g_presentCs);
-		if ((g_isUpdatePending || g_isDelayedFlipPending) && GetCurrentThreadId() == g_lastUpdateThreadId)
+		if (g_isUpdatePending)
 		{
 			g_isUpdateReady = true;
-			g_isDelayedFlipPending = false;
 		}
 	}
 
@@ -774,13 +737,19 @@ namespace DDraw
 			return true;
 		}
 
+		auto qpcStart = Time::queryPerformanceCounter();
 		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
 		while (static_cast<int>(vsyncCount - g_flipEndVsyncCount) < 0)
 		{
-			flush();
 			++vsyncCount;
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
-			g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
+		}
+
+		Compat::ScopedCriticalSection lock(g_presentCs);
+		auto qpcEnd = Time::queryPerformanceCounter();
+		if (g_isUpdatePending)
+		{
+			g_qpcUpdateStart += qpcEnd - qpcStart;
 		}
 		return true;
 	}
@@ -793,17 +762,15 @@ namespace DDraw
 		if (qpcNow - qpcWaitEnd >= 0)
 		{
 			g_qpcPrevWaitEnd = qpcNow;
-			g_qpcDelayedFlipEnd = qpcNow;
 			return;
 		}
 		g_qpcPrevWaitEnd = qpcWaitEnd;
-		g_qpcDelayedFlipEnd = qpcWaitEnd;
 
 		Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
+		auto qpcStart = Time::queryPerformanceCounter();
 		while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
 		{
 			Time::waitForNextTick();
-			flush();
 			qpcNow = Time::queryPerformanceCounter();
 		}
 
@@ -811,6 +778,12 @@ namespace DDraw
 		{
 			qpcNow = Time::queryPerformanceCounter();
 		}
-		g_qpcDelayedFlipEnd = Time::queryPerformanceCounter();
+
+		Compat::ScopedCriticalSection lock(g_presentCs);
+		auto qpcEnd = Time::queryPerformanceCounter();
+		if (g_isUpdatePending)
+		{
+			g_qpcUpdateStart += qpcEnd - qpcStart;
+		}
 	}
 }
