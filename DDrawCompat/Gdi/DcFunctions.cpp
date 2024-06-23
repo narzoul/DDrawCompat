@@ -1,5 +1,6 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Config/Settings/GdiStretchBltMode.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
 #include <Gdi/DcFunctions.h>
@@ -342,6 +343,24 @@ namespace
 		Compat::hookFunction<origFunc>(moduleName, funcName, &compatGdiTextDcFunc<origFunc>);
 	}
 
+	int WINAPI setStretchBltMode(HDC hdc, int mode)
+	{
+		LOG_FUNC("SetStretchBltMode", hdc, mode);
+		if (COLORONCOLOR == mode && HALFTONE == Config::gdiStretchBltMode.get())
+		{
+			POINT org = {};
+			GetBrushOrgEx(hdc, &org);
+			auto result = CALL_ORIG_FUNC(SetStretchBltMode)(hdc, HALFTONE);
+			SetBrushOrgEx(hdc, org.x, org.y, nullptr);
+			return LOG_RESULT(result);
+		}
+		if (HALFTONE == mode && COLORONCOLOR == Config::gdiStretchBltMode.get())
+		{
+			mode = COLORONCOLOR;
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(SetStretchBltMode)(hdc, mode));
+	}
+
 	HWND WINAPI windowFromDc(HDC dc)
 	{
 		return CALL_ORIG_FUNC(WindowFromDC)(Gdi::Dc::getOrigDc(dc));
@@ -394,6 +413,7 @@ namespace Gdi
 
 			// Device context functions
 			HOOK_GDI_DC_FUNCTION(gdi32, DrawEscape);
+			HOOK_FUNCTION(gdi32, SetStretchBltMode, setStretchBltMode);
 			HOOK_FUNCTION(user32, WindowFromDC, windowFromDc);
 
 			// Filled shape functions

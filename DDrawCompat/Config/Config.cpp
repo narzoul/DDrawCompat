@@ -22,6 +22,7 @@
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/GdiStretchBltMode.h>
 #include <Config/Settings/LogLevel.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/RemoveBorders.h>
@@ -78,6 +79,7 @@ namespace Config
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;
+	Settings::GdiStretchBltMode gdiStretchBltMode;
 	Settings::LogLevel logLevel;
 	Settings::PalettizedTextures palettizedTextures;
 	Settings::RemoveBorders removeBorders;

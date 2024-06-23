@@ -188,6 +188,7 @@
     <ClInclude Include="Config\Settings\ForceD3D9On12.h" />
     <ClInclude Include="Config\Settings\FpsLimiter.h" />
     <ClInclude Include="Config\Settings\FullscreenMode.h" />
+    <ClInclude Include="Config\Settings\GdiStretchBltMode.h" />
     <ClInclude Include="Config\Settings\LogLevel.h" />
     <ClInclude Include="Config\Settings\PalettizedTextures.h" />
     <ClInclude Include="Config\Settings\RemoveBorders.h" />

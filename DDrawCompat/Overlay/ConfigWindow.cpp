@@ -15,6 +15,7 @@
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/GdiStretchBltMode.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -28,6 +29,7 @@
 #include <Config/Settings/VertexFixup.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
+#include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
@@ -57,6 +59,7 @@ namespace
 		{ &Config::displayFilter },
 		{ &Config::fontAntialiasing },
 		{ &Config::fpsLimiter },
+		{ &Config::gdiStretchBltMode, []() { Gdi::redraw(nullptr); } },
 		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScaleFilter },
