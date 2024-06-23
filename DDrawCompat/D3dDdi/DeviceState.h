@@ -109,6 +109,13 @@ namespace D3dDdi
 			bool isTransformed;
 		};
 
+		struct VertexFixupData
+		{
+			ShaderConstF texCoordAdj;
+			ShaderConstF offset;
+			ShaderConstF multiplier;
+		};
+
 		DeviceState(Device& device);
 		
 		HRESULT pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code);
@@ -153,9 +160,11 @@ namespace D3dDdi
 		void flush();
 		const State& getAppState() const { return m_app; }
 		const State& getCurrentState() const { return m_current; }
+		bool getSpriteMode() const { return m_spriteMode; }
 		Resource* getTextureResource(UINT stage);
 		UINT getTextureStageCount() const;
 		const VertexDecl& getVertexDecl() const;
+		const VertexFixupData& getVertexFixupData() const { return m_vertexFixupData; }
 		bool isLocked() const { return m_isLocked; }
 		void onDestroyResource(Resource* resource, HANDLE resourceHandle);
 		void updateConfig();
@@ -168,7 +177,8 @@ namespace D3dDdi
 			CS_RENDER_TARGET = 1 << 1,
 			CS_SHADER        = 1 << 2,
 			CS_STREAM_SOURCE = 1 << 3,
-			CS_TEXTURE_STAGE = 1 << 4
+			CS_TEXTURE_STAGE = 1 << 4,
+			CS_VERTEX_FIXUP  = 1 << 5
 		};
 
 		struct PixelShader
@@ -230,7 +240,8 @@ namespace D3dDdi
 		void updateShaders();
 		void updateTextureColorKey(UINT stage);
 		void updateTextureStages();
-		void updateVertexFixupConstants(UINT width, UINT height, float sx, float sy);
+		void updateVertexFixupData(UINT width, UINT height, float sx, float sy);
+		void updateVertexFixupShaderConst();
 
 		Device& m_device;
 		State m_app;
@@ -243,6 +254,8 @@ namespace D3dDdi
 		std::array<ShaderConstI, 16> m_vertexShaderConstI;
 		std::map<HANDLE, VertexDecl> m_vertexShaderDecls;
 		VertexDecl* m_vertexDecl;
+		UINT m_vertexFixupConfig;
+		VertexFixupData m_vertexFixupData;
 		UINT m_changedStates;
 		UINT m_maxChangedTextureStage;
 		UINT m_texCoordIndexes;

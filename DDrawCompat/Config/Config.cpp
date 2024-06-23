@@ -48,6 +48,7 @@
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/ThreadPriorityBoost.h>
 #include <Config/Settings/VertexBufferMemoryType.h>
+#include <Config/Settings/VertexFixup.h>
 #include <Config/Settings/VSync.h>
 #include <Config/Settings/WinVersionLie.h>
 
@@ -103,6 +104,7 @@ namespace Config
 	Settings::TextureFilter textureFilter;
 	Settings::ThreadPriorityBoost threadPriorityBoost;
 	Settings::VertexBufferMemoryType vertexBufferMemoryType;
+	Settings::VertexFixup vertexFixup;
 	Settings::VSync vSync;
 	Settings::WinVersionLie winVersionLie;
 }

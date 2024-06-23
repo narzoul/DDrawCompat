@@ -71,6 +71,7 @@ namespace D3dDdi
 		HRESULT flush(const UINT* flagBuffer);
 		HRESULT flushIndexed(const UINT* flagBuffer);
 		bool isSprite(INT baseVertexIndex, UINT16 index0, UINT16 index1, UINT16 index2);
+		void setVertexFixupFlags(INT baseVertexIndex, UINT16 index);
 		INT loadIndices(const void* indices, UINT count);
 		INT loadVertices(UINT count);
 		UINT getBatchedVertexCount() const;
@@ -87,5 +88,6 @@ namespace D3dDdi
 		StreamSource m_streamSource;
 		std::map<HANDLE, BYTE*> m_sysMemVertexBuffers;
 		BatchedPrimitives m_batched;
+		UINT m_vertexFixupFlags;
 	};
 }

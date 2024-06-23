@@ -12,6 +12,14 @@ namespace
 	const UINT INDEX_BUFFER_SIZE = D3DMAXNUMPRIMITIVES * 3 * sizeof(UINT16);
 	const UINT VERTEX_BUFFER_SIZE = 1024 * 1024;
 
+	enum VertexFixupFlags
+	{
+		VF_XY       = 1 << 0,
+		VF_Z        = 1 << 1,
+		VF_RHW      = 1 << 2,
+		VF_TEXCOORD = 1 << 3
+	};
+
 	UINT getVertexCount(D3DPRIMITIVETYPE primitiveType, UINT primitiveCount)
 	{
 		switch (primitiveType)
@@ -57,6 +65,7 @@ namespace D3dDdi
 		, m_indexBuffer(device, m_vertexBuffer ? INDEX_BUFFER_SIZE : 0)
 		, m_streamSource{}
 		, m_batched{}
+		, m_vertexFixupFlags(0)
 	{
 		LOG_ONCE("Dynamic vertex buffers are " << (m_vertexBuffer ? "" : "not ") << "available");
 		LOG_ONCE("Dynamic index buffers are " << (m_indexBuffer ? "" : "not ") << "available");
@@ -325,6 +334,74 @@ namespace D3dDdi
 	{
 		auto vertices = m_streamSource.vertices + base * m_streamSource.stride;
 		m_batched.vertices.insert(m_batched.vertices.end(), vertices, vertices + count * m_streamSource.stride);
+
+		if (0 == m_vertexFixupFlags)
+		{
+			return;
+		}
+
+		auto& vertexFixupData = m_device.getState().getVertexFixupData();
+		auto firstVertex = &m_batched.vertices[m_batched.vertices.size() - count * m_streamSource.stride];
+
+		if (m_vertexFixupFlags & VF_XY)
+		{
+			auto vPos = firstVertex;
+			for (unsigned i = 0; i < count; ++i)
+			{
+				auto v = reinterpret_cast<D3DTLVERTEX*>(vPos);
+				v->sx += vertexFixupData.offset[0];
+				v->sy += vertexFixupData.offset[1];
+				v->sx *= vertexFixupData.multiplier[0];
+				v->sy *= vertexFixupData.multiplier[1];
+				vPos += m_streamSource.stride;
+			}
+		}
+
+		if (m_vertexFixupFlags & VF_Z)
+		{
+			auto zPos = reinterpret_cast<BYTE*>(&reinterpret_cast<D3DTLVERTEX*>(firstVertex)->sz);
+			for (unsigned i = 0; i < count; ++i)
+			{
+				auto& z = *reinterpret_cast<float*>(zPos);
+				if (z > 1)
+				{
+					z = 1;
+				}
+				zPos += m_streamSource.stride;
+			}
+		}
+
+		if (m_vertexFixupFlags & VF_RHW)
+		{
+			auto rhwPos = reinterpret_cast<BYTE*>(&reinterpret_cast<D3DTLVERTEX*>(firstVertex)->rhw);
+			for (unsigned i = 0; i < count; ++i)
+			{
+				auto& rhw = *reinterpret_cast<float*>(rhwPos);
+				if (0 == rhw || INFINITY == rhw)
+				{
+					rhw = 1;
+				}
+				rhwPos += m_streamSource.stride;
+			}
+		}
+
+		if (m_vertexFixupFlags & VF_TEXCOORD)
+		{
+			auto tcPos = firstVertex + m_device.getState().getVertexDecl().texCoordOffset[0];
+			for (unsigned i = 0; i < count; ++i)
+			{
+				float* tc = reinterpret_cast<float*>(tcPos);
+				tc[0] *= vertexFixupData.texCoordAdj[0];
+				tc[1] *= vertexFixupData.texCoordAdj[1];
+				tc[0] += vertexFixupData.texCoordAdj[2];
+				tc[1] += vertexFixupData.texCoordAdj[3];
+				tc[0] = roundf(tc[0]);
+				tc[1] = roundf(tc[1]);
+				tc[0] /= vertexFixupData.texCoordAdj[0];
+				tc[1] /= vertexFixupData.texCoordAdj[1];
+				tcPos += m_streamSource.stride;
+			}
+		}
 	}
 
 	void DrawPrimitive::clearBatchedPrimitives()
@@ -456,6 +533,7 @@ namespace D3dDdi
 	{
 		auto& state = m_device.getState();
 		auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
+		m_vertexFixupFlags = 0;
 		if (!state.isLocked())
 		{
 			if (0 == m_batched.primitiveCount)
@@ -477,6 +555,7 @@ namespace D3dDdi
 				state.setSpriteMode(false);
 			}
 			state.flush();
+			setVertexFixupFlags(data.VStart, 0);
 		}
 
 		if (0 == m_batched.primitiveCount || flagBuffer ||
@@ -521,6 +600,7 @@ namespace D3dDdi
 
 		auto indexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		auto vStart = data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride);
+		m_vertexFixupFlags = 0;
 		if (!state.isLocked())
 		{
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
@@ -537,6 +617,7 @@ namespace D3dDdi
 				state.setSpriteMode(false);
 			}
 			state.flush();
+			setVertexFixupFlags(vStart, indices[0]);
 		}
 
 		auto [min, max] = std::minmax_element(indices, indices + indexCount);
@@ -868,6 +949,46 @@ namespace D3dDdi
 					break;
 				}
 			}
+		}
+	}
+
+	void DrawPrimitive::setVertexFixupFlags(INT baseVertexIndex, UINT16 index)
+	{
+		auto& state = m_device.getState();
+		if (!state.getVertexDecl().isTransformed ||
+			state.getCurrentState().vertexShaderFunc != state.getAppState().vertexShaderFunc)
+		{
+			return;
+		}
+
+		auto& vertexFixupData = state.getVertexFixupData();
+		if (0 != vertexFixupData.offset[0] ||
+			0 != vertexFixupData.offset[1] ||
+			1 != vertexFixupData.multiplier[0] ||
+			1 != vertexFixupData.multiplier[1])
+		{
+			m_vertexFixupFlags |= VF_XY;
+		}
+
+		auto vertex = reinterpret_cast<const D3DTLVERTEX*>(
+			m_streamSource.vertices + (baseVertexIndex + index) * m_streamSource.stride);
+		if (vertex->sz > 0)
+		{
+			m_vertexFixupFlags |= VF_Z;
+		}
+
+		if (0 == vertex->rhw || INFINITY == vertex->rhw)
+		{
+			m_vertexFixupFlags |= VF_RHW;
+		}
+
+		const UINT D3DDECLTYPE_FLOAT2 = 1;
+		if (state.getSpriteMode() &&
+			Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get() &&
+			0 != Config::spriteTexCoord.getParam() &&
+			D3DDECLTYPE_FLOAT2 == state.getVertexDecl().texCoordType[0])
+		{
+			m_vertexFixupFlags |= VF_TEXCOORD;
 		}
 	}
 }

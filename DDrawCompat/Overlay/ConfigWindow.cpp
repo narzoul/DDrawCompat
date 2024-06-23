@@ -25,6 +25,7 @@
 #include <Config/Settings/StatsPosY.h>
 #include <Config/Settings/StatsTransparency.h>
 #include <Config/Settings/TextureFilter.h>
+#include <Config/Settings/VertexFixup.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
 #include <Gdi/GuiThread.h>
@@ -66,6 +67,7 @@ namespace
 		{ &Config::statsPosY, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
 		{ &Config::statsTransparency, [&]() { Gdi::GuiThread::getStatsWindow()->setAlpha(Config::statsTransparency.get()); }},
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
+		{ &Config::vertexFixup, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vSync }
 	};
 }

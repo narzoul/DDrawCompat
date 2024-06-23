@@ -5,6 +5,7 @@
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
+#include <Config/Settings/VertexFixup.h>
 #include <Common/Comparison.h>
 #include <Common/Log.h>
 #include <D3dDdi/Device.h>
@@ -88,6 +89,8 @@ namespace D3dDdi
 		, m_vertexShaderConstB{}
 		, m_vertexShaderConstI{}
 		, m_vertexDecl(nullptr)
+		, m_vertexFixupConfig(Config::vertexFixup.get())
+		, m_vertexFixupData{}
 		, m_changedStates(0)
 		, m_maxChangedTextureStage(0)
 		, m_texCoordIndexes(0)
@@ -99,6 +102,8 @@ namespace D3dDdi
 	{
 		const UINT D3DBLENDOP_ADD = 1;
 		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
+
+		m_vertexFixupData.multiplier[3] = 1.0f;
 
 		m_device.getOrigVtable().pfnSetDepthStencil(m_device, &m_current.depthStencil);
 		m_device.getOrigVtable().pfnSetRenderTarget(m_device, &m_current.renderTarget);
@@ -297,6 +302,10 @@ namespace D3dDdi
 		if (m_changedStates & CS_TEXTURE_STAGE)
 		{
 			updateTextureStages();
+		}
+		if (m_changedStates & CS_VERTEX_FIXUP)
+		{
+			updateVertexFixupShaderConst();
 		}
 
 		m_changedStates = 0;
@@ -1012,18 +1021,10 @@ namespace D3dDdi
 			auto resource = (texture == m_app.textures[stage]) ? getTextureResource(stage) : m_device.getResource(texture);
 			if (resource)
 			{
-				D3DDDIARG_SETVERTEXSHADERCONST data = {};
-				data.Register = 253;
-				data.Count = 1;
-
 				auto& si = resource->getFixedDesc().pSurfList[0];
-				ShaderConstF reg = { static_cast<float>(si.Width), static_cast<float>(si.Height),
-					m_vertexShaderConst[253][2], m_vertexShaderConst[253][3] };
-
-				if (0 != memcmp(&reg, &m_vertexShaderConst[data.Register], sizeof(reg)))
-				{
-					pfnSetVertexShaderConst(&data, &reg);
-				}
+				m_vertexFixupData.texCoordAdj[0] = static_cast<float>(si.Width);
+				m_vertexFixupData.texCoordAdj[1] = static_cast<float>(si.Height);
+				m_changedStates |= CS_VERTEX_FIXUP;
 			}
 		}
 
@@ -1107,6 +1108,7 @@ namespace D3dDdi
 		m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_SHADER | CS_TEXTURE_STAGE;
 		m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 		m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
+		m_vertexFixupConfig = Config::vertexFixup.get();
 
 		for (auto& ps : m_pixelShaders)
 		{
@@ -1211,7 +1213,7 @@ namespace D3dDdi
 		{
 			const float sx = static_cast<float>(scaledVp.Width) / vp.Width;
 			const float sy = static_cast<float>(scaledVp.Height) / vp.Height;
-			updateVertexFixupConstants(vp.Width, vp.Height, sx, sy);
+			updateVertexFixupData(vp.Width, vp.Height, sx, sy);
 		}
 
 		const bool isScissorRectNeeded = isTransformed && 0 != memcmp(&vp, &m_app.viewport, sizeof(vp));
@@ -1230,7 +1232,16 @@ namespace D3dDdi
 	{
 		setPixelShader(mapPixelShader(m_app.pixelShader));
 		setVertexShaderDecl(m_app.vertexShaderDecl);
-		setVertexShaderFunc(getVertexDecl().isTransformed ? getVsVertexFixup() : m_app.vertexShaderFunc);
+
+		if (Config::Settings::VertexFixup::GPU == m_vertexFixupConfig &&
+			getVertexDecl().isTransformed)
+		{
+			setVertexShaderFunc(getVsVertexFixup());
+		}
+		else
+		{
+			setVertexShaderFunc(m_app.vertexShaderFunc);
+		}
 	}
 
 	void DeviceState::updateStreamSource()
@@ -1321,25 +1332,51 @@ namespace D3dDdi
 		}
 	}
 
-	void DeviceState::updateVertexFixupConstants(UINT width, UINT height, float sx, float sy)
+	void DeviceState::updateVertexFixupData(UINT width, UINT height, float sx, float sy)
 	{
-		D3DDDIARG_SETVERTEXSHADERCONST data = {};
-		data.Register = 253;
-		data.Count = 3;
-
 		const float stc = static_cast<float>(Config::spriteTexCoord.getParam()) / 100;
 		const float apc = Config::alternatePixelCenter.get();
 		const auto& zr = m_current.zRange;
 
-		ShaderConstF registers[3] = {
-			{ m_vertexShaderConst[253][0], m_vertexShaderConst[253][1], stc, stc },
-			{ 0.5f + apc - 0.5f / sx - width / 2, 0.5f + apc - 0.5f / sy - height / 2, -zr.MinZ, 0.0f },
-			{ 2.0f / width, -2.0f / height, 1.0f / (zr.MaxZ - zr.MinZ), 1.0f }
-		};
+		m_vertexFixupData.texCoordAdj[2] = stc;
+		m_vertexFixupData.texCoordAdj[3] = stc;
 
-		if (0 != memcmp(registers, &m_vertexShaderConst[data.Register], sizeof(registers)))
+		if (Config::Settings::VertexFixup::GPU == m_vertexFixupConfig)
 		{
-			pfnSetVertexShaderConst(&data, registers);
+			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx - width / 2;
+			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy - height / 2;
+			m_vertexFixupData.offset[2] = -zr.MinZ;
+
+			m_vertexFixupData.multiplier[0] = 2.0f / width;
+			m_vertexFixupData.multiplier[1] = -2.0f / height;
+			m_vertexFixupData.multiplier[2] = 1.0f / (zr.MaxZ - zr.MinZ);
+		}
+		else
+		{
+			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx;
+			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy;
+
+			m_vertexFixupData.multiplier[0] = sx;
+			m_vertexFixupData.multiplier[1] = sy;
+		}
+
+		m_changedStates |= CS_VERTEX_FIXUP;
+	}
+
+	void DeviceState::updateVertexFixupShaderConst()
+	{
+		if (m_current.vertexShaderFunc == m_app.vertexShaderFunc)
+		{
+			return;
+		}
+
+		D3DDDIARG_SETVERTEXSHADERCONST data = {};
+		data.Register = 253;
+		data.Count = 3;
+
+		if (0 != memcmp(&m_vertexFixupData, &m_vertexShaderConst[data.Register], sizeof(m_vertexFixupData)))
+		{
+			pfnSetVertexShaderConst(&data, &m_vertexFixupData.texCoordAdj);
 		}
 	}
 }

@@ -214,6 +214,7 @@
     <ClInclude Include="Config\Settings\TextureFilter.h" />
     <ClInclude Include="Config\Settings\ThreadPriorityBoost.h" />
     <ClInclude Include="Config\Settings\VertexBufferMemoryType.h" />
+    <ClInclude Include="Config\Settings\VertexFixup.h" />
     <ClInclude Include="Config\Settings\VSync.h" />
     <ClInclude Include="Config\Settings\WinVersionLie.h" />
     <ClInclude Include="D3dDdi\Adapter.h" />
