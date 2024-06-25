@@ -7,14 +7,15 @@
 #include <Common/CompatPtr.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
-#include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
+#include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
 #include <Direct3d/Direct3d.h>
 #include <Dll/Dll.h>
+#include <Gdi/Region.h>
 #include <Gdi/WinProc.h>
 
 namespace
@@ -22,6 +23,87 @@ namespace
 	HANDLE g_bltSrcResource = nullptr;
 	UINT g_bltSrcSubResourceIndex = 0;
 	RECT g_bltSrcRect = {};
+
+	IDirectDrawClipper* createClipper()
+	{
+		IDirectDrawClipper* clipper = nullptr;
+		CALL_ORIG_PROC(DirectDrawCreateClipper)(0, &clipper, nullptr);
+		return clipper;
+	}
+
+	IDirectDrawClipper* getFixedClipper(CompatWeakPtr<IDirectDrawClipper> clipper)
+	{
+		HWND hwnd = nullptr;
+		clipper->GetHWnd(clipper, &hwnd);
+		if (!hwnd)
+		{
+			return nullptr;
+		}
+
+		static CompatWeakPtr<IDirectDrawClipper> fixedClipper(createClipper());
+		if (!fixedClipper)
+		{
+			return nullptr;
+		}
+
+		HDC dc = GetDCEx(hwnd, nullptr, DCX_CACHE | DCX_USESTYLE);
+		Gdi::Region rgn;
+		GetRandomRgn(dc, rgn, SYSRGN);
+		CALL_ORIG_FUNC(ReleaseDC)(hwnd, dc);
+
+		auto& mi = DDraw::PrimarySurface::getMonitorInfo();
+		if (0 != mi.rcEmulated.left || 0 != mi.rcEmulated.top)
+		{
+			rgn.offset(-mi.rcEmulated.left, -mi.rcEmulated.top);
+		}
+
+		DWORD rgnSize = GetRegionData(rgn, 0, nullptr);
+		std::vector<unsigned char> rgnDataBuf(std::max<DWORD>(rgnSize, sizeof(RGNDATA) + sizeof(RECT)));
+		RGNDATA* rgnData = reinterpret_cast<RGNDATA*>(rgnDataBuf.data());
+		GetRegionData(rgn, rgnSize, rgnData);
+		if (0 == rgnData->rdh.nCount)
+		{
+			rgnData->rdh.nCount = 1;
+		}
+
+		fixedClipper->SetClipList(fixedClipper, rgnData, 0);
+		return fixedClipper;
+	}
+
+	template <typename TSurface>
+	class ClipperFix
+	{
+	public:
+		ClipperFix(TSurface* surface) : m_surface(surface)
+		{
+			HRESULT result = getOrigVtable(surface).GetClipper(surface, &m_clipper.getRef());
+			if (FAILED(result))
+			{
+				return;
+			}
+
+			auto fixedClipper = getFixedClipper(m_clipper);
+			if (!fixedClipper)
+			{
+				m_clipper.release();
+				return;
+			}
+
+			getOrigVtable(surface).SetClipper(surface, fixedClipper);
+		}
+
+		~ClipperFix()
+		{
+			if (m_clipper)
+			{
+				getOrigVtable(m_surface).SetClipper(m_surface, m_clipper);
+			}
+		}
+
+	private:
+		TSurface* m_surface;
+		CompatPtr<IDirectDrawClipper> m_clipper;
+	};
 
 	template <typename TSurface>
 	typename DDraw::Types<TSurface>::TDdsCaps getCaps(TSurface* This)
@@ -133,7 +215,7 @@ namespace DDraw
 	{
 		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
-		DirectDrawClipper::update();
+		ClipperFix fix(This);
 		return blt(This, lpDDSrcSurface, lpSrcRect, [=](TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
 			{ return getOrigVtable(This).Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx); });
 	}
@@ -283,17 +365,6 @@ namespace DDraw
 		if (SUCCEEDED(result))
 		{
 			m_data->restore();
-		}
-		return result;
-	}
-
-	template <typename TSurface>
-	HRESULT SurfaceImpl<TSurface>::SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper)
-	{
-		HRESULT result = getOrigVtable(This).SetClipper(This, lpDDClipper);
-		if (SUCCEEDED(result))
-		{
-			DDraw::DirectDrawClipper::setClipper(*m_data, lpDDClipper);
 		}
 		return result;
 	}

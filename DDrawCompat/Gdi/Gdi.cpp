@@ -119,9 +119,4 @@ namespace Gdi
 		SetClassLongPtr(hwnd, GCLP_WNDPROC, reinterpret_cast<LONG>(oldWndProc));
 		DestroyWindow(hwnd);
 	}
-
-	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
-	{
-		WinProc::watchWindowPosChanges(notifyFunc);
-	}
 }

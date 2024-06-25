@@ -12,6 +12,5 @@ namespace Gdi
 		void onCreateWindow(HWND hwnd);
 		void startFrame();
 		void updatePresentationWindowText(HWND owner);
-		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 	}
 }

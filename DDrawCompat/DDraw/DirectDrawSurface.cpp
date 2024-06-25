@@ -73,7 +73,6 @@ namespace
 		SET_COMPAT_METHOD(QueryInterface);
 		SET_COMPAT_METHOD(ReleaseDC);
 		SET_COMPAT_METHOD(Restore);
-		SET_COMPAT_METHOD(SetClipper);
 		SET_COMPAT_METHOD(SetPalette);
 		SET_COMPAT_METHOD(Unlock);
 

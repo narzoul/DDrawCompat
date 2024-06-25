@@ -4,7 +4,6 @@
 
 #include <Common/CompatPtr.h>
 #include <Config/Settings/AlignSysMemSurfaces.h>
-#include <DDraw/DirectDrawClipper.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
@@ -60,7 +59,6 @@ namespace DDraw
 
 	Surface::~Surface()
 	{
-		DirectDrawClipper::setClipper(*this, nullptr);
 		g_surfaces.erase(this);
 	}
 

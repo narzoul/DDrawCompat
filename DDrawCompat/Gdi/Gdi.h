@@ -8,8 +8,6 @@ namespace Gdi
 {
 	const ATOM MENU_ATOM = 0x8000;
 
-	typedef void(*WindowPosChangeNotifyFunc)();
-
 	void checkDesktopComposition();
 	void dllThreadDetach();
 	void installHooks();
@@ -17,5 +15,4 @@ namespace Gdi
 	void redraw(HRGN rgn);
 	void redrawWindow(HWND hwnd, HRGN rgn);
 	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc);
-	void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc);
 };

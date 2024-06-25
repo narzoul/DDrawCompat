@@ -41,7 +41,6 @@ namespace DDraw
 		virtual HRESULT QueryInterface(TSurface* This, REFIID riid, LPVOID* obp);
 		virtual HRESULT ReleaseDC(TSurface* This, HDC hDC);
 		virtual HRESULT Restore(TSurface* This);
-		virtual HRESULT SetClipper(TSurface* This, LPDIRECTDRAWCLIPPER lpDDClipper);
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette);
 		virtual HRESULT SetSurfaceDesc(TSurface* This, TSurfaceDesc* lpddsd, DWORD dwFlags);
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);

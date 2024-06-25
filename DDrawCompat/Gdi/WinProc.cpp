@@ -55,7 +55,6 @@ namespace
 	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
 
 	std::map<HMENU, UINT> g_menuMaxHeight;
-	std::set<Gdi::WindowPosChangeNotifyFunc> g_windowPosChangeNotifyFuncs;
 
 	Compat::SrwLock g_windowProcSrwLock;
 	std::map<HWND, WindowProc> g_windowProc;
@@ -580,11 +579,6 @@ namespace
 
 	void onWindowPosChanged(HWND hwnd, const WINDOWPOS& wp)
 	{
-		for (auto notifyFunc : g_windowPosChangeNotifyFuncs)
-		{
-			notifyFunc();
-		}
-
 		if (Gdi::Window::isTopLevelWindow(hwnd))
 		{
 			DDraw::RealPrimarySurface::setPresentationWindowTopmost();
@@ -1068,11 +1062,6 @@ namespace Gdi
 			{
 				qpcNow = Time::queryPerformanceCounter();
 			}
-		}
-
-		void watchWindowPosChanges(WindowPosChangeNotifyFunc notifyFunc)
-		{
-			g_windowPosChangeNotifyFuncs.insert(notifyFunc);
 		}
 	}
 }
