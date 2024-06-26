@@ -598,7 +598,7 @@ namespace D3dDdi
 			flags.ZBuffer = 0;
 		}
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
-			m_isSurfaceRepoResource ||
+			m_isSurfaceRepoResource && !SurfaceRepository::isLockResourceEnabled() ||
 			0 == m_formatInfo.bytesPerPixel ||
 			0 != (m_fixedData.Flags.Value & flags.Value) ||
 			m_fixedData.Flags.Texture && (DDraw::Surface::getCurrentSurfaceCaps().dwCaps2 & 0x100000))   // managed texture
@@ -1304,6 +1304,7 @@ namespace D3dDdi
 
 			srcResource = &srcResource->prepareForGpuRead(data.SrcSubResourceIndex);
 		}
+		prepareForGpuWrite(data.DstSubResourceIndex);
 
 		LONG srcWidth = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Width;
 		LONG srcHeight = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Height;

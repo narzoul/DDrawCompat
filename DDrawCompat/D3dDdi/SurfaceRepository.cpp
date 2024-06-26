@@ -354,8 +354,11 @@ namespace D3dDdi
 
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedBackBuffer(DWORD width, DWORD height)
 	{
-		return getSurface(m_windowedBackBuffer, width, height, D3DDDIFMT_X8R8G8B8,
+		s_isLockResourceEnabled = true;
+		auto surface = getSurface(m_windowedBackBuffer, width, height, D3DDDIFMT_X8R8G8B8,
 			DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY).surface;
+		s_isLockResourceEnabled = false;
+		return surface;
 	}
 
 	CompatWeakPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedPrimary()
@@ -441,4 +444,5 @@ namespace D3dDdi
 	}
 
 	bool SurfaceRepository::s_inCreateSurface = false;
+	bool SurfaceRepository::s_isLockResourceEnabled = false;
 }

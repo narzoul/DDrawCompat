@@ -62,6 +62,7 @@ namespace D3dDdi
 		static SurfaceRepository& get(const Adapter& adapter);
 		static SurfaceRepository& getPrimaryRepo();
 		static bool inCreateSurface() { return s_inCreateSurface; }
+		static bool isLockResourceEnabled() { return s_isLockResourceEnabled; }
 		static void enableSurfaceCheck(bool enable);
 
 	private:
@@ -93,5 +94,6 @@ namespace D3dDdi
 		CompatPtr<IDirectDrawSurface7> m_windowedPrimary;
 		
 		static bool s_inCreateSurface;
+		static bool s_isLockResourceEnabled;
 	};
 }
