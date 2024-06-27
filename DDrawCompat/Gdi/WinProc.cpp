@@ -53,6 +53,7 @@ namespace
 	};
 
 	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
+	decltype(&GetDpiForSystem) g_getDpiForSystem = nullptr;
 
 	std::map<HMENU, UINT> g_menuMaxHeight;
 
@@ -389,6 +390,16 @@ namespace
 			Gdi::Cursor::clip(*lpPoint);
 		}
 		return result;
+	}
+
+	UINT WINAPI getDpiForSystem()
+	{
+		LOG_FUNC("GetDpiForSystem");
+		if (0 != g_inCreateDialog || 0 != g_inMessageBox)
+		{
+			return LOG_RESULT(96);
+		}
+		return LOG_RESULT(g_getDpiForSystem());
 	}
 
 	BOOL WINAPI getMessage(LPMSG lpMsg, HWND hWnd, UINT wMsgFilterMin, UINT wMsgFilterMax,
@@ -953,6 +964,13 @@ namespace Gdi
 
 			g_dwmSetIconicThumbnail = reinterpret_cast<decltype(&DwmSetIconicThumbnail)>(
 				GetProcAddress(GetModuleHandle("dwmapi"), "DwmSetIconicThumbnail"));
+
+			g_getDpiForSystem = reinterpret_cast<decltype(&GetDpiForSystem)>(
+				GetProcAddress(GetModuleHandle("user32"), "GetDpiForSystem"));
+			if (g_getDpiForSystem)
+			{
+				Compat::hookFunction(reinterpret_cast<void*&>(g_getDpiForSystem), getDpiForSystem, "GetDpiForSystem");
+			}
 
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "SetWindowLongA", ddrawSetWindowLongA);
 
