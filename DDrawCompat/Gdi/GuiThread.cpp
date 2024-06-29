@@ -20,6 +20,7 @@
 namespace
 {
 	const UINT WM_USER_EXECUTE = WM_USER;
+	const UINT WM_USER_EXECUTE_ASYNC = WM_USER + 1;
 
 	struct EnumWindowsArgs
 	{
@@ -185,6 +186,12 @@ namespace
 			func();
 			return 0;
 		}
+		if (WM_USER_EXECUTE_ASYNC == uMsg)
+		{
+			auto func = reinterpret_cast<void(*)()>(lParam);
+			func();
+			return 0;
+		}
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
@@ -275,6 +282,11 @@ namespace Gdi
 		{
 			Overlay::Steam::onDestroyWindow(hwnd);
 			PostMessage(hwnd, WM_CLOSE, 0, 0);
+		}
+
+		void executeAsyncFunc(void(*func)())
+		{
+			PostMessage(g_messageWindow, WM_USER_EXECUTE_ASYNC, 0, reinterpret_cast<LPARAM>(func));
 		}
 
 		void executeFunc(const std::function<void()>& func)

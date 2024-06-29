@@ -268,33 +268,35 @@ namespace
 			});
 	}
 
+	void resetMouseHookFunc()
+	{
+		if (g_mouseHook)
+		{
+			UnhookWindowsHookEx(g_mouseHook);
+		}
+
+		g_origCursorPos = { MAXLONG, MAXLONG };
+		g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+			WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
+
+		if (g_mouseHook)
+		{
+			INPUT inputs[2] = {};
+			inputs[0].mi.dy = 1;
+			inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
+			inputs[1].mi.dx = 1;
+			inputs[1].mi.dwFlags = MOUSEEVENTF_MOVE;
+			SendInput(2, inputs, sizeof(INPUT));
+		}
+		else
+		{
+			LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
+		}
+	}
+
 	void resetMouseHook()
 	{
-		Gdi::GuiThread::execute([]()
-			{
-				if (g_mouseHook)
-				{
-					UnhookWindowsHookEx(g_mouseHook);
-				}
-
-				g_origCursorPos = { MAXLONG, MAXLONG };
-				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
-
-				if (g_mouseHook)
-				{
-					INPUT inputs[2] = {};
-					inputs[0].mi.dy = 1;
-					inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
-					inputs[1].mi.dx = 1;
-					inputs[1].mi.dwFlags = MOUSEEVENTF_MOVE;
-					SendInput(2, inputs, sizeof(INPUT));
-				}
-				else
-				{
-					LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
-				}
-			});
+		Gdi::GuiThread::executeAsyncFunc(resetMouseHookFunc);
 	}
 
 	BOOL WINAPI setCursorPos(int X, int Y)

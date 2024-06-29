@@ -27,6 +27,7 @@ namespace Gdi
 
 		template <typename Func>
 		void execute(const Func& func) { executeFunc(std::cref(func)); }
+		void executeAsyncFunc(void(*func)());
 		void executeFunc(const std::function<void()>& func);
 
 		bool isGuiThreadWindow(HWND hwnd);
