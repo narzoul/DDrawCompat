@@ -149,6 +149,10 @@ namespace
 				if (wasFullscreen != isFullscreen)
 				{
 					tagSurface->setFullscreenWindow(isFullscreen ? hWnd : nullptr);
+					if (!isFullscreen)
+					{
+						DDraw::PrimarySurface::setWindowedCooperativeLevel();
+					}
 				}
 			}
 		}

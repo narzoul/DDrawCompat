@@ -29,6 +29,7 @@ namespace DDraw
 		static DWORD getOrigCaps();
 		static void onLost();
 		static void setAsRenderTarget();
+		static void setWindowedCooperativeLevel();
 		static void updatePalette();
 
 		template <typename TSurface>

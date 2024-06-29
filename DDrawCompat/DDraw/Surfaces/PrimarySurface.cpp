@@ -299,6 +299,29 @@ namespace DDraw
 		}
 	}
 
+	void PrimarySurface::setWindowedCooperativeLevel()
+	{
+		LOG_FUNC("PrimarySurface::setWindowedCooperativeLevel");
+		if (!g_primarySurface)
+		{
+			return;
+		}
+
+		RealPrimarySurface::restore();
+
+		if (FAILED(g_primarySurface->IsLost(g_primarySurface)))
+		{
+			return;
+		}
+
+		auto surface = Surface::getSurface(*g_primarySurface);
+		if (surface)
+		{
+			onLost();
+			surface->restore();
+		}
+	}
+
 	void PrimarySurface::updateFrontResource()
 	{
 		g_frontResource = DirectDrawSurface::getDriverResourceHandle(*g_primarySurface);

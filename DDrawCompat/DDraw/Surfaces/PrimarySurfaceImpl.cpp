@@ -153,6 +153,11 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags)
 	{
+		if (!RealPrimarySurface::isFullscreen())
+		{
+			return DDERR_NOEXCLUSIVEMODE;
+		}
+
 		RealPrimarySurface::setUpdateReady();
 		RealPrimarySurface::flush();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
