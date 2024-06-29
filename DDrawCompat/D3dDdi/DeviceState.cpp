@@ -778,7 +778,11 @@ namespace D3dDdi
 			if (resource)
 			{
 				resource->updatePalettizedTexture(stage);
-				resource->prepareForTextureRead(stage);
+				if (resource->prepareForTextureRead(stage) != m_current.textures[stage])
+				{
+					m_changedStates |= CS_TEXTURE_STAGE;
+					m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
+				}
 			}
 		}
 	}

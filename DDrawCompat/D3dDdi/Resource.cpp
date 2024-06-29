@@ -1272,7 +1272,6 @@ namespace D3dDdi
 			{
 				return defaultResource;
 			}
-			m_colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] + 1;
 		}
 
 		if (!m_isColorKeyedSurfaceUpToDate ||
