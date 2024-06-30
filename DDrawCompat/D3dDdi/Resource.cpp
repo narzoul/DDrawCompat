@@ -733,6 +733,11 @@ namespace D3dDdi
 		{
 			m_fixedData.Format = g_formatOverride;
 		}
+		else if (D3DDDIFMT_L8 == m_fixedData.Format && !m_fixedData.Flags.Texture)
+		{
+			m_fixedData.Flags.Texture = 1;
+			m_fixedData.MipLevels = 1;
+		}
 		else if (m_fixedData.Flags.RenderTarget && m_device.getAdapter().isEmulatedRenderTargetFormat(m_fixedData.Format))
 		{
 			m_fixedData.Flags.RenderTarget = 0;
@@ -1326,7 +1331,8 @@ namespace D3dDdi
 			copySubResourceRegion(*srcResource, 0, data.SrcRect, data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
 		}
 
-		if (D3DDDIFMT_P8 == srcResource->m_origData.Format)
+		if (D3DDDIFMT_P8 == srcResource->m_origData.Format ||
+			D3DDDIFMT_L8 == srcResource->m_origData.Format)
 		{
 			auto entries(Gdi::Palette::getHardwarePalette());
 			RGBQUAD pal[256] = {};
