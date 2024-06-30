@@ -184,9 +184,15 @@ namespace
 			if (std::string(className) == "CompatWindowDesktopReplacement")
 			{
 				// Disable VirtualizeDesktopPainting shim
-				return 0;
+				return FALSE;
 			}
-			return origDefWindowProc(hwnd, msg, wParam, lParam);
+
+			LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+			if (result)
+			{
+				Gdi::WinProc::onCreateWindow(hwnd);
+			}
+			return result;
 		}
 
 		case WM_NCLBUTTONDOWN:
@@ -559,7 +565,8 @@ namespace
 	{
 		LOG_FUNC(procName.c_str(), Compat::WindowMessageStruct(hwnd, uMsg, wParam, lParam));
 		LRESULT result = wndProcHook(hwnd, uMsg, wParam, lParam, oldWndProcTrampoline);
-		if (WM_CREATE == uMsg && -1 != result)
+		if (WM_CREATE == uMsg && -1 != result ||
+			WM_NCCREATE == uMsg && result)
 		{
 			Gdi::WinProc::onCreateWindow(hwnd);
 		}

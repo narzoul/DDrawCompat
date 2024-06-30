@@ -404,6 +404,7 @@ namespace Gdi
 
 		std::vector<LayeredWindow> getVisibleLayeredWindows()
 		{
+			D3dDdi::ScopedCriticalSection lock;
 			std::vector<LayeredWindow> layeredWindows;
 			for (auto it = g_windowZOrder.rbegin(); it != g_windowZOrder.rend(); ++it)
 			{
@@ -425,6 +426,7 @@ namespace Gdi
 
 		std::vector<LayeredWindow> getVisibleOverlayWindows()
 		{
+			D3dDdi::ScopedCriticalSection lock;
 			std::vector<LayeredWindow> layeredWindows;
 			RECT wr = {};
 			auto statsWindow = GuiThread::getStatsWindow();
