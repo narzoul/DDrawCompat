@@ -42,6 +42,7 @@ std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXA& vi);
 std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXW& vi);
 std::ostream& operator<<(std::ostream& os, const POINT& p);
 std::ostream& operator<<(std::ostream& os, const POINTS& p);
+std::ostream& operator<<(std::ostream& os, const RAWINPUTDEVICE& input);
 std::ostream& operator<<(std::ostream& os, const RECT& rect);
 std::ostream& operator<<(std::ostream& os, const SIZE& size);
 std::ostream& operator<<(std::ostream& os, const STYLESTRUCT& ss);

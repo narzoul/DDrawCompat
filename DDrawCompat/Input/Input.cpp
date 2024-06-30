@@ -3,6 +3,7 @@
 #include <tuple>
 
 #include <Windows.h>
+#include <hidusage.h>
 #include <winternl.h>
 
 #include <Common/BitSet.h>
@@ -249,6 +250,24 @@ namespace
 		return { MulDiv(pt.x, 100, dpiScale), MulDiv(pt.y, 100, dpiScale) };
 	}
 
+	BOOL WINAPI registerRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize)
+	{
+		LOG_FUNC("RegisterRawInputDevices", Compat::array(pRawInputDevices, uiNumDevices), uiNumDevices, cbSize);
+		if (1 == uiNumDevices &&
+			HID_USAGE_PAGE_GENERIC == pRawInputDevices->usUsagePage &&
+			HID_USAGE_GENERIC_KEYBOARD == pRawInputDevices->usUsage &&
+			pRawInputDevices->hwndTarget)
+		{
+			char className[32] = {};
+			GetClassNameA(pRawInputDevices->hwndTarget, className, sizeof(className));
+			if (0 == strcmp(className, "DIEmWin"))
+			{
+				return LOG_RESULT(FALSE);
+			}
+		}
+		return LOG_RESULT(CALL_ORIG_FUNC(RegisterRawInputDevices)(pRawInputDevices, uiNumDevices, cbSize));
+	}
+
 	void resetKeyboardHook()
 	{
 		Gdi::GuiThread::execute([]()
@@ -421,6 +440,7 @@ namespace Input
 		g_physicalToLogicalPointForPerMonitorDPI = reinterpret_cast<decltype(&PhysicalToLogicalPointForPerMonitorDPI)>(
 			GetProcAddress(GetModuleHandle("user32"), "PhysicalToLogicalPointForPerMonitorDPI"));
 
+		HOOK_FUNCTION(user32, RegisterRawInputDevices, registerRawInputDevices);
 		HOOK_FUNCTION(user32, SetCursorPos, setCursorPos);
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);

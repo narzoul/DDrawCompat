@@ -462,6 +462,15 @@ std::ostream& operator<<(std::ostream& os, const POINTS& p)
 		<< p.y;
 }
 
+std::ostream& operator<<(std::ostream& os, const RAWINPUTDEVICE& input)
+{
+	return Compat::LogStruct(os)
+		<< Compat::hex(input.usUsagePage)
+		<< Compat::hex(input.usUsage)
+		<< Compat::hex(input.dwFlags)
+		<< input.hwndTarget;
+}
+
 std::ostream& operator<<(std::ostream& os, const RECT& rect)
 {
 	return Compat::LogStruct(os)

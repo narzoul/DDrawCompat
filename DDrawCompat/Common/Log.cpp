@@ -10,8 +10,7 @@ namespace
 {
 	Compat::CriticalSection g_logCs;
 	std::ofstream g_logFile;
-	static std::ostringstream g_initialLogStream;
-
+	std::ostringstream g_initialLogStream;
 }
 
 namespace Compat
