@@ -161,7 +161,7 @@ namespace
 		{
 			return -1;
 		}
-		return data.ScanLine;
+		return data.InVerticalBlank ? 0 : data.ScanLine;
 	}
 
 	void getVidPnSource(D3DKMT_HANDLE& adapter, UINT& vidPnSourceId)
