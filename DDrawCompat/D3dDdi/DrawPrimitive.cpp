@@ -213,7 +213,7 @@ namespace D3dDdi
 	bool DrawPrimitive::appendPrimitives(D3DPRIMITIVETYPE primitiveType, INT baseVertexIndex, UINT primitiveCount,
 		const UINT16* indices, UINT minIndex, UINT maxIndex)
 	{
-		if (m_batched.primitiveCount + primitiveCount > D3DMAXNUMPRIMITIVES)
+		if ((m_batched.primitiveCount + primitiveCount) * 3 > D3DMAXNUMVERTICES)
 		{
 			return false;
 		}
