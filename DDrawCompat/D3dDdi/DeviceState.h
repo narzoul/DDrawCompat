@@ -103,6 +103,7 @@ namespace D3dDdi
 
 		struct VertexDecl
 		{
+			std::unique_ptr<void, ResourceDeleter> untransformedDecl;
 			std::vector<D3DDDIVERTEXELEMENT> elements;
 			std::array<UINT, 8> texCoordOffset;
 			std::array<UINT, 8> texCoordType;

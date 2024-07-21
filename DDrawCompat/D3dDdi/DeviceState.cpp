@@ -549,10 +549,18 @@ namespace D3dDdi
 			}
 		}
 
-		HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, ve.data());
+		HRESULT result = m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, data, vertexElements);
 		if (SUCCEEDED(result))
 		{
-			m_vertexShaderDecls[data->ShaderHandle] = decl;
+			if (decl.isTransformed)
+			{
+				D3DDDIARG_CREATEVERTEXSHADERDECL d = *data;
+				d.ShaderHandle = nullptr;
+				m_device.getOrigVtable().pfnCreateVertexShaderDecl(m_device, &d, ve.data());
+				decl.untransformedDecl = std::unique_ptr<void, ResourceDeleter>(
+					d.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderDecl));
+			}
+			m_vertexShaderDecls.emplace(data->ShaderHandle, std::move(decl));
 		}
 		return result;
 	}
@@ -1236,15 +1244,17 @@ namespace D3dDdi
 	void DeviceState::updateShaders()
 	{
 		setPixelShader(mapPixelShader(m_app.pixelShader));
-		setVertexShaderDecl(m_app.vertexShaderDecl);
 
+		auto& vertexDecl = getVertexDecl();
 		if (Config::Settings::VertexFixup::GPU == m_vertexFixupConfig &&
-			getVertexDecl().isTransformed)
+			vertexDecl.isTransformed)
 		{
+			setVertexShaderDecl(vertexDecl.untransformedDecl.get());
 			setVertexShaderFunc(getVsVertexFixup());
 		}
 		else
 		{
+			setVertexShaderDecl(m_app.vertexShaderDecl);
 			setVertexShaderFunc(m_app.vertexShaderFunc);
 		}
 	}
