@@ -23,6 +23,8 @@ namespace
 		case SPI_SETFONTSMOOTHING:
 			g_isFontSmoothingEnabled = 0 != uiParam;
 			return TRUE;
+		case SPI_SETSHOWIMEUI:
+			return TRUE;
 		}
 		return LOG_RESULT(origSystemParametersInfo(uiAction, uiParam, pvParam, fWinIni));
 	}
