@@ -210,7 +210,7 @@ namespace
 			switch (pData->Type)
 			{
 			case KMTQAITYPE_UMDRIVERNAME:
-				if (Config::forceD3D9On12.get() &&
+				if (Config::Settings::ForceD3D9On12::ON == Config::forceD3D9On12.get() &&
 					KMTUMDVERSION_DX9 == static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData)->Version)
 				{
 					return STATUS_INVALID_PARAMETER;
@@ -237,7 +237,7 @@ namespace
 			}
 			}
 		}
-		else if (!Config::forceD3D9On12.get() &&
+		else if (Config::Settings::ForceD3D9On12::FORCEOFF == Config::forceD3D9On12.get() &&
 			KMTQAITYPE_UMDRIVERNAME == pData->Type &&
 			KMTUMDVERSION_DX9 == static_cast<D3DKMT_UMDFILENAMEINFO*>(pData->pPrivateDriverData)->Version)
 		{

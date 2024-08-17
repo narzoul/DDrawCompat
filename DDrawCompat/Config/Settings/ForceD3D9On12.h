@@ -1,16 +1,18 @@
 #pragma once
 
-#include <Config/BoolSetting.h>
+#include <Config/EnumSetting.h>
 
 namespace Config
 {
 	namespace Settings
 	{
-		class ForceD3D9On12 : public BoolSetting
+		class ForceD3D9On12 : public EnumSetting
 		{
 		public:
+			enum Values { FORCEOFF, OFF, ON };
+
 			ForceD3D9On12()
-				: BoolSetting("ForceD3D9On12", "off")
+				: EnumSetting("ForceD3D9On12", "off", { "forceoff", "off", "on" })
 			{
 			}
 		};
