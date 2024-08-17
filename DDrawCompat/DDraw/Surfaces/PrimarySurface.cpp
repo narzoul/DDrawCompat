@@ -3,6 +3,7 @@
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Resource.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
@@ -17,10 +18,10 @@
 namespace
 {
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
-	D3dDdi::Device* g_device = nullptr;
 	HANDLE g_gdiDriverResource = nullptr;
 	HANDLE g_gdiRuntimeResource = nullptr;
-	HANDLE g_frontResource = nullptr;
+	D3dDdi::Resource* g_frontResource = nullptr;
+	UINT g_frontResourceIndex = 0;
 	DWORD g_origCaps = 0;
 	HWND g_deviceWindow = nullptr;
 	HPALETTE g_palette = nullptr;
@@ -34,10 +35,10 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::~PrimarySurface");
 
-		g_device = nullptr;
 		g_gdiRuntimeResource = nullptr;
 		g_gdiDriverResource = nullptr;
 		g_frontResource = nullptr;
+		g_frontResourceIndex = 0;
 		g_primarySurface = nullptr;
 		g_origCaps = 0;
 		g_deviceWindow = nullptr;
@@ -111,7 +112,6 @@ namespace DDraw
 			ResizePalette(g_palette, 256);
 		}
 
-		g_device = D3dDdi::Device::findDeviceByResource(DirectDrawSurface::getDriverResourceHandle(*surface));
 		data->restore();
 		D3dDdi::Device::updateAllConfig();
 		return LOG_RESULT(DD_OK);
@@ -215,7 +215,7 @@ namespace DDraw
 
 	HANDLE PrimarySurface::getFrontResource()
 	{
-		return g_frontResource;
+		return *g_frontResource;
 	}
 
 	HANDLE PrimarySurface::getGdiResource()
@@ -260,7 +260,7 @@ namespace DDraw
 		g_gdiRuntimeResource = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
 
 		updateFrontResource();
-		g_gdiDriverResource = g_frontResource;
+		g_gdiDriverResource = *g_frontResource;
 		D3dDdi::Device::setGdiResourceHandle(g_gdiDriverResource);
 
 		DDSCAPS2 caps = {};
@@ -324,7 +324,8 @@ namespace DDraw
 
 	void PrimarySurface::updateFrontResource()
 	{
-		g_frontResource = DirectDrawSurface::getDriverResourceHandle(*g_primarySurface);
+		g_frontResource = D3dDdi::Device::findResource(DirectDrawSurface::getDriverResourceHandle(*g_primarySurface));
+		g_frontResourceIndex = DirectDrawSurface::getSubResourceIndex(*g_primarySurface);
 	}
 
 	void PrimarySurface::updatePalette()
@@ -360,10 +361,8 @@ namespace DDraw
 
 	void PrimarySurface::waitForIdle()
 	{
-		if (g_device)
-		{
-			g_device->waitForIdle();
-		}
+		D3dDdi::ScopedCriticalSection lock;
+		g_frontResource->waitForIdle(g_frontResourceIndex);
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;

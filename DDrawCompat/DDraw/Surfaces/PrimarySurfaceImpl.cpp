@@ -198,13 +198,14 @@ namespace DDraw
 		}
 
 		PrimarySurface::updateFrontResource();
-		result = RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
-		if (SUCCEEDED(result) && Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
+		RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
+		PrimarySurface::waitForIdle();
+		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
 		{
 			DDraw::RealPrimarySurface::waitForFlip(m_data->getDDS());
 			RealPrimarySurface::waitForFlipFpsLimit();
 		}
-		return result;
+		return DD_OK;
 	}
 
 	template <typename TSurface>

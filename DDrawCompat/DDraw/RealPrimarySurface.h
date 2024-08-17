@@ -13,7 +13,7 @@ namespace DDraw
 	{
 	public:
 		static HRESULT create(CompatRef<IDirectDraw> dd);
-		static HRESULT flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
+		static void flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static int flush();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static HWND getPresentationWindow();

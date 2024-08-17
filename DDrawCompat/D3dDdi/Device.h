@@ -72,7 +72,6 @@ namespace D3dDdi
 		void setDepthStencil(HANDLE resource);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
-		void waitForIdle();
 
 		static void add(Adapter& adapter, HANDLE device);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }

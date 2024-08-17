@@ -509,10 +509,9 @@ namespace DDraw
 		return DD_OK;
 	}
 
-	HRESULT RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
+	void RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
 		const DWORD flipInterval = getFlipInterval(flags);
-		PrimarySurface::waitForIdle();
 
 		Compat::ScopedCriticalSection lock(g_presentCs);
 		scheduleUpdate();
@@ -527,8 +526,6 @@ namespace DDraw
 		{
 			g_lastFlipSurface = nullptr;
 		}
-
-		return DD_OK;
 	}
 
 	int RealPrimarySurface::flush()

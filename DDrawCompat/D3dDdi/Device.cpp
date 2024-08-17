@@ -586,33 +586,6 @@ namespace D3dDdi
 		m_state.updateConfig();
 	}
 
-	void Device::waitForIdle()
-	{
-		D3dDdi::ScopedCriticalSection lock;
-		flushPrimitives();
-		D3DDDIARG_ISSUEQUERY issueQuery = {};
-		issueQuery.hQuery = m_eventQuery;
-		issueQuery.Flags.End = 1;
-		m_origVtable.pfnIssueQuery(m_device, &issueQuery);
-
-		if (m_origVtable.pfnFlush1)
-		{
-			m_origVtable.pfnFlush1(m_device, 0);
-		}
-		else
-		{
-			m_origVtable.pfnFlush(m_device);
-		}
-
-		BOOL result = FALSE;
-		D3DDDIARG_GETQUERYDATA getQueryData = {};
-		getQueryData.hQuery = m_eventQuery;
-		getQueryData.pData = &result;
-		while (S_FALSE == m_origVtable.pfnGetQueryData(m_device, &getQueryData))
-		{
-		}
-	}
-
 	std::map<HANDLE, Device> Device::s_devices;
 	bool Device::s_isFlushEnabled = true;
 }

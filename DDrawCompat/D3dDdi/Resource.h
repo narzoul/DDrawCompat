@@ -66,6 +66,7 @@ namespace D3dDdi
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
 		void updatePalettizedTexture(UINT stage);
+		void waitForIdle(UINT subResourceIndex);
 
 		static void enableConfig(bool enable);
 		static void setFormatOverride(D3DDDIFORMAT format);

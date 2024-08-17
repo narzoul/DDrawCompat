@@ -1851,4 +1851,46 @@ namespace D3dDdi
 		m_palettizedTexture->m_isPalettizedTextureUpToDate = true;
 		m_paletteColorKeyIndex = paletteColorKeyIndex;
 	}
+
+	void Resource::waitForIdle(UINT subResourceIndex)
+	{
+		m_device.flushPrimitives();
+		Resource* srcResource = this;
+		RECT rect = { 0, 0, 1, 1 };
+
+		if (m_lockResource)
+		{
+			if (m_lockData[subResourceIndex].isMsaaUpToDate ||
+				m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
+			{
+				if (!m_lockData[subResourceIndex].isMsaaResolvedUpToDate)
+				{
+					copySubResourceRegion(*m_msaaResolvedSurface.resource, subResourceIndex, rect,
+						*m_msaaSurface.resource, subResourceIndex, rect);
+				}
+				srcResource = m_msaaResolvedSurface.resource;
+			}
+			else if (!m_lockData[subResourceIndex].isVidMemUpToDate)
+			{
+				return;
+			}
+		}
+
+		auto& syncSurface = m_device.getRepo().getSyncSurface(srcResource->m_fixedData.Format);
+		if (!syncSurface.resource)
+		{
+			return;
+		}
+
+		copySubResourceRegion(*syncSurface.resource, 0, rect, *srcResource, subResourceIndex, rect);
+
+		D3DDDIARG_LOCK lock = {};
+		lock.hResource = *syncSurface.resource;
+		lock.Flags.ReadOnly = 1;
+		m_device.getOrigVtable().pfnLock(m_device, &lock);
+
+		D3DDDIARG_UNLOCK unlock = {};
+		unlock.hResource = *syncSurface.resource;
+		m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
+	}
 }
