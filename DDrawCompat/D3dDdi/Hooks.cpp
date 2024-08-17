@@ -121,7 +121,7 @@ namespace
 		pOpenData->Interface = origInterface;
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, pOpenData->DriverVersion);
+			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, std::min(pOpenData->Version, pOpenData->DriverVersion));
 			D3dDdi::Adapter::add(*pOpenData);
 		}
 		return result;

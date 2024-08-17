@@ -437,7 +437,7 @@ namespace D3dDdi
 		pCreateData->Interface = origInterface;
 		if (SUCCEEDED(result))
 		{
-			DeviceFuncs::hookVtable(*pCreateData->pDeviceFuncs, m_driverVersion);
+			DeviceFuncs::hookVtable(*pCreateData->pDeviceFuncs, std::min(m_runtimeVersion, m_driverVersion));
 			Device::add(*this, pCreateData->hDevice);
 		}
 		return result;
