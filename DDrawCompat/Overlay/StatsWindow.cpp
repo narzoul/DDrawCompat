@@ -110,6 +110,9 @@ namespace Overlay
 		m_statsRows.push_back({ "Lock count", UpdateStats(m_lock.m_count), &m_lock.m_count });
 		m_statsRows.push_back({ "Lock rate", UpdateStats(m_lock.m_rate), &m_lock.m_rate });
 		m_statsRows.push_back({ "Lock time", UpdateStats(m_lock.m_time), &m_lock.m_time });
+		m_statsRows.push_back({ "VBlank count", UpdateStats(m_vblank.m_count), &m_vblank.m_count });
+		m_statsRows.push_back({ "VBlank rate", UpdateStats(m_vblank.m_rate), &m_vblank.m_rate });
+		m_statsRows.push_back({ "VBlank time", UpdateStats(m_vblank.m_time), &m_vblank.m_time });
 		m_statsRows.push_back({ "DDI usage", UpdateStats(m_ddiUsage), &m_ddiUsage });
 		m_statsRows.push_back({ "GDI objects", UpdateStats(m_gdiObjects), &m_gdiObjects });
 		m_statsRows.push_back({ "", &getDebugInfo, nullptr, WS_VISIBLE | WS_GROUP });
@@ -135,6 +138,7 @@ namespace Overlay
 		m_flip.enable();
 		m_blit.enable();
 		m_lock.enable();
+		m_vblank.enable();
 	}
 
 	StatsControl& StatsWindow::addControl(const std::string& name, StatsControl::UpdateFunc updateFunc, DWORD style)

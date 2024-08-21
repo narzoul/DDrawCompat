@@ -28,6 +28,7 @@ namespace Overlay
 		StatsEventGroup m_flip;
 		StatsEventGroup m_blit;
 		StatsEventGroup m_lock;
+		StatsEventGroup m_vblank;
 		StatsTimer m_ddiUsage;
 		StatsQueue m_gdiObjects;
 

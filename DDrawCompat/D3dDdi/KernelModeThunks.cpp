@@ -19,8 +19,10 @@
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
+#include <Gdi/GuiThread.h>
 #include <Gdi/Palette.h>
 #include <Gdi/Window.h>
+#include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
 
@@ -365,6 +367,13 @@ namespace
 			}
 
 			WakeAllConditionVariable(&g_vsyncCounterCv);
+
+			auto statsWindow = Gdi::GuiThread::getStatsWindow();
+			if (statsWindow)
+			{
+				statsWindow->m_vblank.add();
+			}
+
 		}
 		return 0;
 	}
