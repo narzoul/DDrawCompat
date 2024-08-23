@@ -16,6 +16,7 @@
 #include <D3dDdi/ShaderAssembler.h>
 #include <Overlay/Steam.h>
 #include <Shaders/VertexFixup.h>
+#include <Config/Settings/ViewportEdgeFix.h>
 
 #define LOG_DS LOG_DEBUG << "DeviceState::" << __func__ << ": "
 
@@ -901,7 +902,7 @@ namespace D3dDdi
 		if (spriteMode != m_spriteMode)
 		{
 			m_spriteMode = spriteMode;
-			m_changedStates |= CS_RENDER_STATE | CS_TEXTURE_STAGE;
+			m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_TEXTURE_STAGE;
 			m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
 			if (Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get())
 			{
@@ -1353,17 +1354,21 @@ namespace D3dDdi
 		const float apc = Config::alternatePixelCenter.get();
 		const auto& zr = m_current.zRange;
 
+		const float viewportEdgeGap = m_spriteMode ? 0 : (Config::viewportEdgeFix.getParam() / 100.0f);
+		const float w = width - viewportEdgeGap;
+		const float h = height - viewportEdgeGap;
+
 		m_vertexFixupData.texCoordAdj[2] = stc;
 		m_vertexFixupData.texCoordAdj[3] = stc;
 
 		if (Config::Settings::VertexFixup::GPU == m_vertexFixupConfig)
 		{
-			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx - width / 2;
-			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy - height / 2;
+			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx - w / 2;
+			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy - h / 2;
 			m_vertexFixupData.offset[2] = -zr.MinZ;
 
-			m_vertexFixupData.multiplier[0] = 2.0f / width;
-			m_vertexFixupData.multiplier[1] = -2.0f / height;
+			m_vertexFixupData.multiplier[0] = 2.0f / w;
+			m_vertexFixupData.multiplier[1] = -2.0f / h;
 			m_vertexFixupData.multiplier[2] = 1.0f / (zr.MaxZ - zr.MinZ);
 		}
 		else
@@ -1371,8 +1376,8 @@ namespace D3dDdi
 			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx;
 			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy;
 
-			m_vertexFixupData.multiplier[0] = sx;
-			m_vertexFixupData.multiplier[1] = sy;
+			m_vertexFixupData.multiplier[0] = sx * width / w;
+			m_vertexFixupData.multiplier[1] = sy * height / h;
 		}
 
 		m_changedStates |= CS_VERTEX_FIXUP;

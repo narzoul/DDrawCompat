@@ -27,6 +27,7 @@
 #include <Config/Settings/StatsTransparency.h>
 #include <Config/Settings/TextureFilter.h>
 #include <Config/Settings/VertexFixup.h>
+#include <Config/Settings/ViewportEdgeFix.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
 #include <Gdi/Gdi.h>
@@ -71,6 +72,7 @@ namespace
 		{ &Config::statsTransparency, [&]() { Gdi::GuiThread::getStatsWindow()->setAlpha(Config::statsTransparency.get()); }},
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vertexFixup, &D3dDdi::Device::updateAllConfig },
+		{ &Config::viewportEdgeFix },
 		{ &Config::vSync }
 	};
 }

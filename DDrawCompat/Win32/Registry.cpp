@@ -318,7 +318,7 @@ namespace
 	LSTATUS WINAPI regEnumValueW(HKEY hKey, DWORD dwIndex, LPWSTR lpValueName, LPDWORD lpcchValueName,
 		LPDWORD lpReserved, LPDWORD lpType, LPBYTE lpData, LPDWORD lpcbData)
 	{
-		LOG_FUNC("RegEnumValueW", hKey, dwIndex, lpValueName, lpcchValueName, lpReserved, lpType, lpData, lpcbData);
+		LOG_FUNC("RegEnumValueW", hKey, dwIndex, Compat::out(lpValueName), lpcchValueName, lpReserved, lpType, lpData, lpcbData);
 		if (lpValueName && lpcchValueName && !lpReserved && !lpType && !lpData && !lpcbData)
 		{
 			auto keyName(getKeyName(hKey));
