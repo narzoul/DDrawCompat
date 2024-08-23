@@ -1,5 +1,6 @@
 #include <Common/CompatPtr.h>
 #include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/VSync.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDrawClipper.h>
@@ -177,18 +178,22 @@ namespace DDraw
 				caps.dwCaps = DDSCAPS_BACKBUFFER;
 				getOrigVtable(This).GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
 			}
-			HRESULT result = Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
-			if (SUCCEEDED(result) && Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
-			{
-				 RealPrimarySurface::waitForFlipFpsLimit();
-			}
-			return result;
-		}
 
-		HRESULT result = SurfaceImpl::Flip(This, surfaceTargetOverride, DDFLIP_WAIT);
-		if (FAILED(result))
+			HRESULT result = SurfaceImpl::Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
+			if (FAILED(result))
+			{
+				return result;
+			}
+
+			dwFlags = DDFLIP_NOVSYNC;
+		}
+		else
 		{
-			return result;
+			HRESULT result = SurfaceImpl::Flip(This, surfaceTargetOverride, DDFLIP_WAIT);
+			if (FAILED(result))
+			{
+				return result;
+			}
 		}
 
 		auto statsWindow = Gdi::GuiThread::getStatsWindow();
@@ -199,10 +204,37 @@ namespace DDraw
 
 		PrimarySurface::updateFrontResource();
 		RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
-		PrimarySurface::waitForIdle();
+
+		if (Config::Settings::VSync::WAIT == Config::vSync.get())
+		{
+			static UINT lastFlipEnd = 0;
+			lastFlipEnd += Config::vSync.getParam();
+			UINT vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
+			if (static_cast<INT>(vsyncCount - lastFlipEnd) > 0)
+			{
+				lastFlipEnd = vsyncCount;
+			}
+
+			RealPrimarySurface::setUpdateReady();
+			if (0 != RealPrimarySurface::flush())
+			{
+				PrimarySurface::waitForIdle();
+			}
+
+			while (static_cast<INT>(vsyncCount - lastFlipEnd) < 0)
+			{
+				++vsyncCount;
+				D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
+				RealPrimarySurface::flush();
+			}
+		}
+		else
+		{
+			PrimarySurface::waitForIdle();
+		}
+
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
 		{
-			DDraw::RealPrimarySurface::waitForFlip(m_data->getDDS());
 			RealPrimarySurface::waitForFlipFpsLimit();
 		}
 		return DD_OK;

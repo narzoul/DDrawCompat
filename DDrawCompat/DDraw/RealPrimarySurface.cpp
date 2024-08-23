@@ -99,10 +99,13 @@ namespace
 
 	UINT getFlipInterval(DWORD flags)
 	{
-		auto vSync = Config::vSync.get();
-		if (Config::Settings::VSync::APP != vSync)
+		switch (Config::vSync.get())
 		{
-			return Config::Settings::VSync::OFF == vSync ? 0 : Config::vSync.getParam();
+		case Config::Settings::VSync::OFF:
+		case Config::Settings::VSync::WAIT:
+			return 0;
+		case Config::Settings::VSync::ON:
+			return Config::vSync.getParam();
 		}
 
 		if (flags & DDFLIP_NOVSYNC)
@@ -734,12 +737,17 @@ namespace DDraw
 			return true;
 		}
 
+		bool isUpdateReady = g_isUpdateReady;
 		auto qpcStart = Time::queryPerformanceCounter();
 		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
 		while (static_cast<int>(vsyncCount - g_flipEndVsyncCount) < 0)
 		{
 			++vsyncCount;
 			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
+			if (isUpdateReady)
+			{
+				flush();
+			}
 		}
 
 		Compat::ScopedCriticalSection lock(g_presentCs);
@@ -764,23 +772,16 @@ namespace DDraw
 		g_qpcPrevWaitEnd = qpcWaitEnd;
 
 		Compat::ScopedThreadPriority prio(THREAD_PRIORITY_TIME_CRITICAL);
-		auto qpcStart = Time::queryPerformanceCounter();
 		while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
 		{
 			Time::waitForNextTick();
+			flush();
 			qpcNow = Time::queryPerformanceCounter();
 		}
 
 		while (qpcWaitEnd - qpcNow > 0)
 		{
 			qpcNow = Time::queryPerformanceCounter();
-		}
-
-		Compat::ScopedCriticalSection lock(g_presentCs);
-		auto qpcEnd = Time::queryPerformanceCounter();
-		if (g_isUpdatePending)
-		{
-			g_qpcUpdateStart += qpcEnd - qpcStart;
 		}
 	}
 }

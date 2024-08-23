@@ -9,7 +9,7 @@ namespace Config
 		class VSync : public EnumSetting
 		{
 		public:
-			enum Values { APP, OFF, ON };
+			enum Values { APP, OFF, ON, WAIT };
 
 			VSync();
 
