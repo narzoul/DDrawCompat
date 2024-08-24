@@ -21,6 +21,7 @@
 #include <Overlay/Steam.h>
 #include <Overlay/Window.h>
 #include <Win32/DisplayMode.h>
+#include <Win32/DpiAwareness.h>
 
 namespace
 {
@@ -29,7 +30,6 @@ namespace
 		HOOKPROC origHookProc;
 		LPARAM origHookStruct;
 		MSLLHOOKSTRUCT hookStruct;
-		DWORD dpiScale;
 	};
 
 	struct HotKeyData
@@ -43,7 +43,6 @@ namespace
 	SIZE g_bmpArrowSize = {};
 	Overlay::Control* g_capture = nullptr;
 	POINT g_cursorPos = {};
-	POINT g_origCursorPos = { MAXLONG, MAXLONG };
 	HWND g_cursorWindow = nullptr;
 	std::map<Input::HotKey, HotKeyData> g_hotKeys;
 	RECT g_monitorRect = {};
@@ -56,7 +55,7 @@ namespace
 
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK lowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
-	POINT physicalToLogicalPoint(POINT pt, DWORD dpiScale);
+	POINT physicalToLogicalPoint(POINT pt);
 
 	LRESULT CALLBACK cursorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -106,7 +105,22 @@ namespace
 
 			if (WM_MOUSEMOVE == wParam)
 			{
-				data.hookStruct.pt = physicalToLogicalPoint(data.hookStruct.pt, data.dpiScale);
+				if (Win32::DpiAwareness::isMixedModeSupported())
+				{
+					POINT logicalCursorPos = {};
+					GetCursorPos(&logicalCursorPos);
+
+					Win32::ScopedDpiAwareness dpiAwareness;
+					POINT physicalCursorPos = {};
+					GetCursorPos(&physicalCursorPos);
+
+					data.hookStruct.pt.x = logicalCursorPos.x + data.hookStruct.pt.x - physicalCursorPos.x;
+					data.hookStruct.pt.y = logicalCursorPos.y + data.hookStruct.pt.y - physicalCursorPos.y;
+				}
+				else
+				{
+					data.hookStruct.pt = physicalToLogicalPoint(data.hookStruct.pt);
+				}
 			}
 			else
 			{
@@ -116,13 +130,6 @@ namespace
 			lParam = reinterpret_cast<LPARAM>(&g_dinputMouseHookData.hookStruct);
 		}
 		return g_dinputMouseHookData.origHookProc(nCode, wParam, lParam);
-	}
-
-	DWORD getDpiScaleForCursorPos()
-	{
-		POINT cp = {};
-		CALL_ORIG_FUNC(GetCursorPos)(&cp);
-		return Win32::DisplayMode::getMonitorInfo(cp).dpiScale;
 	}
 
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
@@ -178,25 +185,23 @@ namespace
 
 			if (WM_MOUSEMOVE == wParam)
 			{
-				if (MAXLONG == g_origCursorPos.y)
+				POINT origCursorPos = {};
+				POINT newCursorPos = llHook.pt;
+				if (Win32::DpiAwareness::isMixedModeSupported())
 				{
-					if (llHook.flags & LLMHF_INJECTED)
-					{
-						if (MAXLONG == g_origCursorPos.x)
-						{
-							g_origCursorPos.x = llHook.pt.x;
-						}
-						else
-						{
-							g_origCursorPos.y = llHook.pt.y;
-						}
-					}
-					return 1;
+					Win32::ScopedDpiAwareness dpiAwareness;
+					CALL_ORIG_FUNC(GetCursorPos)(&origCursorPos);
+					llHook.pt = {};
+				}
+				else
+				{
+					CALL_ORIG_FUNC(GetCursorPos)(&origCursorPos);
+					newCursorPos = physicalToLogicalPoint(llHook.pt);
 				}
 
 				POINT cp = g_cursorPos;
-				cp.x += llHook.pt.x - g_origCursorPos.x;
-				cp.y += llHook.pt.y - g_origCursorPos.y;
+				cp.x += newCursorPos.x - origCursorPos.x;
+				cp.y += newCursorPos.y - origCursorPos.y;
 				cp.x = std::min(std::max(g_monitorRect.left, cp.x), g_monitorRect.right);
 				cp.y = std::min(std::max(g_monitorRect.top, cp.y), g_monitorRect.bottom);
 				g_cursorPos = cp;
@@ -240,13 +245,14 @@ namespace
 		TerminateProcess(GetCurrentProcess(), 0);
 	}
 
-	POINT physicalToLogicalPoint(POINT pt, DWORD dpiScale)
+	POINT physicalToLogicalPoint(POINT pt)
 	{
 		if (g_physicalToLogicalPointForPerMonitorDPI)
 		{
 			g_physicalToLogicalPointForPerMonitorDPI(nullptr, &pt);
 			return pt;
 		}
+		auto dpiScale = Win32::DisplayMode::getMonitorInfo(pt).dpiScale;
 		return { MulDiv(pt.x, 100, dpiScale), MulDiv(pt.y, 100, dpiScale) };
 	}
 
@@ -287,46 +293,28 @@ namespace
 			});
 	}
 
-	void resetMouseHookFunc()
-	{
-		if (g_mouseHook)
-		{
-			UnhookWindowsHookEx(g_mouseHook);
-		}
-
-		g_origCursorPos = { MAXLONG, MAXLONG };
-		g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-			WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
-
-		if (g_mouseHook)
-		{
-			INPUT inputs[2] = {};
-			inputs[0].mi.dy = 1;
-			inputs[0].mi.dwFlags = MOUSEEVENTF_MOVE;
-			inputs[1].mi.dx = 1;
-			inputs[1].mi.dwFlags = MOUSEEVENTF_MOVE;
-			SendInput(2, inputs, sizeof(INPUT));
-		}
-		else
-		{
-			LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
-		}
-	}
-
 	void resetMouseHook()
 	{
-		Gdi::GuiThread::executeAsyncFunc(resetMouseHookFunc);
-	}
+		Gdi::GuiThread::execute([]()
+			{
+				if (!g_capture)
+				{
+					return;
+				}
 
-	BOOL WINAPI setCursorPos(int X, int Y)
-	{
-		LOG_FUNC("SetCursorPos", X, Y);
-		auto result = CALL_ORIG_FUNC(SetCursorPos)(X, Y);
-		if (result && g_mouseHook)
-		{
-			resetMouseHook();
-		}
-		return LOG_RESULT(result);
+				if (g_mouseHook)
+				{
+					UnhookWindowsHookEx(g_mouseHook);
+				}
+
+				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
+					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
+
+				if (!g_mouseHook)
+				{
+					LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
+				}
+			});
 	}
 
 	HHOOK setWindowsHookEx(int idHook, HOOKPROC lpfn, HINSTANCE hmod, DWORD dwThreadId,
@@ -345,11 +333,6 @@ namespace
 				(0 == _stricmp(moduleName.c_str(), "dinput") || 0 == _stricmp(moduleName.c_str(), "dinput8")))
 			{
 				g_dinputMouseHookData.origHookProc = lpfn;
-				if (!g_physicalToLogicalPointForPerMonitorDPI)
-				{
-					g_dinputMouseHookData.dpiScale = getDpiScaleForCursorPos();
-				}
-
 				lpfn = dinputLowLevelMouseProc;
 				Compat::hookIatFunction(hmod, "CallNextHookEx", dinputCallNextHookEx);
 			}
@@ -441,7 +424,6 @@ namespace Input
 			GetProcAddress(GetModuleHandle("user32"), "PhysicalToLogicalPointForPerMonitorDPI"));
 
 		HOOK_FUNCTION(user32, RegisterRawInputDevices, registerRawInputDevices);
-		HOOK_FUNCTION(user32, SetCursorPos, setCursorPos);
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
 
