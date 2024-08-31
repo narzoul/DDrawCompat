@@ -782,6 +782,23 @@ namespace D3dDdi
 			}
 		}
 
+		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
+		{
+			switch (m_fixedData.Format)
+			{
+			case FOURCC_DXT1:
+			case FOURCC_DXT2:
+			case FOURCC_DXT3:
+			case FOURCC_DXT4:
+			case FOURCC_DXT5:
+				for (unsigned i = 0; i < m_fixedData.SurfCount; ++i)
+				{
+					m_fixedData.surfaceData[i].SysMemPitch /= (m_fixedData.surfaceData[i].Height + 3) / 4;
+				}
+				break;
+			}
+		}
+
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool &&
 			1 == m_fixedData.SurfCount &&
 			0 == m_fixedData.pSurfList[0].Depth &&
