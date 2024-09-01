@@ -5,9 +5,16 @@
 
 namespace
 {
-	template <typename Vtable>
-	constexpr void setCompatVtable(Vtable& /*vtable*/)
+	template <typename TDirect3DVertexBuffer, typename TDirect3DDevice>
+	HRESULT STDMETHODCALLTYPE optimize(TDirect3DVertexBuffer* /*This*/, TDirect3DDevice* /*lpD3DDevice*/, DWORD /*dwFlags*/)
 	{
+		return D3D_OK;
+	}
+
+	template <typename Vtable>
+	constexpr void setCompatVtable(Vtable& vtable)
+	{
+		vtable.Optimize = &optimize;
 	}
 }
 
