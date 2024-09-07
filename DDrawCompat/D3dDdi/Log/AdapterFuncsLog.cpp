@@ -3,7 +3,7 @@
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEDEVICE& data)
 {
-	return Compat::LogStruct(os)
+	auto& log = Compat::LogStruct(os)
 		<< data.hDevice
 		<< data.Interface
 		<< data.Version
@@ -15,8 +15,14 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEDEVICE& data)
 		<< Compat::out(Compat::array(data.pPatchLocationList, data.PatchLocationListSize))
 		<< data.PatchLocationListSize
 		<< Compat::out(data.pDeviceFuncs)
-		<< Compat::hex(data.Flags.Value)
-		<< Compat::hex(data.CommandBuffer);
+		<< Compat::hex(data.Flags.Value);
+
+	if (D3dDdi::g_umdVersion >= D3D_UMD_INTERFACE_VERSION_WIN7)
+	{
+		log << Compat::hex(data.CommandBuffer);
+	}
+
+	return log;
 }
 
 std::ostream& operator<<(std::ostream& os, D3DDDICAPS_TYPE data)

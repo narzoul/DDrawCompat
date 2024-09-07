@@ -92,7 +92,7 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_OPENADAPTERFROMHDC& data
 
 std::ostream& operator<<(std::ostream& os, const D3DKMT_PRESENT& data)
 {
-	return Compat::LogStruct(os)
+	auto& log = Compat::LogStruct(os)
 		<< Compat::hex(data.hDevice)
 		<< data.hWindow
 		<< data.VidPnSourceId
@@ -109,15 +109,29 @@ std::ostream& operator<<(std::ostream& os, const D3DKMT_PRESENT& data)
 		<< data.BroadcastContextCount
 		<< Compat::hex(Compat::array(data.BroadcastContext, data.BroadcastContextCount))
 		<< data.PresentLimitSemaphore
-		<< data.PresentHistoryToken
-		<< data.pPresentRegions
-		<< Compat::hex(data.hAdapter)
-		<< data.Duration
-		<< Compat::hex(Compat::array(data.BroadcastSrcAllocation, data.BroadcastContextCount))
-		<< Compat::hex(Compat::array(data.BroadcastDstAllocation, data.BroadcastContextCount))
-		<< data.PrivateDriverDataSize
-		<< data.pPrivateDriverData
-		<< static_cast<UINT>(data.bOptimizeForComposition);
+		<< data.PresentHistoryToken;
+
+	if (D3dDdi::g_umdVersion >= DXGKDDI_INTERFACE_VERSION_WIN8)
+	{
+		log << data.pPresentRegions;
+	}
+
+	if (D3dDdi::g_umdVersion >= DXGKDDI_INTERFACE_VERSION_WDDM1_3)
+	{
+		log << Compat::hex(data.hAdapter)
+			<< data.Duration;
+	}
+
+	if (D3dDdi::g_umdVersion >= DXGKDDI_INTERFACE_VERSION_WDDM2_0)
+	{
+		log << Compat::hex(Compat::array(data.BroadcastSrcAllocation, data.BroadcastContextCount))
+			<< Compat::hex(Compat::array(data.BroadcastDstAllocation, data.BroadcastContextCount))
+			<< data.PrivateDriverDataSize
+			<< data.pPrivateDriverData
+			<< static_cast<UINT>(data.bOptimizeForComposition);
+	}
+
+	return log;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DKMT_QUERYADAPTERINFO& data)

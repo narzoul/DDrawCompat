@@ -62,6 +62,39 @@ namespace
 		HMONITOR hmonitor;
 	};
 
+	template <typename Char>
+	class RestoreDevMode
+	{
+	public:
+		RestoreDevMode(DevMode<Char>* dm)
+			: m_dm(nullptr)
+			, m_origDm{}
+		{
+			if (dm && dm->dmSize >= offsetof(DevMode<Char>, dmICMMethod))
+			{
+				m_dm = dm;
+				memcpy(&m_origDm, dm, offsetof(DevMode<Char>, dmICMMethod));
+			}
+		}
+
+		~RestoreDevMode()
+		{
+			if (m_dm)
+			{
+				memcpy(m_dm, &m_origDm, offsetof(DevMode<Char>, dmICMMethod));
+			}
+		}
+
+		const DevMode<Char>& getOrigDevMode() const
+		{
+			return m_origDm;
+		}
+
+	private:
+		DevMode<Char>* m_dm;
+		DevMode<Char> m_origDm;
+	};
+
 	DWORD g_desktopBpp = 0;
 	ULONG g_displaySettingsUniquenessBias = 0;
 	EmulatedDisplayMode g_emulatedDisplayMode = {};
@@ -128,67 +161,73 @@ namespace
 		prevEmulatedDevMode.dmSize = sizeof(prevEmulatedDevMode);
 		enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &prevEmulatedDevMode, 0);
 
-		DevMode<Char> targetDevMode = {};
+		RestoreDevMode<Char> restoreDevMode(lpDevMode);
 		SIZE emulatedResolution = {};
 		if (lpDevMode)
 		{
+			if (lpDevMode->dmSize < offsetof(DevMode<Char>, dmICMMethod))
+			{
+				return DISP_CHANGE_BADPARAM;
+			}
+
 			if ((lpDevMode->dmFields & DM_BITSPERPEL) &&
 				8 != lpDevMode->dmBitsPerPel && 16 != lpDevMode->dmBitsPerPel && 32 != lpDevMode->dmBitsPerPel)
 			{
 				return DISP_CHANGE_BADMODE;
 			}
 
-			targetDevMode = *lpDevMode;
-			targetDevMode.dmFields |= DM_BITSPERPEL;
-			targetDevMode.dmBitsPerPel = 32;
-			if (!(targetDevMode.dmFields & DM_PELSWIDTH))
+			lpDevMode->dmFields |= DM_BITSPERPEL;
+			lpDevMode->dmBitsPerPel = 32;
+			if (!(lpDevMode->dmFields & DM_PELSWIDTH))
 			{
-				targetDevMode.dmFields |= DM_PELSWIDTH;
-				targetDevMode.dmPelsWidth = prevEmulatedDevMode.dmPelsWidth;
+				lpDevMode->dmFields |= DM_PELSWIDTH;
+				lpDevMode->dmPelsWidth = prevEmulatedDevMode.dmPelsWidth;
 			}
-			if (!(targetDevMode.dmFields & DM_PELSHEIGHT))
+			if (!(lpDevMode->dmFields & DM_PELSHEIGHT))
 			{
-				targetDevMode.dmFields |= DM_PELSHEIGHT;
-				targetDevMode.dmPelsHeight = prevEmulatedDevMode.dmPelsHeight;
+				lpDevMode->dmFields |= DM_PELSHEIGHT;
+				lpDevMode->dmPelsHeight = prevEmulatedDevMode.dmPelsHeight;
 			}
-			if (!(targetDevMode.dmFields & DM_DISPLAYFREQUENCY))
+			if (!(lpDevMode->dmFields & DM_DISPLAYFREQUENCY))
 			{
-				targetDevMode.dmFields |= DM_DISPLAYFREQUENCY;
-				targetDevMode.dmDisplayFrequency = prevEmulatedDevMode.dmDisplayFrequency;
+				lpDevMode->dmFields |= DM_DISPLAYFREQUENCY;
+				lpDevMode->dmDisplayFrequency = prevEmulatedDevMode.dmDisplayFrequency;
 			}
 
-			emulatedResolution = makeSize(targetDevMode.dmPelsWidth, targetDevMode.dmPelsHeight);
+			emulatedResolution = makeSize(lpDevMode->dmPelsWidth, lpDevMode->dmPelsHeight);
 			auto supportedDisplayModeMap(getSupportedDisplayModeMap(lpszDeviceName, 0));
 			if (supportedDisplayModeMap.find(emulatedResolution) == supportedDisplayModeMap.end())
 			{
 				return DISP_CHANGE_BADMODE;
 			}
 
-			DevMode<Char> dm = targetDevMode;
+			auto origWidth = lpDevMode->dmPelsWidth;
+			auto origHeight = lpDevMode->dmPelsHeight;
+			auto origRefreshRate = lpDevMode->dmDisplayFrequency;
+
 			SIZE resolutionOverride = getConfiguredResolution(lpszDeviceName);
 			if (0 != resolutionOverride.cx)
 			{
-				dm.dmPelsWidth = resolutionOverride.cx;
-				dm.dmPelsHeight = resolutionOverride.cy;
+				lpDevMode->dmPelsWidth = resolutionOverride.cx;
+				lpDevMode->dmPelsHeight = resolutionOverride.cy;
 			}
 
 			DWORD refreshRateOverride = getConfiguredRefreshRate(lpszDeviceName);
 			if (0 != refreshRateOverride)
 			{
-				dm.dmDisplayFrequency = refreshRateOverride;
+				lpDevMode->dmDisplayFrequency = refreshRateOverride;
 			}
 
 			if (0 != resolutionOverride.cx || 0 != refreshRateOverride)
 			{
-				LONG result = origChangeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, CDS_TEST, nullptr);
-				if (DISP_CHANGE_SUCCESSFUL == result)
-				{
-					targetDevMode = dm;
-				}
-				else
+				LONG result = origChangeDisplaySettingsEx(lpszDeviceName, lpDevMode, nullptr, CDS_TEST, nullptr);
+				if (DISP_CHANGE_SUCCESSFUL != result)
 				{
 					LOG_ONCE("Failed to apply custom display mode: "
-						<< dm.dmPelsWidth << 'x' << dm.dmPelsHeight << '@' << dm.dmDisplayFrequency);
+						<< lpDevMode->dmPelsWidth << 'x' << lpDevMode->dmPelsHeight << '@' << lpDevMode->dmDisplayFrequency);
+					lpDevMode->dmPelsWidth = origWidth;
+					lpDevMode->dmPelsHeight = origHeight;
+					lpDevMode->dmDisplayFrequency = origRefreshRate;
 				}
 			}
 		}
@@ -201,16 +240,7 @@ namespace
 		}
 
 		const auto prevDisplaySettingsUniqueness = CALL_ORIG_FUNC(GdiEntry13);
-		LONG result = 0;
-		if (lpDevMode)
-		{
-			result = origChangeDisplaySettingsEx(lpszDeviceName, &targetDevMode, hwnd, dwflags, lParam);
-		}
-		else
-		{
-			result = origChangeDisplaySettingsEx(lpszDeviceName, nullptr, hwnd, dwflags, lParam);
-		}
-
+		LONG result = origChangeDisplaySettingsEx(lpszDeviceName, lpDevMode, hwnd, dwflags, lParam);
 		if (dwflags & CDS_TEST)
 		{
 			return result;
@@ -234,16 +264,24 @@ namespace
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (lpDevMode)
 			{
-				if (lpDevMode->dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT))
+				auto& dm = restoreDevMode.getOrigDevMode();
+				if (dm.dmFields & (DM_PELSWIDTH | DM_PELSHEIGHT))
 				{
 					g_emulatedDisplayMode.width = emulatedResolution.cx;
 					g_emulatedDisplayMode.height = emulatedResolution.cy;
 				}
-				if (lpDevMode->dmFields & DM_BITSPERPEL)
+				if (dm.dmFields & DM_BITSPERPEL)
 				{
-					g_emulatedDisplayMode.bpp = lpDevMode->dmBitsPerPel;
+					g_emulatedDisplayMode.bpp = dm.dmBitsPerPel;
 				}
-				g_emulatedDisplayMode.refreshRate = targetDevMode.dmDisplayFrequency;
+				if ((dm.dmFields & DM_DISPLAYFREQUENCY) && dm.dmDisplayFrequency > 1)
+				{
+					g_emulatedDisplayMode.refreshRate = dm.dmDisplayFrequency;
+				}
+				else
+				{
+					g_emulatedDisplayMode.refreshRate = prevEmulatedDevMode.dmDisplayFrequency;
+				}
 				g_emulatedDisplayMode.deviceName = getDeviceName(lpszDeviceName);
 			}
 			else
@@ -336,6 +374,7 @@ namespace
 						lpDevMode->dmPelsWidth = g_emulatedDisplayMode.width;
 						lpDevMode->dmPelsHeight = g_emulatedDisplayMode.height;
 					}
+					lpDevMode->dmDisplayFrequency = g_emulatedDisplayMode.refreshRate;
 				}
 				else
 				{

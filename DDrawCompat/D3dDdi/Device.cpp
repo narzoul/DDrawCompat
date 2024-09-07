@@ -31,7 +31,6 @@ namespace D3dDdi
 		: m_origVtable(CompatVtable<D3DDDI_DEVICEFUNCS>::s_origVtable)
 		, m_adapter(adapter)
 		, m_device(device)
-		, m_eventQuery(nullptr)
 		, m_depthStencil(nullptr)
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
@@ -41,10 +40,6 @@ namespace D3dDdi
 		, m_shaderBlitter(*this)
 		, m_autoColorKeyMethod(Config::Settings::ColorKeyMethod::NONE)
 	{
-		D3DDDIARG_CREATEQUERY createQuery = {};
-		createQuery.QueryType = D3DDDIQUERYTYPE_EVENT;
-		m_origVtable.pfnCreateQuery(m_device, &createQuery);
-		m_eventQuery = createQuery.hQuery;
 	}
 
 	void Device::add(Adapter& adapter, HANDLE device)

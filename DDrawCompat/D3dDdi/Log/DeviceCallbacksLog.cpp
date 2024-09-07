@@ -58,14 +58,20 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_DEALLOCATE2& data)
 
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK& data)
 {
-	return Compat::LogStruct(os)
+	auto& log = Compat::LogStruct(os)
 		<< Compat::hex(data.hAllocation)
 		<< data.PrivateDriverData
 		<< data.NumPages
 		<< Compat::array(data.pPages, data.NumPages)
 		<< data.pData
-		<< Compat::hex(data.Flags.Value)
-		<< Compat::hex(data.GpuVirtualAddress);
+		<< Compat::hex(data.Flags.Value);
+
+	if (D3dDdi::g_umdVersion >= D3D_UMD_INTERFACE_VERSION_WIN7)
+	{
+		log << Compat::hex(data.GpuVirtualAddress);
+	}
+
+	return log;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK2& data)
@@ -78,17 +84,29 @@ std::ostream& operator<<(std::ostream& os, const D3DDDICB_LOCK2& data)
 
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_PRESENT& data)
 {
-	return Compat::LogStruct(os)
+	auto& log = Compat::LogStruct(os)
 		<< Compat::hex(data.hSrcAllocation)
 		<< Compat::hex(data.hDstAllocation)
 		<< data.hContext
 		<< data.BroadcastContextCount
-		<< Compat::array(data.BroadcastContext, data.BroadcastContextCount)
-		<< Compat::hex(data.BroadcastSrcAllocation)
-		<< Compat::hex(data.BroadcastDstAllocation)
-		<< data.PrivateDriverDataSize
-		<< data.pPrivateDriverData
-		<< static_cast<UINT>(data.bOptimizeForComposition);
+		<< Compat::array(data.BroadcastContext, data.BroadcastContextCount);
+
+	if (D3dDdi::g_umdVersion >= D3D_UMD_INTERFACE_VERSION_WDDM2_0)
+	{
+		log << Compat::hex(data.BroadcastSrcAllocation)
+			<< Compat::hex(data.BroadcastDstAllocation)
+			<< data.PrivateDriverDataSize
+			<< data.pPrivateDriverData
+			<< static_cast<UINT>(data.bOptimizeForComposition);
+	}
+
+	if (D3dDdi::g_umdVersion >= D3D_UMD_INTERFACE_VERSION_WDDM2_2_2)
+	{
+		log << data.SyncIntervalOverrideValid
+			<< data.SyncIntervalOverride;
+	}
+
+	return log;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDICB_UNLOCK& data)

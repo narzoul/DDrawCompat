@@ -121,7 +121,12 @@ namespace
 		pOpenData->Interface = origInterface;
 		if (SUCCEEDED(result))
 		{
-			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, std::min(pOpenData->Version, pOpenData->DriverVersion));
+			UINT version = std::min(pOpenData->Version, pOpenData->DriverVersion);
+			if (0 == D3dDdi::g_umdVersion || version < D3dDdi::g_umdVersion)
+			{
+				D3dDdi::g_umdVersion = version;
+			}
+			D3dDdi::AdapterFuncs::hookVtable(*pOpenData->pAdapterFuncs, version);
 			D3dDdi::Adapter::add(*pOpenData);
 		}
 		return result;

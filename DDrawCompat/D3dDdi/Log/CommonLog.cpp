@@ -141,3 +141,5 @@ std::ostream& operator<<(std::ostream& os, D3DDDIFORMAT val)
 
 	return os << "D3DDDIFMT_" << static_cast<DWORD>(val);
 }
+
+UINT D3dDdi::g_umdVersion = 0;

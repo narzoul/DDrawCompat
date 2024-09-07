@@ -195,7 +195,7 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT& val)
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT1& val)
 {
-	return Compat::LogStruct(os)
+	auto& log = Compat::LogStruct(os)
 		<< Compat::array(val.phSrcResources, val.SrcResources)
 		<< val.SrcResources
 		<< val.hDstResource
@@ -205,6 +205,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENT1& val)
 		<< val.Reserved
 		<< Compat::array(val.pDirtyRects, val.DirtyRects)
 		<< val.DirtyRects;
+
+	if (D3dDdi::g_umdVersion >= D3D_UMD_INTERFACE_VERSION_WDDM2_1_2)
+	{
+		log << val.BackBufferMultiplicity;
+	}
+
+	return log;
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_PRESENTSURFACE& val)
