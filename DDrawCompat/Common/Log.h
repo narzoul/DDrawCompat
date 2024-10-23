@@ -84,6 +84,11 @@ namespace Compat
 		return os;
 	}
 
+	inline LogStream operator<<(LogStream os, unsigned char val)
+	{
+		return os << static_cast<unsigned>(val);
+	}
+
 	template <typename T>
 	LogStream operator<<(LogStream os, const T* ptr)
 	{

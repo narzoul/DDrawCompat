@@ -4,9 +4,13 @@
 #include <vector>
 
 #include <Windows.h>
+#include <avrt.h>
+#include <tlhelp32.h>
+#include <winternl.h>
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/Path.h>
 #include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 #include <Config/Settings/CpuAffinity.h>
@@ -17,15 +21,29 @@
 
 namespace
 {
+	struct ThreadInfo
+	{
+		DWORD id;
+		HANDLE handle;
+		const void* startAddress;
+		bool useCpuAffinity;
+	};
+
+	Compat::CriticalSection g_cs;
 	DWORD g_cpuAffinity = 0;
-	bool g_cpuAffinityRotationEnabled = false;
 	std::map<BYTE, BYTE> g_nextProcessor;
+	std::map<DWORD, ThreadInfo> g_threads;
 
 	HANDLE g_exclusiveModeMutex = nullptr;
 	thread_local bool g_skipWaitingForExclusiveModeMutex = false;
 
+	decltype(&NtQueryInformationThread) g_ntQueryInformationThread = nullptr;
+
+	bool useCpuAffinityRotation();
 	std::string maskToString(ULONG_PTR mask);
+	void registerThread(DWORD threadId, const char* msg);
 	void setNextProcessorSet(DWORD fromSet, DWORD toSet);
+	bool useCpuAffinityForThread(const void* startAddress);
 
 	HANDLE WINAPI ddrawOpenMutexW(DWORD dwDesiredAccess, BOOL bInheritHandle, LPCWSTR lpName)
 	{
@@ -45,7 +63,7 @@ namespace
 		{
 			return WAIT_OBJECT_0;
 		}
-		return LOG_RESULT(CALL_ORIG_FUNC(WaitForSingleObject)(hHandle, dwMilliseconds));
+		return LOG_RESULT(WaitForSingleObject(hHandle, dwMilliseconds));
 	}
 
 	std::map<BYTE, std::vector<DWORD>> getProcessorSets()
@@ -155,6 +173,22 @@ namespace
 		}
 	}
 
+	void logThreadInfo(ThreadInfo threadInfo, const char* msg)
+	{
+		if (Config::logLevel.get() < Config::Settings::LogLevel::DEBUG)
+		{
+			return;
+		}
+
+		Compat::Log log(Config::Settings::LogLevel::DEBUG);
+		log << msg << ": ID: " << std::hex << std::setw(4) << std::setfill('0') << threadInfo.id << std::dec
+			<< ", use CPU affinity: " << threadInfo.useCpuAffinity;
+		if (threadInfo.startAddress)
+		{
+			log << " (" << Compat::funcPtrToStr(threadInfo.startAddress) << ')';
+		}
+	}
+
 	std::string maskToString(ULONG_PTR mask)
 	{
 		std::ostringstream oss;
@@ -165,7 +199,72 @@ namespace
 				oss << i + 1 << ", ";
 			}
 		}
-		return oss.str().substr(0, std::max<std::size_t>(0, oss.str().length() - 2));
+		return oss.str().empty() ? "null" : oss.str().substr(0, oss.str().length() - 2);
+	}
+
+	void registerExistingThreads()
+	{
+		LOG_FUNC("registerExistingThreads");
+		const DWORD pid = GetCurrentProcessId();
+		const HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+		if (INVALID_HANDLE_VALUE == snapshot)
+		{
+			LOG_INFO << "ERROR: CreateToolhelp32Snapshot failed: " << GetLastError();
+			return;
+		}
+
+		THREADENTRY32 te = {};
+		te.dwSize = sizeof(te);
+		if (!Thread32First(snapshot, &te))
+		{
+			CloseHandle(snapshot);
+			LOG_INFO << "ERROR: Thread32First failed: " << GetLastError();
+			return;
+		}
+
+		do
+		{
+			if (pid == te.th32OwnerProcessID)
+			{
+				registerThread(te.th32ThreadID, "Thread running");
+			}
+		} while (Thread32Next(snapshot, &te));
+
+		CloseHandle(snapshot);
+	}
+
+	void registerThread(DWORD threadId, const char* msg)
+	{
+		Compat::ScopedCriticalSection lock(g_cs);
+		if (g_threads.find(threadId) != g_threads.end())
+		{
+			return;
+		}
+
+		ThreadInfo threadInfo = {};
+		threadInfo.id = threadId;
+		threadInfo.handle = OpenThread(THREAD_QUERY_INFORMATION | THREAD_SET_INFORMATION, FALSE, threadId);
+		if (!threadInfo.handle)
+		{
+			LOG_ONCE("ERROR: OpenThread failed: " << GetLastError());
+			return;
+		}
+
+		if (g_ntQueryInformationThread)
+		{
+			const auto ThreadQuerySetWin32StartAddress = static_cast<THREADINFOCLASS>(9);
+			g_ntQueryInformationThread(threadInfo.handle, ThreadQuerySetWin32StartAddress,
+				&threadInfo.startAddress, sizeof(threadInfo.startAddress), nullptr);
+		}
+
+		threadInfo.useCpuAffinity = useCpuAffinityForThread(threadInfo.startAddress);
+		g_threads[threadId] = threadInfo;
+		logThreadInfo(threadInfo, msg);
+
+		if (threadInfo.useCpuAffinity)
+		{
+			SetThreadAffinityMask(threadInfo.handle, g_cpuAffinity);
+		}
 	}
 
 	DWORD rotateMask(DWORD mask)
@@ -201,6 +300,125 @@ namespace
 			++from;
 			++to;
 		}
+	}
+
+	void setProcessAffinity()
+	{
+		Compat::ScopedCriticalSection lock(g_cs);
+		for (const auto& t : g_threads)
+		{
+			if (t.second.useCpuAffinity)
+			{
+				auto prev = SetThreadAffinityMask(t.second.handle, g_cpuAffinity);
+				LOG_DEBUG << "Thread affinity changed from " << Compat::hex(prev) << " to " << Compat::hex(g_cpuAffinity)
+					<< " for thread ID " << Compat::hex(t.second.id);
+			}
+		}
+	}
+
+	unsigned WINAPI threadManagerProc(LPVOID /*lpParameter*/)
+	{
+		DWORD taskIndex = 0;
+		HANDLE task = AvSetMmThreadCharacteristicsA("Audio", &taskIndex);
+		if (!task)
+		{
+			LOG_INFO << "ERROR: AvSetMmThreadCharacteristicsA failed: " << GetLastError();
+		}
+		else if (!AvSetMmThreadPriority(task, AVRT_PRIORITY_CRITICAL))
+		{
+			LOG_INFO << "ERROR: AvSetMmThreadPriority failed: " << GetLastError();
+		}
+
+		const bool rotate = useCpuAffinityRotation();
+
+		while (true)
+		{
+			Sleep(100);
+
+			{
+				Compat::ScopedCriticalSection lock(g_cs);
+				for (const auto& t : g_threads)
+				{
+					if (WAIT_OBJECT_0 == WaitForSingleObject(t.second.handle, 0))
+					{
+						logThreadInfo(t.second, "Thread terminated");
+						CloseHandle(t.second.handle);
+						g_threads.erase(t.first);
+					}
+				}
+
+				if (rotate)
+				{
+					g_cpuAffinity = rotateMask(g_cpuAffinity);
+					setProcessAffinity();
+				}
+			}
+
+			if (rotate)
+			{
+				SetThreadAffinityMask(GetCurrentThread(), rotateMask(g_cpuAffinity));
+			}
+		}
+	}
+
+	bool useCpuAffinityForThread(const void* startAddress)
+	{
+		if (0 == g_cpuAffinity)
+		{
+			return false;
+		}
+
+		if (!startAddress)
+		{
+			return true;
+		}
+
+		HMODULE mod = Compat::getModuleHandleFromAddress(startAddress);
+		if (!mod)
+		{
+			return true;
+		}
+
+		if (mod == Dll::g_currentModule)
+		{
+			return false;
+		}
+
+		auto path = Compat::getModulePath(mod);
+		auto filename = path.filename();
+		return !Compat::isEqual("dinput.dll", filename) &&
+			!Compat::isEqual("dinput8.dll", filename) &&
+			!Compat::isEqual("dsound.dll", filename) &&
+			!Compat::isPrefix(Compat::getSystemPath() / "DriverStore" / "", path);
+	}
+
+	bool useCpuAffinityRotation()
+	{
+		Compat::ScopedCriticalSection lock(g_cs);
+		return Config::cpuAffinityRotation.get() && rotateMask(g_cpuAffinity) != g_cpuAffinity;
+	}
+
+	HANDLE WINAPI createThread(LPSECURITY_ATTRIBUTES lpThreadAttributes, SIZE_T dwStackSize,
+		LPTHREAD_START_ROUTINE lpStartAddress, LPVOID lpParameter, DWORD dwCreationFlags, LPDWORD lpThreadId)
+	{
+		LOG_FUNC("CreateThread", lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId);
+		if (0 == g_cpuAffinity)
+		{
+			return LOG_RESULT(CALL_ORIG_FUNC(CreateThread)(
+				lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags, lpThreadId));
+		}
+
+		const auto thread = CALL_ORIG_FUNC(CreateThread)(
+			lpThreadAttributes, dwStackSize, lpStartAddress, lpParameter, dwCreationFlags | CREATE_SUSPENDED, lpThreadId);
+		if (thread)
+		{
+			registerThread(GetThreadId(thread), "Thread started");
+			if (!(dwCreationFlags & CREATE_SUSPENDED))
+			{
+				ResumeThread(thread);
+			}
+		}
+		return LOG_RESULT(thread);
 	}
 
 	BOOL WINAPI setProcessAffinityMask(HANDLE hProcess, DWORD_PTR dwProcessAffinityMask)
@@ -242,6 +460,14 @@ namespace Win32
 		{
 			initNextProcessorMap(getProcessorSets());
 
+			DWORD processMask = 0;
+			DWORD systemMask = 0;
+			GetProcessAffinityMask(GetCurrentProcess(), &processMask, &systemMask);
+			if (0 == systemMask)
+			{
+				LOG_INFO << "ERROR: Failed to determine system CPU affinity mask";
+			}
+
 			g_cpuAffinity = Config::cpuAffinity.get();
 			if (0 != g_cpuAffinity)
 			{
@@ -259,29 +485,10 @@ namespace Win32
 					g_cpuAffinity = 1;
 				}
 			}
-
-			DWORD processMask = 0;
-			DWORD systemMask = 0;
-			GetProcessAffinityMask(GetCurrentProcess(), &processMask, &systemMask);
-			LOG_INFO << "Current CPU affinity: " << maskToString(processMask);
-
-			if (0 == g_cpuAffinity && 0 != processMask && processMask != systemMask)
+			else
 			{
-				g_cpuAffinity = processMask;
+				g_cpuAffinity = systemMask;
 			}
-
-			if (0 != g_cpuAffinity)
-			{
-				LOG_INFO << "Applying configured CPU affinity: " << maskToString(g_cpuAffinity);
-				if (!CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), g_cpuAffinity))
-				{
-					LOG_INFO << "ERROR: Failed to set CPU affinity";
-					g_cpuAffinity = 0;
-				}
-			}
-
-			g_cpuAffinityRotationEnabled = Config::cpuAffinityRotation.get() && rotateMask(g_cpuAffinity) != g_cpuAffinity;
-			LOG_INFO << "CPU affinity rotation is " << (g_cpuAffinityRotationEnabled ? "enabled" : "disabled");
 
 			switch (Config::threadPriorityBoost.get())
 			{
@@ -298,38 +505,57 @@ namespace Win32
 				CALL_ORIG_FUNC(SetThreadPriorityBoost)(GetCurrentThread(), FALSE);
 				break;
 			}
+
+			LOG_INFO << "Current CPU affinity: " << maskToString(processMask);
+			if (0 != g_cpuAffinity)
+			{
+				LOG_INFO << "Applying configured CPU affinity: " << maskToString(g_cpuAffinity);
+				CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), systemMask);
+				registerExistingThreads();
+				setProcessAffinity();
+				Dll::createThread(&threadManagerProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
+			}
+
+			LOG_INFO << "CPU affinity rotation is " << (useCpuAffinityRotation() ? "enabled" : "disabled");
+		}
+
+		void dllThreadAttach()
+		{
+			if (0 != g_cpuAffinity)
+			{
+				registerThread(GetCurrentThreadId(), "Thread started");
+			}
+		}
+
+		void dllThreadDetach()
+		{
+			if (0 == g_cpuAffinity)
+			{
+				return;
+			}
+
+			Compat::ScopedCriticalSection lock(g_cs);
+			auto it = g_threads.find(GetCurrentThreadId());
+			if (it != g_threads.end())
+			{
+				logThreadInfo(it->second, "Thread stopped");
+				CloseHandle(it->second.handle);
+				g_threads.erase(it);
+			}
 		}
 
 		void installHooks()
 		{
+			HOOK_FUNCTION(kernel32, CreateThread, createThread);
 			HOOK_FUNCTION(kernel32, SetProcessAffinityMask, setProcessAffinityMask);
 			HOOK_FUNCTION(kernel32, SetProcessPriorityBoost, setProcessPriorityBoost);
 			HOOK_FUNCTION(kernel32, SetThreadPriorityBoost, setThreadPriorityBoost);
 
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "OpenMutexW", ddrawOpenMutexW);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "WaitForSingleObject", ddrawWaitForSingleObject);
-		}
 
-		void rotateCpuAffinity()
-		{
-			if (!g_cpuAffinityRotationEnabled)
-			{
-				return;
-			}
-
-			static auto g_qpcLastRotation = Time::queryPerformanceCounter();
-			auto qpcNow = Time::queryPerformanceCounter();
-			if (qpcNow - g_qpcLastRotation < Time::g_qpcFrequency / 10)
-			{
-				return;
-			}
-			g_qpcLastRotation = qpcNow;
-
-			g_cpuAffinity = rotateMask(g_cpuAffinity);
-			if (!CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), g_cpuAffinity))
-			{
-				LOG_ONCE("ERROR: Failed to set rotated CPU affinity: " << maskToString(g_cpuAffinity));
-			}
+			g_ntQueryInformationThread = reinterpret_cast<decltype(&NtQueryInformationThread)>(
+				GetProcAddress(GetModuleHandle("ntdll"), "NtQueryInformationThread"));
 		}
 
 		void skipWaitingForExclusiveModeMutex(bool skip)

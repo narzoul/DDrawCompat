@@ -41,7 +41,6 @@
 #include <Overlay/Steam.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
-#include <Win32/Thread.h>
 
 namespace
 {
@@ -443,7 +442,6 @@ namespace
 		int msUntilUpdateReady = 0;
 		while (true)
 		{
-			Win32::Thread::rotateCpuAffinity();
 			if (msUntilUpdateReady > 0)
 			{
 				Sleep(1);

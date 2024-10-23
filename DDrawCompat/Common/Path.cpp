@@ -27,6 +27,17 @@ namespace Compat
 		return 0 == _wcsicmp(p1.c_str(), p2.c_str());
 	}
 
+	bool isPrefix(const std::filesystem::path& p1, const std::filesystem::path& p2)
+	{
+		const auto& n1 = p1.native();
+		const auto& n2 = p2.native();
+		if (n1.length() > n2.length())
+		{
+			return false;
+		}
+		return 0 == _wcsicmp(n1.c_str(), n2.substr(0, n1.length()).c_str());
+	}
+
 	std::filesystem::path replaceFilename(const std::filesystem::path& path, const std::filesystem::path& filename)
 	{
 		std::filesystem::path result(path);

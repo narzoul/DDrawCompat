@@ -371,8 +371,13 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		CALL_ORIG_FUNC(ClipCursor)(nullptr);
 		LOG_INFO << "DDrawCompat detached successfully";
 	}
+	else if (fdwReason == DLL_THREAD_ATTACH)
+	{
+		Win32::Thread::dllThreadAttach();
+	}
 	else if (fdwReason == DLL_THREAD_DETACH)
 	{
+		Win32::Thread::dllThreadDetach();
 		Gdi::dllThreadDetach();
 	}
 

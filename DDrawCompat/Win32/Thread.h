@@ -6,7 +6,8 @@ namespace Win32
 	{
 		void applyConfig();
 		void installHooks();
-		void rotateCpuAffinity();
+		void dllThreadAttach();
+		void dllThreadDetach();
 		void skipWaitingForExclusiveModeMutex(bool skip);
 	}
 }
