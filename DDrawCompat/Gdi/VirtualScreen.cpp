@@ -133,7 +133,7 @@ namespace Gdi
 		HBITMAP createOffScreenDib(LONG width, LONG height, DWORD bpp)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			const bool useDefaultPalette = true;
+			const bool useDefaultPalette = false;
 			return createDibSection(width, height, bpp, nullptr, useDefaultPalette);
 		}
 
