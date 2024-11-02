@@ -100,6 +100,7 @@ namespace
 	EmulatedDisplayMode g_emulatedDisplayMode = {};
 	ULONG g_monitorInfoUniqueness = 0;
 	std::map<HMONITOR, Win32::DisplayMode::MonitorInfo> g_monitorInfo;
+	Win32::DisplayMode::MonitorInfo g_desktopMonitorInfo = {};
 	Win32::DisplayMode::MonitorInfo g_emptyMonitorInfo = {};
 	RECT g_realBounds = {};
 	Compat::CriticalSection g_cs;
@@ -146,11 +147,12 @@ namespace
 				dm.dmSize = sizeof(dm);
 				enumDisplaySettingsEx(lpszDeviceName, ENUM_REGISTRY_SETTINGS, &dm, 0);
 
+				dm.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 				dm.dmBitsPerPel = g_desktopBpp;
 				dm.dmPelsWidth = desktopResolution.cx;
 				dm.dmPelsHeight = desktopResolution.cy;
 
-				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, dwflags, nullptr))
+				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, dwflags | CDS_FULLSCREEN, nullptr))
 				{
 					return DISP_CHANGE_SUCCESSFUL;
 				}
@@ -260,6 +262,9 @@ namespace
 		currDevMode.dmSize = sizeof(currDevMode);
 		origEnumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currDevMode, 0);
 
+		DevMode<Char> currEmulatedDevMode = {};
+		currEmulatedDevMode.dmSize = sizeof(currEmulatedDevMode);
+
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (lpDevMode)
@@ -290,23 +295,20 @@ namespace
 				g_emulatedDisplayMode.bpp = g_desktopBpp;
 			}
 
-			DevMode<Char> currEmulatedDevMode = {};
-			currEmulatedDevMode.dmSize = sizeof(currEmulatedDevMode);
 			enumDisplaySettingsEx(lpszDeviceName, ENUM_CURRENT_SETTINGS, &currEmulatedDevMode, 0);
-
 			if (0 != memcmp(&prevEmulatedDevMode, &currEmulatedDevMode, sizeof(currEmulatedDevMode)))
 			{
 				++g_displaySettingsUniquenessBias;
 			}
 		}
 
-		const SIZE res = lpDevMode ? emulatedResolution : makeSize(currDevMode.dmPelsWidth, currDevMode.dmPelsHeight);
-		if (res.cx != static_cast<LONG>(prevEmulatedDevMode.dmPelsWidth) ||
-			res.cy != static_cast<LONG>(prevEmulatedDevMode.dmPelsHeight))
+		if (0 != memcmp(&currEmulatedDevMode, &prevEmulatedDevMode, sizeof(currEmulatedDevMode)))
 		{
 			ClipCursor(nullptr);
-			SetCursorPos(currDevMode.dmPosition.x + res.cx / 2, currDevMode.dmPosition.y + res.cy / 2);
-			CALL_ORIG_FUNC(EnumWindows)(sendDisplayChange, (res.cy << 16) | res.cx);
+			SetCursorPos(currDevMode.dmPosition.x + currEmulatedDevMode.dmPelsWidth / 2,
+				currEmulatedDevMode.dmPosition.y + currEmulatedDevMode.dmPelsHeight / 2);
+			CALL_ORIG_FUNC(EnumWindows)(sendDisplayChange,
+				(currEmulatedDevMode.dmPelsHeight << 16) | currEmulatedDevMode.dmPelsWidth);
 		}
 
 		Gdi::VirtualScreen::update();
@@ -662,7 +664,7 @@ namespace
 				dm.dmSize = sizeof(dm);
 				dm.dmFields = DM_BITSPERPEL;
 				dm.dmBitsPerPel = 32;
-				ChangeDisplaySettingsEx(mi.szDevice, &dm, nullptr, 0, nullptr);
+				ChangeDisplaySettingsEx(mi.szDevice, &dm, nullptr, CDS_FULLSCREEN, nullptr);
 			}
 		}
 
@@ -759,6 +761,17 @@ namespace
 		}
 
 		mi.dpiScale = MulDiv(100, mi.rcReal.right - mi.rcReal.left, mi.rcMonitor.right - mi.rcMonitor.left);
+		mi.realDpiScale = mi.dpiScale;
+		if (Win32::DpiAwareness::isMixedModeSupported())
+		{
+			MONITORINFO umi = {};
+			umi.cbSize = sizeof(umi);
+			Win32::ScopedDpiAwareness dpiAwareness(DPI_AWARENESS_CONTEXT_UNAWARE);
+			if (CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, &umi))
+			{
+				mi.realDpiScale = MulDiv(100, mi.rcReal.right - mi.rcReal.left, umi.rcMonitor.right - umi.rcMonitor.left);
+			}
+		}
 
 		if (0 == mi.rcMonitor.left && 0 == mi.rcMonitor.top)
 		{
@@ -799,6 +812,7 @@ namespace Win32
 				<< mi.rcEmulated
 				<< mi.bpp
 				<< mi.dpiScale
+				<< mi.realDpiScale
 				<< mi.isEmulated;
 		}
 
@@ -821,6 +835,11 @@ namespace Win32
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
 			return g_emulatedDisplayMode;
+		}
+
+		const MonitorInfo& getDesktopMonitorInfo()
+		{
+			return g_desktopMonitorInfo;
 		}
 
 		const MonitorInfo& getMonitorInfo(HMONITOR monitor)
@@ -884,6 +903,7 @@ namespace Win32
 			}
 			g_emulatedDisplayMode.bpp = g_desktopBpp;
 
+			ChangeDisplaySettingsEx(nullptr, nullptr, nullptr, 0, nullptr);
 			EnumDisplayMonitors(nullptr, nullptr, &initMonitor, 0);
 
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
@@ -897,9 +917,12 @@ namespace Win32
 
 			disableDwm8And16BitMitigation();
 
+			updateMonitorInfo();
+			g_desktopMonitorInfo = g_monitorInfo[nullptr];
+
 			if (Config::Settings::DesktopResolution::DESKTOP != Config::desktopResolution.get())
 			{
-				changeDisplaySettingsExA(nullptr, nullptr, nullptr, 0, nullptr);
+				changeDisplaySettingsExA(nullptr, nullptr, nullptr, CDS_FULLSCREEN, nullptr);
 			}
 		}
 	}

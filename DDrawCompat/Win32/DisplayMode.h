@@ -31,6 +31,7 @@ namespace Win32
 			RECT rcEmulated;
 			DWORD bpp;
 			DWORD dpiScale;
+			DWORD realDpiScale;
 			bool isEmulated;
 		};
 
@@ -38,6 +39,7 @@ namespace Win32
 
 		std::map<HMONITOR, MonitorInfo> getAllMonitorInfo();
 		DWORD getBpp();
+		const MonitorInfo& getDesktopMonitorInfo();
 		EmulatedDisplayMode getEmulatedDisplayMode();
 		const MonitorInfo& getMonitorInfo(HMONITOR monitor = nullptr);
 		const MonitorInfo& getMonitorInfo(HWND hwnd);

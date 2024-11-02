@@ -1,6 +1,7 @@
 #include <algorithm>
 #include <map>
 #include <tuple>
+#include <vector>
 
 #include <Windows.h>
 #include <hidusage.h>
@@ -11,6 +12,8 @@
 #include <Common/Log.h>
 #include <Common/Path.h>
 #include <Common/Rect.h>
+#include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/TerminateHotKey.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -25,6 +28,8 @@
 
 namespace
 {
+	const UINT WM_USER_SEND_MOUSE_MOVE = WM_USER;
+
 	struct DInputMouseHookData
 	{
 		HOOKPROC origHookProc;
@@ -39,11 +44,23 @@ namespace
 		bool onKeyDown;
 	};
 
+	struct MouseScaleParams
+	{
+		long long multiplier;
+		POINT position;
+		POINT remainder;
+		SIZE resolution;
+		bool useRaw;
+	};
+
 	HANDLE g_bmpArrow = nullptr;
 	SIZE g_bmpArrowSize = {};
 	Overlay::Control* g_capture = nullptr;
 	POINT g_cursorPos = {};
 	HWND g_cursorWindow = nullptr;
+	HWND g_inputWindow = nullptr;
+	Win32::DisplayMode::MonitorInfo g_fullscreenMonitorInfo = {};
+	MouseScaleParams g_mouseScale = {};
 	std::map<Input::HotKey, HotKeyData> g_hotKeys;
 	RECT g_monitorRect = {};
 	HHOOK g_keyboardHook = nullptr;
@@ -53,9 +70,57 @@ namespace
 	DInputMouseHookData g_dinputMouseHookData = {};
 	decltype(&PhysicalToLogicalPointForPerMonitorDPI) g_physicalToLogicalPointForPerMonitorDPI = nullptr;
 
+	Compat::CriticalSection g_rawInputCs;
+
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 	LRESULT CALLBACK lowLevelMouseProc(int nCode, WPARAM wParam, LPARAM lParam);
 	POINT physicalToLogicalPoint(POINT pt);
+	void processRawInput(HRAWINPUT ri);
+	void sendMouseMove();
+
+	HHOOK addHook(int idHook, HOOKPROC lpfn)
+	{
+		HHOOK hook = CALL_ORIG_FUNC(SetWindowsHookExA)(idHook, lpfn, Dll::g_origDDrawModule, 0);
+		if (!hook)
+		{
+			if (WH_KEYBOARD_LL == idHook)
+			{
+				LOG_ONCE("ERROR: Failed to install low level keyboard hook, error code: " << GetLastError());
+			}
+			else
+			{
+				LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
+			}
+		}
+		return hook;
+	}
+
+	void addMouseMove(LONG x, LONG y)
+	{
+		if (POINT{} == g_mouseScale.position)
+		{
+			PostMessage(g_inputWindow, WM_USER_SEND_MOUSE_MOVE, 0, 0);
+		}
+		g_mouseScale.position.x += x;
+		g_mouseScale.position.y += y;
+	}
+
+	void addMouseMove(const MSLLHOOKSTRUCT& llHook)
+	{
+		Win32::ScopedDpiAwareness dpiAwareness;
+		POINT origCursorPos = {};
+		CALL_ORIG_FUNC(GetCursorPos)(&origCursorPos);
+		addMouseMove(llHook.pt.x - origCursorPos.x, llHook.pt.y - origCursorPos.y);
+	}
+
+	void addMouseMove(const RAWINPUT& ri)
+	{
+		if ((!(ri.data.mouse.usFlags & MOUSE_MOVE_ABSOLUTE) || (ri.data.mouse.usFlags & MOUSE_VIRTUAL_DESKTOP)) &&
+			(0 != ri.data.mouse.lLastX || 0 != ri.data.mouse.lLastY))
+		{
+			addMouseMove(ri.data.mouse.lLastX, ri.data.mouse.lLastY);
+		}
+	}
 
 	LRESULT CALLBACK cursorWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
@@ -132,6 +197,83 @@ namespace
 		return g_dinputMouseHookData.origHookProc(nCode, wParam, lParam);
 	}
 
+	BOOL dinputSystemParametersInfoW(UINT uiAction, UINT uiParam, PVOID pvParam, UINT fWinIni)
+	{
+		LOG_FUNC("dinputSystemParametersInfoW", Compat::hex(uiAction), uiParam, pvParam, fWinIni);
+		auto result = CALL_ORIG_FUNC(SystemParametersInfoW)(uiAction, uiParam, pvParam, fWinIni);
+		if (result && SPI_GETMOUSE == uiAction)
+		{
+			memset(pvParam, 0, 3 * sizeof(int));
+		}
+		return LOG_RESULT(result);
+	}
+
+	bool getMouseAccel()
+	{
+		int mouse[3] = {};
+		CALL_ORIG_FUNC(SystemParametersInfoA)(SPI_GETMOUSE, 0, &mouse, 0);
+		return mouse[2];
+	}
+
+	int getMouseSpeedFactor()
+	{
+		int speed = 10;
+		CALL_ORIG_FUNC(SystemParametersInfoA)(SPI_GETMOUSESPEED, 0, &speed, 0);
+		if (speed < 1 || speed > 20)
+		{
+			speed = 10;
+		}
+
+		if (speed <= 2)
+		{
+			return speed;
+		}
+		if (speed <= 10)
+		{
+			return (speed - 2) * 4;
+		}
+		return (speed - 6) * 8;
+	}
+
+	RAWINPUTDEVICE getRegisteredRawMouseDevice()
+	{
+		UINT numDevices = 0;
+		GetRegisteredRawInputDevices(nullptr, &numDevices, sizeof(RAWINPUTDEVICE));
+		if (0 == numDevices)
+		{
+			return {};
+		}
+
+		std::vector<RAWINPUTDEVICE> devices(numDevices);
+		const int count = GetRegisteredRawInputDevices(devices.data(), &numDevices, sizeof(RAWINPUTDEVICE));
+		for (int i = 0; i < count; ++i)
+		{
+			if (HID_USAGE_PAGE_GENERIC == devices[i].usUsagePage &&
+				HID_USAGE_GENERIC_MOUSE == devices[i].usUsage &&
+				!(devices[i].dwFlags & RIDEV_EXCLUDE))
+			{
+				return devices[i];
+			}
+		}
+		return {};
+	}
+
+	LRESULT CALLBACK inputWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
+	{
+		switch (uMsg)
+		{
+		case WM_INPUT:
+			processRawInput(reinterpret_cast<HRAWINPUT>(lParam));
+			break;
+
+		case WM_USER_SEND_MOUSE_MOVE:
+			sendMouseMove();
+			return 0;
+		}
+
+		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
+	}
+
 	LRESULT CALLBACK lowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 	{
 		if (HC_ACTION == nCode &&
@@ -183,6 +325,19 @@ namespace
 		{
 			auto& llHook = *reinterpret_cast<MSLLHOOKSTRUCT*>(lParam);
 
+			if (!g_capture)
+			{
+				if (0 != g_mouseScale.multiplier && !(llHook.flags & LLMHF_INJECTED) && WM_MOUSEMOVE == wParam)
+				{
+					if (!g_mouseScale.useRaw)
+					{
+						addMouseMove(llHook);
+					}
+					return 1;
+				}
+				return CallNextHookEx(nullptr, nCode, wParam, lParam);
+			}
+
 			if (WM_MOUSEMOVE == wParam)
 			{
 				POINT origCursorPos = {};
@@ -191,7 +346,6 @@ namespace
 				{
 					Win32::ScopedDpiAwareness dpiAwareness;
 					CALL_ORIG_FUNC(GetCursorPos)(&origCursorPos);
-					llHook.pt = {};
 				}
 				else
 				{
@@ -256,12 +410,45 @@ namespace
 		return { MulDiv(pt.x, 100, dpiScale), MulDiv(pt.y, 100, dpiScale) };
 	}
 
+	void processRawInput(HRAWINPUT rawInput)
+	{
+		RAWINPUT ri = {};
+		UINT size = sizeof(ri);
+		if (-1 != GetRawInputData(rawInput, RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)))
+		{
+			addMouseMove(ri);
+		}
+
+		alignas(8) RAWINPUT buf[64];
+		size = sizeof(buf);
+		int count = GetRawInputBuffer(buf, &size, sizeof(RAWINPUTHEADER));
+		while (count > 0)
+		{
+			RAWINPUT* p = buf;
+			for (int i = 0; i < count; ++i)
+			{
+				addMouseMove(*p);
+				p = NEXTRAWINPUTBLOCK(p);
+			}
+			count = GetRawInputBuffer(buf, &size, sizeof(RAWINPUTHEADER));
+		}
+	}
+
+	void removeHook(HHOOK& hook)
+	{
+		if (hook)
+		{
+			CALL_ORIG_FUNC(UnhookWindowsHookEx)(hook);
+			hook = nullptr;
+		}
+	}
+
 	BOOL WINAPI registerRawInputDevices(PCRAWINPUTDEVICE pRawInputDevices, UINT uiNumDevices, UINT cbSize)
 	{
 		LOG_FUNC("RegisterRawInputDevices", Compat::array(pRawInputDevices, uiNumDevices), uiNumDevices, cbSize);
 		if (1 == uiNumDevices &&
 			HID_USAGE_PAGE_GENERIC == pRawInputDevices->usUsagePage &&
-			HID_USAGE_GENERIC_KEYBOARD == pRawInputDevices->usUsage &&
+			(HID_USAGE_GENERIC_MOUSE == pRawInputDevices->usUsage || HID_USAGE_GENERIC_KEYBOARD == pRawInputDevices->usUsage) &&
 			pRawInputDevices->hwndTarget)
 		{
 			char className[32] = {};
@@ -271,25 +458,23 @@ namespace
 				return LOG_RESULT(FALSE);
 			}
 		}
-		return LOG_RESULT(CALL_ORIG_FUNC(RegisterRawInputDevices)(pRawInputDevices, uiNumDevices, cbSize));
+
+		Compat::ScopedCriticalSection lock(g_rawInputCs);
+		BOOL result = CALL_ORIG_FUNC(RegisterRawInputDevices)(pRawInputDevices, uiNumDevices, cbSize);
+		if (result)
+		{
+			Gdi::GuiThread::executeAsyncFunc(Input::updateMouseSensitivity);
+		}
+		return LOG_RESULT(result);
 	}
 
 	void resetKeyboardHook()
 	{
 		Gdi::GuiThread::execute([]()
 			{
-				if (g_keyboardHook)
-				{
-					UnhookWindowsHookEx(g_keyboardHook);
-				}
-
+				removeHook(g_keyboardHook);
 				g_keyState.reset();
-				g_keyboardHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_KEYBOARD_LL, &lowLevelKeyboardProc, Dll::g_origDDrawModule, 0);
-				if (!g_keyboardHook)
-				{
-					LOG_ONCE("ERROR: Failed to install low level keyboard hook, error code: " << GetLastError());
-				}
+				g_keyboardHook = addHook(WH_KEYBOARD_LL, &lowLevelKeyboardProc);
 			});
 	}
 
@@ -297,24 +482,36 @@ namespace
 	{
 		Gdi::GuiThread::execute([]()
 			{
-				if (!g_capture)
-				{
-					return;
-				}
-
-				if (g_mouseHook)
-				{
-					UnhookWindowsHookEx(g_mouseHook);
-				}
-
-				g_mouseHook = CALL_ORIG_FUNC(SetWindowsHookExA)(
-					WH_MOUSE_LL, &lowLevelMouseProc, Dll::g_origDDrawModule, 0);
-
-				if (!g_mouseHook)
-				{
-					LOG_ONCE("ERROR: Failed to install low level mouse hook, error code: " << GetLastError());
-				}
+				removeHook(g_mouseHook);
+				Input::updateMouseSensitivity();
 			});
+	}
+
+	void sendMouseMove()
+	{
+		if (POINT{} == g_mouseScale.position || SIZE{} == g_mouseScale.resolution)
+		{
+			return;
+		}
+
+		const auto relX = g_mouseScale.position.x * g_mouseScale.multiplier + g_mouseScale.remainder.x;
+		const auto relY = g_mouseScale.position.y * g_mouseScale.multiplier + g_mouseScale.remainder.y;
+		g_mouseScale.remainder.x = relX < 0 ? -(-relX & 0xFFFF) : (relX & 0xFFFF);
+		g_mouseScale.remainder.y = relY < 0 ? -(-relY & 0xFFFF) : (relY & 0xFFFF);
+		g_mouseScale.position = {};
+
+		Win32::ScopedDpiAwareness dpiAwareness;
+		POINT origCursorPos = {};
+		CALL_ORIG_FUNC(GetCursorPos)(&origCursorPos);
+
+		const auto newX = origCursorPos.x + (relX < 0 ? -(-relX >> 16) : (relX >> 16));
+		const auto newY = origCursorPos.y + (relY < 0 ? -(-relY >> 16) : (relY >> 16));
+
+		INPUT input = {};
+		input.mi.dwFlags = MOUSEEVENTF_MOVE | MOUSEEVENTF_ABSOLUTE;
+		input.mi.dx = static_cast<LONG>((newX * 65536 + (newX < 0 ? -32768 : 32768)) / g_mouseScale.resolution.cx);
+		input.mi.dy = static_cast<LONG>((newY * 65536 + (newY < 0 ? -32768 : 32768)) / g_mouseScale.resolution.cy);
+		SendInput(1, &input, sizeof(INPUT));
 	}
 
 	HHOOK setWindowsHookEx(int idHook, HOOKPROC lpfn, HINSTANCE hmod, DWORD dwThreadId,
@@ -335,6 +532,7 @@ namespace
 				g_dinputMouseHookData.origHookProc = lpfn;
 				lpfn = dinputLowLevelMouseProc;
 				Compat::hookIatFunction(hmod, "CallNextHookEx", dinputCallNextHookEx);
+				Compat::hookIatFunction(hmod, "SystemParametersInfoW", dinputSystemParametersInfoW);
 			}
 		}
 
@@ -345,7 +543,7 @@ namespace
 			{
 				resetKeyboardHook();
 			}
-			else if (WH_MOUSE_LL == idHook && g_mouseHook)
+			else if (WH_MOUSE_LL == idHook)
 			{
 				resetMouseHook();
 			}
@@ -368,6 +566,50 @@ namespace
 	auto toTuple(const Input::HotKey& hotKey)
 	{
 		return std::make_tuple(hotKey.vk, hotKey.modifiers);
+	}
+
+	void updateMouseHooks()
+	{
+		const bool isLowLevelHookNeeded = g_capture || 0 != g_mouseScale.multiplier;
+		if (!isLowLevelHookNeeded)
+		{
+			removeHook(g_mouseHook);
+		}
+		else if (!g_mouseHook)
+		{
+			g_mouseHook = addHook(WH_MOUSE_LL, &lowLevelMouseProc);
+			if (!g_mouseHook)
+			{
+				g_mouseScale.useRaw = false;
+			}
+		}
+
+		if (!g_inputWindow)
+		{
+			return;
+		}
+
+		Compat::ScopedCriticalSection lock(g_rawInputCs);
+		const auto rawMouseDevice = getRegisteredRawMouseDevice();
+		if (g_mouseScale.useRaw)
+		{
+			if (HID_USAGE_GENERIC_MOUSE != rawMouseDevice.usUsage)
+			{
+				RAWINPUTDEVICE rid = {};
+				rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+				rid.usUsage = HID_USAGE_GENERIC_MOUSE;
+				rid.hwndTarget = g_inputWindow;
+				g_mouseScale.useRaw = CALL_ORIG_FUNC(RegisterRawInputDevices)(&rid, 1, sizeof(RAWINPUTDEVICE));
+			}
+		}
+		else if (g_inputWindow == rawMouseDevice.hwndTarget)
+		{
+			RAWINPUTDEVICE rid = {};
+			rid.usUsagePage = HID_USAGE_PAGE_GENERIC;
+			rid.usUsage = HID_USAGE_GENERIC_MOUSE;
+			rid.dwFlags = RIDEV_REMOVE;
+			CALL_ORIG_FUNC(RegisterRawInputDevices)(&rid, 1, sizeof(RAWINPUTDEVICE));
+		}
 	}
 }
 
@@ -412,6 +654,24 @@ namespace Input
 		return cp;
 	}
 
+	void init()
+	{
+		WNDCLASS wc = {};
+		wc.lpfnWndProc = &inputWindowProc;
+		wc.hInstance = Dll::g_currentModule;
+		wc.lpszClassName = "DDrawCompatInputWindow";
+		CALL_ORIG_FUNC(RegisterClassA)(&wc);
+
+		g_inputWindow = CreateWindowExA(
+			0, "DDrawCompatInputWindow", nullptr, WS_POPUP, 0, 0, 0, 0, nullptr, nullptr, nullptr, nullptr);
+		if (!g_inputWindow)
+		{
+			LOG_INFO << "ERROR: Failed to create input window";
+		}
+
+		registerHotKey(Config::terminateHotKey.get(), onTerminate, nullptr, false);
+	}
+
 	void installHooks()
 	{
 		g_bmpArrow = CALL_ORIG_FUNC(LoadImageA)(Dll::g_currentModule, "BMP_ARROW", IMAGE_BITMAP, 0, 0, 0);
@@ -426,8 +686,6 @@ namespace Input
 		HOOK_FUNCTION(user32, RegisterRawInputDevices, registerRawInputDevices);
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
-
-		registerHotKey(Config::terminateHotKey.get(), onTerminate, nullptr, false);
 	}
 
 	bool isKeyDown(int vk)
@@ -474,7 +732,7 @@ namespace Input
 			auto window = getCaptureWindow();
 			g_monitorRect = Win32::DisplayMode::getMonitorInfo(window->getWindow()).rcMonitor;
 
-			if (!g_mouseHook)
+			if (!g_cursorWindow)
 			{
 				g_cursorWindow = Gdi::PresentationWindow::create(window->getWindow());
 				CALL_ORIG_FUNC(SetWindowLongA)(g_cursorWindow, GWL_WNDPROC, reinterpret_cast<LONG>(&cursorWindowProc));
@@ -485,17 +743,30 @@ namespace Input
 					g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx, g_bmpArrowSize.cy,
 					SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSENDCHANGING | SWP_SHOWWINDOW);
 				g_capture->onMouseMove(getRelativeCursorPos());
-
-				resetMouseHook();
 			}
 		}
-		else if (g_mouseHook)
+		else if (g_cursorWindow)
 		{
-			UnhookWindowsHookEx(g_mouseHook);
-			g_mouseHook = nullptr;
 			Gdi::GuiThread::destroyWindow(g_cursorWindow);
 			g_cursorWindow = nullptr;
 		}
+
+		updateMouseSensitivity();
+	}
+
+	void setFullscreenMonitorInfo(const Win32::DisplayMode::MonitorInfo& mi)
+	{
+		if (!Gdi::GuiThread::isReady())
+		{
+			g_fullscreenMonitorInfo = mi;
+			return;
+		}
+
+		Gdi::GuiThread::execute([&]()
+			{
+				g_fullscreenMonitorInfo = mi;
+				updateMouseSensitivity();
+			});
 	}
 
 	void updateCursor()
@@ -509,6 +780,63 @@ namespace Input
 						g_cursorPos.x, g_cursorPos.y, g_bmpArrowSize.cx * scaleFactor, g_bmpArrowSize.cy * scaleFactor,
 						SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOSENDCHANGING);
 				}
+			});
+	}
+
+	void updateMouseSensitivity()
+	{
+		Gdi::GuiThread::execute([]()
+			{
+				g_mouseScale = {};
+
+				if (Config::Settings::MouseSensitivity::NATIVE == Config::mouseSensitivity.get() ||
+					IsRectEmpty(&g_fullscreenMonitorInfo.rcEmulated) ||
+					Overlay::Steam::isOverlayOpen())
+				{
+					updateMouseHooks();
+					return;
+				}
+
+				Compat::ScopedCriticalSection lock(g_rawInputCs);
+				const auto rawMouseDevice = getRegisteredRawMouseDevice();
+				if (HID_USAGE_GENERIC_MOUSE == rawMouseDevice.usUsage && g_inputWindow != rawMouseDevice.hwndTarget)
+				{
+					updateMouseHooks();
+					return;
+				}
+
+				g_mouseScale.useRaw = !g_capture &&
+					(Config::Settings::MouseSensitivity::NOACCEL == Config::mouseSensitivity.get() ||
+						g_fullscreenMonitorInfo.rcDpiAware != g_fullscreenMonitorInfo.rcReal ||
+						!getMouseAccel());
+
+				const auto& desktopMi = Win32::DisplayMode::getDesktopMonitorInfo();
+				const auto desktopSize = Rect::getSize(desktopMi.rcReal);
+				const auto emulatedSize = Rect::getSize(g_fullscreenMonitorInfo.rcEmulated);
+				const auto size = (emulatedSize.cx * desktopSize.cy > emulatedSize.cy * desktopSize.cx) ? &SIZE::cx : &SIZE::cy;
+
+				long long num = emulatedSize.*size * g_fullscreenMonitorInfo.dpiScale;
+				long long denom = desktopSize.*size * 100;
+
+				num *= Config::mouseSensitivity.getParam();
+				denom *= 100;
+
+				g_mouseScale.multiplier = num;
+				g_mouseScale.resolution = Rect::getSize(g_fullscreenMonitorInfo.rcReal);
+				updateMouseHooks();
+
+				if (g_mouseScale.useRaw)
+				{
+					num *= getMouseSpeedFactor() * desktopMi.realDpiScale;
+					denom *= 32 * 100;
+				}
+				else
+				{
+					num *= desktopMi.realDpiScale;
+					denom *= g_fullscreenMonitorInfo.realDpiScale;
+				}
+
+				g_mouseScale.multiplier = num * 65536 / denom;
 			});
 	}
 }

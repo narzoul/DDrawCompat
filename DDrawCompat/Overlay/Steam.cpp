@@ -201,6 +201,7 @@ namespace
 					}
 					Gdi::Cursor::setEmulated(false);
 				}
+				Input::updateMouseSensitivity();
 			}
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(SetWindowLongW)(hWnd, nIndex, dwNewLong));

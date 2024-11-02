@@ -36,6 +36,7 @@
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
+#include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
 #include <Overlay/Steam.h>
@@ -353,8 +354,15 @@ namespace
 
 	void setFullscreenPresentationMode(const Win32::DisplayMode::MonitorInfo& mi)
 	{
-		Gdi::Cursor::setEmulated(!IsRectEmpty(&mi.rcEmulated) && !Overlay::Steam::isOverlayOpen());
-		Gdi::Cursor::setMonitorClipRect(mi.rcEmulated);
+		static Win32::DisplayMode::MonitorInfo prevMi = {};
+		const bool isCursorEmulated = !IsRectEmpty(&mi.rcEmulated) && !Overlay::Steam::isOverlayOpen();
+		Gdi::Cursor::setEmulated(isCursorEmulated);
+		if (0 != memcmp(&mi, &prevMi, sizeof(mi)))
+		{
+			Gdi::Cursor::setMonitorClipRect(mi.rcEmulated);
+			Input::setFullscreenMonitorInfo(mi);
+			prevMi = mi;
+		}
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)

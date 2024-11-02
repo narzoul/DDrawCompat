@@ -11,6 +11,7 @@
 #include <Gdi/GuiThread.h>
 #include <Gdi/Region.h>
 #include <Gdi/WinProc.h>
+#include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
 #include <Overlay/Steam.h>
@@ -232,6 +233,8 @@ namespace
 			CALL_ORIG_FUNC(EnumWindows)(initTopLevelWindow, 0);
 		}
 
+		Input::init();
+
 		MSG msg = {};
 		while (CALL_ORIG_FUNC(GetMessageA)(&msg, nullptr, 0, 0))
 		{
@@ -256,7 +259,7 @@ namespace Gdi
 			HWND hwnd = nullptr;
 			execute([&]()
 				{
-					Win32::ScopedDpiAwareness dpiAwareness(dpiAware);
+					Win32::ScopedDpiAwareness dpiAwareness(dpiAware ? DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 : nullptr);
 					hwnd = createWindowExW(dwExStyle, lpClassName, lpWindowName, dwStyle, X, Y, nWidth, nHeight,
 						hWndParent, hMenu, hInstance, lpParam);
 				});

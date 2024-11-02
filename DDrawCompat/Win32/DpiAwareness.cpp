@@ -23,8 +23,8 @@ namespace
 
 namespace Win32
 {
-	ScopedDpiAwareness::ScopedDpiAwareness(bool dpiAware)
-		: m_prevContext(dpiAware ? DpiAwareness::setThreadContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) : nullptr)
+	ScopedDpiAwareness::ScopedDpiAwareness(DPI_AWARENESS_CONTEXT context)
+		: m_prevContext(context ? DpiAwareness::setThreadContext(context) : nullptr)
 	{
 	}
 

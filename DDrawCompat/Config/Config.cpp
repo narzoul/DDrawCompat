@@ -24,6 +24,7 @@
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/GdiStretchBltMode.h>
 #include <Config/Settings/LogLevel.h>
+#include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/RemoveBorders.h>
 #include <Config/Settings/RenderColorDepth.h>
@@ -82,6 +83,7 @@ namespace Config
 	Settings::FullscreenMode fullscreenMode;
 	Settings::GdiStretchBltMode gdiStretchBltMode;
 	Settings::LogLevel logLevel;
+	Settings::MouseSensitivity mouseSensitivity;
 	Settings::PalettizedTextures palettizedTextures;
 	Settings::RemoveBorders removeBorders;
 	Settings::RenderColorDepth renderColorDepth;

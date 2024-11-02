@@ -7,7 +7,7 @@ namespace Win32
 	class ScopedDpiAwareness
 	{
 	public:
-		ScopedDpiAwareness(bool dpiAware = true);
+		ScopedDpiAwareness(DPI_AWARENESS_CONTEXT context = DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 		~ScopedDpiAwareness();
 
 	private:
