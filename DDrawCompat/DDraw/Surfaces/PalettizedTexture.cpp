@@ -30,7 +30,7 @@ namespace DDraw
 
 		desc.dwFlags = DDSD_WIDTH | DDSD_HEIGHT | DDSD_PIXELFORMAT | DDSD_CAPS |
 			(desc.dwFlags & (DDSD_CKSRCBLT | DDSD_CKDESTBLT));
-		desc.ddpfPixelFormat = D3dDdi::getPixelFormat(D3DDDIFMT_A8R8G8B8);
+		desc.ddpfPixelFormat = D3dDdi::getPixelFormat(D3DDDIFMT_X8R8G8B8);
 		desc.ddsCaps = {};
 		desc.ddsCaps.dwCaps = DDSCAPS_TEXTURE | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY;
 

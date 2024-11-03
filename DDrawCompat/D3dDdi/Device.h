@@ -101,7 +101,6 @@ namespace D3dDdi
 		DeviceState m_state;
 		ShaderBlitter m_shaderBlitter;
 		std::vector<std::array<RGBQUAD, 256>> m_palettes;
-		std::vector<UINT> m_paletteFlags;
 		UINT m_autoColorKeyMethod;
 
 		static std::map<HANDLE, Device> s_devices;

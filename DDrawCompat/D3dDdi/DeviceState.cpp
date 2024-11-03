@@ -787,7 +787,7 @@ namespace D3dDdi
 			auto resource = getTextureResource(stage);
 			if (resource)
 			{
-				resource->updatePalettizedTexture(stage);
+				resource->updatePalettizedTexture();
 				if (resource->prepareForTextureRead(stage) != m_current.textures[stage])
 				{
 					m_changedStates |= CS_TEXTURE_STAGE;

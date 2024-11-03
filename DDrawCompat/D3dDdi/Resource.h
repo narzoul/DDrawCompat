@@ -65,7 +65,7 @@ namespace D3dDdi
 		void setPalettizedTexture(Resource& resource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
-		void updatePalettizedTexture(UINT stage);
+		void updatePalettizedTexture();
 		void waitForIdle(UINT subResourceIndex);
 
 		static void enableConfig(bool enable);
@@ -154,7 +154,6 @@ namespace D3dDdi
 		SIZE m_scaledSize;
 		Resource* m_palettizedTexture;
 		UINT m_paletteHandle;
-		int m_paletteColorKeyIndex;
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;

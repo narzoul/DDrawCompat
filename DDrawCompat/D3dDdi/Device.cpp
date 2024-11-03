@@ -468,10 +468,7 @@ namespace D3dDdi
 		if (data->PaletteHandle >= m_palettes.size())
 		{
 			m_palettes.resize(data->PaletteHandle + 1);
-			m_paletteFlags.resize(data->PaletteHandle + 1);
 		}
-
-		m_paletteFlags[data->PaletteHandle] = data->PaletteFlags;
 
 		auto it = m_resources.find(data->hResource);
 		if (it != m_resources.end())
@@ -513,11 +510,10 @@ namespace D3dDdi
 			m_palettes.resize(data->PaletteHandle + 1);
 		}
 
-		const bool useAlpha = m_paletteFlags[data->PaletteHandle] & D3DDDISETPALETTE_ALPHA;
 		for (UINT i = 0; i < data->NumEntries; ++i)
 		{
 			auto& rgbQuad = m_palettes[data->PaletteHandle][data->StartIndex + i];
-			rgbQuad.rgbReserved = useAlpha ? paletteData[i].peFlags : 0xFF;
+			rgbQuad.rgbReserved = 0xFF;
 			rgbQuad.rgbRed = paletteData[i].peRed;
 			rgbQuad.rgbGreen = paletteData[i].peGreen;
 			rgbQuad.rgbBlue = paletteData[i].peBlue;

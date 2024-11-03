@@ -135,7 +135,6 @@ namespace D3dDdi
 		, m_scaledSize{}
 		, m_palettizedTexture(nullptr)
 		, m_paletteHandle(0)
-		, m_paletteColorKeyIndex(-1)
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface() || !g_enableConfig)
 		, m_isClampable(true)
@@ -1296,11 +1295,17 @@ namespace D3dDdi
 			}
 		}
 
+		auto colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
+		if (m_palettizedTexture)
+		{
+			colorKey = reinterpret_cast<UINT&>(m_device.getPalette(m_palettizedTexture->m_paletteHandle)[colorKey]) & 0xFFFFFF;
+		}
+
 		if (!m_isColorKeyedSurfaceUpToDate ||
-			m_colorKey != appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL])
+			m_colorKey != colorKey)
 		{
 			m_isColorKeyedSurfaceUpToDate = true;
-			m_colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
+			m_colorKey = colorKey;
 			const ShaderBlitter::ColorKeyInfo ck = { m_colorKey, m_origData.Format };
 			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 			{
@@ -1825,48 +1830,19 @@ namespace D3dDdi
 		}
 	}
 
-	void Resource::updatePalettizedTexture(UINT stage)
+	void Resource::updatePalettizedTexture()
 	{
-		if (!m_palettizedTexture)
+		if (!m_palettizedTexture || m_palettizedTexture->m_isPalettizedTextureUpToDate)
 		{
 			return;
-		}
-
-		auto& appState = m_device.getState().getAppState();
-		int paletteColorKeyIndex = appState.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY]
-			? -1 : appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
-
-		if (m_palettizedTexture->m_isPalettizedTextureUpToDate &&
-			(-1 == paletteColorKeyIndex || paletteColorKeyIndex == m_paletteColorKeyIndex))
-		{
-			return;
-		}
-
-		auto palettePtr = m_device.getPalette(m_palettizedTexture->m_paletteHandle);
-		if (paletteColorKeyIndex >= 0)
-		{
-			static RGBQUAD palette[256] = {};
-			memcpy(palette, m_device.getPalette(m_palettizedTexture->m_paletteHandle), sizeof(palette));
-			for (int i = 0; i < 256; ++i)
-			{
-				if (i == paletteColorKeyIndex)
-				{
-					palette[i].rgbReserved = 0;
-				}
-				else if (palette[i] == palette[paletteColorKeyIndex])
-				{
-					palette[i].rgbBlue += 0xFF == palette[i].rgbBlue ? -1 : 1;
-				}
-			}
-			palettePtr = palette;
 		}
 
 		auto rect = getRect(0);
 		m_palettizedTexture->prepareForGpuReadAll();
-		m_device.getShaderBlitter().palettizedBlt(*this, 0, rect, *m_palettizedTexture, 0, rect, palettePtr);
-
+		m_device.getShaderBlitter().palettizedBlt(*this, 0, rect, *m_palettizedTexture, 0, rect,
+			m_device.getPalette(m_palettizedTexture->m_paletteHandle));
 		m_palettizedTexture->m_isPalettizedTextureUpToDate = true;
-		m_paletteColorKeyIndex = paletteColorKeyIndex;
+		m_isColorKeyedSurfaceUpToDate = false;
 	}
 
 	void Resource::waitForIdle(UINT subResourceIndex)

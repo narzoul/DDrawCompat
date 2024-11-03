@@ -7,7 +7,6 @@
 #include <Common/Rect.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/DisplayAspectRatio.h>
-#include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SupportedDepthFormats.h>
@@ -469,10 +468,7 @@ namespace D3dDdi
 			{
 				caps.dwDeviceZBufferBitDepth = getInfo().supportedZBufferBitDepths;
 			}
-			if (Config::palettizedTextures.get())
-			{
-				caps.dpcTriCaps.dwTextureCaps |= D3DPTEXTURECAPS_ALPHAPALETTE;
-			}
+			caps.dpcTriCaps.dwTextureCaps &= ~D3DPTEXTURECAPS_ALPHAPALETTE;
 			break;
 		}
 
