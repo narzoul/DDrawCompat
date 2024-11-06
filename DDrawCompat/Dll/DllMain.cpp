@@ -339,8 +339,11 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Overlay::Steam::init(origDDrawModulePath.c_str());
 
 		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);
-		Compat::hookFunction(reinterpret_cast<void*&>(Dll::g_origProcs.SetAppCompatData),
-			static_cast<decltype(&SetAppCompatData)>(&setAppCompatData), "SetAppCompatData");
+		if (Dll::g_origProcs.SetAppCompatData)
+		{
+			Compat::hookFunction(reinterpret_cast<void*&>(Dll::g_origProcs.SetAppCompatData),
+				static_cast<decltype(&SetAppCompatData)>(&setAppCompatData), "SetAppCompatData");
+		}
 
 		Input::installHooks();
 		Win32::MemoryManagement::installHooks();
@@ -354,7 +357,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Time::init();
 		Win32::Thread::applyConfig();
 
-		if (Config::Settings::FullscreenMode::EXCLUSIVE == Config::fullscreenMode.get())
+		if (Config::Settings::FullscreenMode::EXCLUSIVE == Config::fullscreenMode.get() &&
+			Dll::g_origProcs.SetAppCompatData)
 		{
 			CALL_ORIG_PROC(SetAppCompatData)(DISABLE_MAX_WINDOWED_MODE, 1);
 		}
