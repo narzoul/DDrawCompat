@@ -21,6 +21,7 @@ namespace DDraw
 		virtual HRESULT BltFast(TSurface* This, DWORD dwX, DWORD dwY,
 			TSurface* lpDDSrcSurface, LPRECT lpSrcRect, DWORD dwTrans) override;
 		virtual HRESULT Flip(TSurface* This, TSurface* lpDDSurfaceTargetOverride, DWORD dwFlags) override;
+		virtual HRESULT GetAttachedSurface(TSurface* This, TDdsCaps* lpDDSCaps, TSurface** lplpDDAttachedSurface);
 		virtual HRESULT GetCaps(TSurface* This, TDdsCaps* lpDDSCaps) override;
 		virtual HRESULT GetDC(TSurface* This, HDC* lphDC);
 		virtual HRESULT GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc) override;

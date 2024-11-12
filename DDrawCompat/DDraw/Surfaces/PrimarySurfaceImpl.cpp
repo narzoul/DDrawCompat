@@ -241,6 +241,18 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
+	HRESULT PrimarySurfaceImpl<TSurface>::GetAttachedSurface(TSurface* This, TDdsCaps* lpDDSCaps, TSurface** lplpDDAttachedSurface)
+	{
+		if (lpDDSCaps && (m_data->getOrigCaps() & DDSCAPS_SYSTEMMEMORY))
+		{
+			TDdsCaps caps = *lpDDSCaps;
+			caps.dwCaps &= ~DDSCAPS_SYSTEMMEMORY;
+			return SurfaceImpl::GetAttachedSurface(This, &caps, lplpDDAttachedSurface);
+		}
+		return SurfaceImpl::GetAttachedSurface(This, lpDDSCaps, lplpDDAttachedSurface);
+	}
+
+	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
 		HRESULT result = SurfaceImpl::GetCaps(This, lpDDSCaps);
