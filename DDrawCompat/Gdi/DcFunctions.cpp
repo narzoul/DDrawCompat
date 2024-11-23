@@ -1,6 +1,9 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/Rect.h>
+#include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/GdiStretchBltMode.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
 #include <Gdi/DcFunctions.h>
@@ -12,6 +15,8 @@
 
 namespace
 {
+	SIZE g_fullscreenSize = {};
+
 	template <typename Char>
 	void logString(Compat::Log& log, const Char* str, int length)
 	{
@@ -138,6 +143,12 @@ namespace
 	SET_DC_FUNC_ATTRIBUTE(attribute, func##A) \
 	SET_DC_FUNC_ATTRIBUTE(attribute, func##W)
 
+	CREATE_DC_FUNC_ATTRIBUTE(isFsBltFunc);
+	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, BitBlt);
+	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, SetDIBitsToDevice);
+	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, StretchBlt);
+	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, StretchDIBits);
+
 	CREATE_DC_FUNC_ATTRIBUTE(isPositionUpdated);
 	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, AngleArc);
 	SET_DC_FUNC_ATTRIBUTE(isPositionUpdated, ArcTo);
@@ -174,6 +185,18 @@ namespace
 		return hasDisplayDcArg(t) || hasDisplayDcArg(params...);
 	}
 
+	template <auto origFunc, typename... Params>
+	bool isFsBlt(Params...)
+	{
+		return false;
+	}
+
+	template <auto origFunc, typename... Params>
+	bool isFsBlt(HDC /*hdc*/, int x, int y, int cx, int cy, Params...)
+	{
+		return isFsBltFunc<origFunc>() && 0 == x && 0 == y && g_fullscreenSize.cx == cx && g_fullscreenSize.cy == cy;
+	}
+
 	bool lpToScreen(HWND hwnd, HDC dc, POINT& p)
 	{
 		LPtoDP(dc, &p, 1);
@@ -203,12 +226,22 @@ namespace
 		if (hasDisplayDcArg(hdc, params...))
 		{
 			Gdi::CompatDc compatDc(hdc, isReadOnly<origFunc>());
+			if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get() &&
+				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
+			{
+				DDraw::RealPrimarySurface::waitForFlipFpsLimit(false);
+			}
 			Result result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
 			if (isPositionUpdated<origFunc>() && result)
 			{
 				POINT currentPos = {};
 				GetCurrentPositionEx(compatDc, &currentPos);
 				MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
+			}
+			if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() &&
+				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
+			{
+				DDraw::RealPrimarySurface::waitForFlipFpsLimit(false);
 			}
 			return LOG_RESULT(result);
 		}
@@ -473,6 +506,11 @@ namespace Gdi
 			// Undocumented functions
 			HOOK_GDI_DC_FUNCTION(gdi32, GdiDrawStream);
 			HOOK_GDI_DC_FUNCTION(gdi32, PolyPatBlt);
+		}
+
+		void setFullscreenMonitorInfo(const Win32::DisplayMode::MonitorInfo& mi)
+		{
+			g_fullscreenSize = Rect::getSize(mi.rcEmulated);
 		}
 	}
 }

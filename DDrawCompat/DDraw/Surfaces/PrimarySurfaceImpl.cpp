@@ -70,6 +70,38 @@ namespace
 		gdiSurface->SetClipper(gdiSurface, nullptr);
 	}
 
+	bool isFsBlt(int cx, int cy)
+	{
+		RECT monitorRect = DDraw::PrimarySurface::getMonitorInfo().rcEmulated;
+		return monitorRect.right - monitorRect.left == cx &&
+			monitorRect.bottom - monitorRect.top == cy;
+	}
+
+	bool isFsBlt(LPRECT lpDestRect)
+	{
+		return !lpDestRect || 0 == lpDestRect->left && 0 == lpDestRect->top &&
+			isFsBlt(lpDestRect->right, lpDestRect->bottom);
+	}
+
+	template <typename TSurface>
+	bool isFsBltFast(DWORD dwX, DWORD dwY, TSurface* lpDDSrcSurface, LPRECT lpSrcRect)
+	{
+		if (0 != dwX || 0 != dwY || !lpDDSrcSurface)
+		{
+			return false;
+		}
+
+		if (lpSrcRect)
+		{
+			return isFsBlt(lpSrcRect->right - lpSrcRect->left, lpSrcRect->bottom - lpSrcRect->top);
+		}
+
+		DDraw::Types<TSurface>::TSurfaceDesc desc = {};
+		desc.dwSize = sizeof(desc);
+		getOrigVtable(lpDDSrcSurface).GetSurfaceDesc(lpDDSrcSurface, &desc);
+		return isFsBlt(desc.dwWidth, desc.dwHeight);
+	}
+
 	void restorePrimaryCaps(DWORD& caps)
 	{
 		caps &= ~DDSCAPS_OFFSCREENPLAIN;
@@ -112,6 +144,10 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
+		if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
+		{
+			RealPrimarySurface::waitForFlipFpsLimit();
+		}
 		HRESULT result = SurfaceImpl::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
 		{
@@ -123,6 +159,10 @@ namespace DDraw
 			}
 			RealPrimarySurface::scheduleUpdate();
 			PrimarySurface::waitForIdle();
+		}
+		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
+		{
+			RealPrimarySurface::waitForFlipFpsLimit();
 		}
 		return result;
 	}
@@ -137,6 +177,11 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
+		if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get()
+			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
+		{
+			RealPrimarySurface::waitForFlipFpsLimit();
+		}
 		HRESULT result = SurfaceImpl::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
 		{
@@ -147,6 +192,11 @@ namespace DDraw
 			}
 			RealPrimarySurface::scheduleUpdate();
 			PrimarySurface::waitForIdle();
+		}
+		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get()
+			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
+		{
+			RealPrimarySurface::waitForFlipFpsLimit();
 		}
 		return result;
 	}

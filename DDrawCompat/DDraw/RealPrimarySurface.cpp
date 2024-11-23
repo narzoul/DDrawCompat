@@ -29,6 +29,7 @@
 #include <DDraw/Types.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
+#include <Gdi/DcFunctions.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Palette.h>
@@ -360,6 +361,7 @@ namespace
 		if (0 != memcmp(&mi, &prevMi, sizeof(mi)))
 		{
 			Gdi::Cursor::setMonitorClipRect(mi.rcEmulated);
+			Gdi::DcFunctions::setFullscreenMonitorInfo(mi);
 			Input::setFullscreenMonitorInfo(mi);
 			prevMi = mi;
 		}
@@ -765,7 +767,7 @@ namespace DDraw
 		return true;
 	}
 
-	void RealPrimarySurface::waitForFlipFpsLimit()
+	void RealPrimarySurface::waitForFlipFpsLimit(bool doFlush)
 	{
 		static long long g_qpcPrevWaitEnd = Time::queryPerformanceCounter() - Time::g_qpcFrequency;
 		auto qpcNow = Time::queryPerformanceCounter();
@@ -781,7 +783,10 @@ namespace DDraw
 		while (Time::qpcToMs(qpcWaitEnd - qpcNow) > 0)
 		{
 			Time::waitForNextTick();
-			flush();
+			if (doFlush)
+			{
+				flush();
+			}
 			qpcNow = Time::queryPerformanceCounter();
 		}
 
