@@ -235,6 +235,37 @@ namespace
 		return (speed - 6) * 8;
 	}
 
+	UINT WINAPI getRawInputBuffer(PRAWINPUT pData, PUINT pcbSize, UINT cbSizeHeader)
+	{
+		int result = CALL_ORIG_FUNC(GetRawInputBuffer)(pData, pcbSize, cbSizeHeader);
+		if (g_capture)
+		{
+			for (int i = 0; i < result; ++i)
+			{
+				if (RIM_TYPEMOUSE == pData->header.dwType)
+				{
+					pData->data.mouse = {};
+				}
+				pData = NEXTRAWINPUTBLOCK(pData);
+			}
+		}
+		return result;
+	}
+
+	UINT WINAPI getRawInputData(HRAWINPUT hRawInput, UINT uiCommand, LPVOID pData, PUINT pcbSize, UINT cbSizeHeader)
+	{
+		int result = CALL_ORIG_FUNC(GetRawInputData)(hRawInput, uiCommand, pData, pcbSize, cbSizeHeader);
+		if (g_capture && result >= sizeof(RAWINPUT))
+		{
+			auto& ri = *static_cast<RAWINPUT*>(pData);
+			if (RIM_TYPEMOUSE == ri.header.dwType)
+			{
+				ri.data.mouse = {};
+			}
+		}
+		return result;
+	}
+
 	RAWINPUTDEVICE getRegisteredRawMouseDevice()
 	{
 		UINT numDevices = 0;
@@ -414,14 +445,14 @@ namespace
 	{
 		RAWINPUT ri = {};
 		UINT size = sizeof(ri);
-		if (-1 != GetRawInputData(rawInput, RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)))
+		if (-1 != CALL_ORIG_FUNC(GetRawInputData)(rawInput, RID_INPUT, &ri, &size, sizeof(RAWINPUTHEADER)))
 		{
 			addMouseMove(ri);
 		}
 
 		alignas(8) RAWINPUT buf[64];
 		size = sizeof(buf);
-		int count = GetRawInputBuffer(buf, &size, sizeof(RAWINPUTHEADER));
+		int count = CALL_ORIG_FUNC(GetRawInputBuffer)(buf, &size, sizeof(RAWINPUTHEADER));
 		while (count > 0)
 		{
 			RAWINPUT* p = buf;
@@ -430,7 +461,7 @@ namespace
 				addMouseMove(*p);
 				p = NEXTRAWINPUTBLOCK(p);
 			}
-			count = GetRawInputBuffer(buf, &size, sizeof(RAWINPUTHEADER));
+			count = CALL_ORIG_FUNC(GetRawInputBuffer)(buf, &size, sizeof(RAWINPUTHEADER));
 		}
 	}
 
@@ -683,6 +714,8 @@ namespace Input
 		g_physicalToLogicalPointForPerMonitorDPI = reinterpret_cast<decltype(&PhysicalToLogicalPointForPerMonitorDPI)>(
 			GetProcAddress(GetModuleHandle("user32"), "PhysicalToLogicalPointForPerMonitorDPI"));
 
+		HOOK_FUNCTION(user32, GetRawInputData, getRawInputData);
+		HOOK_FUNCTION(user32, GetRawInputBuffer, getRawInputBuffer);
 		HOOK_FUNCTION(user32, RegisterRawInputDevices, registerRawInputDevices);
 		HOOK_FUNCTION(user32, SetWindowsHookExA, setWindowsHookExA);
 		HOOK_FUNCTION(user32, SetWindowsHookExW, setWindowsHookExW);
