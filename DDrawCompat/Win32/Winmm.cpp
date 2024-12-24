@@ -39,6 +39,7 @@ namespace Win32
 	{
 		void installHooks()
 		{
+			timeBeginPeriod(1);
 			disableTimerResolutionThrottling();
 
 			if (Compat::getProcAddress(GetModuleHandle("kernel32"), "timeBeginPeriod"))

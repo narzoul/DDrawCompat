@@ -5,6 +5,7 @@
 
 #include <Windows.h>
 #include <hidusage.h>
+#include <mmsystem.h>
 #include <winternl.h>
 
 #include <Common/BitSet.h>
@@ -13,6 +14,7 @@
 #include <Common/Path.h>
 #include <Common/Rect.h>
 #include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/TerminateHotKey.h>
 #include <Dll/Dll.h>
@@ -65,6 +67,8 @@ namespace
 	RECT g_monitorRect = {};
 	HHOOK g_keyboardHook = nullptr;
 	HHOOK g_mouseHook = nullptr;
+	UINT g_mousePollingRate = 0;
+	UINT g_mousePollingTimerId = 0;
 	BitSet<VK_LBUTTON, VK_OEM_CLEAR> g_keyState;
 
 	DInputMouseHookData g_dinputMouseHookData = {};
@@ -97,7 +101,8 @@ namespace
 
 	void addMouseMove(LONG x, LONG y)
 	{
-		if (POINT{} == g_mouseScale.position)
+		if (POINT{} == g_mouseScale.position &&
+			Config::Settings::MousePollingRate::NATIVE == g_mousePollingRate)
 		{
 			PostMessage(g_inputWindow, WM_USER_SEND_MOUSE_MOVE, 0, 0);
 		}
@@ -424,6 +429,12 @@ namespace
 		return CallNextHookEx(nullptr, nCode, wParam, lParam);
 	}
 
+	void CALLBACK onMousePollingRateTimer(
+		UINT /*uTimerID*/, UINT /*uMsg*/, DWORD_PTR /*dwUser*/, DWORD_PTR /*dw1*/, DWORD_PTR /*dw2*/)
+	{
+		PostMessage(g_inputWindow, WM_USER_SEND_MOUSE_MOVE, 0, 0);
+	}
+
 	void onTerminate(void* /*context*/)
 	{
 		LOG_INFO << "Terminating application via TerminateHotKey";
@@ -601,6 +612,35 @@ namespace
 
 	void updateMouseHooks()
 	{
+		const UINT mousePollingRate = IsRectEmpty(&g_fullscreenMonitorInfo.rcReal)
+			? Config::Settings::MousePollingRate::NATIVE
+			: Config::mousePollingRate.get();
+		if (g_mousePollingRate != mousePollingRate)
+		{
+			g_mousePollingRate = mousePollingRate;
+			if (Config::Settings::MousePollingRate::NATIVE != g_mousePollingRate)
+			{
+				g_mousePollingTimerId = timeSetEvent(1000 / g_mousePollingRate, 1, &onMousePollingRateTimer, 0,
+					TIME_PERIODIC | TIME_KILL_SYNCHRONOUS);
+				if (0 == g_mousePollingTimerId)
+				{
+					LOG_ONCE("ERROR: Failed to set timer for MousePollingRate: " << GetLastError());
+					g_mousePollingRate = Config::Settings::MousePollingRate::NATIVE;
+				}
+			}
+			else if (0 != g_mousePollingTimerId)
+			{
+				timeKillEvent(g_mousePollingTimerId);
+				g_mousePollingTimerId = 0;
+			}
+		}
+
+		if (0 != g_mousePollingTimerId && 0 == g_mouseScale.multiplier)
+		{
+			g_mouseScale.multiplier = 65536;
+			g_mouseScale.resolution = Rect::getSize(g_fullscreenMonitorInfo.rcReal);
+		}
+
 		const bool isLowLevelHookNeeded = g_capture || 0 != g_mouseScale.multiplier;
 		if (!isLowLevelHookNeeded)
 		{
@@ -612,6 +652,12 @@ namespace
 			if (!g_mouseHook)
 			{
 				g_mouseScale.useRaw = false;
+				if (0 != g_mousePollingTimerId)
+				{
+					timeKillEvent(g_mousePollingTimerId);
+					g_mousePollingTimerId = 0;
+					g_mousePollingRate = Config::Settings::MousePollingRate::NATIVE;
+				}
 			}
 		}
 

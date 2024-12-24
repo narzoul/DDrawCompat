@@ -3,7 +3,6 @@
 #include <Windows.h>
 #include <DbgHelp.h>
 #include <ShellScalingApi.h>
-#include <timeapi.h>
 #include <Uxtheme.h>
 
 #include <Common/Hook.h>
@@ -351,7 +350,6 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::Version::installHooks();
 		Win32::Winmm::installHooks();
 
-		CALL_ORIG_FUNC(timeBeginPeriod)(1);
 		Win32::DpiAwareness::init();
 		SetThemeAppProperties(0);
 		Time::init();

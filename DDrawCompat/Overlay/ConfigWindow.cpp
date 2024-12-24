@@ -16,6 +16,7 @@
 #include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/GdiStretchBltMode.h>
+#include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
@@ -62,6 +63,7 @@ namespace
 		{ &Config::fontAntialiasing },
 		{ &Config::fpsLimiter },
 		{ &Config::gdiStretchBltMode, []() { Gdi::redraw(nullptr); } },
+		{ &Config::mousePollingRate, &Input::updateMouseSensitivity },
 		{ &Config::mouseSensitivity, &Input::updateMouseSensitivity },
 		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },

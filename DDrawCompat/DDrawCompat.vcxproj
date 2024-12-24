@@ -190,6 +190,7 @@
     <ClInclude Include="Config\Settings\FullscreenMode.h" />
     <ClInclude Include="Config\Settings\GdiStretchBltMode.h" />
     <ClInclude Include="Config\Settings\LogLevel.h" />
+    <ClInclude Include="Config\Settings\MousePollingRate.h" />
     <ClInclude Include="Config\Settings\MouseSensitivity.h" />
     <ClInclude Include="Config\Settings\PalettizedTextures.h" />
     <ClInclude Include="Config\Settings\RemoveBorders.h" />
