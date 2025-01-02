@@ -22,7 +22,7 @@ namespace D3dDdi
 	class Device
 	{
 	public:
-		Device(Adapter& adapter, HANDLE device);
+		Device(Adapter& adapter, HANDLE device, HANDLE runtimeDevice);
 
 		Device(const Device&) = delete;
 		Device(Device&&) = delete;
@@ -73,10 +73,11 @@ namespace D3dDdi
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
 
-		static void add(Adapter& adapter, HANDLE device);
+		static void add(Adapter& adapter, HANDLE device, HANDLE runtimeDevice);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
+		static Device* findDeviceByRuntimeHandle(HANDLE runtimeDevice);
 		static Device* findDeviceByResource(HANDLE resource);
 		static Resource* findResource(HANDLE resource);
 		static Resource* getGdiResource();
@@ -92,6 +93,7 @@ namespace D3dDdi
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
 		HANDLE m_device;
+		HANDLE m_runtimeDevice;
 		std::map<HANDLE, std::unique_ptr<Resource>> m_resources;
 		Resource* m_depthStencil;
 		Resource* m_renderTarget;

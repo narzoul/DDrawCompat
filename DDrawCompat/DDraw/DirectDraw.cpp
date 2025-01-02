@@ -106,6 +106,17 @@ namespace
 		return DDraw::PrimarySurface::flipToGdiSurface();
 	}
 
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE GetCaps(TDirectDraw* This, LPDDCAPS lpDDDriverCaps, LPDDCAPS lpDDHELCaps)
+	{
+		HRESULT result = getOrigVtable(This).GetCaps(This, lpDDDriverCaps, lpDDHELCaps);
+		if (SUCCEEDED(result) && lpDDDriverCaps)
+		{
+			lpDDDriverCaps->dwZBufferBitDepths = DDraw::DirectDraw::getDevice(*This).getAdapter().getInfo().supportedZBufferBitDepths;
+		}
+		return result;
+	}
+
 	template <typename TDirectDraw, typename TSurface>
 	HRESULT STDMETHODCALLTYPE GetGDISurface(TDirectDraw* /*This*/, TSurface** lplpGDIDDSSurface)
 	{
@@ -271,6 +282,7 @@ namespace
 	{
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
+		vtable.GetCaps = &GetCaps;
 		vtable.GetGDISurface = &GetGDISurface;
 		vtable.SetCooperativeLevel = &SetCooperativeLevel;
 		vtable.WaitForVerticalBlank = &WaitForVerticalBlank;

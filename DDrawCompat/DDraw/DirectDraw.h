@@ -8,6 +8,7 @@
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
+#include <D3dDdi/Device.h>
 
 namespace DDraw
 {
@@ -32,7 +33,13 @@ namespace DDraw
 			return reinterpret_cast<DDRAWI_DIRECTDRAW_INT&>(dd);
 		}
 
-		template <typename TDirectDraw, typename = std::enable_if_t<IsDirectDraw<TDirectDraw>::value>>
+		template <typename TDirectDraw>
+		D3dDdi::Device& getDevice(TDirectDraw& dd)
+		{
+			return *D3dDdi::Device::findDeviceByRuntimeHandle(reinterpret_cast<HANDLE>(getInt(dd).lpLcl->hDD));
+		}
+
+		template <typename TDirectDraw>
 		HWND* getDeviceWindowPtr(TDirectDraw& dd)
 		{
 			return &reinterpret_cast<HWND>(getInt(dd).lpLcl->hWnd);

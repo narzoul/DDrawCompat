@@ -430,6 +430,7 @@ namespace D3dDdi
 	HRESULT Adapter::pfnCreateDevice(D3DDDIARG_CREATEDEVICE* pCreateData)
 	{
 		DeviceCallbacks::hookVtable(*pCreateData->pCallbacks, m_runtimeVersion);
+		auto runtimeDevice = pCreateData->hDevice;
 		auto origInterface = pCreateData->Interface;
 		pCreateData->Interface = 9;
 		HRESULT result = m_origVtable.pfnCreateDevice(m_adapter, pCreateData);
@@ -437,7 +438,7 @@ namespace D3dDdi
 		if (SUCCEEDED(result))
 		{
 			DeviceFuncs::hookVtable(*pCreateData->pDeviceFuncs, std::min(m_runtimeVersion, m_driverVersion));
-			Device::add(*this, pCreateData->hDevice);
+			Device::add(*this, pCreateData->hDevice, runtimeDevice);
 		}
 		return result;
 	}

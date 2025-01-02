@@ -27,10 +27,11 @@ namespace
 
 namespace D3dDdi
 {
-	Device::Device(Adapter& adapter, HANDLE device)
+	Device::Device(Adapter& adapter, HANDLE device, HANDLE runtimeDevice)
 		: m_origVtable(CompatVtable<D3DDDI_DEVICEFUNCS>::s_origVtable)
 		, m_adapter(adapter)
 		, m_device(device)
+		, m_runtimeDevice(runtimeDevice)
 		, m_depthStencil(nullptr)
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
@@ -42,9 +43,9 @@ namespace D3dDdi
 	{
 	}
 
-	void Device::add(Adapter& adapter, HANDLE device)
+	void Device::add(Adapter& adapter, HANDLE device, HANDLE runtimeDevice)
 	{
-		s_devices.try_emplace(device, adapter, device);
+		s_devices.try_emplace(device, adapter, device, runtimeDevice);
 	}
 
 	HRESULT Device::clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags)
@@ -119,6 +120,18 @@ namespace D3dDdi
 		LOG_ONCE("Auto-detected ColorKeyMethod: " <<
 			(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
 		return LOG_RESULT(method);
+	}
+
+	Device* Device::findDeviceByRuntimeHandle(HANDLE runtimeDevice)
+	{
+		for (auto& device : s_devices)
+		{
+			if (runtimeDevice == device.second.m_runtimeDevice)
+			{
+				return &device.second;
+			}
+		}
+		return nullptr;
 	}
 
 	Device* Device::findDeviceByResource(HANDLE resource)
