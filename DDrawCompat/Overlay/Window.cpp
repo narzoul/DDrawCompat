@@ -90,7 +90,7 @@ namespace Overlay
 		g_windows.erase(m_hwnd);
 		RestoreDC(m_dc, -1);
 		DeleteDC(m_dc);
-		DeleteObject(m_bitmap);
+		CALL_ORIG_FUNC(DeleteObject)(m_bitmap);
 	}
 
 	void Window::draw(HDC /*dc*/)

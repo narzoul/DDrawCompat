@@ -328,7 +328,7 @@ namespace
 		if (wp.flags & SWP_NOSIZE)
 		{
 			RECT r = {};
-			GetWindowRect(wp.hwnd, &r);
+			CALL_ORIG_FUNC(GetWindowRect)(wp.hwnd, &r);
 			wp.cx = r.right - r.left;
 			wp.cy = r.bottom - r.top;
 		}
@@ -350,7 +350,7 @@ namespace
 			if (Gdi::MENU_ATOM == atom)
 			{
 				RECT parentRect = {};
-				GetWindowRect(parent, &parentRect);
+				CALL_ORIG_FUNC(GetWindowRect)(parent, &parentRect);
 				wp.x = std::max<int>(parentRect.left + 3 - wp.cx, 0);
 			}
 			else

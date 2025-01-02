@@ -79,7 +79,7 @@ namespace Gdi
 		{
 			if (m_origFont)
 			{
-				DeleteObject(SelectObject(m_dc, m_origFont));
+				CALL_ORIG_FUNC(DeleteObject)(SelectObject(m_dc, m_origFont));
 			}
 		}
 

@@ -312,7 +312,7 @@ std::ostream& operator<<(std::ostream& os, const HWND__& wnd)
 	char name[256] = {};
 	RECT rect = {};
 	GetClassName(hwnd, name, sizeof(name));
-	GetWindowRect(hwnd, &rect);
+	CALL_ORIG_FUNC(GetWindowRect)(hwnd, &rect);
 
 	return Compat::LogStruct(os)
 		<< static_cast<void*>(hwnd)

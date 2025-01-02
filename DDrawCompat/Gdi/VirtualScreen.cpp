@@ -95,7 +95,7 @@ namespace Gdi
 		HDC createDc(bool useDefaultPalette)
 		{
 			Compat::ScopedCriticalSection lock(g_cs);
-			std::unique_ptr<void, decltype(&DeleteObject)> dib(createDib(useDefaultPalette), DeleteObject);
+			std::unique_ptr<void, decltype(&DeleteObject)> dib(createDib(useDefaultPalette), CALL_ORIG_FUNC(DeleteObject));
 			if (!dib)
 			{
 				return nullptr;
@@ -180,7 +180,7 @@ namespace Gdi
 			}
 
 			Compat::ScopedCriticalSection lock(g_cs);
-			DeleteObject(SelectObject(dc, g_stockBitmap));
+			CALL_ORIG_FUNC(DeleteObject)(SelectObject(dc, g_stockBitmap));
 			DeleteDC(dc);
 			g_dcs.erase(dc);
 		}
@@ -283,7 +283,7 @@ namespace Gdi
 				{
 					for (auto& dc : g_dcs)
 					{
-						DeleteObject(SelectObject(dc.first, g_stockBitmap));
+						CALL_ORIG_FUNC(DeleteObject)(SelectObject(dc.first, g_stockBitmap));
 					}
 					UnmapViewOfFile(g_surfaceView);
 					CloseHandle(g_surfaceFileMapping);

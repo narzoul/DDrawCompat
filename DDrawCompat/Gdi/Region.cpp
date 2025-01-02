@@ -42,7 +42,7 @@ namespace Gdi
 	{
 		if (m_region)
 		{
-			DeleteObject(m_region);
+			CALL_ORIG_FUNC(DeleteObject)(m_region);
 		}
 	}
 

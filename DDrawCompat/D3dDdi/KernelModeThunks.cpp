@@ -412,7 +412,7 @@ namespace D3dDdi
 			if (presentationWindow)
 			{
 				Win32::ScopedDpiAwareness dpiAwareness;
-				GetWindowRect(presentationWindow, &rect);
+				CALL_ORIG_FUNC(GetWindowRect)(presentationWindow, &rect);
 				OffsetRect(&rect, -rect.left, -rect.top);
 				data.SrcRect = rect;
 				data.DstRect = rect;

@@ -40,7 +40,7 @@ namespace
 			if (hdcSrc)
 			{
 				RECT wr = {};
-				GetWindowRect(hwnd, &wr);
+				CALL_ORIG_FUNC(GetWindowRect)(hwnd, &wr);
 				const SIZE size = Rect::getSize(wr);
 
 				if (size != m_size)
@@ -75,7 +75,7 @@ namespace
 		{
 			if (m_dc)
 			{
-				DeleteObject(SelectObject(m_dc, m_origBmp));
+				CALL_ORIG_FUNC(DeleteObject)(SelectObject(m_dc, m_origBmp));
 				DeleteDC(m_dc);
 				m_dc = nullptr;
 				m_origBmp = nullptr;
@@ -432,7 +432,7 @@ namespace Gdi
 			auto statsWindow = GuiThread::getStatsWindow();
 			if (statsWindow && statsWindow->isVisible())
 			{
-				GetWindowRect(statsWindow->getWindow(), &wr);
+				CALL_ORIG_FUNC(GetWindowRect)(statsWindow->getWindow(), &wr);
 				auto visibleRegion(getWindowRgn(statsWindow->getWindow()));
 				visibleRegion.offset(wr.left, wr.top);
 				layeredWindows.push_back({ statsWindow->getWindow(), wr, visibleRegion });
@@ -441,14 +441,14 @@ namespace Gdi
 			auto configWindow = GuiThread::getConfigWindow();
 			if (configWindow && configWindow->isVisible())
 			{
-				GetWindowRect(configWindow->getWindow(), &wr);
+				CALL_ORIG_FUNC(GetWindowRect)(configWindow->getWindow(), &wr);
 				auto visibleRegion(getWindowRgn(configWindow->getWindow()));
 				visibleRegion.offset(wr.left, wr.top);
 				layeredWindows.push_back({ configWindow->getWindow(), wr, visibleRegion });
 				auto capture = Input::getCaptureWindow();
 				if (capture && capture != configWindow)
 				{
-					GetWindowRect(capture->getWindow(), &wr);
+					CALL_ORIG_FUNC(GetWindowRect)(capture->getWindow(), &wr);
 					layeredWindows.push_back({ capture->getWindow(), wr, nullptr });
 				}
 			}
@@ -456,7 +456,7 @@ namespace Gdi
 			HWND cursorWindow = Input::getCursorWindow();
 			if (cursorWindow)
 			{
-				GetWindowRect(cursorWindow, &wr);
+				CALL_ORIG_FUNC(GetWindowRect)(cursorWindow, &wr);
 				layeredWindows.push_back({ cursorWindow, wr, nullptr });
 			}
 
@@ -693,7 +693,7 @@ namespace Gdi
 				}
 
 				RECT wr = {};
-				GetWindowRect(owner, &wr);
+				CALL_ORIG_FUNC(GetWindowRect)(owner, &wr);
 
 				wp.x = wr.left;
 				wp.y = wr.top;

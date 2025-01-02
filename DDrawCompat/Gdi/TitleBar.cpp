@@ -47,7 +47,7 @@ namespace Gdi
 		m_tbi.rcTitleBar.left = origin.x;
 		m_tbi.rcTitleBar.bottom -= 1;
 
-		GetWindowRect(hwnd, &m_windowRect);
+		CALL_ORIG_FUNC(GetWindowRect)(hwnd, &m_windowRect);
 		OffsetRect(&m_tbi.rcTitleBar, -m_windowRect.left, -m_windowRect.top);
 
 		m_isActive = GetActiveWindow() == hwnd;

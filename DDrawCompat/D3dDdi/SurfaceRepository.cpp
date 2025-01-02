@@ -160,8 +160,8 @@ namespace D3dDdi
 			{
 				return {};
 			}
-			std::unique_ptr<void, decltype(&DeleteObject)> bmColor(iconInfo.hbmColor, DeleteObject);
-			std::unique_ptr<void, decltype(&DeleteObject)> bmMask(iconInfo.hbmMask, DeleteObject);
+			std::unique_ptr<void, decltype(&DeleteObject)> bmColor(iconInfo.hbmColor, CALL_ORIG_FUNC(DeleteObject));
+			std::unique_ptr<void, decltype(&DeleteObject)> bmMask(iconInfo.hbmMask, CALL_ORIG_FUNC(DeleteObject));
 			m_cursorHotspot.x = iconInfo.xHotspot;
 			m_cursorHotspot.y = iconInfo.yHotspot;
 

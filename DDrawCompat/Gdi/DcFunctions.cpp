@@ -201,7 +201,7 @@ namespace
 	{
 		LPtoDP(dc, &p, 1);
 		RECT wr = {};
-		GetWindowRect(hwnd, &wr);
+		CALL_ORIG_FUNC(GetWindowRect)(hwnd, &wr);
 		p.x += wr.left;
 		p.y += wr.top;
 		return true;

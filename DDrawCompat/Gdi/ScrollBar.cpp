@@ -53,7 +53,7 @@ namespace Gdi
 		m_sbi.cbSize = sizeof(m_sbi);
 		GetScrollBarInfo(hwnd, objectId, &m_sbi);
 
-		GetWindowRect(hwnd, &m_windowRect);
+		CALL_ORIG_FUNC(GetWindowRect)(hwnd, &m_windowRect);
 		OffsetRect(&m_sbi.rcScrollBar, -m_windowRect.left, -m_windowRect.top);
 
 		if (g_trackedScrollBar &&

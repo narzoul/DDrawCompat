@@ -361,7 +361,7 @@ namespace
 		auto prevBmp = SelectBitmap(dstDc, bmp);
 
 		RECT srcRect = {};
-		GetWindowRect(presentationWindow, &srcRect);
+		CALL_ORIG_FUNC(GetWindowRect)(presentationWindow, &srcRect);
 
 		SetStretchBltMode(dstDc, HALFTONE);
 		CALL_ORIG_FUNC(StretchBlt)(dstDc, 0, 0, width, height,
@@ -373,7 +373,7 @@ namespace
 
 		Win32::ScopedDpiAwareness dpiAwareness;
 		g_dwmSetIconicThumbnail(hwnd, bmp, 0);
-		DeleteObject(bmp);
+		CALL_ORIG_FUNC(DeleteObject)(bmp);
 	}
 
 	BOOL WINAPI getCursorPos(LPPOINT lpPoint)
@@ -464,6 +464,21 @@ namespace
 		return it != g_windowProc.end() ? it->second : WindowProc{};
 	}
 
+	BOOL WINAPI getWindowRect(HWND hWnd, LPRECT lpRect)
+	{
+		BOOL result = CALL_ORIG_FUNC(GetWindowRect)(hWnd, lpRect);
+		if (result && hWnd && CALL_ORIG_FUNC(GetDesktopWindow)() == hWnd)
+		{
+			const auto& dm = Win32::DisplayMode::getEmulatedDisplayMode();
+			if (0 != dm.width)
+			{
+				lpRect->right = lpRect->left + dm.width;
+				lpRect->bottom = lpRect->top + dm.height;
+			}
+		}
+		return result;
+	}
+
 	template <auto func, typename... Params>
 	int WINAPI messageBox(Params... params)
 	{
@@ -488,7 +503,7 @@ namespace
 		if (!EqualRect(&mi.rcEmulated, &mi.rcMonitor))
 		{
 			RECT wr = {};
-			GetWindowRect(hwnd, &wr);
+			CALL_ORIG_FUNC(GetWindowRect)(hwnd, &wr);
 			const LONG width = wr.right - wr.left;
 			const LONG height = wr.bottom - wr.top;
 
@@ -947,6 +962,7 @@ namespace Gdi
 			HOOK_FUNCTION(gdi32, GetRandomRgn, getRandomRgn);
 			HOOK_FUNCTION(user32, GetWindowLongA, getWindowLongA);
 			HOOK_FUNCTION(user32, GetWindowLongW, getWindowLongW);
+			HOOK_FUNCTION(user32, GetWindowRect, getWindowRect);
 			HOOK_FUNCTION(user32, MessageBoxA, messageBox<MessageBoxA>);
 			HOOK_FUNCTION(user32, MessageBoxW, messageBox<MessageBoxW>);
 			HOOK_FUNCTION(user32, MessageBoxExA, messageBox<MessageBoxExA>);

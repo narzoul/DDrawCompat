@@ -47,7 +47,7 @@ namespace
 
 	BOOL WINAPI enumChildWindows(HWND hWndParent, WNDENUMPROC lpEnumFunc, LPARAM lParam)
 	{
-		LOG_FUNC("EnumWindows", hWndParent, lpEnumFunc, lParam);
+		LOG_FUNC("EnumChildWindows", hWndParent, lpEnumFunc, lParam);
 		if (!lpEnumFunc)
 		{
 			return LOG_RESULT(CALL_ORIG_FUNC(EnumChildWindows)(hWndParent, lpEnumFunc, lParam));

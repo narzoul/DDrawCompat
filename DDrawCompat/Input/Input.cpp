@@ -139,7 +139,7 @@ namespace
 			HDC dc = CreateCompatibleDC(nullptr);
 			HGDIOBJ origBmp = SelectObject(dc, g_bmpArrow);
 			RECT wr = {};
-			GetWindowRect(hwnd, &wr);
+			CALL_ORIG_FUNC(GetWindowRect)(hwnd, &wr);
 			CALL_ORIG_FUNC(StretchBlt)(ps.hdc, 0, 0, wr.right - wr.left, wr.bottom - wr.top,
 				dc, 0, 0, g_bmpArrowSize.cx, g_bmpArrowSize.cy, SRCCOPY);
 			SelectObject(dc, origBmp);
