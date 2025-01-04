@@ -423,7 +423,7 @@ namespace D3dDdi
 
 	std::string ShaderAssembler::disassemble()
 	{
-		if (Config::Settings::LogLevel::DEBUG != Compat::Log::getLogLevel())
+		if (Compat::Log::getLogLevel() < Config::Settings::LogLevel::DEBUG)
 		{
 			return {};
 		}

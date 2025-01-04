@@ -9,7 +9,7 @@ namespace Config
 		class LogLevel : public EnumSetting
 		{
 		public:
-			enum Values { NONE, INFO, DEBUG };
+			enum Values { NONE, INFO, DEBUG, TRACE };
 
 			LogLevel::LogLevel()
 				: EnumSetting("LogLevel",
@@ -18,7 +18,7 @@ namespace Config
 #else
 					"info",
 #endif
-					{ "none", "info", "debug" })
+					{ "none", "info", "debug", "trace" })
 			{
 			}
 		};

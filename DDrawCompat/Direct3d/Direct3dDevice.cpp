@@ -92,13 +92,61 @@ namespace
 		return getOrigVtable(This).EnumTextureFormats(This, enumTextureFormatsCallback, &args);
 	}
 
+	void dumpExecuteBuffer(LPDIRECT3DEXECUTEBUFFER lpDirect3DExecuteBuffer)
+	{
+		if (Config::logLevel.get() < Config::Settings::LogLevel::TRACE || !lpDirect3DExecuteBuffer)
+		{
+			return;
+		}
+
+		D3DEXECUTEDATA data = {};
+		data.dwSize = sizeof(data);
+		if (FAILED(getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data)))
+		{
+			return;
+		}
+
+		D3DEXECUTEBUFFERDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		if (FAILED(getOrigVtable(lpDirect3DExecuteBuffer).Lock(lpDirect3DExecuteBuffer, &desc)))
+		{
+			return;
+		}
+
+		getOrigVtable(lpDirect3DExecuteBuffer).Unlock(lpDirect3DExecuteBuffer);
+
+		LOG_TRACE << data;
+
+		auto buf = static_cast<const BYTE*>(desc.lpData);
+		LOG_TRACE << Compat::array(reinterpret_cast<const D3DTLVERTEX*>(buf + data.dwVertexOffset), data.dwVertexCount);
+
+		auto currPtr = buf + data.dwInstructionOffset;
+		auto endPtr = currPtr + data.dwInstructionLength;
+		while (currPtr < endPtr)
+		{
+			auto inst = reinterpret_cast<const D3DINSTRUCTION*>(currPtr);
+			LOG_TRACE << *inst;
+			currPtr += sizeof(D3DINSTRUCTION) + inst->bSize * inst->wCount;
+		}
+	}
+
 	HRESULT STDMETHODCALLTYPE execute(IDirect3DDevice* This,
 		LPDIRECT3DEXECUTEBUFFER lpDirect3DExecuteBuffer, LPDIRECT3DVIEWPORT lpDirect3DViewport, DWORD dwFlags)
 	{
 		D3dDdi::ScopedCriticalSection lock;
+		dumpExecuteBuffer(lpDirect3DExecuteBuffer);
 		D3dDdi::Device::enableFlush(false);
 		HRESULT result = getOrigVtable(This).Execute(This, lpDirect3DExecuteBuffer, lpDirect3DViewport, dwFlags);
 		D3dDdi::Device::enableFlush(true);
+		if (SUCCEEDED(result) && Config::logLevel.get() >= Config::Settings::LogLevel::TRACE)
+		{
+			D3DEXECUTEDATA data = {};
+			data.dwSize = sizeof(data);
+			if (SUCCEEDED(getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data)))
+			{
+				LOG_TRACE << data;
+			}
+		}
 		return result;
 	}
 

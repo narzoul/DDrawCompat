@@ -17,6 +17,7 @@
 
 #define LOG_INFO Compat::Log(Config::Settings::LogLevel::INFO)
 #define LOG_DEBUG Compat::Log(Config::Settings::LogLevel::DEBUG)
+#define LOG_TRACE Compat::Log(Config::Settings::LogLevel::TRACE)
 #define LOG_FUNC(...) Compat::LogFunc logFunc(__VA_ARGS__)
 #define LOG_FUNC_CUSTOM(funcPtr, ...) Compat::LogFunc<funcPtr> logFunc(__VA_ARGS__)
 #define LOG_RESULT(...) logFunc.setResult(__VA_ARGS__)

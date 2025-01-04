@@ -335,6 +335,24 @@ namespace D3dDdi
 		auto vertices = m_streamSource.vertices + base * m_streamSource.stride;
 		m_batched.vertices.insert(m_batched.vertices.end(), vertices, vertices + count * m_streamSource.stride);
 
+		if (Config::logLevel.get() >= Config::Settings::LogLevel::TRACE)
+		{
+			Compat::Log log(Config::Settings::LogLevel::TRACE);
+			log << '[';
+			auto vPos = &m_batched.vertices[m_batched.vertices.size() - count * m_streamSource.stride];
+			for (unsigned i = 0; i < count; ++i)
+			{
+				auto v = reinterpret_cast<D3DTLVERTEX*>(vPos);
+				if (0 != i)
+				{
+					log << ',';
+				}
+				log << '{' << v->sx << ',' << v->sy << ',' << v->sz << ',' << v->rhw << '}';
+				vPos += m_streamSource.stride;
+			}
+			log << ']';
+		}
+
 		if (0 == m_vertexFixupFlags)
 		{
 			return;
