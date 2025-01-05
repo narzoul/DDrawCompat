@@ -2,6 +2,7 @@
 #include <Common/Log.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Gdi/Font.h>
+#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -18,6 +19,17 @@ namespace
 			{
 				*static_cast<BOOL*>(pvParam) = g_isFontSmoothingEnabled;
 				return TRUE;
+			}
+			break;
+		case SPI_GETWORKAREA:
+			if (pvParam)
+			{
+				auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
+				if (0 != dm.width)
+				{
+					*static_cast<RECT*>(pvParam) = { 0, 0, static_cast<LONG>(dm.width), static_cast<LONG>(dm.height) };
+					return TRUE;
+				}
 			}
 			break;
 		case SPI_SETFONTSMOOTHING:
