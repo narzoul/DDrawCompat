@@ -940,15 +940,18 @@ namespace D3dDdi
 		LOG_DS << streamSource;
 	}
 
-	void DeviceState::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer)
+	void DeviceState::setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer, bool isTemp)
 	{
-		if (umBuffer == m_current.streamSourceUmBuffer &&
-			0 == memcmp(&streamSourceUm, &m_current.streamSourceUm, sizeof(streamSourceUm)))
+		if (isTemp)
 		{
-			return;
+			m_device.getDrawPrimitive().resetStreamSource();
+			m_device.getOrigVtable().pfnSetStreamSourceUm(m_device, &streamSourceUm, umBuffer);
+		}
+		else
+		{
+			m_device.getDrawPrimitive().setStreamSourceUm(streamSourceUm, umBuffer);
 		}
 
-		m_device.getDrawPrimitive().setStreamSourceUm(streamSourceUm, umBuffer);
 		m_current.streamSource = {};
 		m_current.streamSourceUm = streamSourceUm;
 		m_current.streamSourceUmBuffer = umBuffer;
@@ -982,7 +985,7 @@ namespace D3dDdi
 
 	void DeviceState::setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer)
 	{
-		setStreamSourceUm(streamSourceUm, umBuffer);
+		setStreamSourceUm(streamSourceUm, umBuffer, true);
 		m_changedStates |= CS_STREAM_SOURCE;
 	}
 
@@ -1010,12 +1013,6 @@ namespace D3dDdi
 	void DeviceState::setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport)
 	{
 		setViewport(viewport);
-		m_changedStates |= CS_RENDER_TARGET;
-	}
-
-	void DeviceState::setTempWInfo(const D3DDDIARG_WINFO& wInfo)
-	{
-		setWInfo(wInfo);
 		m_changedStates |= CS_RENDER_TARGET;
 	}
 
@@ -1121,6 +1118,20 @@ namespace D3dDdi
 			memcpy(&shaderConstArray[data->Register], registers, data->Count * sizeof(ShaderConstArray::value_type));
 		}
 		return result;
+	}
+
+	void DeviceState::unlockTexture(Resource& texture)
+	{
+		const UINT stageCount = getTextureStageCount();
+		for (UINT stage = 0; stage < stageCount; ++stage)
+		{
+			if (texture == m_app.textures[stage])
+			{
+				m_changedStates |= CS_TEXTURE_STAGE;
+				m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
+				return;
+			}
+		}
 	}
 
 	void DeviceState::updateConfig()

@@ -207,7 +207,6 @@ namespace D3dDdi
 		}
 
 		auto& state = m_device.getState();
-		state.setSpriteMode(false);
 		state.setTempRenderTarget({ 0, dstResource, dstSubResourceIndex });
 		state.setTempDepthStencil({ nullptr });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
@@ -274,8 +273,6 @@ namespace D3dDdi
 		{
 			drawRect(Rect::toRectF(dstRect));
 		}
-
-		m_device.flushPrimitives();
 	}
 
 	void ShaderBlitter::colorKeyBlt(const Resource& dstResource, UINT dstSubResourceIndex,
@@ -593,7 +590,6 @@ namespace D3dDdi
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
 
 		auto& state = m_device.getState();
-		state.setSpriteMode(false);
 		state.setTempRenderTarget({ 0, nullResource, 0 });
 		state.setTempDepthStencil({ dstResource });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
@@ -625,7 +621,6 @@ namespace D3dDdi
 
 		DeviceState::TempStateLock lock(state);
 		drawRect(Rect::toRectF(dstRect));
-		m_device.flushPrimitives();
 	}
 
 	void ShaderBlitter::displayBlt(Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -677,7 +672,7 @@ namespace D3dDdi
 		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;
 		dp.VStart = 0;
 		dp.PrimitiveCount = 2;
-		m_device.pfnDrawPrimitive(&dp, nullptr);
+		m_device.getOrigVtable().pfnDrawPrimitive(m_device, &dp, nullptr);
 	}
 
 	void ShaderBlitter::lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

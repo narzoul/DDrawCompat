@@ -554,10 +554,7 @@ namespace D3dDdi
 		m_vertexFixupFlags = 0;
 		if (!state.isLocked())
 		{
-			if (0 == m_batched.primitiveCount)
-			{
-				m_device.prepareForGpuWrite();
-			}
+			m_device.prepareForGpuWrite();
 			state.updateStreamSource();
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 			{
@@ -609,10 +606,7 @@ namespace D3dDdi
 		auto& state = m_device.getState();
 		if (!state.isLocked())
 		{
-			if (0 == m_batched.primitiveCount)
-			{
-				m_device.prepareForGpuWrite();
-			}
+			m_device.prepareForGpuWrite();
 			state.updateStreamSource();
 		}
 
@@ -870,6 +864,15 @@ namespace D3dDdi
 	void DrawPrimitive::removeSysMemVertexBuffer(HANDLE resource)
 	{
 		m_sysMemVertexBuffers.erase(resource);
+	}
+
+	void DrawPrimitive::resetStreamSource()
+	{
+		if (0 != m_streamSource.stride)
+		{
+			flushPrimitives();
+			m_streamSource = {};
+		}
 	}
 
 	HRESULT DrawPrimitive::setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data)

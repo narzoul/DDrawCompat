@@ -24,6 +24,7 @@ namespace D3dDdi
 
 		HRESULT draw(D3DDDIARG_DRAWPRIMITIVE data, const UINT* flagBuffer);
 		HRESULT drawIndexed(D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer);
+		void resetStreamSource();
 		HRESULT setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& data);
 		HRESULT setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& data, const void* umBuffer);
 

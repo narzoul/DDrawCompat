@@ -154,7 +154,6 @@ namespace D3dDdi
 		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setTempVertexShaderDecl(HANDLE decl);
 		void setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
-		void setTempWInfo(const D3DDDIARG_WINFO& wInfo);
 		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
 
 		void disableTextureClamp(UINT stage);
@@ -168,6 +167,7 @@ namespace D3dDdi
 		const VertexFixupData& getVertexFixupData() const { return m_vertexFixupData; }
 		bool isLocked() const { return m_isLocked; }
 		void onDestroyResource(Resource* resource, HANDLE resourceHandle);
+		void unlockTexture(Resource& texture);
 		void updateConfig();
 		void updateStreamSource();
 
@@ -227,7 +227,7 @@ namespace D3dDdi
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
 		void setScissorRect(const RECT& rect);
 		void setStreamSource(const D3DDDIARG_SETSTREAMSOURCE& streamSource);
-		void setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
+		void setStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer, bool isTemp = false);
 		bool setTexture(UINT stage, HANDLE texture);
 		void setTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setVertexShaderDecl(HANDLE decl);

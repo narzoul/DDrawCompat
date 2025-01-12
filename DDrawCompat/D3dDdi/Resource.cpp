@@ -827,7 +827,10 @@ namespace D3dDdi
 
 		if (D3DDDIFMT_X8R8G8B8 == m_fixedData.Format || D3DDDIFMT_R5G6B5 == m_fixedData.Format)
 		{
-			return m_device.getAdapter().getRenderColorDepthSrcFormat(m_fixedData.Format);
+			if (!m_origData.Flags.RenderTarget || !m_origData.Flags.Texture)
+			{
+				return m_device.getAdapter().getRenderColorDepthSrcFormat(m_fixedData.Format);
+			}
 		}
 		else if (m_fixedData.Flags.ZBuffer && Config::Settings::DepthFormat::APP != Config::depthFormat.get() &&
 			getFormatInfo(m_fixedData.Format).depth.bitCount != Config::depthFormat.get())
@@ -1740,6 +1743,10 @@ namespace D3dDdi
 
 	HRESULT Resource::unlock(const D3DDDIARG_UNLOCK& data)
 	{
+		if (m_lockResource && m_origData.Flags.Texture)
+		{
+			m_device.getState().unlockTexture(*this);
+		}
 		return (m_lockResource || m_isOversized) ? S_OK : m_device.getOrigVtable().pfnUnlock(m_device, &data);
 	}
 
