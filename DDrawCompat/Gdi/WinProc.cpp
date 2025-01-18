@@ -159,7 +159,7 @@ namespace
 		case WM_DISPLAYCHANGE:
 			if (0 != wParam)
 			{
-				return 0;
+				return LOG_RESULT(0);
 			}
 			wParam = Win32::DisplayMode::getBpp();
 			break;
@@ -170,7 +170,7 @@ namespace
 
 		case WM_DWMSENDICONICTHUMBNAIL:
 			dwmSendIconicThumbnail(hwnd, HIWORD(lParam), LOWORD(lParam));
-			return 0;
+			return LOG_RESULT(0);
 
 		case WM_GETMINMAXINFO:
 			onGetMinMaxInfo(*reinterpret_cast<MINMAXINFO*>(lParam));
@@ -194,7 +194,7 @@ namespace
 			{
 				RECT emptyRect = {};
 				RedrawWindow(hwnd, &emptyRect, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ERASENOW);
-				return 0;
+				return LOG_RESULT(0);
 			}
 			break;
 
@@ -767,6 +767,17 @@ namespace
 	BOOL WINAPI setWindowPos(HWND hWnd, HWND hWndInsertAfter, int X, int Y, int cx, int cy, UINT uFlags)
 	{
 		LOG_FUNC("SetWindowPos", hWnd, hWndInsertAfter, X, Y, cx, cy, Compat::hex(uFlags));
+
+		if ((SWP_FRAMECHANGED | SWP_NOACTIVATE | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_SHOWWINDOW) == uFlags &&
+			!IsWindowVisible(hWnd))
+		{
+			char name[32] = {};
+			GetClassNameA(hWnd, name, sizeof(name));
+			if (0 == strcmp(name, "VideoRenderer"))
+			{
+				uFlags &= ~SWP_SHOWWINDOW;
+			}
+		}
 
 		if (uFlags & SWP_NOSENDCHANGING)
 		{

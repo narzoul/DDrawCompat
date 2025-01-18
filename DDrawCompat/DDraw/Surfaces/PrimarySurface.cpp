@@ -215,6 +215,10 @@ namespace DDraw
 
 	HANDLE PrimarySurface::getFrontResource()
 	{
+		if (!g_frontResource)
+		{
+			return nullptr;
+		}
 		return *g_frontResource;
 	}
 
@@ -362,7 +366,10 @@ namespace DDraw
 	void PrimarySurface::waitForIdle()
 	{
 		D3dDdi::ScopedCriticalSection lock;
-		g_frontResource->waitForIdle(g_frontResourceIndex);
+		if (g_frontResource)
+		{
+			g_frontResource->waitForIdle(g_frontResourceIndex);
+		}
 	}
 
 	CompatWeakPtr<IDirectDrawPalette> PrimarySurface::s_palette;
