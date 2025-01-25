@@ -357,25 +357,9 @@ namespace D3dDdi
 			createVertexShader(shaderAssembler.getTokens().data(), shaderAssembler.getTokens().size() * 4)).first->second.get();
 	}
 
-	bool DeviceState::isColorKeyUsed()
-	{
-		if (!m_app.renderState[D3DDDIRS_COLORKEYENABLE])
-		{
-			return false;
-		}
-
-		bool used = false;
-		UINT textureStageCount = getTextureStageCount();
-		for (UINT i = 0; i < textureStageCount && !used; ++i)
-		{
-			used = !m_app.textureStageState[i][D3DDDITSS_DISABLETEXTURECOLORKEY];
-		}
-		return used;
-	}
-
 	HANDLE DeviceState::mapPixelShader(HANDLE shader)
 	{
-		if (Config::Settings::ColorKeyMethod::ALPHATEST != m_device.getColorKeyMethod().first)
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get())
 		{
 			return m_app.pixelShader;
 		}
@@ -389,7 +373,7 @@ namespace D3dDdi
 		if (!it->second.isModified)
 		{
 			ShaderAssembler shaderAssembler(it->second.tokens.data(), it->second.tokens.size());
-			if (shaderAssembler.addAlphaTest(m_device.getColorKeyMethod().second))
+			if (shaderAssembler.addAlphaTest(Config::colorKeyMethod.getParam()))
 			{
 				const auto& tokens = shaderAssembler.getTokens();
 				D3DDDIARG_CREATEPIXELSHADER data = {};
@@ -424,11 +408,7 @@ namespace D3dDdi
 
 		if (D3DDDIRS_COLORKEYENABLE == state)
 		{
-			if (Config::Settings::ColorKeyMethod::NATIVE != m_device.getColorKeyMethod().first)
-			{
-				return FALSE;
-			}
-			return isColorKeyUsed();
+			return value && Config::Settings::ColorKeyMethod::NATIVE == Config::colorKeyMethod.get();
 		}
 
 		if (D3DDDIRS_FOGENABLE == state)
@@ -685,7 +665,6 @@ namespace D3dDdi
 	{
 		m_app.textures[stage] = texture;
 		m_changedStates |= CS_RENDER_STATE | CS_TEXTURE_STAGE;
-		m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSU);
 		m_changedTextureStageStates[stage].set(D3DDDITSS_ADDRESSV);
 		m_maxChangedTextureStage = std::max(stage, m_maxChangedTextureStage);
@@ -712,7 +691,6 @@ namespace D3dDdi
 			{
 				m_app.textureStageState[data->Stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;
 			}
-			m_changedRenderStates.set(D3DDDIRS_COLORKEYENABLE);
 			m_changedStates |= CS_RENDER_STATE;
 		}
 		else if (D3DDDITSS_TEXCOORDINDEX == data->State)
@@ -1293,12 +1271,12 @@ namespace D3dDdi
 	{
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_DISABLETEXTURECOLORKEY);
 		m_changedTextureStageStates[stage].reset(D3DDDITSS_TEXTURECOLORKEYVAL);
-		if (!m_app.textures[stage] || Config::Settings::ColorKeyMethod::NONE == m_device.getColorKeyMethod().first)
+		if (!m_app.textures[stage] || Config::Settings::ColorKeyMethod::NONE == Config::colorKeyMethod.get())
 		{
 			return;
 		}
 
-		if (Config::Settings::ColorKeyMethod::ALPHATEST == m_device.getColorKeyMethod().first)
+		if (Config::Settings::ColorKeyMethod::ALPHATEST == Config::colorKeyMethod.get())
 		{
 			const BOOL colorKeyEnabled = !m_app.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY];
 			if (colorKeyEnabled != m_pixelShaderConstB[stage][0])

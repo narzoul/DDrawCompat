@@ -9,7 +9,7 @@ namespace Config
 		class ColorKeyMethod : public EnumSetting
 		{
 		public:
-			enum Values { AUTO, NONE, NATIVE, ALPHATEST };
+			enum Values { NONE, NATIVE, ALPHATEST };
 
 			ColorKeyMethod();
 

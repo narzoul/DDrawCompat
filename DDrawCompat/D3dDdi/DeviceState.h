@@ -201,7 +201,6 @@ namespace D3dDdi
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 
 		HANDLE getVsVertexFixup();
-		bool isColorKeyUsed();
 		HANDLE mapPixelShader(HANDLE shader);
 		UINT mapRsValue(D3DDDIRENDERSTATETYPE state, UINT value);
 		UINT mapTssValue(UINT stage, D3DDDITEXTURESTAGESTATETYPE state, UINT value);

@@ -7,7 +7,6 @@
 #include <Common/CompatVtable.h>
 #include <Common/HResultException.h>
 #include <Common/Log.h>
-#include <Config/Settings/ColorKeyMethod.h>
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceFuncs.h>
@@ -39,7 +38,6 @@ namespace D3dDdi
 		, m_drawPrimitive(*this)
 		, m_state(*this)
 		, m_shaderBlitter(*this)
-		, m_autoColorKeyMethod(Config::Settings::ColorKeyMethod::NONE)
 	{
 	}
 
@@ -99,29 +97,6 @@ namespace D3dDdi
 		return LOG_RESULT(result);
 	}
 
-	UINT Device::detectColorKeyMethod()
-	{
-		LOG_FUNC("Device::detectColorKeyMethod");
-
-		auto method = Config::Settings::ColorKeyMethod::NATIVE;
-		if (m_adapter.getInfo().isD3D9On12)
-		{
-			method = Config::Settings::ColorKeyMethod::ALPHATEST;
-		}
-		else
-		{
-			auto trinity = GetModuleHandle("igd9trinity32");
-			if (trinity && trinity == Compat::getModuleHandleFromAddress(m_origVtable.pfnDrawPrimitive))
-			{
-				method = Config::Settings::ColorKeyMethod::ALPHATEST;
-			}
-		}
-
-		LOG_ONCE("Auto-detected ColorKeyMethod: " <<
-			(Config::Settings::ColorKeyMethod::NATIVE == method ? "native" : "alphatest"));
-		return LOG_RESULT(method);
-	}
-
 	Device* Device::findDeviceByRuntimeHandle(HANDLE runtimeDevice)
 	{
 		for (auto& device : s_devices)
@@ -157,20 +132,6 @@ namespace D3dDdi
 			}
 		}
 		return nullptr;
-	}
-
-	std::pair<UINT, UINT> Device::getColorKeyMethod()
-	{
-		const auto method = Config::colorKeyMethod.get();
-		if (Config::Settings::ColorKeyMethod::AUTO == method)
-		{
-			if (Config::Settings::ColorKeyMethod::NONE == m_autoColorKeyMethod)
-			{
-				m_autoColorKeyMethod = detectColorKeyMethod();
-			}
-			return { m_autoColorKeyMethod, Config::Settings::ColorKeyMethod::ALPHATEST == m_autoColorKeyMethod ? 1 : 0 };
-		}
-		return { method, Config::colorKeyMethod.getParam() };
 	}
 
 	Resource* Device::getGdiResource()

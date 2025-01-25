@@ -57,7 +57,6 @@ namespace D3dDdi
 		HRESULT pfnValidateDevice(D3DDDIARG_VALIDATETEXTURESTAGESTATE* data);
 
 		Adapter& getAdapter() const { return m_adapter; }
-		std::pair<UINT, UINT> getColorKeyMethod();
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		RGBQUAD* getPalette(UINT paletteHandle) { return m_palettes[paletteHandle].data(); }
@@ -86,7 +85,6 @@ namespace D3dDdi
 
 	private:
 		HRESULT clear(D3DDDIARG_CLEAR data, UINT numRect, const RECT* rect, Resource* resource, DWORD flags);
-		UINT detectColorKeyMethod();
 		void prepareForTextureBlt(HANDLE dstResource, HANDLE srcResource);
 		static void updateAllConfigNow();
 
@@ -103,7 +101,6 @@ namespace D3dDdi
 		DeviceState m_state;
 		ShaderBlitter m_shaderBlitter;
 		std::vector<std::array<RGBQUAD, 256>> m_palettes;
-		UINT m_autoColorKeyMethod;
 
 		static std::map<HANDLE, Device> s_devices;
 		static bool s_isFlushEnabled;

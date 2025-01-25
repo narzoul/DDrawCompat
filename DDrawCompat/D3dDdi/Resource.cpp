@@ -1277,7 +1277,7 @@ namespace D3dDdi
 
 		auto& defaultResource = m_msaaResolvedSurface.resource ? *m_msaaResolvedSurface.resource : *this;
 		const auto& appState = m_device.getState().getAppState();
-		if (Config::Settings::ColorKeyMethod::ALPHATEST != m_device.getColorKeyMethod().first ||
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get() ||
 			!appState.renderState[D3DDDIRS_COLORKEYENABLE] ||
 			appState.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY])
 		{
