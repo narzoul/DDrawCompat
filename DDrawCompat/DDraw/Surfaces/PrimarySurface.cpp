@@ -252,6 +252,7 @@ namespace DDraw
 		}
 		g_gdiRuntimeResource = nullptr;
 		g_gdiDriverResource = nullptr;
+		Gdi::VirtualScreen::setFullscreenMode(false);
 	}
 
 	void PrimarySurface::restore()
@@ -259,7 +260,7 @@ namespace DDraw
 		LOG_FUNC("PrimarySurface::restore");
 
 		updatePalette();
-		Gdi::VirtualScreen::update();
+		Gdi::VirtualScreen::setFullscreenMode(RealPrimarySurface::isFullscreen());
 		g_primarySurface = m_surface;
 		g_gdiRuntimeResource = DirectDrawSurface::getRuntimeResourceHandle(*g_primarySurface);
 
