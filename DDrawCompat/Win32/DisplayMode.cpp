@@ -96,6 +96,7 @@ namespace
 	};
 
 	DWORD g_desktopBpp = 0;
+	SIZE g_desktopResolution = {};
 	ULONG g_displaySettingsUniquenessBias = 0;
 	EmulatedDisplayMode g_emulatedDisplayMode = {};
 	ULONG g_monitorInfoUniqueness = 0;
@@ -137,8 +138,7 @@ namespace
 	LONG changeDisplaySettingsEx(const Char* lpszDeviceName, typename DevMode<Char>* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
 	{
 		DDraw::ScopedThreadLock ddLock;
-		auto desktopResolution = Config::desktopResolution.get();
-		if (!lpDevMode && !(dwflags & CDS_TEST) && Config::Settings::DesktopResolution::DESKTOP != desktopResolution)
+		if (!lpDevMode && !(dwflags & CDS_TEST) && Config::Settings::DesktopResolution::DESKTOP != g_desktopResolution)
 		{
 			auto mi = Win32::DisplayMode::getMonitorInfo(getDeviceName(lpszDeviceName));
 			if (0 == mi.rcMonitor.left && 0 == mi.rcMonitor.top)
@@ -149,8 +149,8 @@ namespace
 
 				dm.dmFields = DM_BITSPERPEL | DM_PELSWIDTH | DM_PELSHEIGHT | DM_DISPLAYFREQUENCY;
 				dm.dmBitsPerPel = g_desktopBpp;
-				dm.dmPelsWidth = desktopResolution.cx;
-				dm.dmPelsHeight = desktopResolution.cy;
+				dm.dmPelsWidth = g_desktopResolution.cx;
+				dm.dmPelsHeight = g_desktopResolution.cy;
 
 				if (DISP_CHANGE_SUCCESSFUL == changeDisplaySettingsEx(lpszDeviceName, &dm, nullptr, dwflags | CDS_FULLSCREEN, nullptr))
 				{
@@ -894,13 +894,24 @@ namespace Win32
 		void installHooks()
 		{
 			g_desktopBpp = Config::desktopColorDepth.get();
+			g_desktopResolution = Config::desktopResolution.get();
+
+			DEVMODEA dm = {};
+			dm.dmSize = sizeof(dm);
+			EnumDisplaySettingsEx(nullptr, ENUM_CURRENT_SETTINGS, &dm, 0);
+			LOG_INFO << "Initial display mode: " << dm.dmPelsWidth << 'x' << dm.dmPelsHeight
+				<< ", " << dm.dmBitsPerPel << " bpp, " << dm.dmDisplayFrequency << " Hz";
+
 			if (Config::Settings::DesktopColorDepth::INITIAL == g_desktopBpp)
 			{
-				DEVMODEA dm = {};
-				dm.dmSize = sizeof(dm);
-				EnumDisplaySettingsEx(nullptr, ENUM_CURRENT_SETTINGS, &dm, 0);
 				g_desktopBpp = dm.dmBitsPerPel;
 			}
+			if (Config::Settings::DesktopResolution::INITIAL == g_desktopResolution)
+			{
+				g_desktopResolution.cx = dm.dmPelsWidth;
+				g_desktopResolution.cy = dm.dmPelsHeight;
+			}
+
 			g_emulatedDisplayMode.bpp = g_desktopBpp;
 
 			ChangeDisplaySettingsEx(nullptr, nullptr, nullptr, 0, nullptr);

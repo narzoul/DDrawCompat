@@ -13,6 +13,7 @@ namespace Config
 		{
 		public:
 			static const SIZE DESKTOP;
+			static const SIZE INITIAL;
 
 			DesktopResolution();
 

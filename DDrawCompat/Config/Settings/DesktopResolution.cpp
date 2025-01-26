@@ -5,7 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		DesktopResolution::DesktopResolution()
-			: MappedSetting("DesktopResolution", "desktop", { {"desktop", DESKTOP} })
+			: MappedSetting("DesktopResolution", "desktop", { {"desktop", DESKTOP}, {"initial", INITIAL} })
 		{
 		}
 
@@ -34,5 +34,6 @@ namespace Config
 		}
 
 		const SIZE DesktopResolution::DESKTOP = { 0, 0 };
+		const SIZE DesktopResolution::INITIAL = { 1, 0 };
 	}
 }
