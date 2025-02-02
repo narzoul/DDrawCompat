@@ -741,6 +741,9 @@
     <ClInclude Include="DDraw\Visitors\CapsVisitor.h">
       <Filter>Header Files\DDraw\Visitors</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SupportedRefreshRates.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1149,6 +1152,9 @@
       <Filter>Source Files\Common</Filter>
     </ClCompile>
     <ClCompile Include="Config\Settings\CapsPatches.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\SupportedRefreshRates.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>

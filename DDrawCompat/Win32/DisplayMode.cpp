@@ -16,6 +16,7 @@
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
+#include <Config/Settings/SupportedRefreshRates.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/ScopedThreadLock.h>
@@ -582,22 +583,34 @@ namespace
 	{
 		std::map<SIZE, std::set<DWORD>> nativeDisplayModeMap;
 
-		DWORD modeNum = 0;
+		auto supportedRefreshRates(Config::supportedRefreshRates.get());
 		DevMode<Char> dm = {};
 		dm.dmSize = sizeof(dm);
+		if (supportedRefreshRates.find(Config::Settings::SupportedRefreshRates::DESKTOP) != supportedRefreshRates.end())
+		{
+			supportedRefreshRates.erase(Config::Settings::SupportedRefreshRates::DESKTOP);
+			if (origEnumDisplaySettingsEx(deviceName, ENUM_REGISTRY_SETTINGS, &dm, 0))
+			{
+				supportedRefreshRates.insert(dm.dmDisplayFrequency);
+			}
+		}
+
+		DWORD modeNum = 0;
 		while (origEnumDisplaySettingsEx(deviceName, modeNum, &dm, flags))
 		{
-			if (32 == dm.dmBitsPerPel)
+			if (32 == dm.dmBitsPerPel && (Config::supportedRefreshRates.allowAll() ||
+				supportedRefreshRates.find(dm.dmDisplayFrequency) != supportedRefreshRates.end()))
 			{
 				nativeDisplayModeMap[makeSize(dm.dmPelsWidth, dm.dmPelsHeight)].insert(dm.dmDisplayFrequency);
 			}
 			++modeNum;
 		}
 
-		const auto& supportedResolutions = Config::supportedResolutions.get();
+		auto supportedResolutions = Config::supportedResolutions.get();
 		std::map<SIZE, std::set<DWORD>> displayModeMap;
 		if (supportedResolutions.find(Config::Settings::SupportedResolutions::NATIVE) != supportedResolutions.end())
 		{
+			supportedResolutions.erase(Config::Settings::SupportedResolutions::NATIVE);
 			displayModeMap = nativeDisplayModeMap;
 		}
 
@@ -613,19 +626,16 @@ namespace
 
 		for (auto& v : supportedResolutions)
 		{
-			if (v != Config::Settings::SupportedResolutions::NATIVE)
+			if (it != nativeDisplayModeMap.end())
 			{
-				if (it != nativeDisplayModeMap.end())
+				displayModeMap[{ v.cx, v.cy }] = it->second;
+			}
+			else
+			{
+				auto iter = nativeDisplayModeMap.find({ v.cx, v.cy });
+				if (iter != nativeDisplayModeMap.end())
 				{
-					displayModeMap[{ v.cx, v.cy }] = it->second;
-				}
-				else
-				{
-					auto iter = nativeDisplayModeMap.find({ v.cx, v.cy });
-					if (iter != nativeDisplayModeMap.end())
-					{
-						displayModeMap.insert(*iter);
-					}
+					displayModeMap.insert(*iter);
 				}
 			}
 		}
