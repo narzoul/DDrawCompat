@@ -732,6 +732,15 @@
     <ClInclude Include="Config\Settings\MousePollingRate.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\CapsPatches.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Direct3d\Visitors\CapsVisitor.h">
+      <Filter>Header Files\Direct3d\Visitors</Filter>
+    </ClInclude>
+    <ClInclude Include="DDraw\Visitors\CapsVisitor.h">
+      <Filter>Header Files\DDraw\Visitors</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1138,6 +1147,9 @@
     </ClCompile>
     <ClCompile Include="Common\Disasm.cpp">
       <Filter>Source Files\Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\CapsPatches.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

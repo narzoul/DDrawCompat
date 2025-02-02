@@ -3,6 +3,7 @@
 #include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
+#include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/SoftwareDevice.h>
 #include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/VertexBufferMemoryType.h>
@@ -17,7 +18,7 @@
 
 namespace
 {
-	struct EnumZBufferFormatsArgs
+	struct EnumArgs
 	{
 		void* callback;
 		void* context;
@@ -96,13 +97,53 @@ namespace
 		return result;
 	}
 
+	HRESULT CALLBACK enumDevicesCallback(LPSTR lpDeviceDescription, LPSTR lpDeviceName,
+		LPD3DDEVICEDESC7 lpD3DDeviceDesc, LPVOID lpContext)
+	{
+		auto& args = *static_cast<EnumArgs*>(lpContext);
+		auto origCallback = static_cast<LPD3DENUMDEVICESCALLBACK7>(args.callback);
+		if (lpD3DDeviceDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY)
+		{
+			D3DDEVICEDESC7 desc = *lpD3DDeviceDesc;
+			Config::capsPatches.applyPatches(desc);
+			return origCallback(lpDeviceDescription, lpDeviceName, &desc, args.context);
+		}
+		return origCallback(lpDeviceDescription, lpDeviceName, lpD3DDeviceDesc, args.context);
+	}
+
+	HRESULT CALLBACK enumDevicesCallback(GUID* lpGuid, LPSTR lpDeviceDescription, LPSTR lpDeviceName,
+		LPD3DDEVICEDESC lpD3DHWDeviceDesc, LPD3DDEVICEDESC lpD3DHELDeviceDesc, LPVOID lpContext)
+	{
+		auto& args = *static_cast<EnumArgs*>(lpContext);
+		auto origCallback = static_cast<LPD3DENUMDEVICESCALLBACK>(args.callback);
+		if (lpD3DHWDeviceDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY)
+		{
+			D3DDEVICEDESC desc = {};
+			memcpy(&desc, lpD3DHWDeviceDesc, lpD3DHWDeviceDesc->dwSize);
+			Config::capsPatches.applyPatches(desc);
+			return origCallback(lpGuid, lpDeviceDescription, lpDeviceName, &desc, lpD3DHELDeviceDesc, args.context);
+		}
+		return origCallback(lpGuid, lpDeviceDescription, lpDeviceName, lpD3DHWDeviceDesc, lpD3DHELDeviceDesc, args.context);
+	}
+
+	template <typename TDirect3d, typename EnumDevicesCallback>
+	HRESULT CALLBACK enumDevices(TDirect3d* This, EnumDevicesCallback lpEnumDevicesCallback, LPVOID lpUserArg)
+	{
+		if (!This || !lpEnumDevicesCallback)
+		{
+			getOrigVtable(This).EnumDevices(This, lpEnumDevicesCallback, lpUserArg);
+		}
+		EnumArgs args = { lpEnumDevicesCallback, lpUserArg };
+		return getOrigVtable(This).EnumDevices(This, enumDevicesCallback, &args);
+	}
+
 	HRESULT CALLBACK enumZBufferFormatsCallback(LPDDPIXELFORMAT lpDDPixFmt, LPVOID lpContext)
 	{
 		if (!Config::supportedDepthFormats.isSupported(D3dDdi::getFormat(*lpDDPixFmt)))
 		{
 			return D3DENUMRET_OK;
 		}
-		auto& args = *static_cast<EnumZBufferFormatsArgs*>(lpContext);
+		auto& args = *static_cast<EnumArgs*>(lpContext);
 		auto origCallback = static_cast<decltype(&enumZBufferFormatsCallback)>(args.callback);
 		return origCallback(lpDDPixFmt, args.context);
 	}
@@ -121,7 +162,7 @@ namespace
 			return getOrigVtable(This).EnumZBufferFormats(This, riidDevice, lpEnumCallback, lpContext);
 		}
 		LOG_ONCE("Using feature: enumerating hardware depth formats via " << Compat::getTypeName<TDirect3d>());
-		EnumZBufferFormatsArgs args = { lpEnumCallback, lpContext };
+		EnumArgs args = { lpEnumCallback, lpContext };
 		return getOrigVtable(This).EnumZBufferFormats(This, riidDevice, enumZBufferFormatsCallback, &args);
 	}
 
@@ -138,6 +179,8 @@ namespace
 			vtable.CreateVertexBuffer = &createVertexBuffer;
 			vtable.EnumZBufferFormats = &enumZBufferFormats;
 		}
+
+		vtable.EnumDevices = &enumDevices;
 	}
 }
 

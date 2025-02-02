@@ -3,6 +3,7 @@
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/BltFilter.h>
+#include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/ConfigRows.h>
@@ -63,6 +64,7 @@ namespace Config
 	Settings::AltTabFix altTabFix;
 	Settings::Antialiasing antialiasing;
 	Settings::BltFilter bltFilter;
+	Settings::CapsPatches capsPatches;
 	Settings::ColorKeyMethod colorKeyMethod;
 	Settings::ConfigHotKey configHotKey;
 	Settings::ConfigRows configRows;

@@ -169,6 +169,7 @@
     <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
     <ClInclude Include="Config\Settings\BltFilter.h" />
+    <ClInclude Include="Config\Settings\CapsPatches.h" />
     <ClInclude Include="Config\Settings\ColorKeyMethod.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\ConfigRows.h" />
@@ -270,6 +271,7 @@
     <ClInclude Include="DDraw\Types.h" />
     <ClInclude Include="DDraw\IReleaseNotifier.h" />
     <ClInclude Include="DDraw\RealPrimarySurface.h" />
+    <ClInclude Include="DDraw\Visitors\CapsVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawClipperVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawGammaControlVtblVisitor.h" />
     <ClInclude Include="DDraw\Visitors\DirectDrawPaletteVtblVisitor.h" />
@@ -285,6 +287,7 @@
     <ClInclude Include="Direct3d\Direct3dViewport.h" />
     <ClInclude Include="Direct3d\Hooks.h" />
     <ClInclude Include="Direct3d\Log.h" />
+    <ClInclude Include="Direct3d\Visitors\CapsVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dDeviceVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dExecuteBufferVtblVisitor.h" />
     <ClInclude Include="Direct3d\Visitors\Direct3dLightVtblVisitor.h" />
@@ -358,6 +361,7 @@
     <ClCompile Include="Config\Parser.cpp" />
     <ClCompile Include="Config\Setting.cpp" />
     <ClCompile Include="Config\Settings\Antialiasing.cpp" />
+    <ClCompile Include="Config\Settings\CapsPatches.cpp" />
     <ClCompile Include="Config\Settings\ColorKeyMethod.cpp" />
     <ClCompile Include="Config\Settings\ConfigRows.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />

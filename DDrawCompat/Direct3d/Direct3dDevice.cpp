@@ -2,6 +2,7 @@
 #include <Common/CompatRef.h>
 #include <Common/CompatVtable.h>
 #include <Common/Log.h>
+#include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/SupportedTextureFormats.h>
 #include <D3dDdi/Device.h>
@@ -150,6 +151,30 @@ namespace
 		return result;
 	}
 
+	HRESULT STDMETHODCALLTYPE getCaps(IDirect3DDevice7* This, LPD3DDEVICEDESC7 lpD3DDevDesc)
+	{
+		HRESULT result = getOrigVtable(This).GetCaps(This, lpD3DDevDesc);
+		if (SUCCEEDED(result) && lpD3DDevDesc && (lpD3DDevDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY))
+		{
+			Config::capsPatches.applyPatches(*lpD3DDevDesc);
+		}
+		return result;
+	}
+
+	template <typename TDirect3DDevice>
+	HRESULT STDMETHODCALLTYPE getCaps(TDirect3DDevice* This, LPD3DDEVICEDESC lpD3DHWDevDesc, LPD3DDEVICEDESC lpD3DHELDevDesc)
+	{
+		HRESULT result = getOrigVtable(This).GetCaps(This, lpD3DHWDevDesc, lpD3DHELDevDesc);
+		if (SUCCEEDED(result) && lpD3DHWDevDesc && (lpD3DHWDevDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY))
+		{
+			D3DDEVICEDESC desc = {};
+			memcpy(&desc, lpD3DHWDevDesc, lpD3DHWDevDesc->dwSize);
+			Config::capsPatches.applyPatches(desc);
+			memcpy(lpD3DHWDevDesc, &desc, lpD3DHWDevDesc->dwSize);
+		}
+		return result;
+	}
+
 	template <typename TDirect3DDevice, typename TSurface>
 	HRESULT STDMETHODCALLTYPE setRenderTarget(TDirect3DDevice* This, TSurface* lpNewRenderTarget, DWORD dwFlags)
 	{
@@ -180,6 +205,7 @@ namespace
 		}
 
 		vtable.EnumTextureFormats = &enumTextureFormats;
+		vtable.GetCaps = &getCaps;
 	}
 }
 

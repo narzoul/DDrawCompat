@@ -6,6 +6,7 @@
 #include <Common/CompatVtable.h>
 #include <Common/Log.h>
 #include <Config/Settings/AltTabFix.h>
+#include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/PalettizedTextures.h>
 #include <Config/Settings/SoftwareDevice.h>
 #include <D3dDdi/Adapter.h>
@@ -113,6 +114,11 @@ namespace
 		if (SUCCEEDED(result) && lpDDDriverCaps)
 		{
 			lpDDDriverCaps->dwZBufferBitDepths = DDraw::DirectDraw::getDevice(*This).getAdapter().getInfo().supportedZBufferBitDepths;
+
+			DDCAPS caps = {};
+			memcpy(&caps, lpDDDriverCaps, lpDDDriverCaps->dwSize);
+			Config::capsPatches.applyPatches(caps);
+			memcpy(lpDDDriverCaps, &caps, lpDDDriverCaps->dwSize);
 		}
 		return result;
 	}
