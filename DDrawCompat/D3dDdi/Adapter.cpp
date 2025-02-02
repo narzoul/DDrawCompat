@@ -1,6 +1,8 @@
+#include <algorithm>
 #include <array>
 #include <map>
 #include <sstream>
+#include <vector>
 
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
@@ -26,6 +28,30 @@ namespace
 	{
 		DWORD flag;
 		D3DDDIFORMAT format;
+	};
+
+	const std::vector<D3DDDIFORMAT> g_formatPrio = {
+		D3DDDIFMT_R5G6B5,
+		D3DDDIFMT_X8R8G8B8,
+		D3DDDIFMT_A8R8G8B8,
+		D3DDDIFMT_A1R5G5B5,
+		D3DDDIFMT_A4R4G4B4,
+		D3DDDIFMT_X1R5G5B5,
+		D3DDDIFMT_X4R4G4B4
+	};
+
+	long long getPrio(D3DDDIFORMAT fmt)
+	{
+		auto it = std::find(g_formatPrio.begin(), g_formatPrio.end(), fmt);
+		return it != g_formatPrio.end() ? it - g_formatPrio.begin() - 100 : fmt;
+	}
+
+	struct IsHigherPrioFormat
+	{
+		bool operator()(D3DDDIFORMAT lhs, D3DDDIFORMAT rhs) const
+		{
+			return getPrio(lhs) < getPrio(rhs);
+		};
 	};
 
 	const std::array<DepthFormat, 3> g_depthFormats = { {
@@ -486,7 +512,9 @@ namespace D3dDdi
 			}
 
 			auto formatOp = static_cast<FORMATOP*>(pData->pData);
-			auto it = m_info.fixedFormatOps.begin();
+			std::map<D3DDDIFORMAT, FORMATOP, IsHigherPrioFormat> formatOps(
+				m_info.fixedFormatOps.begin(), m_info.fixedFormatOps.end());
+			auto it = formatOps.begin();
 			for (UINT i = 0; i < count; ++i)
 			{
 				formatOp[i] = it->second;
