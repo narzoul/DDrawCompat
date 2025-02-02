@@ -113,14 +113,14 @@ namespace Overlay
 	{
 		const std::string value(Config::Parser::removeParam(m_setting.getValueStr()) +
 			'(' + std::to_string(m_paramControl->getPos()) + ')');
-		m_setting.set(value);
+		m_setting.set(value, "overlay");
 		getValueComboBox().setValue(value);
 	}
 
 	void SettingControl::onValueChanged()
 	{
 		const std::string value(getValueComboBox().getValue());
-		m_setting.set(value);
+		m_setting.set(value, "overlay");
 
 		if (m_paramControl)
 		{

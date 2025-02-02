@@ -8,12 +8,19 @@ namespace Config
 {
 	class ListSetting : public Setting
 	{
+	public:
+		virtual std::string getValueStr() const override;
+		virtual bool isMultiValued() const override { return true; }
+
 	protected:
 		ListSetting(const std::string& name, const std::string& default);
 
 		virtual void setValue(const std::string& value) override;
-		virtual void setValues(const std::vector<std::string>& values) = 0;
 
-		static void appendToList(std::string& list, const std::string& value);
+	private:
+		virtual std::string addValue(const std::string& value) = 0;
+		virtual void clear() = 0;
+
+		std::string m_valueStr;
 	};
 }

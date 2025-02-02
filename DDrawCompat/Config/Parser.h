@@ -20,6 +20,7 @@ namespace Config
 	{
 		std::filesystem::path getOverlayConfigPath();
 		void loadAllConfigFiles(const std::filesystem::path& processPath);
+		void logError(const std::string& error);
 		SIZE parseAspectRatio(const std::string& value);
 		int parseInt(const std::string& value, int min, int max);
 		SIZE parseResolution(const std::string& value);

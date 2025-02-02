@@ -11,13 +11,12 @@ namespace Config
 		public:
 			SurfacePatches();
 
-			virtual std::string getValueStr() const override;
-
 			unsigned getTop() const { return m_top; }
 			unsigned getBottom() const { return m_bottom; }
 
 		private:
-			void setValues(const std::vector<std::string>& values) override;
+			virtual std::string addValue(const std::string& value) override;
+			virtual void clear() override;
 
 			unsigned m_top;
 			unsigned m_bottom;

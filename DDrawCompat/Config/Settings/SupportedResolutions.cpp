@@ -11,25 +11,22 @@ namespace Config
 		{
 		}
 
-		std::string SupportedResolutions::getValueStr() const
+		std::string SupportedResolutions::addValue(const std::string& value)
 		{
-			std::string result;
-			for (const auto& res : m_resolutions)
+			if ("native" == value)
 			{
-				result += ", ";
-				result += NATIVE == res ? "native" : std::to_string(res.cx) + 'x' + std::to_string(res.cy);
+				m_resolutions.insert(NATIVE);
+				return value;
 			}
-			return result.substr(2);
+
+			const SIZE resolution = Parser::parseResolution(value);
+			m_resolutions.insert(resolution);
+			return std::to_string(resolution.cx) + 'x' + std::to_string(resolution.cy);
 		}
 
-		void SupportedResolutions::setValues(const std::vector<std::string>& values)
+		void SupportedResolutions::clear()
 		{
-			std::set<SIZE> result;
-			for (const auto& v : values)
-			{
-				result.insert("native" == v ? NATIVE : Parser::parseResolution(v));
-			}
-			m_resolutions = result;
+			m_resolutions.clear();
 		}
 
 		const SIZE SupportedResolutions::NATIVE = { 0, 0 };

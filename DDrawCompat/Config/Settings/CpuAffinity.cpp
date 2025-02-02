@@ -11,63 +11,31 @@ namespace Config
 		{
 		}
 
-		std::string CpuAffinity::getValueStr() const
+		std::string CpuAffinity::addValue(const std::string& value)
 		{
-			if (0 == m_value)
+			if ("app" == value)
 			{
-				return "app";
-			}
-
-			if (UINT_MAX == m_value)
-			{
-				return "all";
-			}
-
-			std::string result;
-			for (unsigned i = 0; i < 32; ++i)
-			{
-				if (m_value & (1U << i))
+				if (0 != m_value)
 				{
-					result += ',' + std::to_string(i + 1);
+					throw ParsingError("'app' cannot be combined with other values");
 				}
+				return value;
 			}
 
-			return result.substr(1);
+			if ("all" == value)
+			{
+				m_value = UINT_MAX;
+				return value;
+			}
+
+			auto num = Parser::parseInt(value, 1, 32);
+			m_value |= 1U << (num - 1);
+			return std::to_string(num);
 		}
 
-		void CpuAffinity::setValues(const std::vector<std::string>& values)
+		void CpuAffinity::clear()
 		{
-			if (values.empty())
-			{
-				throw ParsingError("empty list is not allowed");
-			}
-
-			if (1 == values.size())
-			{
-				if ("app" == values.front())
-				{
-					m_value = 0;
-					return;
-				}
-				else if ("all" == values.front())
-				{
-					m_value = UINT_MAX;
-					return;
-				}
-			}
-
-			unsigned result = 0;
-			for (const auto& value : values)
-			{
-				if ("app" == value || "all" == value)
-				{
-					throw ParsingError("'" + value + "' cannot be combined with other values");
-				}
-				auto num = Parser::parseInt(value, 1, 32);
-				result |= 1U << (num - 1);
-			}
-
-			m_value = result;
+			m_value = 0;
 		}
 	}
 }

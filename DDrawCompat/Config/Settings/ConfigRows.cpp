@@ -62,62 +62,40 @@ namespace Config
 		{
 		}
 
-		std::string ConfigRows::getValueStr() const
+		std::string ConfigRows::addValue(const std::string& value)
 		{
-			return m_valueStr;
+			if ("all" == value)
+			{
+				appendAll(m_settings);
+				return value;
+			}
+
+			if ("allro" == value)
+			{
+				appendAllRo(m_settings);
+				return value;
+			}
+
+			if ("allrw" == value)
+			{
+				appendAllRw(m_settings);
+				return value;
+			}
+
+			auto setting = getSetting(value);
+			if (!setting)
+			{
+				throw ParsingError("invalid value: '" + value + "'");
+			}
+
+			const bool overwrite = true;
+			append(m_settings, setting, overwrite);
+			return setting->getName();
 		}
 
-		void ConfigRows::setValues(const std::vector<std::string>& values)
+		void ConfigRows::clear()
 		{
-			std::set<std::string> groups;
-			std::vector<Setting*> settings;
-			std::vector<std::string> valueStr;
-
-			for (auto value : values)
-			{
-				if ("all" == value || "allro" == value || "allrw" == value)
-				{
-					if (groups.find(value) != groups.end())
-					{
-						continue;
-					}
-
-					if ("all" == value)
-					{
-						appendAll(settings);
-					}
-					else if ("allro" == value)
-					{
-						appendAllRo(settings);
-					}
-					else if ("allrw" == value)
-					{
-						appendAllRw(settings);
-					}
-
-					valueStr.push_back(value);
-					continue;
-				}
-
-				auto setting = getSetting(value);
-				if (!setting)
-				{
-					throw ParsingError("invalid value: '" + value + "'");
-				}
-
-				const bool overwrite = true;
-				append(settings, setting, overwrite);
-				append(valueStr, setting->getName(), overwrite);
-			}
-
-			m_settings = settings;
-
-			m_valueStr.clear();
-			for (const auto& v : valueStr)
-			{
-				m_valueStr += ", " + v;
-			}
-			m_valueStr = m_valueStr.substr(2);
+			m_settings.clear();
 		}
 	}
 }

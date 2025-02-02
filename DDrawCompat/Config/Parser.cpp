@@ -8,6 +8,8 @@
 
 namespace
 {
+	UINT g_lineNumber = 0;
+	std::string g_settingName;
 	std::filesystem::path g_overlayConfigPath;
 
 	void setConfig(const std::string& name, const std::string& value, const std::string& source);
@@ -22,12 +24,14 @@ namespace
 			return;
 		}
 
-		unsigned lineNumber = 0;
+		g_lineNumber = 0;
 		std::string line;
 		while (std::getline(f, line))
 		{
 			try {
-				++lineNumber;
+				++g_lineNumber;
+				g_settingName.clear();
+
 				auto pos = line.find_first_of(";#");
 				if (pos != std::string::npos)
 				{
@@ -49,7 +53,7 @@ namespace
 			}
 			catch (const Config::ParsingError& error)
 			{
-				LOG_INFO << "  Line #" << lineNumber << ": " << error.what();
+				Config::Parser::logError(error.what());
 			}
 		}
 	}
@@ -66,15 +70,14 @@ namespace
 		{
 			throw Config::ParsingError("unknown setting: '" + name + "'");
 		}
+		g_settingName = setting->getName();
 
-		try
+		if (value.empty())
 		{
-			setting->set(Config::Parser::tolower(value), source);
+			throw Config::ParsingError("empty value is not allowed");
 		}
-		catch (const Config::ParsingError& error)
-		{
-			throw Config::ParsingError(setting->getName() + ": " + error.what());
-		}
+
+		setting->set(Config::Parser::tolower(value), source);
 	}
 }
 
@@ -155,6 +158,17 @@ namespace Config
 				source.insert(source.end(), maxSourceLength - source.length(), ' ');
 				LOG_INFO << "  [" << source << "] " << name << " = " << setting.second.getValueStr();
 			}
+		}
+
+		void logError(const std::string& error)
+		{
+			Compat::Log log(Config::Settings::LogLevel::INFO);
+			log << "  Line #" << g_lineNumber << ": ";
+			if (!g_settingName.empty())
+			{
+				log << g_settingName << ": ";
+			}
+			log << error;
 		}
 
 		SIZE parseAspectRatio(const std::string& value)

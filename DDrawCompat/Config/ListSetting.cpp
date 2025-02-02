@@ -8,18 +8,25 @@ namespace Config
 	{
 	}
 
-	void ListSetting::appendToList(std::string& list, const std::string& value)
+	std::string ListSetting::getValueStr() const
 	{
-		if (!list.empty())
+		if (m_valueStr.empty())
 		{
-			list += ", ";
+			return "none";
 		}
-		list += value;
+		return m_valueStr;
 	}
 
 	void ListSetting::setValue(const std::string& value)
 	{
-		std::vector<std::string> values;
+		m_valueStr.clear();
+		clear();
+
+		if ("none" == value)
+		{
+			return;
+		}
+
 		std::size_t startPos = 0;
 		std::size_t endPos = 0;
 
@@ -30,10 +37,27 @@ namespace Config
 			{
 				endPos = value.length();
 			}
-			values.push_back(Parser::trim(value.substr(startPos, endPos - startPos)));
+
+			auto val = Parser::trim(value.substr(startPos, endPos - startPos));
+			if ("none" == val)
+			{
+				throw ParsingError("'none' has no effect when multiple values are specified");
+			}
+
+			try
+			{
+				val = addValue(val);
+				if (!m_valueStr.empty())
+				{
+					m_valueStr += ", ";
+				}
+				m_valueStr += val;
+			}
+			catch (const ParsingError& e)
+			{
+				Parser::logError(e.what());
+			}
 			startPos = endPos + 1;
 		} while (endPos < value.length());
-
-		setValues(values);
 	}
 }

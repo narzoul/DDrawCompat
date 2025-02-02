@@ -25,11 +25,18 @@ namespace Config
 		set("default", "default");
 	}
 
-	void Setting::set(const std::string& value)
+	void Setting::set(const std::string& value, const std::string& source)
 	{
 		if ("default" == value)
 		{
-			set(m_default);
+			set(m_default, source);
+			return;
+		}
+
+		if (isMultiValued())
+		{
+			setValue(value);
+			m_source = source;
 			return;
 		}
 
@@ -48,6 +55,7 @@ namespace Config
 		}
 
 		setValue(val);
+		m_source = source;
 
 		try
 		{
@@ -59,14 +67,8 @@ namespace Config
 		}
 		catch (const ParsingError& e)
 		{
-			throw ParsingError(Parser::removeParam(getValueStr()) + ": " + e.what());
+			Parser::logError(Parser::removeParam(getValueStr()) + ": " + e.what());
 		}
-	}
-
-	void Setting::set(const std::string& value, const std::string& source)
-	{
-		set(value);
-		m_source = source;
 	}
 
 	void Setting::setBaseValue()

@@ -17,12 +17,11 @@ namespace Config
 
 			SupportedResolutions();
 
-			virtual std::string getValueStr() const override;
-
 			std::set<SIZE> get() const { return m_resolutions; }
 
 		private:
-			void setValues(const std::vector<std::string>& values) override;
+			virtual std::string addValue(const std::string& value) override;
+			virtual void clear() override;
 
 			std::set<SIZE> m_resolutions;
 		};

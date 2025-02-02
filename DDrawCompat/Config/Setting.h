@@ -27,6 +27,7 @@ namespace Config
 		virtual std::vector<std::string> getDefaultValueStrings() { return {}; }
 		virtual ParamInfo getParamInfo() const { return {}; }
 		virtual std::string getValueStr() const = 0;
+		virtual bool isMultiValued() const { return false; }
 
 		const std::string& getBaseValue() const { return m_baseValue; }
 		const std::string& getExportedValue() const { return m_exportedValue; }
@@ -35,7 +36,6 @@ namespace Config
 		const std::string& getSource() const { return m_source; }
 
 		void reset();
-		void set(const std::string& value);
 		void set(const std::string& value, const std::string& source);
 		void setBaseValue();
 		void setExportedValue();

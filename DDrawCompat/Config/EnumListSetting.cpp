@@ -10,38 +10,24 @@ namespace Config
 	{
 	}
 
-	std::string EnumListSetting::getValueStr() const
+	std::string EnumListSetting::addValue(const std::string& value)
 	{
-		std::string result;
-		for (auto value : m_values)
+		const auto it = std::find(m_enumNames.begin(), m_enumNames.end(), value);
+		if (it == m_enumNames.end())
 		{
-			result += ", " + m_enumNames[value];
+			throw ParsingError("invalid value: '" + value + "'");
 		}
-		return result.substr(2);
+
+		const int index = it - m_enumNames.begin();
+		if (std::find(m_values.begin(), m_values.end(), index) == m_values.end())
+		{
+			m_values.push_back(index);
+		}
+		return value;
 	}
 
-	void EnumListSetting::setValues(const std::vector<std::string>& values)
+	void EnumListSetting::clear()
 	{
-		if (values.empty())
-		{
-			throw ParsingError("empty list is not allowed");
-		}
-
-		std::vector<int> result;
-		for (auto valueName : values)
-		{
-			auto it = std::find(m_enumNames.begin(), m_enumNames.end(), valueName);
-			if (it == m_enumNames.end())
-			{
-				throw ParsingError("invalid value: '" + valueName + "'");
-			}
-
-			int value = it - m_enumNames.begin();
-			if (std::find(result.begin(), result.end(), value) == result.end())
-			{
-				result.push_back(value);
-			}
-		}
-		m_values = result;
+		m_values.clear();
 	}
 }

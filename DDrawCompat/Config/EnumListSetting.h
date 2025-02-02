@@ -11,12 +11,11 @@ namespace Config
 	public:
 		EnumListSetting(const std::string& name, const std::string& default, const std::vector<std::string>& enumNames);
 
-		virtual std::string getValueStr() const override;
-
 		const std::vector<int>& get() const { return m_values; }
 
 	private:
-		void setValues(const std::vector<std::string>& values) override;
+		std::string addValue(const std::string& value) override;
+		void clear() override;
 
 		const std::vector<std::string> m_enumNames;
 		std::vector<int> m_values;
