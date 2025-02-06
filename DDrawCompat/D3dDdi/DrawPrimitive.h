@@ -71,7 +71,7 @@ namespace D3dDdi
 		void convertToTriangleList();
 		HRESULT flush(const UINT* flagBuffer);
 		HRESULT flushIndexed(const UINT* flagBuffer);
-		bool isSprite(INT baseVertexIndex, UINT16 index0, UINT16 index1, UINT16 index2);
+		bool isSprite(INT baseVertexIndex, UINT count, const UINT16* indices);
 		void setVertexFixupFlags(INT baseVertexIndex, UINT16 index);
 		INT loadIndices(const void* indices, UINT count);
 		INT loadVertices(UINT count);

@@ -558,7 +558,7 @@ namespace D3dDdi
 			state.updateStreamSource();
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 			{
-				bool spriteMode = isSprite(data.VStart, 0, 1, 2);
+				bool spriteMode = isSprite(data.VStart, vertexCount, nullptr);
 				state.setSpriteMode(spriteMode);
 				if (spriteMode)
 				{
@@ -617,7 +617,7 @@ namespace D3dDdi
 		{
 			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 			{
-				bool spriteMode = isSprite(vStart, indices[0], indices[1], indices[2]);
+				bool spriteMode = isSprite(vStart, indexCount, indices);
 				state.setSpriteMode(spriteMode);
 				if (spriteMode)
 				{
@@ -746,7 +746,7 @@ namespace D3dDdi
 		return m_batched.vertices.size() / m_streamSource.stride;
 	}
 
-	bool DrawPrimitive::isSprite(INT baseVertexIndex, UINT16 index0, UINT16 index1, UINT16 index2)
+	bool DrawPrimitive::isSprite(INT baseVertexIndex, UINT count, const UINT16* indices)
 	{
 		auto spriteDetection = Config::spriteDetection.get();
 		if (Config::Settings::SpriteDetection::OFF == spriteDetection ||
@@ -758,16 +758,35 @@ namespace D3dDdi
 		}
 
 		auto v = m_streamSource.vertices + baseVertexIndex * m_streamSource.stride;
-		auto v0 = reinterpret_cast<const D3DTLVERTEX*>(v + index0 * m_streamSource.stride);
+		auto v0 = reinterpret_cast<const D3DTLVERTEX*>(v + (indices ? indices[0] * m_streamSource.stride : 0));
 		if (Config::Settings::SpriteDetection::ZMAX == spriteDetection &&
 			v0->sz > static_cast<float>(Config::spriteDetection.getParam()) / 100)
 		{
 			return false;
 		}
 
-		auto v1 = reinterpret_cast<const D3DTLVERTEX*>(v + index1 * m_streamSource.stride);
-		auto v2 = reinterpret_cast<const D3DTLVERTEX*>(v + index2 * m_streamSource.stride);
-		return v0->sz == v1->sz && v0->sz == v2->sz;
+		if (indices)
+		{
+			for (UINT i = 1; i < count; ++i)
+			{
+				if (reinterpret_cast<const D3DTLVERTEX*>(v + indices[i] * m_streamSource.stride)->sz != v0->sz)
+				{
+					return false;
+				}
+			}
+		}
+		else
+		{
+			for (UINT i = 1; i < count; ++i)
+			{
+				v += m_streamSource.stride;
+				if (reinterpret_cast<const D3DTLVERTEX*>(v)->sz != v0->sz)
+				{
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	INT DrawPrimitive::loadIndices(const void* indices, UINT count)

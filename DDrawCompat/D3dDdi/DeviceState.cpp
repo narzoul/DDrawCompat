@@ -901,6 +901,7 @@ namespace D3dDdi
 			data.Count = 1;
 			BOOL value = spriteMode && Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get();
 			pfnSetVertexShaderConstB(&data, &value);
+			LOG_DS << spriteMode;
 		}
 	}
 
