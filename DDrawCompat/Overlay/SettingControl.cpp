@@ -143,12 +143,12 @@ namespace Overlay
 		}
 	}
 
-	void SettingControl::set(const std::string& value)
+	void SettingControl::reset()
 	{
-		if (m_setting.getValueStr() != value)
+		if (!(getStyle() & WS_DISABLED))
 		{
-			getValueComboBox().setValue(value);
-			onNotify(*m_valueControl);
+			getValueComboBox().setValue(m_setting.getValueStr());
+			onValueChanged();
 		}
 	}
 }

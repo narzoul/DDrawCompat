@@ -1,5 +1,6 @@
 #pragma once
 
+#include <functional>
 #include <list>
 #include <memory>
 #include <set>
@@ -42,6 +43,7 @@ namespace Overlay
 		void exportSettings();
 		void importSettings();
 		void resetSettings();
+		void updateSettings(std::function<std::string(const Config::Setting&)> getValue);
 
 		unsigned m_buttonCount;
 		std::unique_ptr<LabelControl> m_caption;

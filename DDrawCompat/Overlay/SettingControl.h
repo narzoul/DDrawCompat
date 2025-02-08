@@ -37,7 +37,7 @@ namespace Overlay
 		virtual void onNotify(Control& control) override;
 
 		Config::Setting& getSetting() const { return m_setting; }
-		void set(const std::string& value);
+		void reset();
 
 	private:
 		ComboBoxControl& getValueComboBox() const;

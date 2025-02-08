@@ -162,9 +162,9 @@ namespace Overlay
 	std::string ConfigWindow::constructFileContent()
 	{
 		std::ostringstream oss;
-		for (auto& settingControl : m_settingControls)
+		for (auto& settingRow : g_settingRows)
 		{
-			const auto& setting = settingControl.getSetting();
+			const auto& setting = *settingRow.setting;
 			const auto value = setting.getValueStr();
 			if (value == setting.getBaseValue())
 			{
@@ -188,9 +188,9 @@ namespace Overlay
 		m_fileContent = constructFileContent();
 		f.write(m_fileContent.c_str(), m_fileContent.length());
 
-		for (auto& settingControl : m_settingControls)
+		for (auto& settingRow : g_settingRows)
 		{
-			settingControl.getSetting().setExportedValue();
+			settingRow.setting->setExportedValue();
 		}
 
 		updateButtons();
@@ -208,11 +208,7 @@ namespace Overlay
 
 	void ConfigWindow::importSettings()
 	{
-		for (auto& settingControl : m_settingControls)
-		{
-			settingControl.set(settingControl.getSetting().getExportedValue());
-		}
-		updateButtons();
+		updateSettings([](const Config::Setting& setting) { return setting.getExportedValue(); });
 	}
 
 	void ConfigWindow::onClose(Control& control)
@@ -251,11 +247,7 @@ namespace Overlay
 
 	void ConfigWindow::resetSettings()
 	{
-		for (auto& settingControl : m_settingControls)
-		{
-			settingControl.set(settingControl.getSetting().getBaseValue());
-		}
-		updateButtons();
+		updateSettings([](const Config::Setting& setting) { return setting.getBaseValue(); });
 	}
 
 	void ConfigWindow::setFocus(SettingControl* control)
@@ -308,9 +300,9 @@ namespace Overlay
 		bool enableImport = false;
 		bool enableReset = false;
 
-		for (auto& settingControl : m_settingControls)
+		for (auto& settingRow : g_settingRows)
 		{
-			const auto& setting = settingControl.getSetting();
+			const auto& setting = *settingRow.setting;
 			const auto value = setting.getValueStr();
 
 			if (value != setting.getBaseValue())
@@ -327,5 +319,28 @@ namespace Overlay
 		m_exportButton->setEnabled(m_fileContent != constructFileContent());
 		m_importButton->setEnabled(enableImport);
 		m_resetAllButton->setEnabled(enableReset);
+	}
+
+	void ConfigWindow::updateSettings(std::function<std::string(const Config::Setting&)> getValue)
+	{
+		for (auto& settingRow : g_settingRows)
+		{
+			const auto value = getValue(*settingRow.setting);
+			if (value != settingRow.setting->getValueStr())
+			{
+				settingRow.setting->set(value, "overlay");
+				if (settingRow.updateFunc)
+				{
+					settingRow.updateFunc();
+				}
+			}
+		}
+
+		for (auto& settingControl : m_settingControls)
+		{
+			settingControl.reset();
+		}
+
+		updateButtons();
 	}
 }
