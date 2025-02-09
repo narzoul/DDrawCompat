@@ -456,7 +456,8 @@ namespace D3dDdi
 		}
 
 		case D3DDDITSS_MIPFILTER:
-			return D3DTEXF_NONE == Config::textureFilter.getMipFilter() ? value : Config::textureFilter.getMipFilter();
+			return (D3DTEXF_NONE == value || D3DTEXF_NONE == Config::textureFilter.getMipFilter())
+				? value : Config::textureFilter.getMipFilter();
 
 		case D3DDDITSS_MAXANISOTROPY:
 			return D3DTEXF_NONE == Config::textureFilter.getFilter() ? value : Config::textureFilter.getMaxAnisotropy();
