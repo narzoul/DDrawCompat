@@ -23,6 +23,7 @@ namespace DDraw
 		static bool isExclusiveFullscreen();
 		static bool isFullscreen();
 		static bool isLost();
+		static bool isProcessActive();
 		static void release();
 		static HRESULT restore();
 		static void scheduleOverlayUpdate();

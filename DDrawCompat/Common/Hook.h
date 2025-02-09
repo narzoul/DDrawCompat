@@ -27,7 +27,7 @@ namespace Compat
 	void hookFunction(void*& origFuncPtr, void* newFuncPtr, const char* funcName);
 	void hookFunction(HMODULE module, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
 	void hookFunction(const char* moduleName, const char* funcName, void*& origFuncPtr, void* newFuncPtr);
-	void hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr);
+	FARPROC hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr);
 
 	template <auto origFunc>
 	void hookFunction(const char* moduleName, const char* funcName, decltype(origFunc) newFuncPtr)

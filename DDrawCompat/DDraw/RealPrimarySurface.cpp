@@ -127,18 +127,6 @@ namespace
 		return 1;
 	}
 
-	bool isProcessActive()
-	{
-		const HWND foregroundWindow = GetForegroundWindow();
-		if (foregroundWindow)
-		{
-			DWORD pid = 0;
-			GetWindowThreadProcessId(foregroundWindow, &pid);
-			return GetCurrentProcessId() == pid;
-		}
-		return false;
-	}
-
 	void onRelease()
 	{
 		LOG_FUNC("RealPrimarySurface::onRelease");
@@ -387,7 +375,7 @@ namespace
 		LOG_FUNC("RealPrimarySurface::updatePresentationParams");
 
 		HWND fullscreenWindow = nullptr;
-		if (isProcessActive())
+		if (DDraw::RealPrimarySurface::isProcessActive())
 		{
 			if (g_isFullscreen && IsWindowVisible(g_deviceWindow) && !IsIconic(g_deviceWindow))
 			{
@@ -658,6 +646,18 @@ namespace DDraw
 	{
 		DDraw::ScopedThreadLock lock;
 		return g_frontBuffer && DDERR_SURFACELOST == g_frontBuffer->IsLost(g_frontBuffer);
+	}
+
+	bool RealPrimarySurface::isProcessActive()
+	{
+		const HWND foregroundWindow = GetForegroundWindow();
+		if (foregroundWindow)
+		{
+			DWORD pid = 0;
+			GetWindowThreadProcessId(foregroundWindow, &pid);
+			return GetCurrentProcessId() == pid;
+		}
+		return false;
 	}
 
 	void RealPrimarySurface::release()

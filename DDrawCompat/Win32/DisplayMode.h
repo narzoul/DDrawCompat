@@ -46,6 +46,7 @@ namespace Win32
 		const MonitorInfo& getMonitorInfo(POINT pt);
 		const MonitorInfo& getMonitorInfo(const std::wstring& deviceName);
 		RECT getRealBounds();
+		void incDisplaySettingsUniqueness();
 		ULONG queryDisplaySettingsUniqueness();
 		ULONG queryEmulatedDisplaySettingsUniqueness();
 

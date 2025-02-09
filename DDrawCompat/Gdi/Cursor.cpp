@@ -102,15 +102,7 @@ namespace
 
 	void updateClipRect()
 	{
-		auto hwnd = GetForegroundWindow();
-		if (!hwnd)
-		{
-			return;
-		}
-
-		DWORD pid = 0;
-		GetWindowThreadProcessId(hwnd, &pid);
-		if (pid != GetCurrentProcessId())
+		if (!DDraw::RealPrimarySurface::isProcessActive())
 		{
 			return;
 		}
@@ -231,7 +223,10 @@ namespace Gdi
 			{
 				if (!IsRectEmpty(&g_monitorClipRect))
 				{
-					CALL_ORIG_FUNC(ClipCursor)(&g_clipRect);
+					if (DDraw::RealPrimarySurface::isProcessActive())
+					{
+						CALL_ORIG_FUNC(ClipCursor)(&g_clipRect);
+					}
 					g_clipRect = {};
 					g_monitorClipRect = {};
 				}

@@ -334,18 +334,22 @@ namespace Compat
 		FreeLibrary(module);
 	}
 
-	void hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr)
+	FARPROC hookIatFunction(HMODULE module, const char* funcName, void* newFuncPtr)
 	{
 		FARPROC* func = findProcAddressInIat(module, funcName);
-		if (func)
+		if (!func)
 		{
-			LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcPtrToStr(*func) << ')';
-			DWORD oldProtect = 0;
-			VirtualProtect(func, sizeof(func), PAGE_READWRITE, &oldProtect);
-			*func = static_cast<FARPROC>(newFuncPtr);
-			DWORD dummy = 0;
-			VirtualProtect(func, sizeof(func), oldProtect, &dummy);
+			return nullptr;
 		}
+
+		LOG_DEBUG << "Hooking function via IAT: " << funcName << " (" << funcPtrToStr(*func) << ')';
+		DWORD oldProtect = 0;
+		VirtualProtect(func, sizeof(func), PAGE_READWRITE, &oldProtect);
+		FARPROC prevFunc = *func;
+		*func = static_cast<FARPROC>(newFuncPtr);
+		DWORD dummy = 0;
+		VirtualProtect(func, sizeof(func), oldProtect, &dummy);
+		return prevFunc;
 	}
 
 	void removeShim(HMODULE module, const char* funcName)

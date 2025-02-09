@@ -5,6 +5,7 @@
 #include <Common/CompatPtr.h>
 #include <Common/CompatVtable.h>
 #include <Common/Log.h>
+#include <Common/ScopedCriticalSection.h>
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/PalettizedTextures.h>
@@ -29,6 +30,7 @@
 
 namespace
 {
+	CRITICAL_SECTION* g_ddCs = nullptr;
 	WNDPROC g_origDDrawWindowProc = nullptr;
 
 	LRESULT handleActivateApp(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
@@ -184,6 +186,12 @@ namespace
 		return getOrigVtable(This).WaitForVerticalBlank(This, dwFlags, hEvent);
 	}
 
+	void WINAPI ddrawEnterCriticalSection(LPCRITICAL_SECTION lpCriticalSection)
+	{
+		g_ddCs = lpCriticalSection;
+		EnterCriticalSection(lpCriticalSection);
+	}
+
 	LRESULT WINAPI ddrawWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		LOG_FUNC("ddrawWindowProc", hwnd, uMsg, wParam, lParam);
@@ -197,36 +205,37 @@ namespace
 		return LOG_RESULT(g_origDDrawWindowProc(hwnd, uMsg, wParam, lParam));
 	}
 
+	CRITICAL_SECTION& getDDCS()
+	{
+		if (g_ddCs)
+		{
+			return *g_ddCs;
+		}
+
+		auto ddOrigEnterCriticalSection = Compat::hookIatFunction(
+			Dll::g_origDDrawModule, "EnterCriticalSection", &ddrawEnterCriticalSection);
+		Dll::g_origProcs.AcquireDDThreadLock();
+		Compat::hookIatFunction(Dll::g_origDDrawModule, "EnterCriticalSection", ddOrigEnterCriticalSection);
+		Dll::g_origProcs.ReleaseDDThreadLock();
+		return *g_ddCs;
+	}
+
 	LRESULT handleActivateApp(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
 		LOG_FUNC("DirectDraw::handleActivateApp", hwnd, wParam, lParam, origWndProc);
 
-		if (origWndProc)
-		{
-			auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
-			if (tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId() ||
-				Config::Settings::AltTabFix::NOACTIVATEAPP == Config::altTabFix.get())
-			{
-				if (!wParam)
-				{
-					ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
-				}
-				if (Config::Settings::AltTabFix::NOACTIVATEAPP == Config::altTabFix.get() &&
-					0 == Config::altTabFix.getParam())
-				{
-					return LOG_RESULT(0);
-				}
-				return LOG_RESULT(CallWindowProcA(origWndProc, hwnd, WM_ACTIVATEAPP, wParam, lParam));
-			}
-		}
-
-		if (Config::Settings::AltTabFix::KEEPVIDMEM != Config::altTabFix.get())
+		if (Config::Settings::AltTabFix::OFF == Config::altTabFix.get())
 		{
 			return LOG_RESULT(g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam));
 		}
 
-		DDraw::ScopedThreadLock lock;
-		const bool keepPrimary = Config::altTabFix.getParam();
+		auto tagSurface = DDraw::TagSurface::findFullscreenWindow();
+		const bool ignoreDdWndProc = Config::Settings::AltTabFix::NOACTIVATEAPP == Config::altTabFix.get() ||
+			tagSurface && tagSurface->getExclusiveOwnerThreadId() != GetCurrentThreadId();
+		const bool keepPrimary = ignoreDdWndProc ||
+			Config::Settings::AltTabFix::KEEPVIDMEM == Config::altTabFix.get() && Config::altTabFix.getParam();
+
+		Compat::ScopedCriticalSection lock(getDDCS());
 		std::set<DDRAWI_DDRAWSURFACE_LCL*> surfacesToRestore;
 		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
 			{
@@ -239,7 +248,30 @@ namespace
 				}
 			});
 
-		LRESULT result = g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam);
+		LRESULT result = 0;
+		if (ignoreDdWndProc)
+		{
+			{
+				Win32::DisplayMode::incDisplaySettingsUniqueness();
+				DDraw::ScopedThreadLock invalidateRealPrimary;
+			}
+
+			if (!wParam)
+			{
+				ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
+				CALL_ORIG_FUNC(ClipCursor)(nullptr);
+			}
+
+			if (Config::Settings::AltTabFix::NOACTIVATEAPP != Config::altTabFix.get() ||
+				1 == Config::altTabFix.getParam())
+			{
+				result = LOG_RESULT(CallWindowProcA(origWndProc, hwnd, WM_ACTIVATEAPP, wParam, lParam));
+			}
+		}
+		else
+		{
+			result = g_origDDrawWindowProc(hwnd, WM_ACTIVATEAPP, wParam, lParam);
+		}
 
 		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
 			{

@@ -49,7 +49,6 @@ namespace
 	{
 		WNDPROC wndProcA;
 		WNDPROC wndProcW;
-		WNDPROC ddrawOrigWndProc;
 	};
 
 	decltype(&DwmSetIconicThumbnail) g_dwmSetIconicThumbnail = nullptr;
@@ -59,6 +58,7 @@ namespace
 
 	Compat::SrwLock g_windowProcSrwLock;
 	std::map<HWND, WindowProc> g_windowProc;
+	std::map<HWND, WNDPROC> g_ddrawWindowProc;
 
 	thread_local POINT* g_cursorPos = nullptr;
 	thread_local unsigned g_inCreateDialog = 0;
@@ -308,11 +308,7 @@ namespace
 			if (Dll::g_origDDrawModule == Compat::getModuleHandleFromAddress(reinterpret_cast<void*>(dwNewLong)))
 			{
 				Compat::ScopedSrwLockExclusive lock(g_windowProcSrwLock);
-				auto it = g_windowProc.find(hWnd);
-				if (it != g_windowProc.end())
-				{
-					it->second.ddrawOrigWndProc = reinterpret_cast<WNDPROC>(origWndProc);
-				}
+				g_ddrawWindowProc[hWnd] = reinterpret_cast<WNDPROC>(origWndProc);
 				DDraw::DirectDraw::hookDDrawWindowProc(reinterpret_cast<WNDPROC>(dwNewLong));
 			}
 			return origWndProc;
@@ -952,8 +948,8 @@ namespace Gdi
 		WNDPROC getDDrawOrigWndProc(HWND hwnd)
 		{
 			Compat::ScopedSrwLockShared lock(g_windowProcSrwLock);
-			auto it = g_windowProc.find(hwnd);
-			return it != g_windowProc.end() ? it->second.ddrawOrigWndProc : nullptr;
+			auto it = g_ddrawWindowProc.find(hwnd);
+			return it != g_ddrawWindowProc.end() ? it->second : nullptr;
 		}
 
 		void installHooks()

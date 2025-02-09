@@ -10,7 +10,7 @@ namespace Compat
 
 	std::filesystem::path getModulePath(HMODULE module)
 	{
-		wchar_t path[MAX_PATH];
+		wchar_t path[MAX_PATH] = {};
 		GetModuleFileNameW(module, path, MAX_PATH);
 		return path;
 	}

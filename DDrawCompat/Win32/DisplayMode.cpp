@@ -891,6 +891,12 @@ namespace Win32
 			return g_realBounds;
 		}
 
+		void incDisplaySettingsUniqueness()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			++g_displaySettingsUniquenessBias;
+		}
+
 		ULONG queryDisplaySettingsUniqueness()
 		{
 			return CALL_ORIG_FUNC(GdiEntry13)();
