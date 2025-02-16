@@ -496,6 +496,7 @@ namespace D3dDdi
 				caps.dwDeviceZBufferBitDepth = getInfo().supportedZBufferBitDepths;
 			}
 			caps.dpcTriCaps.dwTextureCaps &= ~D3DPTEXTURECAPS_ALPHAPALETTE;
+			caps.dwMaxVertexCount = std::min(caps.dwMaxVertexCount, 32768ul);
 			break;
 		}
 

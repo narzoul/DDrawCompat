@@ -15,6 +15,7 @@
 #include <D3dDdi/ShaderAssembler.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
+#include <Direct3d/Direct3dDevice.h>
 #include <Gdi/DcFunctions.h>
 
 namespace
@@ -354,7 +355,23 @@ namespace D3dDdi
 
 	HRESULT Device::pfnDrawPrimitive(const D3DDDIARG_DRAWPRIMITIVE* data, const UINT* flagBuffer)
 	{
-		return m_drawPrimitive.draw(*data, flagBuffer);
+		HRESULT result = m_drawPrimitive.draw(*data, flagBuffer);
+		if (D3DPT_POINTLIST == data->PrimitiveType)
+		{
+			Direct3d::Direct3dDevice::drawExecuteBufferPointPatches([&](const D3DPOINT& points)
+				{
+					if (SUCCEEDED(result))
+					{
+						D3DDDIARG_DRAWPRIMITIVE dp = *data;
+						dp.VStart = points.wFirst;
+						dp.PrimitiveCount = points.wCount;
+						LOG_FUNC("_D3DDDI_DEVICEFUNCS::pfnDrawPrimitive[patch]", &dp, flagBuffer);
+						result = m_drawPrimitive.draw(dp, flagBuffer);
+						LOG_RESULT(result);
+					}
+				});
+		}
+		return result;
 	}
 
 	HRESULT Device::pfnFlush()

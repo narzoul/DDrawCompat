@@ -1,3 +1,5 @@
+#include <vector>
+
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
 #include <Common/CompatVtable.h>
@@ -20,6 +22,16 @@ namespace
 		void* callback;
 		void* context;
 	};
+
+	struct ExecuteBufferPointPatch
+	{
+		DWORD instructionOffset;
+		DWORD origCount;
+		D3DPOINT origPoints[1];
+	};
+
+	std::vector<BYTE> g_executeBufferPointPatches;
+	DWORD g_executeBufferPointPatchIndex = 0;
 
 	bool isSupported(const DDPIXELFORMAT& pf)
 	{
@@ -93,41 +105,95 @@ namespace
 		return getOrigVtable(This).EnumTextureFormats(This, enumTextureFormatsCallback, &args);
 	}
 
-	void dumpExecuteBuffer(LPDIRECT3DEXECUTEBUFFER lpDirect3DExecuteBuffer)
+	void dumpExecuteBuffer(const D3DEXECUTEDATA& data, const D3DEXECUTEBUFFERDESC& desc)
 	{
-		if (Config::logLevel.get() < Config::Settings::LogLevel::TRACE || !lpDirect3DExecuteBuffer)
-		{
-			return;
-		}
-
-		D3DEXECUTEDATA data = {};
-		data.dwSize = sizeof(data);
-		if (FAILED(getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data)))
-		{
-			return;
-		}
-
-		D3DEXECUTEBUFFERDESC desc = {};
-		desc.dwSize = sizeof(desc);
-		if (FAILED(getOrigVtable(lpDirect3DExecuteBuffer).Lock(lpDirect3DExecuteBuffer, &desc)))
-		{
-			return;
-		}
-
-		getOrigVtable(lpDirect3DExecuteBuffer).Unlock(lpDirect3DExecuteBuffer);
-
 		LOG_TRACE << data;
 
 		auto buf = static_cast<const BYTE*>(desc.lpData);
 		LOG_TRACE << Compat::array(reinterpret_cast<const D3DTLVERTEX*>(buf + data.dwVertexOffset), data.dwVertexCount);
 
-		auto currPtr = buf + data.dwInstructionOffset;
-		auto endPtr = currPtr + data.dwInstructionLength;
-		while (currPtr < endPtr)
+		buf += data.dwInstructionOffset;
+		const auto endPtr = buf + data.dwInstructionLength;
+		while (buf < endPtr)
 		{
-			auto inst = reinterpret_cast<const D3DINSTRUCTION*>(currPtr);
+			const auto inst = reinterpret_cast<const D3DINSTRUCTION*>(buf);
 			LOG_TRACE << *inst;
-			currPtr += sizeof(D3DINSTRUCTION) + inst->bSize * inst->wCount;
+			buf += sizeof(D3DINSTRUCTION) + inst->bSize * inst->wCount;
+		}
+	}
+
+	void replaceWithNop(D3DINSTRUCTION& inst)
+	{
+		inst.bOpcode = D3DOP_STATERENDER;
+		inst.bSize = sizeof(D3DSTATE);
+		inst.wCount = 0;
+	}
+
+	void fixExecuteBuffer(const D3DEXECUTEDATA& data, const D3DEXECUTEBUFFERDESC& desc)
+	{
+		auto buf = static_cast<BYTE*>(desc.lpData) + data.dwInstructionOffset;
+		const auto startPtr = buf;
+		const auto endPtr = buf + data.dwInstructionLength;
+		ExecuteBufferPointPatch patch = {};
+		const auto patchPtr = reinterpret_cast<const BYTE*>(&patch);
+		while (buf < endPtr)
+		{
+			auto inst = reinterpret_cast<D3DINSTRUCTION*>(buf);
+			if (D3DOP_POINT == inst->bOpcode)
+			{
+				if (sizeof(D3DPOINT) != inst->bSize)
+				{
+					return;
+				}
+
+				patch.instructionOffset = buf - startPtr;
+				patch.origCount = inst->wCount;
+				g_executeBufferPointPatches.insert(g_executeBufferPointPatches.end(),
+					patchPtr, reinterpret_cast<const BYTE*>(patch.origPoints));
+				if (0 == inst->wCount)
+				{
+					replaceWithNop(*inst);
+				}
+				else if (inst->wCount > 1)
+				{
+					auto points = buf + sizeof(D3DINSTRUCTION) + sizeof(D3DPOINT);
+					g_executeBufferPointPatches.insert(g_executeBufferPointPatches.end(),
+						points, points + (inst->wCount - 1) * sizeof(D3DPOINT));
+
+					auto pointInst = reinterpret_cast<D3DINSTRUCTION*>(points);
+					for (DWORD i = 1; i < inst->wCount; ++i)
+					{
+						replaceWithNop(*pointInst);
+						pointInst++;
+					}
+					inst->wCount = 1;
+				}
+			}
+			buf += sizeof(D3DINSTRUCTION) + inst->bSize * inst->wCount;
+		}
+	}
+
+	void restoreExecuteBuffer(const D3DEXECUTEDATA& data, const D3DEXECUTEBUFFERDESC& desc)
+	{
+		auto buf = static_cast<BYTE*>(desc.lpData) + data.dwInstructionOffset;
+		DWORD index = 0;
+		while (index < g_executeBufferPointPatches.size())
+		{
+			const auto patch = reinterpret_cast<const ExecuteBufferPointPatch*>(&g_executeBufferPointPatches[index]);
+			const auto inst = reinterpret_cast<D3DINSTRUCTION*>(buf + patch->instructionOffset);
+			if (0 == patch->origCount)
+			{
+				inst->bOpcode = D3DOP_POINT;
+				inst->bSize = sizeof(D3DPOINT);
+			}
+			else if (patch->origCount > 1)
+			{
+				inst->wCount = static_cast<WORD>(patch->origCount);
+				const DWORD pointsSize = (patch->origCount - 1) * sizeof(D3DPOINT);
+				memcpy(inst + 2, patch->origPoints, pointsSize);
+				index += pointsSize;
+			}
+			index += offsetof(ExecuteBufferPointPatch, origPoints);
 		}
 	}
 
@@ -135,18 +201,51 @@ namespace
 		LPDIRECT3DEXECUTEBUFFER lpDirect3DExecuteBuffer, LPDIRECT3DVIEWPORT lpDirect3DViewport, DWORD dwFlags)
 	{
 		D3dDdi::ScopedCriticalSection lock;
-		dumpExecuteBuffer(lpDirect3DExecuteBuffer);
-		D3dDdi::Device::enableFlush(false);
-		HRESULT result = getOrigVtable(This).Execute(This, lpDirect3DExecuteBuffer, lpDirect3DViewport, dwFlags);
-		D3dDdi::Device::enableFlush(true);
-		if (SUCCEEDED(result) && Config::logLevel.get() >= Config::Settings::LogLevel::TRACE)
+		D3DEXECUTEDATA data = {};
+		data.dwSize = sizeof(data);
+		HRESULT result = getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data);
+		if (FAILED(result))
 		{
-			D3DEXECUTEDATA data = {};
-			data.dwSize = sizeof(data);
-			if (SUCCEEDED(getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data)))
-			{
-				LOG_TRACE << data;
-			}
+			LOG_ONCE("Failed to get execute buffer data: " << Compat::hex(result));
+			return result;
+		}
+
+		D3DEXECUTEBUFFERDESC desc = {};
+		desc.dwSize = sizeof(desc);
+		result = getOrigVtable(lpDirect3DExecuteBuffer).Lock(lpDirect3DExecuteBuffer, &desc);
+		if (FAILED(result))
+		{
+			LOG_ONCE("Failed to lock execute buffer: " << Compat::hex(result));
+			return result;
+		}
+
+		if (Config::logLevel.get() >= Config::Settings::LogLevel::TRACE)
+		{
+			dumpExecuteBuffer(data, desc);
+		}
+
+		result = getOrigVtable(lpDirect3DExecuteBuffer).Unlock(lpDirect3DExecuteBuffer);
+		if (FAILED(result))
+		{
+			LOG_ONCE("Failed to unlock execute buffer: " << Compat::hex(result));
+			return result;
+		}
+
+		fixExecuteBuffer(data, desc);
+
+		D3dDdi::Device::enableFlush(false);
+		result = getOrigVtable(This).Execute(This, lpDirect3DExecuteBuffer, lpDirect3DViewport, dwFlags);
+		D3dDdi::Device::enableFlush(true);
+
+		restoreExecuteBuffer(data, desc);
+		g_executeBufferPointPatches.clear();
+		g_executeBufferPointPatchIndex = 0;
+
+		if (SUCCEEDED(result) &&
+			Config::logLevel.get() >= Config::Settings::LogLevel::TRACE &&
+			SUCCEEDED(getOrigVtable(lpDirect3DExecuteBuffer).GetExecuteData(lpDirect3DExecuteBuffer, &data)))
+		{
+			LOG_TRACE << data;
 		}
 		return result;
 	}
@@ -213,6 +312,27 @@ namespace Direct3d
 {
 	namespace Direct3dDevice
 	{
+		void drawExecuteBufferPointPatches(std::function<void(const D3DPOINT&)> drawPoints)
+		{
+			while (g_executeBufferPointPatchIndex < g_executeBufferPointPatches.size())
+			{
+				auto& patch = reinterpret_cast<const ExecuteBufferPointPatch&>(
+					g_executeBufferPointPatches[g_executeBufferPointPatchIndex]);
+				g_executeBufferPointPatchIndex += offsetof(ExecuteBufferPointPatch, origPoints);
+				if (0 == patch.origCount)
+				{
+					continue;
+				}
+
+				for (DWORD i = 0; i < patch.origCount - 1; ++i)
+				{
+					drawPoints(patch.origPoints[i]);
+				}
+				g_executeBufferPointPatchIndex += (patch.origCount - 1) * sizeof(D3DPOINT);
+				return;
+			}
+		}
+
 		template <typename Vtable>
 		void hookVtable(const Vtable& vtable)
 		{
