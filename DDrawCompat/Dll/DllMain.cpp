@@ -36,6 +36,11 @@
 #include <Win32/Version.h>
 #include <Win32/Winmm.h>
 
+#include <version.h>
+
+typedef long NTSTATUS;
+
+NTSTATUS NTAPI RtlGetVersion(PRTL_OSVERSIONINFOW lpVersionInformation);
 HRESULT WINAPI SetAppCompatData(DWORD, DWORD);
 
 namespace
@@ -158,6 +163,24 @@ namespace
 			(!Compat::isEqual(currentDllPath, dciman32DllPath) && GetModuleHandleW(dciman32DllPath.c_str()));
 	}
 
+	void logEnvironmentVariable(const char* var)
+	{
+		LOG_INFO << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
+	}
+
+	void logWindowsVersion()
+	{
+		const auto rtlGetVersion = reinterpret_cast<decltype(&RtlGetVersion)>(
+			Compat::getProcAddress(GetModuleHandle("ntdll"), "RtlGetVersion"));
+		RTL_OSVERSIONINFOW vi = {};
+		vi.dwOSVersionInfoSize = sizeof(vi);
+		if (rtlGetVersion)
+		{
+			rtlGetVersion(&vi);
+		}
+		LOG_INFO << "Windows version: " << vi.dwMajorVersion << '.' << vi.dwMinorVersion << '.' << vi.dwBuildNumber;
+	}
+
 	void onDirectDrawCreate(GUID* lpGUID, LPDIRECTDRAW* lplpDD, IUnknown* /*pUnkOuter*/)
 	{
 		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(*lplpDD));
@@ -166,11 +189,6 @@ namespace
 	void onDirectDrawCreate(GUID* lpGUID, LPVOID* lplpDD, REFIID /*iid*/, IUnknown* /*pUnkOuter*/)
 	{
 		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(static_cast<IDirectDraw7*>(*lplpDD)));
-	}
-
-	void printEnvironmentVariable(const char* var)
-	{
-		LOG_INFO << "Environment variable " << var << " = \"" << Dll::getEnvVar(var) << '"';
 	}
 
 	HRESULT WINAPI setAppCompatData(DWORD param1, DWORD param2)
@@ -282,7 +300,9 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		auto currentDllPath(Compat::getModulePath(hinstDLL));
 		LOG_INFO << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
-		printEnvironmentVariable("__COMPAT_LAYER");
+		LOG_INFO << "DDrawCompat version: " VERSION_STRING;
+		logWindowsVersion();
+		logEnvironmentVariable("__COMPAT_LAYER");
 
 		Config::Parser::loadAllConfigFiles(processPath);
 		Compat::Log::initLogging(processPath, Config::logLevel.get());
