@@ -282,7 +282,7 @@ namespace
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
 		NTSTATUS result = 0;
 		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
-		if (g_isExclusiveFullscreen || D3DDDI_GAMMARAMP_RGB256x3x16 != pData->Type || !pData->pGammaRampRgb256x3x16)
+		if (D3DDDI_GAMMARAMP_RGB256x3x16 != pData->Type || !pData->pGammaRampRgb256x3x16)
 		{
 			D3dDdi::ShaderBlitter::resetGammaRamp();
 			result = D3DKMTSetGammaRamp(pData);
