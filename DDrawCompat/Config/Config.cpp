@@ -33,6 +33,7 @@
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
 #include <Config/Settings/SoftwareDevice.h>
+#include <Config/Settings/SpriteAltPixelCenter.h>
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
@@ -95,6 +96,7 @@ namespace Config
 	Settings::ResolutionScale resolutionScale;
 	Settings::ResolutionScaleFilter resolutionScaleFilter;
 	Settings::SoftwareDevice softwareDevice;
+	Settings::SpriteAltPixelCenter spriteAltPixelCenter;
 	Settings::SpriteDetection spriteDetection;
 	Settings::SpriteFilter spriteFilter;
 	Settings::SpriteTexCoord spriteTexCoord;

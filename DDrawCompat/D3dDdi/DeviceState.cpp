@@ -2,6 +2,7 @@
 
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/ColorKeyMethod.h>
+#include <Config/Settings/SpriteAltPixelCenter.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
 #include <Config/Settings/TextureFilter.h>
@@ -1348,7 +1349,7 @@ namespace D3dDdi
 	void DeviceState::updateVertexFixupData(UINT width, UINT height, float sx, float sy)
 	{
 		const float stc = static_cast<float>(Config::spriteTexCoord.getParam()) / 100;
-		const float apc = Config::alternatePixelCenter.get();
+		const float apc = m_spriteMode ? Config::spriteAltPixelCenter.get() : Config::alternatePixelCenter.get();
 		const auto& zr = m_current.zRange;
 
 		const float viewportEdgeGap = m_spriteMode ? 0 : (Config::viewportEdgeFix.getParam() / 100.0f);

@@ -199,6 +199,7 @@
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
     <ClInclude Include="Config\Settings\ResolutionScaleFilter.h" />
     <ClInclude Include="Config\Settings\SoftwareDevice.h" />
+    <ClInclude Include="Config\Settings\SpriteAltPixelCenter.h" />
     <ClInclude Include="Config\Settings\SpriteDetection.h" />
     <ClInclude Include="Config\Settings\SpriteFilter.h" />
     <ClInclude Include="Config\Settings\SpriteTexCoord.h" />

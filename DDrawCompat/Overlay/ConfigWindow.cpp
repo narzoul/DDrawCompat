@@ -21,6 +21,7 @@
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
+#include <Config/Settings/SpriteAltPixelCenter.h>
 #include <Config/Settings/SpriteDetection.h>
 #include <Config/Settings/SpriteFilter.h>
 #include <Config/Settings/SpriteTexCoord.h>
@@ -68,6 +69,7 @@ namespace
 		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScaleFilter },
+		{ &Config::spriteAltPixelCenter },
 		{ &Config::spriteDetection },
 		{ &Config::spriteFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
