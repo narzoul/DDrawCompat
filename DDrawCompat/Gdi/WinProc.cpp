@@ -214,17 +214,22 @@ namespace
 		case WM_ACTIVATEAPP:
 			Gdi::GuiThread::execute([&]()
 				{
-					static bool hidden = false;
+					static WPARAM isActive = TRUE;
+					if (wParam == isActive)
+					{
+						return;
+					}
+					isActive = wParam;
+
 					static bool configVisible = false;
 					static bool statsVisible = false;
 
 					auto configWindow = Gdi::GuiThread::getConfigWindow();
 					auto statsWindow = Gdi::GuiThread::getStatsWindow();
-					if (!wParam && !hidden)
+					if (!wParam)
 					{
 						configVisible = configWindow ? configWindow->isVisible() : false;
 						statsVisible = statsWindow ? statsWindow->isVisible() : false;
-						hidden = true;
 					}
 
 					if (configWindow)
@@ -236,11 +241,7 @@ namespace
 						statsWindow->setVisible(wParam ? statsVisible : false);
 					}
 
-					if (wParam)
-					{
-						hidden = false;
-					}
-					else
+					if (!wParam)
 					{
 						CALL_ORIG_FUNC(ClipCursor)(nullptr);
 					}
