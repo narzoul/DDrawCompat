@@ -66,9 +66,6 @@ namespace
 	bool g_isUpdateReady = false;
 	long long g_qpcUpdateStart = 0;
 
-	UINT g_flipEndVsyncCount = 0;
-	UINT g_presentEndVsyncCount = 0;
-
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
 	HWND g_presentationWindow = nullptr;
@@ -103,8 +100,8 @@ namespace
 		switch (Config::vSync.get())
 		{
 		case Config::Settings::VSync::OFF:
-		case Config::Settings::VSync::WAIT:
 			return 0;
+		case Config::Settings::VSync::WAIT:
 		case Config::Settings::VSync::ON:
 			return Config::vSync.getParam();
 		}
@@ -150,7 +147,8 @@ namespace
 		if (g_isExclusiveFullscreen && 0 != (desc.ddsCaps.dwCaps & DDSCAPS_FLIP))
 		{
 			g_frontBuffer->Flip(g_frontBuffer, getLastSurface(), DDFLIP_WAIT);
-			D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
+			D3dDdi::KernelModeThunks::setPresentEndVsyncCount();
+			D3dDdi::KernelModeThunks::waitForPresentEnd();
 		}
 
 		auto gdiResource = DDraw::PrimarySurface::getGdiResource();
@@ -166,8 +164,6 @@ namespace
 		g_isUpdatePending = false;
 		g_isUpdateReady = false;
 		g_qpcUpdateStart = Time::queryPerformanceCounter();
-		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
-		g_flipEndVsyncCount = g_presentEndVsyncCount;
 	}
 
 	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src)
@@ -367,7 +363,7 @@ namespace
 			g_isUpdateReady = false;
 		}
 
-		g_presentEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + 1;
+		D3dDdi::KernelModeThunks::setPresentEndVsyncCount();
 	}
 
 	void updatePresentationParams()
@@ -446,7 +442,7 @@ namespace
 			}
 			else
 			{
-				D3dDdi::KernelModeThunks::waitForVsyncCounter(D3dDdi::KernelModeThunks::getVsyncCounter() + 1);
+				D3dDdi::KernelModeThunks::waitForPresentEnd();
 			}
 
 			DDraw::ScopedThreadLock lock;
@@ -511,31 +507,54 @@ namespace DDraw
 	void RealPrimarySurface::flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags)
 	{
 		const DWORD flipInterval = getFlipInterval(flags);
-
-		Compat::ScopedCriticalSection lock(g_presentCs);
-		scheduleUpdate();
-		g_flipEndVsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter() + flipInterval;
-
-		if (0 != flipInterval)
+		for (DWORD i = flipInterval; i > 1; --i)
 		{
-			g_lastFlipSurface = Surface::getSurface(
-				surfaceTargetOverride ? *surfaceTargetOverride : *PrimarySurface::getLastSurface());
+			{
+				Compat::ScopedCriticalSection lock(g_presentCs);
+				g_isUpdatePending = true;
+				g_isUpdateReady = true;
+			}
+			flush();
+			D3dDdi::KernelModeThunks::waitForPresentEnd();
 		}
-		else
+
+		D3dDdi::KernelModeThunks::setFlipEndVsyncCount();
+
 		{
-			g_lastFlipSurface = nullptr;
+			Compat::ScopedCriticalSection lock(g_presentCs);
+			scheduleUpdate();
+			if (0 != flipInterval)
+			{
+				g_lastFlipSurface = Surface::getSurface(
+					surfaceTargetOverride ? *surfaceTargetOverride : *PrimarySurface::getLastSurface());
+			}
+			else
+			{
+				g_lastFlipSurface = nullptr;
+			}
+		}
+
+		if (Config::Settings::VSync::WAIT == Config::vSync.get())
+		{
+			{
+				Compat::ScopedCriticalSection lock(g_presentCs);
+				g_isUpdatePending = true;
+				g_isUpdateReady = true;
+			}
+			flush();
+			D3dDdi::KernelModeThunks::waitForFlipEnd();
 		}
 	}
 
 	int RealPrimarySurface::flush()
 	{
-		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
-		if (static_cast<int>(vsyncCount - g_presentEndVsyncCount) < 0)
+		if (D3dDdi::KernelModeThunks::isPresentPending())
 		{
 			return -1;
 		}
 
-		static UINT lastOverlayCheckVsyncCount = 0;
+		static int lastOverlayCheckVsyncCount = 0;
+		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
 		if (vsyncCount != lastOverlayCheckVsyncCount)
 		{
 			updatePresentationParams();
@@ -570,11 +589,10 @@ namespace DDraw
 					g_isUpdateReady = true;
 					isOverlayOnly = true;
 				}
-			}
-
-			if (!g_isUpdateReady)
-			{
-				return -1;
+				else
+				{
+					return 1;
+				}
 			}
 		}
 
@@ -595,7 +613,7 @@ namespace DDraw
 			scheduleUpdate();
 		}
 
-		return 0;
+		return 1;
 	}
 
 	HRESULT RealPrimarySurface::getGammaRamp(DDGAMMARAMP* rampData)
@@ -711,7 +729,10 @@ namespace DDraw
 			return DDERR_INVALIDPARAMS;
 		}
 
-		return gammaControl->SetGammaRamp(gammaControl, 0, rampData);
+		D3dDdi::KernelModeThunks::enableWaitForGammaRamp(true);
+		HRESULT result = gammaControl->SetGammaRamp(gammaControl, 0, rampData);
+		D3dDdi::KernelModeThunks::enableWaitForGammaRamp(false);
+		return result;
 	}
 
 	void RealPrimarySurface::setPresentationWindowTopmost()
@@ -736,27 +757,18 @@ namespace DDraw
 		}
 	}
 
-	bool RealPrimarySurface::waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface)
+	void RealPrimarySurface::waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface)
 	{
 		auto primary(DDraw::PrimarySurface::getPrimary());
 		if (!surface || !primary || !g_lastFlipSurface ||
-			surface != primary && surface != g_lastFlipSurface->getDDS())
+			surface != primary && surface != g_lastFlipSurface->getDDS() ||
+			!D3dDdi::KernelModeThunks::isFlipPending())
 		{
-			return true;
+			return;
 		}
 
-		bool isUpdateReady = g_isUpdateReady;
 		auto qpcStart = Time::queryPerformanceCounter();
-		auto vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
-		while (static_cast<int>(vsyncCount - g_flipEndVsyncCount) < 0)
-		{
-			++vsyncCount;
-			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
-			if (isUpdateReady)
-			{
-				flush();
-			}
-		}
+		D3dDdi::KernelModeThunks::waitForFlipEnd();
 
 		Compat::ScopedCriticalSection lock(g_presentCs);
 		auto qpcEnd = Time::queryPerformanceCounter();
@@ -764,7 +776,6 @@ namespace DDraw
 		{
 			g_qpcUpdateStart += qpcEnd - qpcStart;
 		}
-		return true;
 	}
 
 	void RealPrimarySurface::waitForFlipFpsLimit(bool doFlush)

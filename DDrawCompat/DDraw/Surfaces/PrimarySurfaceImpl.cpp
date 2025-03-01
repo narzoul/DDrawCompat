@@ -1,6 +1,5 @@
 #include <Common/CompatPtr.h>
 #include <Config/Settings/FpsLimiter.h>
-#include <Config/Settings/VSync.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDrawClipper.h>
@@ -158,7 +157,6 @@ namespace DDraw
 				statsWindow->m_blit.add();
 			}
 			RealPrimarySurface::scheduleUpdate();
-			PrimarySurface::waitForIdle();
 		}
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
 		{
@@ -191,7 +189,6 @@ namespace DDraw
 				statsWindow->m_blit.add();
 			}
 			RealPrimarySurface::scheduleUpdate();
-			PrimarySurface::waitForIdle();
 		}
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get()
 			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
@@ -254,34 +251,7 @@ namespace DDraw
 
 		PrimarySurface::updateFrontResource();
 		RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
-
-		if (Config::Settings::VSync::WAIT == Config::vSync.get())
-		{
-			static UINT lastFlipEnd = 0;
-			lastFlipEnd += Config::vSync.getParam();
-			UINT vsyncCount = D3dDdi::KernelModeThunks::getVsyncCounter();
-			if (static_cast<INT>(vsyncCount - lastFlipEnd) > 0)
-			{
-				lastFlipEnd = vsyncCount;
-			}
-
-			RealPrimarySurface::setUpdateReady();
-			if (0 != RealPrimarySurface::flush())
-			{
-				PrimarySurface::waitForIdle();
-			}
-
-			while (static_cast<INT>(vsyncCount - lastFlipEnd) < 0)
-			{
-				++vsyncCount;
-				D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCount);
-				RealPrimarySurface::flush();
-			}
-		}
-		else
-		{
-			PrimarySurface::waitForIdle();
-		}
+		PrimarySurface::waitForIdle();
 
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
 		{

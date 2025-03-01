@@ -22,14 +22,19 @@ namespace D3dDdi
 			std::wstring deviceName;
 		};
 
+		void enableWaitForGammaRamp(bool enable);
 		void fixPresent(D3DKMT_PRESENT& data);
 		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd);
 		AdapterInfo getLastOpenAdapterInfo();
-		long long getQpcLastVsync();
-		UINT getVsyncCounter();
+		int getVsyncCounter();
 		void installHooks();
+		bool isFlipPending();
+		bool isPresentPending();
 		void setDcFormatOverride(UINT format);
 		void setDcPaletteOverride(PALETTEENTRY* palette);
-		bool waitForVsyncCounter(UINT counter);
+		void setFlipEndVsyncCount();
+		void setPresentEndVsyncCount();
+		void waitForFlipEnd();
+		void waitForPresentEnd();
 	}
 }

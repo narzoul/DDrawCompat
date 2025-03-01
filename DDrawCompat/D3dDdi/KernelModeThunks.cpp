@@ -3,6 +3,7 @@
 #include <string>
 
 #include <Windows.h>
+#include <dwmapi.h>
 #include <VersionHelpers.h>
 
 #include <Common/Log.h>
@@ -35,11 +36,17 @@ namespace
 	Compat::SrwLock g_adapterInfoSrwLock;
 	std::string g_lastDDrawDeviceName;
 	bool g_isExclusiveFullscreen = false;
+	bool g_isWaitForGammaRampEnabled = false;
 	decltype(&D3DKMTSubmitPresentBltToHwQueue) g_origSubmitPresentBltToHwQueue = nullptr;
 	decltype(&D3DKMTSubmitPresentToHwQueue) g_origSubmitPresentToHwQueue = nullptr;
 
-	long long g_qpcLastVsync = 0;
-	UINT g_vsyncCounter = 0;
+	D3DKMT_HANDLE g_exclusiveDevice = 0;
+	UINT g_exclusiveVidPnSourceId = 0;
+	int g_vsyncCounter = 0;
+	int g_pendingFlipCount = 0;
+	int g_finishedFlipCount = 0;
+	int g_presentEndVsyncCount = 0;
+	int g_flipEndVSyncCount = 0;
 	CONDITION_VARIABLE g_vsyncCounterCv = CONDITION_VARIABLE_INIT;
 	Compat::SrwLock g_vsyncCounterSrwLock;
 
@@ -163,7 +170,7 @@ namespace
 		{
 			return -1;
 		}
-		return data.InVerticalBlank ? 0 : data.ScanLine;
+		return data.InVerticalBlank ? 0 : (data.ScanLine + 1);
 	}
 
 	void getVidPnSource(D3DKMT_HANDLE& adapter, UINT& vidPnSourceId)
@@ -182,6 +189,18 @@ namespace
 		updateGdiAdapterInfo();
 		adapter = g_gdiAdapterInfo.adapter;
 		vidPnSourceId = g_gdiAdapterInfo.vidPnSourceId;
+	}
+
+	bool isCompositionEnabled()
+	{
+		if (IsWindows8OrGreater())
+		{
+			return true;
+		}
+
+		BOOL isEnabled = FALSE;
+		DwmIsCompositionEnabled(&isEnabled);
+		return isEnabled;
 	}
 
 	NTSTATUS APIENTRY openAdapterFromHdc(D3DKMT_OPENADAPTERFROMHDC* pData)
@@ -272,7 +291,10 @@ namespace
 		NTSTATUS result = D3DKMTReleaseProcessVidPnSourceOwners(hProcess);
 		if (SUCCEEDED(result))
 		{
+			Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
 			g_isExclusiveFullscreen = false;
+			g_exclusiveDevice = 0;
+			g_exclusiveVidPnSourceId = 0;
 		}
 		return LOG_RESULT(result);
 	}
@@ -281,7 +303,6 @@ namespace
 	{
 		LOG_FUNC("D3DKMTSetGammaRamp", pData);
 		NTSTATUS result = 0;
-		UINT vsyncCounter = D3dDdi::KernelModeThunks::getVsyncCounter();
 		if (D3DDDI_GAMMARAMP_RGB256x3x16 != pData->Type || !pData->pGammaRampRgb256x3x16)
 		{
 			D3dDdi::ShaderBlitter::resetGammaRamp();
@@ -292,9 +313,12 @@ namespace
 			D3dDdi::ShaderBlitter::setGammaRamp(*pData->pGammaRampRgb256x3x16);
 			DDraw::RealPrimarySurface::scheduleUpdate();
 		}
-		if (SUCCEEDED(result))
+		if (SUCCEEDED(result) && g_isWaitForGammaRampEnabled)
 		{
-			D3dDdi::KernelModeThunks::waitForVsyncCounter(vsyncCounter + 1);
+			DDraw::RealPrimarySurface::setUpdateReady();
+			DDraw::RealPrimarySurface::flush();
+			D3dDdi::KernelModeThunks::setFlipEndVsyncCount();
+			D3dDdi::KernelModeThunks::waitForFlipEnd();
 		}
 		return LOG_RESULT(result);
 	}
@@ -305,7 +329,18 @@ namespace
 		NTSTATUS result = D3DKMTSetVidPnSourceOwner(pData);
 		if (SUCCEEDED(result))
 		{
+			Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
 			g_isExclusiveFullscreen = 0 != pData->VidPnSourceCount;
+			if (g_isExclusiveFullscreen)
+			{
+				g_exclusiveDevice = pData->hDevice;
+				g_exclusiveVidPnSourceId = pData->pVidPnSourceId[0];
+			}
+			else
+			{
+				g_exclusiveDevice = 0;
+				g_exclusiveVidPnSourceId = 0;
+			}
 		}
 		return LOG_RESULT(result);
 	}
@@ -354,6 +389,23 @@ namespace
 		}
 	}
 
+	void updateFinishedFlipCount()
+	{
+		if (0 == g_exclusiveDevice)
+		{
+			return;
+		}
+
+		D3DKMT_GETDEVICESTATE ds = {};
+		ds.hDevice = g_exclusiveDevice;
+		ds.StateType = D3DKMT_DEVICESTATE_PRESENT;
+		ds.PresentState.VidPnSourceId = g_exclusiveVidPnSourceId;
+		if (SUCCEEDED(D3DKMTGetDeviceState(&ds)))
+		{
+			g_finishedFlipCount = ds.PresentState.PresentStats.PresentCount;
+		}
+	}
+
 	unsigned WINAPI vsyncThreadProc(LPVOID /*lpParameter*/)
 	{
 		while (true)
@@ -362,7 +414,6 @@ namespace
 
 			{
 				Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
-				g_qpcLastVsync = Time::queryPerformanceCounter();
 				++g_vsyncCounter;
 			}
 
@@ -373,18 +424,43 @@ namespace
 			{
 				statsWindow->m_vblank.add();
 			}
-
 		}
 		return 0;
 	}
 
 	void waitForVerticalBlank()
 	{
+		if (!g_isExclusiveFullscreen && isCompositionEnabled() && SUCCEEDED(DwmFlush()))
+		{
+			return;
+		}
+
 		auto qpcStart = Time::queryPerformanceCounter();
 		int scanLine = getScanLine();
 		int prevScanLine = 0;
 		while (scanLine >= prevScanLine)
 		{
+			if (g_isExclusiveFullscreen && scanLine > 0 && 0 == prevScanLine && D3dDdi::KernelModeThunks::isPresentPending())
+			{
+				bool finished = false;
+
+				{
+					Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+					updateFinishedFlipCount();
+					if (g_finishedFlipCount - g_pendingFlipCount >= 0)
+					{
+						g_presentEndVsyncCount = g_vsyncCounter;
+						g_flipEndVSyncCount = g_vsyncCounter;
+						finished = true;
+					}
+				}
+
+				if (finished)
+				{
+					WakeAllConditionVariable(&g_vsyncCounterCv);
+				}
+			}
+
 			Time::waitForNextTick();
 			prevScanLine = scanLine;
 			scanLine = getScanLine();
@@ -421,6 +497,14 @@ namespace D3dDdi
 					data.pSrcSubRects = &rect;
 				}
 			}
+
+			if (data.Flags.Flip)
+			{
+				Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+				++g_pendingFlipCount;
+				data.PresentCount = g_pendingFlipCount;
+				data.Flags.PresentCountValid = 1;
+			}
 		}
 
 		AdapterInfo getAdapterInfo(CompatRef<IDirectDraw7> dd)
@@ -437,13 +521,7 @@ namespace D3dDdi
 			return g_lastOpenAdapterInfo;
 		}
 
-		long long getQpcLastVsync()
-		{
-			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
-			return g_qpcLastVsync;
-		}
-
-		UINT getVsyncCounter()
+		int getVsyncCounter()
 		{
 			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
 			return g_vsyncCounter;
@@ -480,6 +558,18 @@ namespace D3dDdi
 			Dll::createThread(&vsyncThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
+		bool isFlipPending()
+		{
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
+			return g_vsyncCounter - g_flipEndVSyncCount < 0;
+		}
+
+		bool isPresentPending()
+		{
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
+			return g_vsyncCounter - g_presentEndVsyncCount < 0;
+		}
+
 		void setDcFormatOverride(UINT format)
 		{
 			g_dcFormatOverride = static_cast<D3DDDIFORMAT>(format);
@@ -490,17 +580,41 @@ namespace D3dDdi
 			g_dcPaletteOverride = palette;
 		}
 
-		bool waitForVsyncCounter(UINT counter)
+		void setFlipEndVsyncCount()
 		{
-			bool waited = false;
+			Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+			g_flipEndVSyncCount = g_vsyncCounter + 1;
+		}
+
+		void setPresentEndVsyncCount()
+		{
+			Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
+			g_presentEndVsyncCount = g_vsyncCounter + 1;
+		}
+
+		void waitForFlipEnd()
+		{
 			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
-			while (static_cast<INT>(g_vsyncCounter - counter) < 0)
+			while (g_vsyncCounter - g_flipEndVSyncCount < 0)
 			{
 				SleepConditionVariableSRW(&g_vsyncCounterCv, &g_vsyncCounterSrwLock, INFINITE,
 					CONDITION_VARIABLE_LOCKMODE_SHARED);
-				waited = true;
 			}
-			return waited;
+		}
+
+		void enableWaitForGammaRamp(bool enable)
+		{
+			g_isWaitForGammaRampEnabled = enable;
+		}
+
+		void waitForPresentEnd()
+		{
+			Compat::ScopedSrwLockShared lock(g_vsyncCounterSrwLock);
+			while (g_vsyncCounter - g_presentEndVsyncCount < 0)
+			{
+				SleepConditionVariableSRW(&g_vsyncCounterCv, &g_vsyncCounterSrwLock, INFINITE,
+					CONDITION_VARIABLE_LOCKMODE_SHARED);
+			}
 		}
 	}
 }
