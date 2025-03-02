@@ -14,6 +14,7 @@
 #include <Config/Settings/CrashDump.h>
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DpiAwareness.h>
+#include <Config/Settings/EnableDDrawCompat.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
@@ -307,7 +308,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Config::Parser::loadAllConfigFiles(processPath);
 		Compat::Log::initLogging(processPath, Config::logLevel.get());
 
-		if (Config::Settings::CrashDump::OFF != Config::crashDump.get())
+		if (Config::Settings::CrashDump::OFF != Config::crashDump.get() &&
+			Config::enableDDrawCompat.get())
 		{
 			g_crashDumpPath = processPath;
 			if (Compat::isEqual(g_crashDumpPath.extension(), ".exe"))
@@ -355,6 +357,14 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		Dll::g_jmpTargetProcs = Dll::g_origProcs;
+
+		if (!Config::enableDDrawCompat.get())
+		{
+			skipDllMain = true;
+			LOG_INFO << "DDrawCompat has been disabled via the EnableDDrawCompat setting";
+			return TRUE;
+		}
+
 		Overlay::Steam::init(origDDrawModulePath.c_str());
 
 		VISIT_PUBLIC_DDRAW_PROCS(HOOK_DDRAW_PROC);

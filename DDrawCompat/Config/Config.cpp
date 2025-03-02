@@ -19,6 +19,7 @@
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
 #include <Config/Settings/DpiAwareness.h>
+#include <Config/Settings/EnableDDrawCompat.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FpsLimiter.h>
@@ -82,6 +83,7 @@ namespace Config
 	Settings::DisplayRefreshRate displayRefreshRate;
 	Settings::DisplayResolution displayResolution;
 	Settings::DpiAwareness dpiAwareness;
+	Settings::EnableDDrawCompat enableDDrawCompat;
 	Settings::FontAntialiasing fontAntialiasing;
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FpsLimiter fpsLimiter;
