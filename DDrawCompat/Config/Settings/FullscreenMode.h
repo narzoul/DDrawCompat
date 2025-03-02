@@ -16,6 +16,15 @@ namespace Config
 				: EnumSetting("FullscreenMode", "borderless", { "borderless", "exclusive" })
 			{
 			}
+
+			virtual ParamInfo getParamInfo() const override
+			{
+				if (EXCLUSIVE == m_value)
+				{
+					return { "VSync", 0, 1, 1 };
+				}
+				return {};
+			}
 		};
 	}
 

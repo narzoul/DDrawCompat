@@ -54,6 +54,12 @@ namespace
 	void updateGdiAdapterInfo();
 	void waitForVerticalBlank();
 
+	bool allowTearing()
+	{
+		return Config::Settings::FullscreenMode::EXCLUSIVE == Config::fullscreenMode.get() &&
+			0 == Config::fullscreenMode.getParam();
+	}
+
 	NTSTATUS APIENTRY closeAdapter(const D3DKMT_CLOSEADAPTER* pData)
 	{
 		Compat::ScopedSrwLockExclusive lock(g_adapterInfoSrwLock);
@@ -504,6 +510,11 @@ namespace D3dDdi
 				++g_pendingFlipCount;
 				data.PresentCount = g_pendingFlipCount;
 				data.Flags.PresentCountValid = 1;
+
+				if (allowTearing())
+				{
+					data.FlipInterval = D3DDDI_FLIPINTERVAL_IMMEDIATE;
+				}
 			}
 		}
 
@@ -589,7 +600,7 @@ namespace D3dDdi
 		void setPresentEndVsyncCount()
 		{
 			Compat::ScopedSrwLockExclusive lock(g_vsyncCounterSrwLock);
-			g_presentEndVsyncCount = g_vsyncCounter + 1;
+			g_presentEndVsyncCount = g_vsyncCounter + (allowTearing() ? 0 : 1);
 		}
 
 		void waitForFlipEnd()
