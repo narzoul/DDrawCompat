@@ -1,6 +1,6 @@
 #include <map>
 
-#include <Config/Settings/RemoveBorders.h>
+#include <Config/Settings/CompatFixes.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Surfaces/TagSurface.h>
 
@@ -103,7 +103,7 @@ namespace DDraw
 		m_fullscreenWindow = hwnd;
 		m_exclusiveOwnerThreadId = hwnd ? GetCurrentThreadId() : 0;
 
-		if (Config::removeBorders.get())
+		if (Config::compatFixes.get().nowindowborders)
 		{
 			if (hwnd)
 			{

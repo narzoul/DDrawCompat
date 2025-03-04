@@ -3,7 +3,7 @@
 #include <initguid.h>
 
 #include <Common/CompatPtr.h>
-#include <Config/Settings/AlignSysMemSurfaces.h>
+#include <Config/Settings/CompatFixes.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
@@ -65,7 +65,7 @@ namespace DDraw
 	void* Surface::alignBuffer(void* buffer)
 	{
 		auto p = static_cast<BYTE*>(buffer);
-		const DWORD alignmentOffset = Config::alignSysMemSurfaces.get();
+		const DWORD alignmentOffset = Config::compatFixes.get().unalignedsurfaces ? 8 : 0;
 		const DWORD mod = reinterpret_cast<DWORD>(p) % ALIGNMENT;
 		p = p - mod + alignmentOffset;
 		if (mod > alignmentOffset)
@@ -167,7 +167,7 @@ namespace DDraw
 		}
 		surface->Unlock(&surface, nullptr);
 
-		const DWORD alignmentOffset = Config::alignSysMemSurfaces.get();
+		const DWORD alignmentOffset = Config::compatFixes.get().unalignedsurfaces ? 8 : 0;
 		const DWORD size = desc.lPitch * desc.dwHeight;
 		if (0 == size || alignmentOffset == reinterpret_cast<DWORD>(desc.lpSurface) % ALIGNMENT)
 		{

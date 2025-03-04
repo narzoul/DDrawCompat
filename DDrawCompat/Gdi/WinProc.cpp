@@ -10,8 +10,8 @@
 #include <Common/ScopedSrwLock.h>
 #include <Common/ScopedThreadPriority.h>
 #include <Common/Time.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/FpsLimiter.h>
-#include <Config/Settings/RemoveBorders.h>
 #include <Dll/Dll.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -730,7 +730,7 @@ namespace
 				return reinterpret_cast<LONG>(oldWndProc);
 			}
 		}
-		else if ((GWL_STYLE == nIndex || GWL_EXSTYLE == nIndex) && Config::removeBorders.get())
+		else if ((GWL_STYLE == nIndex || GWL_EXSTYLE == nIndex) && Config::compatFixes.get().nowindowborders)
 		{
 			auto tagSurface = DDraw::TagSurface::findFullscreenWindow(hWnd);
 			if (tagSurface)

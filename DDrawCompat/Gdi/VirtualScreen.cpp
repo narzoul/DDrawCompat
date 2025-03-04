@@ -1,7 +1,6 @@
 #include <map>
 
 #include <Common/ScopedCriticalSection.h>
-#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <Config/Settings/SurfacePatches.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>

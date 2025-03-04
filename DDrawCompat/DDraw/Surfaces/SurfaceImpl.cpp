@@ -5,6 +5,7 @@
 #include <d3dumddi.h>
 
 #include <Common/CompatPtr.h>
+#include <Config/Settings/CompatFixes.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <DDraw/DirectDrawSurface.h>
@@ -324,6 +325,11 @@ namespace DDraw
 	{
 		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
+		if (Config::compatFixes.get().nosyslock)
+		{
+			dwFlags |= DDLOCK_NOSYSLOCK;
+		}
+
 		HRESULT result = getOrigVtable(This).Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{

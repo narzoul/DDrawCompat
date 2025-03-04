@@ -164,13 +164,13 @@
     <ClInclude Include="Config\MappedSetting.h" />
     <ClInclude Include="Config\Parser.h" />
     <ClInclude Include="Config\Setting.h" />
-    <ClInclude Include="Config\Settings\AlignSysMemSurfaces.h" />
     <ClInclude Include="Config\Settings\AlternatePixelCenter.h" />
     <ClInclude Include="Config\Settings\AltTabFix.h" />
     <ClInclude Include="Config\Settings\Antialiasing.h" />
     <ClInclude Include="Config\Settings\BltFilter.h" />
     <ClInclude Include="Config\Settings\CapsPatches.h" />
     <ClInclude Include="Config\Settings\ColorKeyMethod.h" />
+    <ClInclude Include="Config\Settings\CompatFixes.h" />
     <ClInclude Include="Config\Settings\ConfigHotKey.h" />
     <ClInclude Include="Config\Settings\ConfigRows.h" />
     <ClInclude Include="Config\Settings\ConfigTransparency.h" />
@@ -190,12 +190,10 @@
     <ClInclude Include="Config\Settings\ForceD3D9On12.h" />
     <ClInclude Include="Config\Settings\FpsLimiter.h" />
     <ClInclude Include="Config\Settings\FullscreenMode.h" />
-    <ClInclude Include="Config\Settings\GdiStretchBltMode.h" />
     <ClInclude Include="Config\Settings\LogLevel.h" />
     <ClInclude Include="Config\Settings\MousePollingRate.h" />
     <ClInclude Include="Config\Settings\MouseSensitivity.h" />
     <ClInclude Include="Config\Settings\PalettizedTextures.h" />
-    <ClInclude Include="Config\Settings\RemoveBorders.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
     <ClInclude Include="Config\Settings\ResolutionScaleFilter.h" />
@@ -366,6 +364,7 @@
     <ClCompile Include="Config\Settings\Antialiasing.cpp" />
     <ClCompile Include="Config\Settings\CapsPatches.cpp" />
     <ClCompile Include="Config\Settings\ColorKeyMethod.cpp" />
+    <ClCompile Include="Config\Settings\CompatFixes.cpp" />
     <ClCompile Include="Config\Settings\ConfigRows.cpp" />
     <ClCompile Include="Config\Settings\CpuAffinity.cpp" />
     <ClCompile Include="Config\Settings\DesktopResolution.cpp" />

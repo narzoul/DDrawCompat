@@ -1,8 +1,8 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Rect.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/FpsLimiter.h>
-#include <Config/Settings/GdiStretchBltMode.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
@@ -379,15 +379,7 @@ namespace
 	int WINAPI setStretchBltMode(HDC hdc, int mode)
 	{
 		LOG_FUNC("SetStretchBltMode", hdc, mode);
-		if (COLORONCOLOR == mode && HALFTONE == Config::gdiStretchBltMode.get())
-		{
-			POINT org = {};
-			GetBrushOrgEx(hdc, &org);
-			auto result = CALL_ORIG_FUNC(SetStretchBltMode)(hdc, HALFTONE);
-			SetBrushOrgEx(hdc, org.x, org.y, nullptr);
-			return LOG_RESULT(result);
-		}
-		if (HALFTONE == mode && COLORONCOLOR == Config::gdiStretchBltMode.get())
+		if (HALFTONE == mode && Config::compatFixes.get().nohalftone)
 		{
 			mode = COLORONCOLOR;
 		}

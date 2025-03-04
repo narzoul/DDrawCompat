@@ -1,10 +1,10 @@
-#include <Config/Settings/AlignSysMemSurfaces.h>
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/AltTabFix.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/ColorKeyMethod.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/ConfigRows.h>
 #include <Config/Settings/ConfigTransparency.h>
@@ -24,12 +24,10 @@
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
-#include <Config/Settings/GdiStretchBltMode.h>
 #include <Config/Settings/LogLevel.h>
 #include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/PalettizedTextures.h>
-#include <Config/Settings/RemoveBorders.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -62,13 +60,13 @@
 
 namespace Config
 {
-	Settings::AlignSysMemSurfaces alignSysMemSurfaces;
 	Settings::AlternatePixelCenter alternatePixelCenter;
 	Settings::AltTabFix altTabFix;
 	Settings::Antialiasing antialiasing;
 	Settings::BltFilter bltFilter;
 	Settings::CapsPatches capsPatches;
 	Settings::ColorKeyMethod colorKeyMethod;
+	Settings::CompatFixes compatFixes;
 	Settings::ConfigHotKey configHotKey;
 	Settings::ConfigRows configRows;
 	Settings::ConfigTransparency configTransparency;
@@ -88,12 +86,10 @@ namespace Config
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;
-	Settings::GdiStretchBltMode gdiStretchBltMode;
 	Settings::LogLevel logLevel;
 	Settings::MousePollingRate mousePollingRate;
 	Settings::MouseSensitivity mouseSensitivity;
 	Settings::PalettizedTextures palettizedTextures;
-	Settings::RemoveBorders removeBorders;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
 	Settings::ResolutionScaleFilter resolutionScaleFilter;

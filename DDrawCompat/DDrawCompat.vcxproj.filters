@@ -549,9 +549,6 @@
     <ClInclude Include="Config\Settings\AltTabFix.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
-    <ClInclude Include="Config\Settings\RemoveBorders.h">
-      <Filter>Header Files\Config\Settings</Filter>
-    </ClInclude>
     <ClInclude Include="Config\Settings\WinVersionLie.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
@@ -566,9 +563,6 @@
     </ClInclude>
     <ClInclude Include="Overlay\ButtonControl.h">
       <Filter>Header Files\Overlay</Filter>
-    </ClInclude>
-    <ClInclude Include="Config\Settings\AlignSysMemSurfaces.h">
-      <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
     <ClInclude Include="Config\Settings\DpiAwareness.h">
       <Filter>Header Files\Config\Settings</Filter>
@@ -720,9 +714,6 @@
     <ClInclude Include="Config\Settings\VertexFixup.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
-    <ClInclude Include="Config\Settings\GdiStretchBltMode.h">
-      <Filter>Header Files\Config\Settings</Filter>
-    </ClInclude>
     <ClInclude Include="Config\Settings\ViewportEdgeFix.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
@@ -748,6 +739,9 @@
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
     <ClInclude Include="Config\Settings\EnableDDrawCompat.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
+    <ClInclude Include="Config\Settings\CompatFixes.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
   </ItemGroup>
@@ -1161,6 +1155,9 @@
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
     <ClCompile Include="Config\Settings\SupportedRefreshRates.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\CompatFixes.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
