@@ -61,6 +61,7 @@ StatsQueue::StatsQueue()
 
 void StatsQueue::addSample(TickCount tickCount, Stat stat)
 {
+	Compat::ScopedCriticalSection lock(m_cs);
 	setTickCount(tickCount);
 
 	if (0 == m_sampleCount)
@@ -88,6 +89,7 @@ double StatsQueue::getAvg(Stat sum, SampleCount sampleCount) const
 
 StatsQueue::Stats StatsQueue::getRawStats(TickCount tickCount)
 {
+	Compat::ScopedCriticalSection lock(m_cs);
 	setTickCount(tickCount);
 	Stats stats = {};
 	const uint32_t index = (m_currentTickCount - 1) % s_history_size;
@@ -111,6 +113,7 @@ StatsQueue::SampleCount StatsQueue::getSampleCount(TickCount tickCount) const
 
 StatsQueue::Stats StatsQueue::getStats(TickCount tickCount)
 {
+	Compat::ScopedCriticalSection lock(m_cs);
 	Stats stats = getRawStats(tickCount);
 	if (g_isColumnEnabled[Config::Settings::StatsColumns::CUR])
 	{
@@ -182,13 +185,18 @@ void StatsQueue::pushToMinMaxQueue(std::deque<TimestampedStat>& queue, Stat stat
 
 void StatsQueue::setTickCount(TickCount tickCount)
 {
+	if (static_cast<int64_t>(tickCount - m_currentTickCount) <= 0)
+	{
+		return;
+	}
+
 	if (tickCount - m_currentTickCount > s_history_size)
 	{
 		m_currentTickCount = tickCount - s_history_size;
 		resetTickCount();
 	}
 
-	while (m_currentTickCount < tickCount)
+	while (static_cast<int64_t>(m_currentTickCount - tickCount) < 0)
 	{
 		push();
 	}

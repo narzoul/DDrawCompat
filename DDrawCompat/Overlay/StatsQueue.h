@@ -3,6 +3,7 @@
 #include <deque>
 #include <vector>
 
+#include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 
 class StatsQueueInitializer
@@ -53,6 +54,8 @@ protected:
 	virtual Stats getRawStats(TickCount tickCount);
 	SampleCount getSampleCount(TickCount tickCount) const;
 	void setTickCount(TickCount tickCount);
+
+	Compat::CriticalSection m_cs;
 
 private:
 	struct TimestampedStat

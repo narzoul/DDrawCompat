@@ -9,6 +9,7 @@ StatsEventTime::StatsEventTime()
 
 void StatsEventTime::addImpl(TickCount tickCount, long long qpcNow)
 {
+	Compat::ScopedCriticalSection lock(m_cs);
 	if (0 != m_qpcLast && qpcNow - m_qpcLast < s_history_time * Time::g_qpcFrequency)
 	{
 		addSample(tickCount, qpcNow - m_qpcLast);

@@ -11,6 +11,7 @@ public:
 	{
 		if (isEnabled())
 		{
+			Compat::ScopedCriticalSection lock(m_cs);
 			setTickCount(tickCount);
 			m_sampleCount++;
 		}

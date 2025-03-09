@@ -38,6 +38,7 @@ void StatsTimer::resetTickCount()
 
 void StatsTimer::startImpl()
 {
+	Compat::ScopedCriticalSection lock(m_cs);
 	auto qpcStart = Time::queryPerformanceCounter();
 	setTickCount(getTickCount(qpcStart));
 	m_qpcStart = qpcStart;
@@ -46,6 +47,7 @@ void StatsTimer::startImpl()
 void StatsTimer::stopImpl()
 {
 	auto qpcEnd = Time::queryPerformanceCounter();
+	Compat::ScopedCriticalSection lock(m_cs);
 	setTickCount(getTickCount(qpcEnd));
 	m_qpcSum += qpcEnd - m_qpcStart;
 	m_qpcStart = 0;
