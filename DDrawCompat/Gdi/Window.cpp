@@ -738,9 +738,18 @@ namespace Gdi
 				return;
 			}
 
-			D3dDdi::ScopedCriticalSection lock;
-			auto it = g_windows.find(hwnd);
-			if (it != g_windows.end() && !it->second.visibleRegion.isEmpty())
+			bool isUpdateNeeded = false;
+
+			{
+				D3dDdi::ScopedCriticalSection lock;
+				auto it = g_windows.find(hwnd);
+				if (it != g_windows.end() && !it->second.visibleRegion.isEmpty())
+				{
+					isUpdateNeeded = true;
+				}
+			}
+
+			if (isUpdateNeeded)
 			{
 				updateAll();
 			}
