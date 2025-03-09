@@ -1118,6 +1118,8 @@ namespace D3dDdi
 			m_msaaResolvedSurface.resource && *m_msaaResolvedSurface.resource == resource)
 		{
 			loadSysMemResource(0);
+			m_msaaSurface.resource = nullptr;
+			m_msaaResolvedSurface.resource = nullptr;
 		}
 	}
 
