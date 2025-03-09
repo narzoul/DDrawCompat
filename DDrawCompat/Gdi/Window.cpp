@@ -163,6 +163,12 @@ namespace
 
 	auto removeWindow(std::map<HWND, Window>::iterator it)
 	{
+		const auto iter = std::find(g_windowZOrder.begin(), g_windowZOrder.end(), &it->second);
+		if (iter != g_windowZOrder.end())
+		{
+			g_windowZOrder.erase(iter);
+		}
+
 		if (it->second.presentationWindow)
 		{
 			Gdi::GuiThread::destroyWindow(it->second.presentationWindow);
@@ -388,6 +394,10 @@ namespace Gdi
 			if (it->second.visibleRegion.isEmpty())
 			{
 				removeWindow(it);
+				if (hwnd == g_fullscreenWindow)
+				{
+					g_fullscreenWindow = findFullscreenWindow();
+				}
 			}
 			else
 			{
