@@ -1327,13 +1327,22 @@ namespace D3dDdi
 		m_device.flushPrimitives();
 		if (srcResource->m_lockResource)
 		{
-			if (srcResource->m_lockData[data.SrcSubResourceIndex].isSysMemUpToDate)
-			{
-				srcResource->m_lockData[data.SrcSubResourceIndex].isVidMemUpToDate = false;
-				srcResource->m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate = false;
-			}
-
+			auto& lockData = srcResource->m_lockData[data.SrcSubResourceIndex];
+			const bool isSysMemOnly = lockData.isSysMemUpToDate && !lockData.isVidMemUpToDate;
+			const bool isRefLocked = lockData.isRefLocked;
+			const auto origSrcResource = srcResource;
 			srcResource = &srcResource->prepareForGpuRead(data.SrcSubResourceIndex);
+			if (isSysMemOnly)
+			{
+				lockData.isVidMemUpToDate = false;
+				lockData.isMsaaResolvedUpToDate = false;
+				if (isRefLocked)
+				{
+					origSrcResource->copySubResource(
+						*origSrcResource->m_lockRefSurface.resource, *origSrcResource, data.SrcSubResourceIndex);
+					lockData.isRefLocked = true;
+				}
+			}
 		}
 		prepareForGpuWrite(data.DstSubResourceIndex);
 
