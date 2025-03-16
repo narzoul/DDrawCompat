@@ -156,7 +156,7 @@ namespace DDraw
 			{
 				statsWindow->m_blit.add();
 			}
-			RealPrimarySurface::scheduleUpdate();
+			RealPrimarySurface::scheduleUpdate(true);
 		}
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
 		{
@@ -188,7 +188,7 @@ namespace DDraw
 			{
 				statsWindow->m_blit.add();
 			}
-			RealPrimarySurface::scheduleUpdate();
+			RealPrimarySurface::scheduleUpdate(true);
 		}
 		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get()
 			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
@@ -358,7 +358,7 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::scheduleUpdate();
+			RealPrimarySurface::scheduleUpdate(true);
 		}
 		return result;
 	}
@@ -402,7 +402,7 @@ namespace DDraw
 		HRESULT result = SurfaceImpl::Unlock(This, lpRect);
 		if (SUCCEEDED(result))
 		{
-			RealPrimarySurface::scheduleUpdate();
+			RealPrimarySurface::scheduleUpdate(true);
 		}
 		return result;
 	}

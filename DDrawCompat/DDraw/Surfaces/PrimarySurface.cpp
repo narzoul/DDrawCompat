@@ -361,7 +361,7 @@ namespace DDraw
 			ReleaseDC(g_deviceWindow, dc);
 		}
 
-		RealPrimarySurface::scheduleUpdate();
+		RealPrimarySurface::scheduleUpdate(true);
 	}
 
 	void PrimarySurface::waitForIdle()

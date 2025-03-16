@@ -28,6 +28,7 @@
 #include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
 #include <Config/Settings/PalettizedTextures.h>
+#include <Config/Settings/PresentDelay.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -90,6 +91,7 @@ namespace Config
 	Settings::MousePollingRate mousePollingRate;
 	Settings::MouseSensitivity mouseSensitivity;
 	Settings::PalettizedTextures palettizedTextures;
+	Settings::PresentDelay presentDelay;
 	Settings::RenderColorDepth renderColorDepth;
 	Settings::ResolutionScale resolutionScale;
 	Settings::ResolutionScaleFilter resolutionScaleFilter;

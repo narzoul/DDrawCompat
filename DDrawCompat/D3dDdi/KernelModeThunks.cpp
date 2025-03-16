@@ -318,7 +318,7 @@ namespace
 		else
 		{
 			D3dDdi::ShaderBlitter::setGammaRamp(*pData->pGammaRampRgb256x3x16);
-			DDraw::RealPrimarySurface::scheduleUpdate();
+			DDraw::RealPrimarySurface::scheduleUpdate(true);
 		}
 		if (SUCCEEDED(result) && g_isWaitForGammaRampEnabled)
 		{

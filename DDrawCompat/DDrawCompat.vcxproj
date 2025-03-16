@@ -194,6 +194,7 @@
     <ClInclude Include="Config\Settings\MousePollingRate.h" />
     <ClInclude Include="Config\Settings\MouseSensitivity.h" />
     <ClInclude Include="Config\Settings\PalettizedTextures.h" />
+    <ClInclude Include="Config\Settings\PresentDelay.h" />
     <ClInclude Include="Config\Settings\RenderColorDepth.h" />
     <ClInclude Include="Config\Settings\ResolutionScale.h" />
     <ClInclude Include="Config\Settings\ResolutionScaleFilter.h" />

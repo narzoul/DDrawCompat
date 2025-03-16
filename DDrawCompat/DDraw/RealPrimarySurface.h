@@ -27,7 +27,7 @@ namespace DDraw
 		static void release();
 		static HRESULT restore();
 		static void scheduleOverlayUpdate();
-		static void scheduleUpdate();
+		static void scheduleUpdate(bool allowFlush = false);
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPresentationWindowTopmost();
 		static void setUpdateReady();

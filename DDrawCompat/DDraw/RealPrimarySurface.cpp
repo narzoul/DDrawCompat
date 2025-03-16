@@ -12,6 +12,7 @@
 #include <Common/Time.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/PresentDelay.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/KernelModeThunks.h>
@@ -536,13 +537,12 @@ namespace DDraw
 
 		if (Config::Settings::VSync::WAIT == Config::vSync.get())
 		{
-			{
-				Compat::ScopedCriticalSection lock(g_presentCs);
-				g_isUpdatePending = true;
-				g_isUpdateReady = true;
-			}
-			flush();
+			scheduleUpdate(true);
 			D3dDdi::KernelModeThunks::waitForFlipEnd();
+		}
+		else if (!Config::presentDelay.get())
+		{
+			scheduleUpdate(true);
 		}
 	}
 
@@ -578,9 +578,9 @@ namespace DDraw
 				if (g_isUpdatePending)
 				{
 					auto msSinceUpdateStart = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcUpdateStart);
-					if (msSinceUpdateStart < 10)
+					if (msSinceUpdateStart < Config::presentDelay.getParam())
 					{
-						return 10 - static_cast<int>(msSinceUpdateStart);
+						return Config::presentDelay.getParam() - static_cast<int>(msSinceUpdateStart);
 					}
 					g_isUpdateReady = true;
 				}
@@ -709,15 +709,22 @@ namespace DDraw
 		g_isOverlayUpdatePending = true;
 	}
 
-	void RealPrimarySurface::scheduleUpdate()
+	void RealPrimarySurface::scheduleUpdate(bool allowFlush)
 	{
-		Compat::ScopedCriticalSection lock(g_presentCs);
-		if (!g_isUpdatePending)
 		{
-			g_qpcUpdateStart = Time::queryPerformanceCounter();
-			g_isUpdatePending = true;
+			Compat::ScopedCriticalSection lock(g_presentCs);
+			if (!g_isUpdatePending)
+			{
+				g_qpcUpdateStart = Time::queryPerformanceCounter();
+				g_isUpdatePending = true;
+			}
+			g_isUpdateReady = !Config::presentDelay.get();
 		}
-		g_isUpdateReady = false;
+
+		if (allowFlush && !Config::presentDelay.get())
+		{
+			flush();
+		}
 	}
 
 	HRESULT RealPrimarySurface::setGammaRamp(DDGAMMARAMP* rampData)

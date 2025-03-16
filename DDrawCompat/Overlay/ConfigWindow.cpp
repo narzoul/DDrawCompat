@@ -17,6 +17,7 @@
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
+#include <Config/Settings/PresentDelay.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -64,6 +65,7 @@ namespace
 		{ &Config::fpsLimiter },
 		{ &Config::mousePollingRate, &Input::updateMouseSensitivity },
 		{ &Config::mouseSensitivity, &Input::updateMouseSensitivity },
+		{ &Config::presentDelay },
 		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScaleFilter },
