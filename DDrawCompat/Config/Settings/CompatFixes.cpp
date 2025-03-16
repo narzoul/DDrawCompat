@@ -20,6 +20,7 @@ namespace Config
 				return value; \
 			}
 
+			ADD_FIX(nodwmflush);
 			ADD_FIX(nohalftone);
 			ADD_FIX(nosyslock);
 			ADD_FIX(nowindowborders);

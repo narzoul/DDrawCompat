@@ -11,6 +11,7 @@ namespace Config
 		public:
 			struct Fixes
 			{
+				bool nodwmflush;
 				bool nohalftone;
 				bool nosyslock;
 				bool nowindowborders;

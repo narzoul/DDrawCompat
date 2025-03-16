@@ -10,6 +10,7 @@
 #include <Common/Hook.h>
 #include <Common/ScopedSrwLock.h>
 #include <Common/Time.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <D3dDdi/Device.h>
@@ -436,7 +437,8 @@ namespace
 
 	void waitForVerticalBlank()
 	{
-		if (!g_isExclusiveFullscreen && isCompositionEnabled() && SUCCEEDED(DwmFlush()))
+		if (!g_isExclusiveFullscreen && !Config::compatFixes.get().nodwmflush &&
+			isCompositionEnabled() && SUCCEEDED(DwmFlush()))
 		{
 			return;
 		}
