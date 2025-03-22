@@ -757,8 +757,7 @@ namespace Input
 		GetObject(g_bmpArrow, sizeof(bm), &bm);
 		g_bmpArrowSize = { bm.bmWidth, bm.bmHeight };
 
-		g_physicalToLogicalPointForPerMonitorDPI = reinterpret_cast<decltype(&PhysicalToLogicalPointForPerMonitorDPI)>(
-			GetProcAddress(GetModuleHandle("user32"), "PhysicalToLogicalPointForPerMonitorDPI"));
+		g_physicalToLogicalPointForPerMonitorDPI = GET_PROC_ADDRESS(user32, PhysicalToLogicalPointForPerMonitorDPI);
 
 		HOOK_FUNCTION(user32, GetRawInputData, getRawInputData);
 		HOOK_FUNCTION(user32, GetRawInputBuffer, getRawInputBuffer);

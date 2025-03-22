@@ -553,16 +553,13 @@ namespace D3dDdi
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetGammaRamp", setGammaRamp);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSetVidPnSourceOwner", setVidPnSourceOwner);
 
-			auto gdi32 = GetModuleHandle("gdi32");
-			g_origSubmitPresentBltToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentBltToHwQueue)>(
-				GetProcAddress(gdi32, "D3DKMTSubmitPresentBltToHwQueue"));
+			g_origSubmitPresentBltToHwQueue = GET_PROC_ADDRESS(gdi32, D3DKMTSubmitPresentBltToHwQueue);
 			if (g_origSubmitPresentBltToHwQueue)
 			{
 				Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentBltToHwQueue", submitPresentBltToHwQueue);
 			}
 
-			g_origSubmitPresentToHwQueue = reinterpret_cast<decltype(&D3DKMTSubmitPresentToHwQueue)>(
-				GetProcAddress(gdi32, "D3DKMTSubmitPresentToHwQueue"));
+			g_origSubmitPresentToHwQueue = GET_PROC_ADDRESS(gdi32, D3DKMTSubmitPresentToHwQueue);
 			if (g_origSubmitPresentToHwQueue)
 			{
 				Compat::hookIatFunction(Dll::g_origDDrawModule, "D3DKMTSubmitPresentToHwQueue", submitPresentToHwQueue);

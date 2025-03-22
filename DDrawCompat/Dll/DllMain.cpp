@@ -219,10 +219,10 @@ namespace
 		LOG_INFO << "Terminating application due to unhandled exception: "
 			<< Compat::hex(ExceptionInfo->ExceptionRecord->ExceptionCode);
 
-		const auto writeDump = reinterpret_cast<decltype(&MiniDumpWriteDump)>(
-			GetProcAddress(LoadLibraryA("dbghelp"), "MiniDumpWriteDump"));
+		LoadLibraryA("dbghelp");
+		const auto miniDumpWriteDump = GET_PROC_ADDRESS(dbghelp, MiniDumpWriteDump);
 
-		if (writeDump)
+		if (miniDumpWriteDump)
 		{
 			dumpFile = CreateFileW(g_crashDumpPath.native().c_str(),
 				GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
@@ -236,7 +236,7 @@ namespace
 				MINIDUMP_EXCEPTION_INFORMATION mei = {};
 				mei.ThreadId = GetCurrentThreadId();
 				mei.ExceptionPointers = ExceptionInfo;
-				result = writeDump(GetCurrentProcess(), GetCurrentProcessId(), dumpFile,
+				result = miniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), dumpFile,
 					static_cast<MINIDUMP_TYPE>(Config::crashDump.get()), &mei, nullptr, nullptr);
 				if (!result)
 				{
@@ -250,7 +250,7 @@ namespace
 		{
 			LOG_INFO << "Crash dump has been written to: " << g_crashDumpPath.native().c_str();
 		}
-		else if (!writeDump)
+		else if (!miniDumpWriteDump)
 		{
 			LOG_INFO << "Failed to load procedure MiniDumpWriteDump to create a crash dump";
 		}

@@ -986,11 +986,8 @@ namespace Gdi
 			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 
-			g_dwmSetIconicThumbnail = reinterpret_cast<decltype(&DwmSetIconicThumbnail)>(
-				GetProcAddress(GetModuleHandle("dwmapi"), "DwmSetIconicThumbnail"));
-
-			g_getDpiForSystem = reinterpret_cast<decltype(&GetDpiForSystem)>(
-				GetProcAddress(GetModuleHandle("user32"), "GetDpiForSystem"));
+			g_dwmSetIconicThumbnail = GET_PROC_ADDRESS(dwmapi, DwmSetIconicThumbnail);
+			g_getDpiForSystem = GET_PROC_ADDRESS(user32, GetDpiForSystem);
 			if (g_getDpiForSystem)
 			{
 				Compat::hookFunction(reinterpret_cast<void*&>(g_getDpiForSystem), getDpiForSystem, "GetDpiForSystem");

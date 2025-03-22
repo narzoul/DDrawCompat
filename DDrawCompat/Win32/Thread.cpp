@@ -19,6 +19,22 @@
 #include <Dll/Dll.h>
 #include <Win32/Thread.h>
 
+struct THREAD_BASIC_INFORMATION
+{
+	NTSTATUS  ExitStatus;
+	PVOID     TebBaseAddress;
+	CLIENT_ID ClientId;
+	KAFFINITY AffinityMask;
+	KPRIORITY Priority;
+	KPRIORITY BasePriority;
+};
+
+NTSTATUS NTAPI NtSetInformationThread(
+	HANDLE ThreadHandle,
+	THREADINFOCLASS ThreadInformationClass,
+	PVOID ThreadInformation,
+	ULONG ThreadInformationLength);
+
 namespace
 {
 	struct ThreadInfo
@@ -38,6 +54,7 @@ namespace
 	thread_local bool g_skipWaitingForExclusiveModeMutex = false;
 
 	decltype(&NtQueryInformationThread) g_ntQueryInformationThread = nullptr;
+	decltype(&NtSetInformationThread) g_ntSetInformationThread = nullptr;
 
 	bool useCpuAffinityRotation();
 	std::string maskToString(ULONG_PTR mask);
@@ -304,6 +321,11 @@ namespace
 
 	void setProcessAffinity()
 	{
+		if (0 == g_cpuAffinity)
+		{
+			return;
+		}
+
 		Compat::ScopedCriticalSection lock(g_cs);
 		for (const auto& t : g_threads)
 		{
@@ -351,6 +373,25 @@ namespace
 				{
 					g_cpuAffinity = rotateMask(g_cpuAffinity);
 					setProcessAffinity();
+				}
+
+				if (!g_ntQueryInformationThread || !g_ntSetInformationThread)
+				{
+					continue;
+				}
+
+				for (const auto& t : g_threads)
+				{
+					const auto ThreadBasicInformation = static_cast<THREADINFOCLASS>(0);
+					THREAD_BASIC_INFORMATION tbi = {};
+					g_ntQueryInformationThread(t.second.handle, ThreadBasicInformation, &tbi, sizeof(tbi), nullptr);
+
+					if (tbi.Priority > THREAD_PRIORITY_TIME_CRITICAL)
+					{
+						const auto ThreadPriority = static_cast<THREADINFOCLASS>(2);
+						ULONG prio = THREAD_PRIORITY_TIME_CRITICAL;
+						g_ntSetInformationThread(t.second.handle, ThreadPriority, &prio, sizeof(prio));
+					}
 				}
 			}
 
@@ -506,17 +547,19 @@ namespace Win32
 				break;
 			}
 
+			LOG_INFO << "Process priority class: " << GetPriorityClass(GetCurrentProcess());
 			LOG_INFO << "Current CPU affinity: " << maskToString(processMask);
 			if (0 != g_cpuAffinity)
 			{
 				LOG_INFO << "Applying configured CPU affinity: " << maskToString(g_cpuAffinity);
 				CALL_ORIG_FUNC(SetProcessAffinityMask)(GetCurrentProcess(), systemMask);
-				registerExistingThreads();
-				setProcessAffinity();
-				Dll::createThread(&threadManagerProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 			}
 
 			LOG_INFO << "CPU affinity rotation is " << (useCpuAffinityRotation() ? "enabled" : "disabled");
+
+			registerExistingThreads();
+			setProcessAffinity();
+			Dll::createThread(&threadManagerProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 
 		void dllThreadAttach()
@@ -554,8 +597,8 @@ namespace Win32
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "OpenMutexW", ddrawOpenMutexW);
 			Compat::hookIatFunction(Dll::g_origDDrawModule, "WaitForSingleObject", ddrawWaitForSingleObject);
 
-			g_ntQueryInformationThread = reinterpret_cast<decltype(&NtQueryInformationThread)>(
-				GetProcAddress(GetModuleHandle("ntdll"), "NtQueryInformationThread"));
+			g_ntQueryInformationThread = GET_PROC_ADDRESS(ntdll, NtQueryInformationThread);
+			g_ntSetInformationThread = GET_PROC_ADDRESS(ntdll, NtSetInformationThread);
 		}
 
 		void skipWaitingForExclusiveModeMutex(bool skip)

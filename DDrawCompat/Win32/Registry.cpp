@@ -12,6 +12,26 @@
 
 typedef long NTSTATUS;
 
+enum KEY_INFORMATION_CLASS
+{
+	KeyBasicInformation = 0,
+	KeyNodeInformation = 1,
+	KeyFullInformation = 2,
+	KeyNameInformation = 3,
+	KeyCachedInformation = 4,
+	KeyFlagsInformation = 5,
+	KeyVirtualizationInformation = 6,
+	KeyHandleTagsInformation = 7,
+	MaxKeyInfoClass = 8
+};
+
+NTSTATUS WINAPI NtQueryKey(
+	HANDLE KeyHandle,
+	KEY_INFORMATION_CLASS KeyInformationClass,
+	PVOID KeyInformation,
+	ULONG Length,
+	PULONG ResultLength);
+
 namespace Compat
 {
 	Log& operator<<(Log& os, HKEY hkey);
@@ -132,29 +152,7 @@ namespace
 			}
 		}
 
-		enum KEY_INFORMATION_CLASS
-		{
-			KeyBasicInformation = 0,
-			KeyNodeInformation = 1,
-			KeyFullInformation = 2,
-			KeyNameInformation = 3,
-			KeyCachedInformation = 4,
-			KeyFlagsInformation = 5,
-			KeyVirtualizationInformation = 6,
-			KeyHandleTagsInformation = 7,
-			MaxKeyInfoClass = 8
-		};
-
-		typedef NTSTATUS(WINAPI* NtQueryKeyFuncPtr)(
-			HANDLE KeyHandle,
-			KEY_INFORMATION_CLASS KeyInformationClass,
-			PVOID KeyInformation,
-			ULONG Length,
-			PULONG ResultLength);
-
-		static NtQueryKeyFuncPtr ntQueryKey = reinterpret_cast<NtQueryKeyFuncPtr>(
-			GetProcAddress(GetModuleHandle("ntdll"), "NtQueryKey"));
-
+		static const auto ntQueryKey = GET_PROC_ADDRESS(ntdll, NtQueryKey);
 		if (ntQueryKey && key)
 		{
 			struct KEY_NAME_INFORMATION

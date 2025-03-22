@@ -1,5 +1,6 @@
 #include <ShellScalingApi.h>
 
+#include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Config/Settings/DpiAwareness.h>
 #include <Win32/DpiAwareness.h>
@@ -88,23 +89,15 @@ namespace Win32
 
 		void init()
 		{
-			auto user32 = GetModuleHandle("user32");
-			auto shcore = LoadLibrary("shcore");
+			LoadLibraryA("shcore");
 
-			g_areDpiAwarenessContextsEqual = reinterpret_cast<decltype(&AreDpiAwarenessContextsEqual)>(
-				GetProcAddress(user32, "AreDpiAwarenessContextsEqual"));
-			g_getProcessDpiAwareness = reinterpret_cast<decltype(&GetProcessDpiAwareness)>(
-				GetProcAddress(shcore, "GetProcessDpiAwareness"));
-			g_getThreadDpiAwarenessContext = reinterpret_cast<decltype(&GetThreadDpiAwarenessContext)>(
-				GetProcAddress(user32, "GetThreadDpiAwarenessContext"));
-			g_isValidDpiAwarenessContext = reinterpret_cast<decltype(&IsValidDpiAwarenessContext)>(
-				GetProcAddress(user32, "IsValidDpiAwarenessContext"));
-			g_setProcessDpiAwareness = reinterpret_cast<decltype(&SetProcessDpiAwareness)>(
-				GetProcAddress(shcore, "SetProcessDpiAwareness"));
-			g_setProcessDpiAwarenessContext = reinterpret_cast<decltype(&SetProcessDpiAwarenessContext)>(
-				GetProcAddress(user32, "SetProcessDpiAwarenessContext"));
-			g_setThreadDpiAwarenessContext = reinterpret_cast<decltype(&SetThreadDpiAwarenessContext)>(
-				GetProcAddress(user32, "SetThreadDpiAwarenessContext"));
+			g_areDpiAwarenessContextsEqual = GET_PROC_ADDRESS(user32, AreDpiAwarenessContextsEqual);
+			g_getProcessDpiAwareness = GET_PROC_ADDRESS(shcore, GetProcessDpiAwareness);
+			g_getThreadDpiAwarenessContext = GET_PROC_ADDRESS(user32, GetThreadDpiAwarenessContext);
+			g_isValidDpiAwarenessContext = GET_PROC_ADDRESS(user32, IsValidDpiAwarenessContext);
+			g_setProcessDpiAwareness = GET_PROC_ADDRESS(shcore, SetProcessDpiAwareness);
+			g_setProcessDpiAwarenessContext = GET_PROC_ADDRESS(user32, SetProcessDpiAwarenessContext);
+			g_setThreadDpiAwarenessContext = GET_PROC_ADDRESS(user32, SetThreadDpiAwarenessContext);
 
 			LOG_INFO << "Initial DPI awareness: " << Config::dpiAwareness.convertToString(getThreadContext());
 
