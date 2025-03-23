@@ -1,14 +1,16 @@
 # DDrawCompat
 
 ### Introduction
-DDrawCompat is a DLL wrapper aimed at fixing compatibility and performance issues for games based on DirectDraw and Direct3D 1-7. Partially supports GDI as well. There is no API conversion involved, most of the rendering is still done by the native DirectDraw/Direct3D 1-7 and GDI libraries.
+DDrawCompat is a DLL wrapper aimed at fixing compatibility and performance issues with the DirectX 1-7 graphics APIs. Partially supports GDI as well. There is no API conversion involved, most of the rendering is still done by the native DirectX 1-7 and GDI libraries.
 
 ### Requirements
 - Windows Vista, 7, 8, 10 or 11
+- CPU with SSE2 support
+- GPU with Shader Model 3 support
 
 Additional requirements **for Windows Vista and 7 only**:
 - WDDM-compatible graphics driver - the legacy XPDM drivers are no longer supported (since v0.3.0)
-- Desktop Composition must be enabled (especially for windowed mode applications)
+- Desktop Composition must be enabled
 
 ### Installation
 
@@ -27,11 +29,12 @@ Starting with v0.4.0, configuration is supported through text files, and partial
 ### Support
 Only the latest release is supported. Please provide as much information as possible when reporting [issues](https://github.com/narzoul/DDrawCompat/issues), especially the title of the affected application(s), GPU model, Windows version and any steps needed to reproduce the problem. Attach at least the info level logs if possible. You may remove any personal information from log files (e.g. the Windows user name from the user configuration path). Note that debug logs may include additional sensitive information, such as key presses registered by the application or any text displayed by it.
 
-For various reasons, the below cases are not supported:
+**For various reasons, the below cases are not supported:**
 - Games that require an internet connection
 - Insider preview builds of Windows
 - Running Windows in any sort of virtualized/emulated environment, e.g. in a virtual machine or through Wine
 - Running DDrawCompat in combination with other wrappers/hooks, including overlays or video recorders (desktop screen recorders should work when using the FullscreenMode=borderless setting, assuming they can record layered windows)
+- Applications that mix other graphics APIs with DirectX 1-7, e.g. DirectX 8+, OpenGL, Vulkan, Glide, etc.
 
 ### Development
 DDrawCompat is developed in C++ using Microsoft Visual Studio Community 2022.
