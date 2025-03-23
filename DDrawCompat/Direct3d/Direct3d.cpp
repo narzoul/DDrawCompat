@@ -6,6 +6,7 @@
 #include <Config/Settings/CapsPatches.h>
 #include <Config/Settings/SoftwareDevice.h>
 #include <Config/Settings/SupportedDepthFormats.h>
+#include <Config/Settings/SupportedDevices.h>
 #include <Config/Settings/VertexBufferMemoryType.h>
 #include <D3dDdi/FormatInfo.h>
 #include <DDraw/LogUsedResourceFormat.h>
@@ -34,6 +35,11 @@ namespace
 		TDirect3dDevice** lplpD3DDevice,
 		Params... params)
 	{
+		if (!Config::supportedDevices.isSupported(rclsid))
+		{
+			return DDERR_UNSUPPORTED;
+		}
+
 		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		auto& iid = Direct3d::replaceDevice(rclsid);
 		HRESULT result = getOrigVtable(This).CreateDevice(This, iid, lpDDS, lplpD3DDevice, params...);
@@ -100,6 +106,11 @@ namespace
 	HRESULT CALLBACK enumDevicesCallback(LPSTR lpDeviceDescription, LPSTR lpDeviceName,
 		LPD3DDEVICEDESC7 lpD3DDeviceDesc, LPVOID lpContext)
 	{
+		if (!Config::supportedDevices.isSupported(lpD3DDeviceDesc->deviceGUID))
+		{
+			return D3DENUMRET_OK;
+		}
+
 		auto& args = *static_cast<EnumArgs*>(lpContext);
 		auto origCallback = static_cast<LPD3DENUMDEVICESCALLBACK7>(args.callback);
 		if (lpD3DDeviceDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY)
@@ -114,6 +125,11 @@ namespace
 	HRESULT CALLBACK enumDevicesCallback(GUID* lpGuid, LPSTR lpDeviceDescription, LPSTR lpDeviceName,
 		LPD3DDEVICEDESC lpD3DHWDeviceDesc, LPD3DDEVICEDESC lpD3DHELDeviceDesc, LPVOID lpContext)
 	{
+		if (lpGuid && !Config::supportedDevices.isSupported(*lpGuid))
+		{
+			return D3DENUMRET_OK;
+		}
+
 		auto& args = *static_cast<EnumArgs*>(lpContext);
 		auto origCallback = static_cast<LPD3DENUMDEVICESCALLBACK>(args.callback);
 		if (lpD3DHWDeviceDesc->dwDevCaps & D3DDEVCAPS_TEXTUREVIDEOMEMORY)
@@ -191,15 +207,20 @@ namespace Direct3d
 		return g_vbDesc;
 	}
 
+	bool isDeviceType(const IID& iid)
+	{
+		return IID_IDirect3DRampDevice == iid ||
+			IID_IDirect3DRGBDevice == iid ||
+			IID_IDirect3DHALDevice == iid ||
+			IID_IDirect3DMMXDevice == iid ||
+			IID_IDirect3DRefDevice == iid ||
+			IID_IDirect3DNullDevice == iid ||
+			IID_IDirect3DTnLHalDevice == iid;
+	}
+
 	const IID& replaceDevice(const IID& iid)
 	{
-		if (IID_IDirect3DRampDevice != iid &&
-			IID_IDirect3DRGBDevice != iid &&
-			IID_IDirect3DHALDevice != iid &&
-			IID_IDirect3DMMXDevice != iid &&
-			IID_IDirect3DRefDevice != iid &&
-			IID_IDirect3DNullDevice != iid &&
-			IID_IDirect3DTnLHalDevice != iid)
+		if (!isDeviceType(iid))
 		{
 			return iid;
 		}

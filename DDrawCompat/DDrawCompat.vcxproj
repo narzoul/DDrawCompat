@@ -212,6 +212,7 @@
     <ClInclude Include="Config\Settings\StatsTransparency.h" />
     <ClInclude Include="Config\Settings\StatsUpdateRate.h" />
     <ClInclude Include="Config\Settings\SupportedDepthFormats.h" />
+    <ClInclude Include="Config\Settings\SupportedDevices.h" />
     <ClInclude Include="Config\Settings\SupportedRefreshRates.h" />
     <ClInclude Include="Config\Settings\SupportedResolutions.h" />
     <ClInclude Include="Config\Settings\SupportedTextureFormats.h" />
@@ -379,6 +380,7 @@
     <ClCompile Include="Config\Settings\SpriteFilter.cpp" />
     <ClCompile Include="Config\Settings\SpriteTexCoord.cpp" />
     <ClCompile Include="Config\Settings\SupportedDepthFormats.cpp" />
+    <ClCompile Include="Config\Settings\SupportedDevices.cpp" />
     <ClCompile Include="Config\Settings\SupportedRefreshRates.cpp" />
     <ClCompile Include="Config\Settings\SupportedResolutions.cpp" />
     <ClCompile Include="Config\Settings\SupportedTextureFormats.cpp" />

@@ -45,9 +45,10 @@
 #include <Config/Settings/StatsRows.h>
 #include <Config/Settings/StatsTransparency.h>
 #include <Config/Settings/StatsUpdateRate.h>
+#include <Config/Settings/SupportedDepthFormats.h>
+#include <Config/Settings/SupportedDevices.h>
 #include <Config/Settings/SupportedRefreshRates.h>
 #include <Config/Settings/SupportedResolutions.h>
-#include <Config/Settings/SupportedDepthFormats.h>
 #include <Config/Settings/SupportedTextureFormats.h>
 #include <Config/Settings/SurfacePatches.h>
 #include <Config/Settings/TerminateHotKey.h>
@@ -109,6 +110,7 @@ namespace Config
 	Settings::StatsTransparency statsTransparency;
 	Settings::StatsUpdateRate statsUpdateRate;
 	Settings::SupportedDepthFormats supportedDepthFormats;
+	Settings::SupportedDevices supportedDevices;
 	Settings::SupportedRefreshRates supportedRefreshRates;
 	Settings::SupportedResolutions supportedResolutions;
 	Settings::SupportedTextureFormats supportedTextureFormats;

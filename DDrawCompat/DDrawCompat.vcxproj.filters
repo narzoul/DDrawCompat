@@ -747,6 +747,9 @@
     <ClInclude Include="Config\Settings\PresentDelay.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\SupportedDevices.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1161,6 +1164,9 @@
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
     <ClCompile Include="Config\Settings\CompatFixes.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\SupportedDevices.cpp">
       <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>

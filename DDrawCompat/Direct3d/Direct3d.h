@@ -7,6 +7,7 @@
 namespace Direct3d
 {
 	D3DVERTEXBUFFERDESC getVertexBufferDesc();
+	bool isDeviceType(const IID& iid);
 	const IID& replaceDevice(const IID& iid);
 
 	namespace Direct3d

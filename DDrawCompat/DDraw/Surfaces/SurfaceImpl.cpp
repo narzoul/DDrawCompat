@@ -6,6 +6,7 @@
 
 #include <Common/CompatPtr.h>
 #include <Config/Settings/CompatFixes.h>
+#include <Config/Settings/SupportedDevices.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
 #include <DDraw/DirectDrawSurface.h>
@@ -341,6 +342,11 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT SurfaceImpl<TSurface>::QueryInterface(TSurface* This, REFIID riid, LPVOID* obp)
 	{
+		if (Direct3d::isDeviceType(riid) && !Config::supportedDevices.isSupported(riid))
+		{
+			return DDERR_UNSUPPORTED;
+		}
+
 		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		auto& iid = Direct3d::replaceDevice(riid);
 		HRESULT result = getOrigVtable(This).QueryInterface(This, iid, obp);
