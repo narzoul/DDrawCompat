@@ -360,7 +360,8 @@ namespace D3dDdi
 
 	HANDLE DeviceState::mapPixelShader(HANDLE shader)
 	{
-		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get())
+		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get() ||
+			!m_app.renderState[D3DDDIRS_COLORKEYENABLE])
 		{
 			return m_app.pixelShader;
 		}
@@ -631,6 +632,12 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnSetRenderState(const D3DDDIARG_RENDERSTATE* data)
 	{
+		if (D3DDDIRS_COLORKEYENABLE == data->State &&
+			Config::Settings::ColorKeyMethod::ALPHATEST == Config::colorKeyMethod.get())
+		{
+			m_changedStates |= CS_SHADER;
+		}
+
 		m_app.renderState[data->State] = data->Value;
 		m_changedRenderStates.set(data->State);
 		m_changedStates |= CS_RENDER_STATE;
