@@ -37,9 +37,10 @@ namespace
 
 namespace DDraw
 {
-	LogUsedResourceFormat::LogUsedResourceFormat(const DDSURFACEDESC2& desc, IUnknown*& surface)
+	LogUsedResourceFormat::LogUsedResourceFormat(const DDSURFACEDESC2& desc, IUnknown*& surface, HRESULT& result)
 		: m_desc(desc)
 		, m_surface(surface)
+		, m_result(result)
 	{
 		if (!(m_desc.dwFlags & DDSD_PIXELFORMAT))
 		{
@@ -94,7 +95,8 @@ namespace DDraw
 			caps |= (vbDesc.dwCaps & D3DVBCAPS_SYSTEMMEMORY) ? DDSCAPS_SYSTEMMEMORY : DDSCAPS_VIDEOMEMORY;
 		}
 
-		if (!(m_desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_VIDEOMEMORY)) &&
+		if (SUCCEEDED(m_result) &&
+			!(m_desc.ddsCaps.dwCaps & (DDSCAPS_SYSTEMMEMORY | DDSCAPS_VIDEOMEMORY)) &&
 			!(m_desc.ddsCaps.dwCaps2 & (DDSCAPS2_TEXTUREMANAGE | DDSCAPS2_D3DTEXTUREMANAGE)))
 		{
 			auto surface(CompatPtr<IDirectDrawSurface7>::from(m_surface));
@@ -170,15 +172,15 @@ namespace DDraw
 			else
 			{
 				log << "anymem";
-				if (m_surface)
+				if (SUCCEEDED(m_result))
 				{
 					log << " -> " << ((memCaps & DDSCAPS_VIDEOMEMORY) ? "vidmem" : "sysmem");
 				}
 			}
 
-			if (!m_surface)
+			if (FAILED(m_result))
 			{
-				log << " (FAILED)";
+				log << " (FAILED: " << Compat::hex(m_result) << ')';
 			}
 		}
 	}

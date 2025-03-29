@@ -47,11 +47,12 @@ namespace
 
 		DDSURFACEDESC2 desc2 = {};
 		memcpy(&desc2, lpDDSurfaceDesc, sizeof(*lpDDSurfaceDesc));
-		DDraw::LogUsedResourceFormat logUsedResourceFormat(desc2, reinterpret_cast<IUnknown*&>(*lplpDDSurface));
+		HRESULT result = DDERR_GENERIC;
+		DDraw::LogUsedResourceFormat logUsedResourceFormat(desc2, reinterpret_cast<IUnknown*&>(*lplpDDSurface), result);
 
 		if (lpDDSurfaceDesc->ddsCaps.dwCaps & DDSCAPS_PRIMARYSURFACE)
 		{
-			return DDraw::PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
+			return result = DDraw::PrimarySurface::create<TDirectDraw>(*This, *lpDDSurfaceDesc, *lplpDDSurface);
 		}
 
 		TSurfaceDesc desc = *lpDDSurfaceDesc;
@@ -85,12 +86,12 @@ namespace
 				{
 					if (!(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
 					{
-						return DDraw::PalettizedTexture::create<TDirectDraw>(*This, desc, *lplpDDSurface);
+						return result = DDraw::PalettizedTexture::create<TDirectDraw>(*This, desc, *lplpDDSurface);
 					}
 				}
 				else if (desc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY)
 				{
-					return DDERR_UNSUPPORTED;
+					return result = DDERR_UNSUPPORTED;
 				}
 				else
 				{
@@ -99,7 +100,7 @@ namespace
 			}
 		}
 
-		return DDraw::Surface::create<TDirectDraw>(*This, desc, *lplpDDSurface,
+		return result = DDraw::Surface::create<TDirectDraw>(*This, desc, *lplpDDSurface,
 			std::make_unique<DDraw::Surface>(desc.dwFlags, lpDDSurfaceDesc->ddsCaps.dwCaps));
 	}
 
