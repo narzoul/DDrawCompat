@@ -201,6 +201,14 @@ namespace
 		ImmDisableIME(0);
 		CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED);
 
+		ITaskbarList* taskbarList = nullptr;
+		if (SUCCEEDED(CoCreateInstance(CLSID_TaskbarList, nullptr, CLSCTX_INPROC_SERVER, IID_ITaskbarList,
+			reinterpret_cast<void**>(&taskbarList))))
+		{
+			taskbarList->lpVtbl->Release(taskbarList);
+			taskbarList = nullptr;
+		}
+
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
 		wc.hInstance = Dll::g_currentModule;
