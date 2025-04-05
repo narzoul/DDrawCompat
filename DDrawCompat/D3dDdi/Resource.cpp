@@ -620,20 +620,20 @@ namespace D3dDdi
 			}
 		}
 
-		unsigned topExtraRows = 0;
-		unsigned totalExtraRows = 0;
+		unsigned topRows = 0;
+		unsigned extraRows = 0;
 		if (1 == m_fixedData.SurfCount && !m_origData.Flags.Texture)
 		{
-			topExtraRows = Config::surfacePatches.getTop();
-			totalExtraRows = topExtraRows + Config::surfacePatches.getBottom();
+			topRows = Config::surfacePatches.getTopRows(surfaceInfo.back().Height);
+			extraRows = Config::surfacePatches.getExtraRows(surfaceInfo.back().Height);
 		}
 
 		std::uintptr_t bufferSize = reinterpret_cast<std::uintptr_t>(surfaceInfo.back().pSysMem) +
-			surfaceInfo.back().SysMemPitch * (surfaceInfo.back().Height + totalExtraRows) + ALIGNMENT;
+			surfaceInfo.back().SysMemPitch * (surfaceInfo.back().Height + extraRows) + ALIGNMENT;
 		m_lockBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, bufferSize));
 
 		BYTE* bufferStart = static_cast<BYTE*>(DDraw::Surface::alignBuffer(
-			static_cast<BYTE*>(m_lockBuffer.get()) + topExtraRows * surfaceInfo.back().SysMemPitch));
+			static_cast<BYTE*>(m_lockBuffer.get()) + topRows * surfaceInfo.back().SysMemPitch));
 		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
 			surfaceInfo[i].pSysMem = bufferStart + reinterpret_cast<uintptr_t>(surfaceInfo[i].pSysMem);

@@ -288,13 +288,13 @@ namespace Gdi
 					CloseHandle(g_surfaceFileMapping);
 				}
 
-				auto totalExtraRows = Config::surfacePatches.getTop() + Config::surfacePatches.getBottom();
+				auto extraRows = Config::surfacePatches.getExtraRows(g_height);
 				g_surfaceFileMapping = CreateFileMapping(INVALID_HANDLE_VALUE, nullptr, PAGE_READWRITE, 0,
-					(g_height + totalExtraRows) * g_pitch + DDraw::Surface::ALIGNMENT, nullptr);
+					(g_height + extraRows) * g_pitch + DDraw::Surface::ALIGNMENT, nullptr);
 				g_surfaceView = MapViewOfFile(g_surfaceFileMapping, FILE_MAP_WRITE, 0, 0, 0);
 
 				auto start = static_cast<BYTE*>(g_surfaceView);
-				start += Config::surfacePatches.getTop() * g_pitch;
+				start += Config::surfacePatches.getTopRows(g_height) * g_pitch;
 				start = static_cast<BYTE*>(DDraw::Surface::alignBuffer(start));
 				g_startOffset = start - static_cast<BYTE*>(g_surfaceView);
 

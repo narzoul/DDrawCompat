@@ -55,7 +55,7 @@ namespace DDraw
 
 		virtual void createImpl();
 
-		void fixAlignment(CompatRef<IDirectDrawSurface7> surface);
+		void fixSurfaceMemory(CompatRef<IDirectDrawSurface7> surface);
 
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface>> m_impl;
 		std::unique_ptr<SurfaceImpl<IDirectDrawSurface2>> m_impl2;

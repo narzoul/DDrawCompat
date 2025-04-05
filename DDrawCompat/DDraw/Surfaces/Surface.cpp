@@ -4,6 +4,7 @@
 
 #include <Common/CompatPtr.h>
 #include <Config/Settings/CompatFixes.h>
+#include <Config/Settings/SurfacePatches.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
@@ -123,7 +124,7 @@ namespace DDraw
 		}
 		else if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) && !(desc.dwFlags & DDSD_LPSURFACE))
 		{
-			privateData->fixAlignment(*surface7);
+			privateData->fixSurfaceMemory(*surface7);
 		}
 
 		attach(*surface7, std::move(privateData));
@@ -157,7 +158,7 @@ namespace DDraw
 		}
 	}
 
-	void Surface::fixAlignment(CompatRef<IDirectDrawSurface7> surface)
+	void Surface::fixSurfaceMemory(CompatRef<IDirectDrawSurface7> surface)
 	{
 		DDSURFACEDESC2 desc = {};
 		desc.dwSize = sizeof(desc);
@@ -167,13 +168,20 @@ namespace DDraw
 		}
 		surface->Unlock(&surface, nullptr);
 
-		const DWORD alignmentOffset = Config::compatFixes.get().unalignedsurfaces ? 8 : 0;
-		const DWORD size = desc.lPitch * desc.dwHeight;
-		if (0 == size || alignmentOffset == reinterpret_cast<DWORD>(desc.lpSurface) % ALIGNMENT)
+		if (0 == desc.dwWidth || 0 == desc.dwHeight || 0 == desc.lPitch)
 		{
 			return;
 		}
 
+		const DWORD alignmentOffset = Config::compatFixes.get().unalignedsurfaces ? 8 : 0;
+		const DWORD origHeight = desc.dwHeight;
+		const DWORD extraRows = Config::surfacePatches.getExtraRows(origHeight);
+		if (0 == extraRows && alignmentOffset == reinterpret_cast<DWORD>(desc.lpSurface) % ALIGNMENT)
+		{
+			return;
+		}
+
+		const DWORD size = desc.lPitch * (desc.dwHeight + extraRows);
 		m_sysMemBuffer.reset(HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size + ALIGNMENT));
 		if (!m_sysMemBuffer)
 		{
@@ -183,7 +191,8 @@ namespace DDraw
 		desc = {};
 		desc.dwSize = sizeof(desc);
 		desc.dwFlags = DDSD_LPSURFACE;
-		desc.lpSurface = alignBuffer(m_sysMemBuffer.get());
+		desc.lpSurface = alignBuffer(
+			static_cast<BYTE*>(m_sysMemBuffer.get()) + desc.lPitch * Config::surfacePatches.getTopRows(origHeight));
 		if (FAILED(surface->SetSurfaceDesc(&surface, &desc, 0)))
 		{
 			m_sysMemBuffer.reset();
