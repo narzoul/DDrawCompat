@@ -23,6 +23,13 @@ namespace
 	{
 		HeapFree(GetProcessHeap(), 0, p);
 	}
+
+	bool isDXTn(const DDPIXELFORMAT& pf)
+	{
+		return (pf.dwFlags & DDPF_FOURCC) &&
+			pf.dwFourCC >= FOURCC_DXT1 &&
+			pf.dwFourCC <= FOURCC_DXT5;
+	}
 }
 
 namespace DDraw
@@ -122,7 +129,8 @@ namespace DDraw
 				attach(*attachedSurfaces[i], std::make_unique<Surface>(privateData->m_origFlags, privateData->m_origCaps));
 			}
 		}
-		else if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) && !(desc.dwFlags & DDSD_LPSURFACE))
+		else if ((desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) && !(desc.dwFlags & DDSD_LPSURFACE) &&
+			(!(desc.dwFlags & DDSD_PIXELFORMAT) || !isDXTn(desc.ddpfPixelFormat)))
 		{
 			privateData->fixSurfaceMemory(*surface7);
 		}
