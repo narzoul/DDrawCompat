@@ -36,7 +36,7 @@ namespace
 
 	HGDIOBJ g_stockBitmap = nullptr;
 	RGBQUAD g_defaultPalette[256] = {};
-	RGBQUAD g_systemPalette[256] = {};
+	RGBQUAD g_hardwarePalette[256] = {};
 	std::map<HDC, VirtualScreenDc> g_dcs;
 
 	RGBQUAD convertToRgbQuad(PALETTEENTRY entry)
@@ -71,7 +71,7 @@ namespace
 			}
 			else
 			{
-				memcpy(bmi.bmiColors, g_systemPalette, sizeof(g_systemPalette));
+				memcpy(bmi.bmiColors, g_hardwarePalette, sizeof(g_hardwarePalette));
 			}
 		}
 		else
@@ -316,22 +316,24 @@ namespace Gdi
 
 		void updatePalette(PALETTEENTRY(&palette)[256])
 		{
+			LOG_FUNC("VirtualScreen::updatePalette");
+			LOG_DEBUG << Compat::array(palette, 256);
 			Compat::ScopedCriticalSection lock(g_cs);
 
-			RGBQUAD systemPalette[256] = {};
+			RGBQUAD hardwarePalette[256] = {};
 			for (int i = 0; i < 256; ++i)
 			{
-				systemPalette[i] = convertToRgbQuad(palette[i]);
+				hardwarePalette[i] = convertToRgbQuad(palette[i]);
 			}
 
-			if (0 != memcmp(g_systemPalette, systemPalette, sizeof(systemPalette)))
+			if (0 != memcmp(g_hardwarePalette, hardwarePalette, sizeof(hardwarePalette)))
 			{
-				memcpy(g_systemPalette, systemPalette, sizeof(systemPalette));
+				memcpy(g_hardwarePalette, hardwarePalette, sizeof(hardwarePalette));
 				for (auto& dc : g_dcs)
 				{
 					if (!dc.second.useDefaultPalette)
 					{
-						SetDIBColorTable(dc.first, 0, 256, systemPalette);
+						SetDIBColorTable(dc.first, 0, 256, hardwarePalette);
 					}
 				}
 			}

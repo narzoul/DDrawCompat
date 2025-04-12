@@ -65,6 +65,7 @@ namespace
 
 	void updateStaticSysPalEntries()
 	{
+		LOG_FUNC("updateStaticSysPalEntries");
 		const UINT count = g_systemPaletteFirstNonReservedIndex;
 		if (0 == count)
 		{
@@ -74,7 +75,7 @@ namespace
 		std::memcpy(g_systemPalette, g_defaultPalette, count * sizeof(g_systemPalette[0]));
 		std::memcpy(&g_systemPalette[256 - count], &g_defaultPalette[256 - count], count * sizeof(g_systemPalette[0]));
 		std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
-		Gdi::VirtualScreen::updatePalette(g_systemPalette);
+		Gdi::VirtualScreen::updatePalette(g_hardwarePalette);
 	}
 
 	BOOL WINAPI deleteObject(HGDIOBJ ho)
@@ -113,6 +114,7 @@ namespace
 
 		Compat::ScopedSrwLockShared lock(g_srwLock);
 		std::memcpy(lppe, &g_systemPalette[iStartIndex], nEntries * sizeof(PALETTEENTRY));
+		LOG_DEBUG << Compat::array(g_systemPalette + iStartIndex, nEntries);
 
 		return LOG_RESULT(nEntries);
 	}
@@ -175,8 +177,9 @@ namespace
 			if (!DDraw::RealPrimarySurface::isFullscreen() || !DDraw::PrimarySurface::s_palette)
 			{
 				std::memcpy(g_hardwarePalette, g_systemPalette, sizeof(g_hardwarePalette));
+				Gdi::VirtualScreen::updatePalette(g_hardwarePalette);
 			}
-			Gdi::VirtualScreen::updatePalette(g_systemPalette);
+			LOG_DEBUG << Compat::array(g_systemPalette, 256);
 			return LOG_RESULT(count);
 		}
 		return LOG_RESULT(CALL_ORIG_FUNC(RealizePalette)(hdc));
@@ -323,8 +326,10 @@ namespace Gdi
 
 		void setHardwarePalette(PALETTEENTRY* entries)
 		{
+			LOG_FUNC("setHardwarePalette");
 			Compat::ScopedSrwLockExclusive lock(g_srwLock);
 			std::memcpy(g_hardwarePalette, entries, sizeof(g_hardwarePalette));
+			Gdi::VirtualScreen::updatePalette(g_hardwarePalette);
 		}
 	}
 }

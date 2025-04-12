@@ -40,6 +40,7 @@ std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOA& vi);
 std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOW& vi);
 std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXA& vi);
 std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXW& vi);
+std::ostream& operator<<(std::ostream& os, const PALETTEENTRY& pe);
 std::ostream& operator<<(std::ostream& os, const POINT& p);
 std::ostream& operator<<(std::ostream& os, const POINTS& p);
 std::ostream& operator<<(std::ostream& os, const RAWINPUTDEVICE& input);

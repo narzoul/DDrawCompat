@@ -31,7 +31,6 @@
 namespace
 {
 	D3DDDIFORMAT g_dcFormatOverride = D3DDDIFMT_UNKNOWN;
-	PALETTEENTRY* g_dcPaletteOverride = nullptr;
 	D3dDdi::KernelModeThunks::AdapterInfo g_gdiAdapterInfo = {};
 	D3dDdi::KernelModeThunks::AdapterInfo g_lastOpenAdapterInfo = {};
 	Compat::SrwLock g_adapterInfoSrwLock;
@@ -86,38 +85,31 @@ namespace
 
 		if (D3DDDIFMT_P8 == pData->Format)
 		{
-			if (g_dcPaletteOverride)
+			DDraw::ScopedThreadLock ddLock;
+			D3dDdi::ScopedCriticalSection driverLock;
+			auto primaryResource = D3dDdi::Device::findResource(DDraw::PrimarySurface::getFrontResource());
+			if (primaryResource && pData->pMemory == primaryResource->getLockPtr(0) &&
+				(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_COMPLEX))
 			{
-				pData->pColorTable = g_dcPaletteOverride;
+				pData->pColorTable = Gdi::Palette::getDefaultPalette();
+			}
+			else if (pData->pColorTable)
+			{
+				palette.assign(pData->pColorTable, pData->pColorTable + 256);
+				auto sysPal = Gdi::Palette::getSystemPalette();
+				for (UINT i = 0; i < 256; ++i)
+				{
+					if (palette[i].peFlags & PC_EXPLICIT)
+					{
+						palette[i] = sysPal[palette[i].peRed];
+					}
+				}
+				pData->pColorTable = palette.data();
 			}
 			else
 			{
-				DDraw::ScopedThreadLock ddLock;
-				D3dDdi::ScopedCriticalSection driverLock;
-				auto primaryResource = D3dDdi::Device::findResource(DDraw::PrimarySurface::getFrontResource());
-				if (primaryResource && pData->pMemory == primaryResource->getLockPtr(0) &&
-					(DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_COMPLEX))
-				{
-					pData->pColorTable = Gdi::Palette::getDefaultPalette();
-				}
-				else if (pData->pColorTable)
-				{
-					palette.assign(pData->pColorTable, pData->pColorTable + 256);
-					auto sysPal = Gdi::Palette::getSystemPalette();
-					for (UINT i = 0; i < 256; ++i)
-					{
-						if (palette[i].peFlags & PC_EXPLICIT)
-						{
-							palette[i] = sysPal[palette[i].peRed];
-						}
-					}
-					pData->pColorTable = palette.data();
-				}
-				else
-				{
-					palette = Gdi::Palette::getHardwarePalette();
-					pData->pColorTable = palette.data();
-				}
+				palette = Gdi::Palette::getHardwarePalette();
+				pData->pColorTable = palette.data();
 			}
 		}
 
@@ -583,11 +575,6 @@ namespace D3dDdi
 		void setDcFormatOverride(UINT format)
 		{
 			g_dcFormatOverride = static_cast<D3DDDIFORMAT>(format);
-		}
-
-		void setDcPaletteOverride(PALETTEENTRY* palette)
-		{
-			g_dcPaletteOverride = palette;
 		}
 
 		void setFlipEndVsyncCount()

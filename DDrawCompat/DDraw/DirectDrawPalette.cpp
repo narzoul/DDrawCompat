@@ -13,6 +13,11 @@ namespace
 	HRESULT STDMETHODCALLTYPE SetEntries(
 		IDirectDrawPalette* This, DWORD dwFlags, DWORD dwStartingEntry, DWORD dwCount, LPPALETTEENTRY lpEntries)
 	{
+		if (lpEntries)
+		{
+			LOG_DEBUG << Compat::array(lpEntries, dwCount);
+		}
+
 		if (This == DDraw::PrimarySurface::s_palette)
 		{
 			DDraw::DirectDrawPalette::waitForNextUpdate();

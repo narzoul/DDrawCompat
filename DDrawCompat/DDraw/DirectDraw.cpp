@@ -36,6 +36,34 @@ namespace
 	LRESULT handleActivateApp(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
 	LRESULT handleSize(HWND hwnd, WPARAM wParam, LPARAM lParam);
 
+	template <typename TDirectDraw>
+	HRESULT STDMETHODCALLTYPE CreatePalette(TDirectDraw* This, DWORD dwFlags, LPPALETTEENTRY lpDDColorArray,
+		LPDIRECTDRAWPALETTE* lplpDDPalette, IUnknown* pUnkOuter)
+	{
+		if (lpDDColorArray)
+		{
+			DWORD count = 0;
+			if (dwFlags & DDPCAPS_1BIT)
+			{
+				count = 2;
+			}
+			else if (dwFlags & DDPCAPS_2BIT)
+			{
+				count = 4;
+			}
+			else if (dwFlags & DDPCAPS_4BIT)
+			{
+				count = 16;
+			}
+			else if (dwFlags & DDPCAPS_8BIT)
+			{
+				count = 256;
+			}
+			LOG_DEBUG << Compat::array(lpDDColorArray, count);
+		}
+		return getOrigVtable(This).CreatePalette(This, dwFlags, lpDDColorArray, lplpDDPalette, pUnkOuter);
+	}
+
 	template <typename TDirectDraw, typename TSurfaceDesc, typename TSurface>
 	HRESULT STDMETHODCALLTYPE CreateSurface(
 		TDirectDraw* This, TSurfaceDesc* lpDDSurfaceDesc, TSurface** lplpDDSurface, IUnknown* pUnkOuter)
@@ -319,6 +347,7 @@ namespace
 	template <typename Vtable>
 	constexpr void setCompatVtable(Vtable& vtable)
 	{
+		vtable.CreatePalette = &CreatePalette;
 		vtable.CreateSurface = &CreateSurface;
 		vtable.FlipToGDISurface = &FlipToGDISurface;
 		vtable.GetCaps = &GetCaps;

@@ -31,7 +31,6 @@ namespace D3dDdi
 		bool isFlipPending();
 		bool isPresentPending();
 		void setDcFormatOverride(UINT format);
-		void setDcPaletteOverride(PALETTEENTRY* palette);
 		void setFlipEndVsyncCount();
 		void setPresentEndVsyncCount();
 		void waitForFlipEnd();

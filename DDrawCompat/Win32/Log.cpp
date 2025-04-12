@@ -448,6 +448,12 @@ std::ostream& operator<<(std::ostream& os, const OSVERSIONINFOEXW& vi)
 	return logOsVersionInfoEx(os, vi);
 }
 
+std::ostream& operator<<(std::ostream& os, const PALETTEENTRY& pe)
+{
+	auto fill = os.fill('0');
+	return os << std::setw(8) << std::hex << *reinterpret_cast<const DWORD*>(&pe) << std::dec << std::setfill(fill);
+}
+
 std::ostream& operator<<(std::ostream& os, const POINT& p)
 {
 	return Compat::LogStruct(os)
