@@ -203,8 +203,8 @@ namespace
 			HWND dcWindow = CALL_ORIG_FUNC(WindowFromDC)(hdc);
 			if (dcWindow && !(CALL_ORIG_FUNC(GetWindowLongA)(dcWindow, GWL_EXSTYLE) & WS_EX_TOOLWINDOW))
 			{
-				HWND activeWindow = GetActiveWindow();
-				if (activeWindow == dcWindow || IsChild(activeWindow, dcWindow))
+				HWND foregroundWindow = GetForegroundWindow();
+				if (foregroundWindow && (foregroundWindow == dcWindow || IsChild(foregroundWindow, dcWindow)))
 				{
 					Compat::ScopedSrwLockExclusive lock(g_srwLock);
 					g_paletteInfo[hpal].isForeground = true;
