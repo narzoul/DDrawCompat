@@ -45,14 +45,10 @@ namespace DDraw
 		virtual HRESULT SetSurfaceDesc(TSurface* This, TSurfaceDesc* lpddsd, DWORD dwFlags);
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect);
 
-		virtual TSurface* getBltSrc(TSurface* src);
-
 	protected:
 		Surface* m_data;
 
 	private:
 		void restoreOrigCaps(DWORD& caps);
 	};
-
-	void setBltSrc(_D3DDDIARG_BLT& data);
 }

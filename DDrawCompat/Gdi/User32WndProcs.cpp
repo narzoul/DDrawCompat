@@ -162,17 +162,8 @@ namespace
 			break;
 
 		case WM_ERASEBKGND:
-		{
-			HBRUSH brush = reinterpret_cast<HBRUSH>(GetClassLong(hwnd, GCL_HBRBACKGROUND));
-			if (!brush)
-			{
-				return FALSE;
-			}
-			RECT rect = {};
-			GetClientRect(hwnd, &rect);
-			FillRect(Gdi::CompatDc(reinterpret_cast<HDC>(wParam)), &rect, brush);
-			return TRUE;
-		}
+			return origDefWindowProc(hwnd, msg,
+				reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(reinterpret_cast<HDC>(wParam)))), lParam);
 
 		case WM_NCACTIVATE:
 			return onNcActivate(hwnd, wParam, lParam);

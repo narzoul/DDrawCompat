@@ -22,10 +22,6 @@
 
 namespace
 {
-	HANDLE g_bltSrcResource = nullptr;
-	UINT g_bltSrcSubResourceIndex = 0;
-	RECT g_bltSrcRect = {};
-
 	IDirectDrawClipper* createClipper()
 	{
 		IDirectDrawClipper* clipper = nullptr;
@@ -107,87 +103,28 @@ namespace
 		CompatPtr<IDirectDrawClipper> m_clipper;
 	};
 
-	template <typename TSurface>
-	typename DDraw::Types<TSurface>::TDdsCaps getCaps(TSurface* This)
-	{
-		DDraw::Types<TSurface>::TDdsCaps caps = {};
-		getOrigVtable(This).GetCaps(This, &caps);
-		return caps;
-	}
-
-	template <typename TSurface>
-	typename DDraw::Types<TSurface>::TSurfaceDesc getDesc(TSurface* This)
-	{
-		DDraw::Types<TSurface>::TSurfaceDesc desc = {};
-		desc.dwSize = sizeof(desc);
-		getOrigVtable(This).GetSurfaceDesc(This, &desc);
-		return desc;
-	}
-
-	template <typename TSurfaceDesc>
-	RECT getRect(LPRECT rect, const TSurfaceDesc& desc)
-	{
-		return rect ? *rect : RECT{ 0, 0, static_cast<LONG>(desc.dwWidth), static_cast<LONG>(desc.dwHeight) };
-	}
-
 	template <typename TSurface, typename BltFunc>
 	HRESULT blt(TSurface* This, TSurface* lpDDSrcSurface, LPRECT lpSrcRect, BltFunc bltFunc)
 	{
-		if (!lpDDSrcSurface)
+		if (lpDDSrcSurface)
 		{
-			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
+			const DWORD dstCaps = DDraw::DirectDrawSurface::getInt(*This).lpLcl->ddsCaps.dwCaps;
+			if ((dstCaps & DDSCAPS_3DDEVICE) && (dstCaps & DDSCAPS_VIDEOMEMORY) &&
+				DDraw::Surface::getSurface(*lpDDSrcSurface))
+			{
+				DWORD& srcCaps = DDraw::DirectDrawSurface::getInt(*lpDDSrcSurface).lpLcl->ddsCaps.dwCaps;
+				if (srcCaps & DDSCAPS_SYSTEMMEMORY)
+				{
+					srcCaps &= ~DDSCAPS_SYSTEMMEMORY;
+					srcCaps |= DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM;
+					HRESULT result = bltFunc(This, lpDDSrcSurface, lpSrcRect);
+					srcCaps &= ~(DDSCAPS_VIDEOMEMORY | DDSCAPS_LOCALVIDMEM);
+					srcCaps |= DDSCAPS_SYSTEMMEMORY;
+					return result;
+				}
+			}
 		}
-
-		auto srcSurface = DDraw::Surface::getSurface(*lpDDSrcSurface);
-		if (srcSurface)
-		{
-			lpDDSrcSurface = srcSurface->getImpl<TSurface>()->getBltSrc(lpDDSrcSurface);
-		}
-
-		auto dstCaps = getCaps(This);
-		if (!(dstCaps.dwCaps & DDSCAPS_3DDEVICE) || !(dstCaps.dwCaps & DDSCAPS_VIDEOMEMORY))
-		{
-			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
-		}
-
-		auto srcDesc = getDesc(lpDDSrcSurface);
-		if (!(srcDesc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
-		{
-			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
-		}
-
-		auto srcResource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*lpDDSrcSurface));
-		if (!srcResource)
-		{
-			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
-		}
-
-		auto& repo = srcResource->getDevice().getRepo();
-		RECT srcRect = getRect(lpSrcRect, srcDesc);
-		auto& tex = repo.getTempTexture(srcRect.right - srcRect.left, srcRect.bottom - srcRect.top,
-			srcResource->getOrigDesc().Format);
-		if (!tex.resource)
-		{
-			return bltFunc(This, lpDDSrcSurface, lpSrcRect);
-		}
-
-		CompatPtr<TSurface> newSrcSurface(tex.surface);
-		DDCOLORKEY ck = {};
-		HRESULT result = getOrigVtable(This).GetColorKey(lpDDSrcSurface, DDCKEY_SRCBLT, &ck);
-		getOrigVtable(This).SetColorKey(newSrcSurface, DDCKEY_SRCBLT, SUCCEEDED(result) ? &ck : nullptr);
-
-		g_bltSrcResource = *srcResource;
-		g_bltSrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(*lpDDSrcSurface);
-		g_bltSrcRect = getRect(lpSrcRect, srcDesc);
-
-		RECT r = { 0, 0, g_bltSrcRect.right - g_bltSrcRect.left, g_bltSrcRect.bottom - g_bltSrcRect.top };
-		result = bltFunc(This, newSrcSurface, &r);
-
-		g_bltSrcResource = nullptr;
-		g_bltSrcSubResourceIndex = 0;
-		g_bltSrcRect = {};
-
-		return SUCCEEDED(result) ? DD_OK : bltFunc(This, lpDDSrcSurface, lpSrcRect);
+		return bltFunc(This, lpDDSrcSurface, lpSrcRect);
 	}
 }
 
@@ -251,12 +188,6 @@ namespace DDraw
 			return getOrigVtable(This).GetAttachedSurface(This, &caps, lplpDDAttachedSurface);
 		}
 		return getOrigVtable(This).GetAttachedSurface(This, lpDDSCaps, lplpDDAttachedSurface);
-	}
-
-	template <typename TSurface>
-	TSurface* SurfaceImpl<TSurface>::getBltSrc(TSurface* src)
-	{
-		return src;
 	}
 
 	template <typename TSurface>
@@ -422,14 +353,4 @@ namespace DDraw
 	template SurfaceImpl<IDirectDrawSurface3>;
 	template SurfaceImpl<IDirectDrawSurface4>;
 	template SurfaceImpl<IDirectDrawSurface7>;
-
-	void setBltSrc(D3DDDIARG_BLT& data)
-	{
-		if (g_bltSrcResource)
-		{
-			data.hSrcResource = g_bltSrcResource;
-			data.SrcSubResourceIndex = g_bltSrcSubResourceIndex;
-			OffsetRect(&data.SrcRect, g_bltSrcRect.left, g_bltSrcRect.top);
-		}
-	}
 }

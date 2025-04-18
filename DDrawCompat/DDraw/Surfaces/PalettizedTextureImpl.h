@@ -33,8 +33,6 @@ namespace DDraw
 		virtual HRESULT SetPalette(TSurface* This, LPDIRECTDRAWPALETTE lpDDPalette) override;
 		virtual HRESULT Unlock(TSurface* This, TUnlockParam lpRect) override;
 
-		virtual TSurface* getBltSrc(TSurface* src) override;
-
 	private:
 		PalettizedTexture& m_data;
 		CompatPtr<TSurface> m_palettizedSurface;

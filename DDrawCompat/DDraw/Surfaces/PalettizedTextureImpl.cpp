@@ -28,12 +28,6 @@ namespace DDraw
 	}
 
 	template <typename TSurface>
-	TSurface* PalettizedTextureImpl<TSurface>::getBltSrc(TSurface* /*src*/)
-	{
-		return m_palettizedSurface;
-	}
-
-	template <typename TSurface>
 	HRESULT PalettizedTextureImpl<TSurface>::GetCaps(TSurface* /*This*/, TDdsCaps* lpDDSCaps)
 	{
 		return SurfaceImpl::GetCaps(m_palettizedSurface, lpDDSCaps);

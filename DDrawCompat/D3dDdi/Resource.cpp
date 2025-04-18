@@ -219,7 +219,6 @@ namespace D3dDdi
 			return S_OK;
 		}
 
-		DDraw::setBltSrc(data);
 		auto srcResource = m_device.getResource(data.hSrcResource);
 		if (!srcResource)
 		{
@@ -1061,13 +1060,6 @@ namespace D3dDdi
 			return E_FAIL;
 		}
 
-		D3DDDIARG_BLT blt = {};
-		DDraw::setBltSrc(blt);
-		if (blt.hSrcResource)
-		{
-			return E_ABORT;
-		}
-
 		if (g_readOnlyLock)
 		{
 			data.Flags.ReadOnly = true;
@@ -1722,9 +1714,6 @@ namespace D3dDdi
 		{
 			return false;
 		}
-
-		D3DDDIARG_BLT blt = {};
-		DDraw::setBltSrc(blt);
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool ||
 			D3DDDIFMT_P8 == m_fixedData.Format ||
