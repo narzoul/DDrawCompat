@@ -20,7 +20,6 @@
 #include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
-#include <DDraw/Surfaces/PalettizedTexture.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
 #include <DDraw/Visitors/DirectDrawVtblVisitor.h>
@@ -108,23 +107,13 @@ namespace
 				}
 			}
 
-			if (isPalettized && (desc.ddsCaps.dwCaps & DDSCAPS_TEXTURE))
+			if (isPalettized && (desc.ddsCaps.dwCaps & DDSCAPS_TEXTURE) && !Config::palettizedTextures.get())
 			{
-				if (Config::palettizedTextures.get())
-				{
-					if (!(desc.ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY))
-					{
-						return result = DDraw::PalettizedTexture::create<TDirectDraw>(*This, desc, *lplpDDSurface);
-					}
-				}
-				else if (desc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY)
+				if (desc.ddsCaps.dwCaps & DDSCAPS_VIDEOMEMORY)
 				{
 					return result = DDERR_UNSUPPORTED;
 				}
-				else
-				{
-					desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
-				}
+				desc.ddsCaps.dwCaps |= DDSCAPS_SYSTEMMEMORY;
 			}
 		}
 

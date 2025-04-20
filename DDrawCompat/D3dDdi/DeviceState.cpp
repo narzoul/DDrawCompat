@@ -1313,10 +1313,9 @@ namespace D3dDdi
 			tss.State = D3DDDITSS_TEXTURECOLORKEYVAL;
 			tss.Value = m_app.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
 			auto resource = getTextureResource(stage);
-			if (resource && resource->getPalettizedTexture())
+			if (resource)
 			{
-				tss.Value = reinterpret_cast<DWORD&>(
-					m_device.getPalette(resource->getPalettizedTexture()->getPaletteHandle())[tss.Value]) & 0xFFFFFF;
+				tss.Value = resource->getMappedColorKey(tss.Value);
 			}
 			m_current.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL] = tss.Value;
 			m_current.textureStageState[stage][D3DDDITSS_DISABLETEXTURECOLORKEY] = FALSE;

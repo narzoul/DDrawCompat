@@ -33,9 +33,8 @@ namespace D3dDdi
 		FORMATOP getFormatOp() const { return m_formatOp; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
 		UINT getPaletteHandle() const { return m_paletteHandle; }
-		Resource* getPalettizedTexture() { return m_palettizedTexture; }
 		bool isClampable() const { return m_isClampable; }
-		void invalidatePalettizedTexture() { m_isPalettizedTextureUpToDate = false; }
+		void invalidatePalettizedTexture();
 
 		HRESULT blt(D3DDDIARG_BLT data);
 		HRESULT colorFill(D3DDDIARG_COLORFILL data);
@@ -44,6 +43,7 @@ namespace D3dDdi
 		HRESULT depthFill(const D3DDDIARG_DEPTHFILL& data);
 		void disableClamp();
 		void* getLockPtr(UINT subResourceIndex);
+		UINT getMappedColorKey(UINT colorKey) const;
 		RECT getRect(UINT subResourceIndex) const;
 		HRESULT lock(D3DDDIARG_LOCK& data);
 		void onDestroyResource(HANDLE resource);
@@ -62,7 +62,6 @@ namespace D3dDdi
 		void setAsGdiResource(bool isGdiResource);
 		void setAsPrimary();
 		void setPaletteHandle(UINT paletteHandle);
-		void setPalettizedTexture(Resource& resource);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
 		void updatePalettizedTexture();
@@ -120,6 +119,7 @@ namespace D3dDdi
 		D3DDDIFORMAT getFormatConfig();
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
 		SIZE getScaledSize();
+		bool isPalettizedTexture() const;
 		bool isScaled(UINT subResourceIndex);
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
 		void loadFromLockRefResource(UINT subResourceIndex);
@@ -147,19 +147,19 @@ namespace D3dDdi
 		SurfaceRepository::Surface m_msaaSurface;
 		SurfaceRepository::Surface m_msaaResolvedSurface;
 		SurfaceRepository::Surface m_nullSurface;
+		SurfaceRepository::Surface m_paletteResolvedSurface;
 		SurfaceRepository::Surface m_colorKeyedSurface;
 		UINT m_colorKey;
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;
 		SIZE m_scaledSize;
-		Resource* m_palettizedTexture;
 		UINT m_paletteHandle;
+		std::vector<bool> m_isPaletteResolvedSurfaceUpToDate;
+		std::vector<bool> m_isColorKeyedSurfaceUpToDate;
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;
 		bool m_isPrimary;
 		bool m_isPrimaryScalingNeeded;
-		bool m_isPalettizedTextureUpToDate;
-		bool m_isColorKeyedSurfaceUpToDate;
 	};
 }

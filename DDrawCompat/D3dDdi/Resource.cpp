@@ -133,15 +133,12 @@ namespace D3dDdi
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
 		, m_scaledSize{}
-		, m_palettizedTexture(nullptr)
 		, m_paletteHandle(0)
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface() || !g_enableConfig)
 		, m_isClampable(true)
 		, m_isPrimary(false)
 		, m_isPrimaryScalingNeeded(false)
-		, m_isPalettizedTextureUpToDate(false)
-		, m_isColorKeyedSurfaceUpToDate(false)
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -169,6 +166,9 @@ namespace D3dDdi
 		}
 		m_handle = m_fixedData.hResource;
 
+		m_isPaletteResolvedSurfaceUpToDate.resize(m_fixedData.SurfCount);
+		m_isColorKeyedSurfaceUpToDate.resize(m_fixedData.SurfCount);
+
 		if (D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool && m_origData.Flags.ZBuffer &&
 			!m_device.getAdapter().getInfo().isD3D9On12)
 		{
@@ -195,6 +195,16 @@ namespace D3dDdi
 		else
 		{
 			createLockResource();
+		}
+
+		if (isPalettizedTexture())
+		{
+			m_device.getRepo().getSurface(m_paletteResolvedSurface,
+				m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
+				D3DDDIFMT_X8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY |
+				(m_fixedData.MipLevels > 1 ? DDSCAPS_MIPMAP : 0),
+				m_fixedData.SurfCount,
+				m_fixedData.Flags.CubeMap ? DDSCAPS2_CUBEMAP : 0);
 		}
 
 		data.hResource = m_fixedData.hResource;
@@ -860,6 +870,15 @@ namespace D3dDdi
 		return m_lockData.empty() ? nullptr : m_lockData[subResourceIndex].data;
 	}
 
+	UINT Resource::getMappedColorKey(UINT colorKey) const
+	{
+		if (isPalettizedTexture())
+		{
+			return reinterpret_cast<UINT&>(m_device.getPalette(m_paletteHandle)[colorKey]) & 0xFFFFFF;
+		}
+		return colorKey;
+	}
+
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig()
 	{
 		if (!m_isPrimary || m_origData.Flags.RenderTarget)
@@ -883,6 +902,17 @@ namespace D3dDdi
 			return m_device.getAdapter().getScaledSize(size);
 		}
 		return size;
+	}
+
+	void Resource::invalidatePalettizedTexture()
+	{
+		m_isPaletteResolvedSurfaceUpToDate.assign(m_fixedData.SurfCount, false);
+		m_isColorKeyedSurfaceUpToDate.assign(m_fixedData.SurfCount, false);
+	}
+
+	bool Resource::isPalettizedTexture() const
+	{
+		return D3DDDIFMT_P8 == m_origData.Format && m_origData.Flags.Texture && D3DDDIPOOL_SYSTEMMEM != m_origData.Pool;
 	}
 
 	bool Resource::isScaled(UINT subResourceIndex)
@@ -1072,8 +1102,8 @@ namespace D3dDdi
 
 		if (!data.Flags.ReadOnly)
 		{
-			m_isPalettizedTextureUpToDate = false;
-			m_isColorKeyedSurfaceUpToDate = false;
+			m_isPaletteResolvedSurfaceUpToDate[data.SubResourceIndex] = false;
+			m_isColorKeyedSurfaceUpToDate[data.SubResourceIndex] = false;
 		}
 
 		if (m_fixedData.Flags.ZBuffer && m_msaaResolvedSurface.resource)
@@ -1131,8 +1161,8 @@ namespace D3dDdi
 
 	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect)
 	{
-		m_isPalettizedTextureUpToDate = false;
-		m_isColorKeyedSurfaceUpToDate = false;
+		m_isPaletteResolvedSurfaceUpToDate[subResourceIndex] = false;
+		m_isColorKeyedSurfaceUpToDate[subResourceIndex] = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
 		{
 			loadFromLockRefResource(subResourceIndex);
@@ -1172,8 +1202,8 @@ namespace D3dDdi
 
 	void Resource::prepareForCpuWrite(UINT subResourceIndex)
 	{
-		m_isPalettizedTextureUpToDate = false;
-		m_isColorKeyedSurfaceUpToDate = false;
+		m_isPaletteResolvedSurfaceUpToDate[subResourceIndex] = false;
+		m_isColorKeyedSurfaceUpToDate[subResourceIndex] = false;
 		if (m_lockResource)
 		{
 			if (m_lockRefSurface.resource &&
@@ -1221,7 +1251,7 @@ namespace D3dDdi
 
 	Resource& Resource::prepareForGpuWrite(UINT subResourceIndex)
 	{
-		m_isColorKeyedSurfaceUpToDate = false;
+		m_isColorKeyedSurfaceUpToDate[subResourceIndex] = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
 		{
 			if (m_msaaSurface.resource)
@@ -1269,7 +1299,8 @@ namespace D3dDdi
 			}
 		}
 
-		auto& defaultResource = m_msaaResolvedSurface.resource ? *m_msaaResolvedSurface.resource : *this;
+		auto& defaultResource = m_msaaResolvedSurface.resource ? *m_msaaResolvedSurface.resource :
+			(m_paletteResolvedSurface.resource ? *m_paletteResolvedSurface.resource : *this);
 		const auto& appState = m_device.getState().getAppState();
 		if (Config::Settings::ColorKeyMethod::ALPHATEST != Config::colorKeyMethod.get() ||
 			!appState.renderState[D3DDDIRS_COLORKEYENABLE] ||
@@ -1292,24 +1323,23 @@ namespace D3dDdi
 			}
 		}
 
-		auto colorKey = appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL];
-		if (m_palettizedTexture)
+		const auto colorKey = getMappedColorKey(appState.textureStageState[stage][D3DDDITSS_TEXTURECOLORKEYVAL]);
+		if (colorKey != m_colorKey)
 		{
-			colorKey = reinterpret_cast<UINT&>(m_device.getPalette(m_palettizedTexture->m_paletteHandle)[colorKey]) & 0xFFFFFF;
+			m_isColorKeyedSurfaceUpToDate.assign(m_fixedData.SurfCount, false);
+			m_colorKey = colorKey;
 		}
 
-		if (!m_isColorKeyedSurfaceUpToDate ||
-			m_colorKey != colorKey)
+		const ShaderBlitter::ColorKeyInfo ck = { colorKey,
+			D3DDDIFMT_P8 == m_origData.Format ? D3DDDIFMT_X8R8G8B8 : m_origData.Format };
+		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
-			m_isColorKeyedSurfaceUpToDate = true;
-			m_colorKey = colorKey;
-			const ShaderBlitter::ColorKeyInfo ck = { m_colorKey, m_origData.Format };
-			for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
+			if (!m_isColorKeyedSurfaceUpToDate[i])
 			{
 				m_device.getShaderBlitter().colorKeyBlt(*m_colorKeyedSurface.resource, i, defaultResource, i, ck);
+				m_isColorKeyedSurfaceUpToDate[i] = true;
 			}
 		}
-
 		return *m_colorKeyedSurface.resource;
 	}
 
@@ -1549,14 +1579,11 @@ namespace D3dDdi
 
 	void Resource::setPaletteHandle(UINT paletteHandle)
 	{
-		m_paletteHandle = paletteHandle;
-		m_isPalettizedTextureUpToDate = false;
-	}
-
-	void Resource::setPalettizedTexture(Resource& resource)
-	{
-		m_palettizedTexture = &resource;
-		resource.m_isPalettizedTextureUpToDate = false;
+		if (paletteHandle != m_paletteHandle)
+		{
+			m_paletteHandle = paletteHandle;
+			invalidatePalettizedTexture();
+		}
 	}
 
 	void Resource::setReadOnlyLock(bool readOnly)
@@ -1839,17 +1866,25 @@ namespace D3dDdi
 
 	void Resource::updatePalettizedTexture()
 	{
-		if (!m_palettizedTexture || m_palettizedTexture->m_isPalettizedTextureUpToDate)
+		if (!isPalettizedTexture())
 		{
 			return;
 		}
 
-		auto rect = getRect(0);
-		m_palettizedTexture->prepareForGpuReadAll();
-		m_device.getShaderBlitter().palettizedBlt(*this, 0, rect, *m_palettizedTexture, 0, rect,
-			m_device.getPalette(m_palettizedTexture->m_paletteHandle));
-		m_palettizedTexture->m_isPalettizedTextureUpToDate = true;
-		m_isColorKeyedSurfaceUpToDate = false;
+		prepareForGpuReadAll();
+		if (m_paletteResolvedSurface.resource)
+		{
+			for (unsigned i = 0; i < m_fixedData.SurfCount; ++i)
+			{
+				if (!m_isPaletteResolvedSurfaceUpToDate[i])
+				{
+					auto rect = getRect(i);
+					m_device.getShaderBlitter().palettizedBlt(*m_paletteResolvedSurface.resource, i, rect, *this, i, rect,
+						m_device.getPalette(m_paletteHandle));
+					m_isPaletteResolvedSurfaceUpToDate[i] = true;
+				}
+			}
+		}
 	}
 
 	void Resource::waitForIdle(UINT subResourceIndex)
