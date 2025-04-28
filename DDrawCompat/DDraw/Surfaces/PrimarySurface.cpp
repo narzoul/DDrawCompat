@@ -99,6 +99,11 @@ namespace DDraw
 			return LOG_RESULT(result);
 		}
 
+		if (g_primarySurface)
+		{
+			LOG_INFO << "WARNING: Multiple primary surfaces are not supported";
+		}
+
 		g_deviceName = deviceName;
 		g_origCaps = origCaps;
 		g_deviceWindow = *DDraw::DirectDraw::getDeviceWindowPtr(dd.get());

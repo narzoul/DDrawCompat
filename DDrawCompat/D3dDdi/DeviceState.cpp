@@ -1328,19 +1328,23 @@ namespace D3dDdi
 
 	void DeviceState::updateTextureStages()
 	{
+		const UINT textureStageCount = getTextureStageCount();
 		for (UINT stage = 0; stage <= m_maxChangedTextureStage; ++stage)
 		{
-			auto resource = getTextureResource(stage);
-			if (resource)
+			if (stage < textureStageCount)
 			{
-				resource = &resource->prepareForTextureRead(stage);
-			}
+				auto resource = getTextureResource(stage);
+				if (resource)
+				{
+					resource = &resource->prepareForTextureRead(stage);
+				}
 
-			if (setTexture(stage, resource ? *resource : m_app.textures[stage]) ||
-				m_changedTextureStageStates[stage].test(D3DDDITSS_DISABLETEXTURECOLORKEY) ||
-				m_changedTextureStageStates[stage].test(D3DDDITSS_TEXTURECOLORKEYVAL))
-			{
-				updateTextureColorKey(stage);
+				if (setTexture(stage, resource ? *resource : m_app.textures[stage]) ||
+					m_changedTextureStageStates[stage].test(D3DDDITSS_DISABLETEXTURECOLORKEY) ||
+					m_changedTextureStageStates[stage].test(D3DDDITSS_TEXTURECOLORKEYVAL))
+				{
+					updateTextureColorKey(stage);
+				}
 			}
 
 			m_changedTextureStageStates[stage].forEach([&](UINT stateIndex)
