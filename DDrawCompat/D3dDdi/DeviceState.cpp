@@ -453,12 +453,12 @@ namespace D3dDdi
 		case D3DDDITSS_MAGFILTER:
 		case D3DDDITSS_MINFILTER:
 		{
-			auto filter = (m_spriteMode && 0 == stage) ? Config::spriteFilter.get() : Config::textureFilter.getFilter();
+			auto filter = m_spriteMode ? Config::spriteFilter.get() : Config::textureFilter.getFilter();
 			return D3DTEXF_NONE == filter ? value : filter;
 		}
 
 		case D3DDDITSS_MIPFILTER:
-			return (D3DTEXF_NONE == value || D3DTEXF_NONE == Config::textureFilter.getMipFilter())
+			return (m_spriteMode || D3DTEXF_NONE == value || D3DTEXF_NONE == Config::textureFilter.getMipFilter())
 				? value : Config::textureFilter.getMipFilter();
 
 		case D3DDDITSS_MAXANISOTROPY:
