@@ -39,26 +39,6 @@ namespace
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> g_msaaOverride = {};
 	bool g_readOnlyLock = false;
 
-	RECT applyDisplayAspectRatio(const RECT& rect, const SIZE& ar)
-	{
-		LONG width = rect.right;
-		LONG height = rect.bottom;
-		SIZE offset = {};
-
-		if (width * ar.cy > height * ar.cx)
-		{
-			width = height * ar.cx / ar.cy;
-			offset.cx = (rect.right - width) / 2;
-		}
-		else
-		{
-			height = width * ar.cy / ar.cx;
-			offset.cy = (rect.bottom - height) / 2;
-		}
-
-		return { offset.cx, offset.cy, offset.cx + width, offset.cy + height };
-	}
-
 	LONG divCeil(LONG n, LONG d)
 	{
 		return (n + d - 1) / d;
@@ -1371,7 +1351,7 @@ namespace D3dDdi
 		LONG srcWidth = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Width;
 		LONG srcHeight = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Height;
 		data.SrcRect = { 0, 0, srcWidth, srcHeight };
-		data.DstRect = applyDisplayAspectRatio(data.DstRect, m_device.getAdapter().getAspectRatio());
+		data.DstRect = m_device.getAdapter().applyDisplayAspectRatio(data.DstRect);
 
 		auto& repo = m_device.getRepo();
 		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight, srcResource->m_fixedData.Format);

@@ -35,7 +35,7 @@ namespace D3dDdi
 
 		operator HANDLE() const { return m_adapter; }
 
-		SIZE getAspectRatio() const;
+		RECT applyDisplayAspectRatio(const RECT& rect) const;
 		GUID* getGuid() const { return m_guid; }
 		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
@@ -54,6 +54,7 @@ namespace D3dDdi
 
 		static void add(const D3DDDIARG_OPENADAPTER& data) { s_adapters.emplace(data.hAdapter, data); }
 		static Adapter& get(HANDLE adapter) { return s_adapters.find(adapter)->second; }
+		static Adapter* find(const std::wstring& deviceName);
 		static void setRepository(LUID luid, GUID* guid, CompatWeakPtr<IDirectDraw7> repository);
 
 	private:

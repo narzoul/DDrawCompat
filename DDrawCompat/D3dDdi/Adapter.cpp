@@ -92,23 +92,37 @@ namespace D3dDdi
 	{
 	}
 
-	SIZE Adapter::getAspectRatio(SIZE appRes, SIZE displayRes) const
+	RECT Adapter::applyDisplayAspectRatio(const RECT& rect) const
 	{
-		SIZE ar = Config::displayAspectRatio.get();
-		if (Config::Settings::DisplayAspectRatio::APP == ar)
+		const SIZE ar = getAspectRatio({}, {});
+		const SIZE srcSize = Rect::getSize(rect);
+		SIZE dstSize = srcSize;
+		POINT origin = {};
+
+		if (srcSize.cx * ar.cy > srcSize.cy * ar.cx)
 		{
-			return 0 != appRes.cx ? appRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcEmulated);
+			dstSize.cx = srcSize.cy * ar.cx / ar.cy;
+			origin.x = rect.left + (srcSize.cx - dstSize.cx) / 2;
 		}
-		else if (Config::Settings::DisplayAspectRatio::DISPLAY == ar)
+		else
 		{
-			return 0 != displayRes.cx ? displayRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcReal);
+			dstSize.cy = srcSize.cx * ar.cy / ar.cx;
+			origin.y = rect.top + (srcSize.cy - dstSize.cy) / 2;
 		}
-		return ar;
+
+		return { origin.x, origin.y, origin.x + dstSize.cx, origin.y + dstSize.cy };
 	}
 
-	SIZE Adapter::getAspectRatio() const
+	Adapter* Adapter::find(const std::wstring& deviceName)
 	{
-		return getAspectRatio({}, {});
+		for (auto& adapter : s_adapters)
+		{
+			if (deviceName == adapter.second.m_deviceName)
+			{
+				return &adapter.second;
+			}
+		}
+		return nullptr;
 	}
 
 	const Adapter::AdapterInfo& Adapter::findInfo() const
@@ -148,6 +162,20 @@ namespace D3dDdi
 		}
 
 		return info;
+	}
+
+	SIZE Adapter::getAspectRatio(SIZE appRes, SIZE displayRes) const
+	{
+		SIZE ar = Config::displayAspectRatio.get();
+		if (Config::Settings::DisplayAspectRatio::APP == ar)
+		{
+			return 0 != appRes.cx ? appRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcEmulated);
+		}
+		else if (Config::Settings::DisplayAspectRatio::DISPLAY == ar)
+		{
+			return 0 != displayRes.cx ? displayRes : Rect::getSize(Win32::DisplayMode::getMonitorInfo(m_deviceName).rcReal);
+		}
+		return ar;
 	}
 
 	std::map<D3DDDIFORMAT, FORMATOP> Adapter::getFixedFormatOps(const AdapterInfo& info) const

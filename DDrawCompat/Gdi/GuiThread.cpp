@@ -1,10 +1,13 @@
+#include <dwmapi.h>
 #include <ShObjIdl.h>
 #include <Windows.h>
 
 #include <Common/Log.h>
 #include <Common/Hook.h>
+#include <Common/Rect.h>
 #include <Config/Settings/ConfigHotKey.h>
 #include <Config/Settings/StatsHotKey.h>
+#include <D3dDdi/Adapter.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -34,6 +37,8 @@ namespace
 	Overlay::StatsWindow* g_statsWindow = nullptr;
 	HWND g_messageWindow = nullptr;
 	bool g_isReady = false;
+
+	unsigned WINAPI screenshotThreadProc(LPVOID /*lpParameter*/);
 
 	BOOL CALLBACK enumWindowsProc(HWND hwnd, LPARAM lParam)
 	{
@@ -133,6 +138,67 @@ namespace
 		return hWnd;
 	}
 
+	RECT getScreenshotWindowRect()
+	{
+		LOG_FUNC("getScreenshotWindowRect");
+		HWND foregroundWindow = GetForegroundWindow();
+		LOG_DEBUG << "Foreground window: " << foregroundWindow;
+
+		if (!foregroundWindow)
+		{
+			LOG_DEBUG << "Using desktop rect";
+			RECT r = {};
+			for (auto& mi : Win32::DisplayMode::getAllMonitorInfo())
+			{
+				UnionRect(&r, &r, &mi.second.rcReal);
+			}
+			return r;
+		}
+
+		DWORD pid = 0;
+		GetWindowThreadProcessId(foregroundWindow, &pid);
+		if (GetCurrentProcessId() != pid)
+		{
+			LOG_DEBUG << "Foreground window doesn't belong to current process";
+			RECT r = {};
+			DwmGetWindowAttribute(foregroundWindow, DWMWA_EXTENDED_FRAME_BOUNDS, &r, sizeof(r));
+			return LOG_RESULT(r);
+		}
+
+		RECT windowRect = {};
+		CALL_ORIG_FUNC(GetWindowRect)(foregroundWindow, &windowRect);
+		LOG_DEBUG << "Foreground window rect: " << windowRect;
+
+		auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
+		if (dm.deviceName.empty())
+		{
+			LOG_DEBUG << "No scaling needed";
+			return LOG_RESULT(windowRect);
+		}
+
+		auto mi = Win32::DisplayMode::getMonitorInfo(dm.deviceName);
+		if (!mi.isEmulated)
+		{
+			LOG_DEBUG << "Scaling lost";
+			return LOG_RESULT(windowRect);
+		}
+
+		D3dDdi::ScopedCriticalSection lock;
+		auto adapter = D3dDdi::Adapter::find(dm.deviceName);
+		if (!adapter)
+		{
+			LOG_DEBUG << "Adapter not found";
+			return LOG_RESULT(windowRect);
+		}
+
+		RECT screenRect = adapter->applyDisplayAspectRatio(mi.rcReal);
+		Rect::transform(windowRect, mi.rcEmulated, screenRect);
+		LOG_DEBUG << "Scaled window rect: " << windowRect;
+
+		IntersectRect(&windowRect, &windowRect, &screenRect);
+		return LOG_RESULT(windowRect);
+	}
+
 	HWND WINAPI getTopWindow(HWND hWnd)
 	{
 		LOG_FUNC("GetTopWindow", hWnd);
@@ -187,12 +253,33 @@ namespace
 			func();
 			return 0;
 		}
+
 		if (WM_USER_EXECUTE_ASYNC == uMsg)
 		{
 			auto func = reinterpret_cast<void(*)()>(lParam);
 			func();
 			return 0;
 		}
+
+		if (WM_HOTKEY == uMsg)
+		{
+			static HANDLE thread = nullptr;
+			if (thread && WAIT_OBJECT_0 == WaitForSingleObject(thread, 0))
+			{
+				CloseHandle(thread);
+				thread = nullptr;
+			}
+
+			if (thread)
+			{
+				LOG_DEBUG << "Previous screenshot thread is still running";
+			}
+			else
+			{
+				thread = Dll::createThread(&screenshotThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
+			}
+		}
+
 		return CALL_ORIG_FUNC(DefWindowProc)(hwnd, uMsg, wParam, lParam);
 	}
 
@@ -242,6 +329,9 @@ namespace
 		}
 
 		Input::init();
+		RegisterHotKey(g_messageWindow, 0, MOD_ALT, VK_SNAPSHOT);
+		RegisterHotKey(g_messageWindow, 1, MOD_ALT | MOD_CONTROL, VK_SNAPSHOT);
+		RegisterHotKey(g_messageWindow, 2, MOD_ALT | MOD_CONTROL | MOD_SHIFT, VK_SNAPSHOT);
 
 		MSG msg = {};
 		while (CALL_ORIG_FUNC(GetMessageA)(&msg, nullptr, 0, 0))
@@ -250,6 +340,54 @@ namespace
 		}
 
 		return 0;
+	}
+
+	unsigned WINAPI screenshotThreadProc(LPVOID /*lpParameter*/)
+	{
+		LOG_FUNC("screenshotThreadProc");
+		RECT rect = getScreenshotWindowRect();
+		if (IsRectEmpty(&rect))
+		{
+			return LOG_RESULT(1);
+		}
+
+		std::unique_ptr<HDC__, void(*)(HDC)> srcDc(GetDC(nullptr), [](HDC dc) { ReleaseDC(nullptr, dc); });
+		std::unique_ptr<HDC__, decltype(&DeleteDC)> dstDc(CreateCompatibleDC(nullptr), DeleteDC);
+		std::unique_ptr<HBITMAP__, decltype(&DeleteObject)> bmp(
+			CALL_ORIG_FUNC(CreateCompatibleBitmap)(srcDc.get(), rect.right - rect.left, rect.bottom - rect.top), DeleteObject);
+		if (!srcDc || !dstDc || !bmp)
+		{
+			return LOG_RESULT(2);
+		}
+
+		auto oldBmp = SelectObject(dstDc.get(), bmp.get());
+		CALL_ORIG_FUNC(BitBlt)(dstDc.get(), 0, 0, rect.right - rect.left, rect.bottom - rect.top,
+			srcDc.get(), rect.left, rect.top, SRCCOPY | CAPTUREBLT);
+		SelectObject(dstDc.get(), oldBmp);
+
+		if (!OpenClipboard(GetDesktopWindow()))
+		{
+			return LOG_RESULT(3);
+		}
+
+		class ClipBoardGuard
+		{
+		public:
+			~ClipBoardGuard() { CloseClipboard(); }
+		} clipBoardGuard;
+
+		if (!EmptyClipboard())
+		{
+			return LOG_RESULT(4);
+		}
+
+		if (!SetClipboardData(CF_BITMAP, bmp.get()))
+		{
+			return LOG_RESULT(5);
+		}
+
+		bmp.release();
+		return LOG_RESULT(0);
 	}
 }
 
