@@ -209,6 +209,12 @@ namespace D3dDdi
 			return S_OK;
 		}
 
+		if (m_lockResource)
+		{
+			m_isPaletteResolvedSurfaceUpToDate[data.DstSubResourceIndex] = false;
+			m_isColorKeyedSurfaceUpToDate[data.DstSubResourceIndex] = false;
+		}
+
 		auto srcResource = m_device.getResource(data.hSrcResource);
 		if (!srcResource)
 		{
@@ -424,7 +430,9 @@ namespace D3dDdi
 				(!m_device.getAdapter().getInfo().isD3D9On12 || Rect::isEqualSize(data.SrcRect, data.DstRect));
 		}
 
-		return Rect::isEqualSize(data.SrcRect, data.DstRect);
+		return (m_fixedData.Format == srcResource.m_fixedData.Format ||
+			D3DDDIPOOL_SYSTEMMEM != srcResource.m_fixedData.Pool && D3DDDIPOOL_SYSTEMMEM != m_fixedData.Pool) &&
+			Rect::isEqualSize(data.SrcRect, data.DstRect);
 	}
 
 	void Resource::clearRectExterior(UINT subResourceIndex, const RECT& rect)
@@ -485,6 +493,9 @@ namespace D3dDdi
 
 		if (m_lockResource)
 		{
+			m_isPaletteResolvedSurfaceUpToDate[data.SubResourceIndex] = false;
+			m_isColorKeyedSurfaceUpToDate[data.SubResourceIndex] = false;
+
 			auto& lockData = m_lockData[data.SubResourceIndex];
 			if (lockData.isSysMemUpToDate && !lockData.isVidMemUpToDate)
 			{
@@ -1141,8 +1152,6 @@ namespace D3dDdi
 
 	Resource& Resource::prepareForBltDst(HANDLE& resource, UINT subResourceIndex, RECT& rect)
 	{
-		m_isPaletteResolvedSurfaceUpToDate[subResourceIndex] = false;
-		m_isColorKeyedSurfaceUpToDate[subResourceIndex] = false;
 		if (m_lockResource || m_msaaResolvedSurface.resource)
 		{
 			loadFromLockRefResource(subResourceIndex);
@@ -1578,18 +1587,12 @@ namespace D3dDdi
 		if (D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
 			dstResource.canCopySubResource(data, srcResource))
 		{
-			if (dstResource.m_fixedData.Format != srcResource.m_fixedData.Format &&
-				(D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
-					D3DDDIPOOL_SYSTEMMEM == srcResource.m_fixedData.Pool))
+			HRESULT result = m_device.getOrigVtable().pfnBlt(m_device, &data);
+			if (SUCCEEDED(result) && D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool)
 			{
-				auto subResourceIndex = D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool
-					? data.SrcSubResourceIndex : data.DstSubResourceIndex;
-				copySubResourceRegion(m_handle, subResourceIndex, data.SrcRect,
-					data.hSrcResource, data.SrcSubResourceIndex, data.SrcRect);
-				return LOG_RESULT(dstResource.copySubResourceRegion(data.hDstResource, data.DstSubResourceIndex, data.DstRect,
-					m_handle, subResourceIndex, data.SrcRect));
+				dstResource.notifyLock(data.DstSubResourceIndex);
 			}
-			return LOG_RESULT(m_device.getOrigVtable().pfnBlt(m_device, &data));
+			return LOG_RESULT(result);
 		}
 
 		auto& repo = m_device.getRepo();
