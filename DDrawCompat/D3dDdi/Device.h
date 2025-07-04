@@ -71,6 +71,7 @@ namespace D3dDdi
 		void setDepthStencil(HANDLE resource);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
 		void updateConfig();
+		void waitForIdle();
 
 		static void add(Adapter& adapter, HANDLE device, HANDLE runtimeDevice);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
@@ -92,6 +93,8 @@ namespace D3dDdi
 		Adapter& m_adapter;
 		HANDLE m_device;
 		HANDLE m_runtimeDevice;
+		HANDLE m_eventQuery;
+		bool m_isEventQueryPending;
 		std::map<HANDLE, std::unique_ptr<Resource>> m_resources;
 		Resource* m_depthStencil;
 		Resource* m_renderTarget;

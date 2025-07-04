@@ -333,11 +333,6 @@ namespace D3dDdi
 		return surface;
 	}
 
-	SurfaceRepository::Surface& SurfaceRepository::getSyncSurface(D3DDDIFORMAT format)
-	{
-		return getSurface(m_syncSurface[format], 16, 16, format, DDSCAPS_VIDEOMEMORY);
-	}
-
 	SurfaceRepository::Surface& SurfaceRepository::getTempSurface(Surface& surface, DWORD width, DWORD height,
 		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount)
 	{

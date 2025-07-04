@@ -49,7 +49,6 @@ namespace D3dDdi
 			const Resource* currentSrcRt = nullptr, const Resource* currentDstRt = nullptr);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
-		Surface& getSyncSurface(D3DDDIFORMAT format);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
@@ -90,7 +89,6 @@ namespace D3dDdi
 		std::array<Surface, 3> m_hqRenderTargets;
 		std::map<D3DDDIFORMAT, Surface> m_textures;
 		std::vector<Surface> m_releasedSurfaces;
-		std::map<D3DDDIFORMAT, Surface> m_syncSurface;
 		Surface m_sysMemSurface;
 		Surface m_windowedBackBuffer;
 		CompatPtr<IDirectDrawSurface7> m_windowedPrimary;

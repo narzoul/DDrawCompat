@@ -18,6 +18,7 @@
 namespace
 {
 	CompatWeakPtr<IDirectDrawSurface7> g_primarySurface;
+	D3dDdi::Device* g_device = nullptr;
 	HANDLE g_gdiDriverResource = nullptr;
 	HANDLE g_gdiRuntimeResource = nullptr;
 	D3dDdi::Resource* g_frontResource = nullptr;
@@ -35,6 +36,7 @@ namespace DDraw
 	{
 		LOG_FUNC("PrimarySurface::~PrimarySurface");
 
+		g_device = nullptr;
 		g_gdiRuntimeResource = nullptr;
 		g_gdiDriverResource = nullptr;
 		g_frontResource = nullptr;
@@ -117,6 +119,7 @@ namespace DDraw
 			ResizePalette(g_palette, 256);
 		}
 
+		g_device = D3dDdi::Device::findDeviceByResource(DirectDrawSurface::getDriverResourceHandle(*surface));
 		data->restore();
 		D3dDdi::Device::updateAllConfig();
 		return LOG_RESULT(DD_OK);
@@ -371,10 +374,9 @@ namespace DDraw
 
 	void PrimarySurface::waitForIdle()
 	{
-		D3dDdi::ScopedCriticalSection lock;
-		if (g_frontResource)
+		if (g_device)
 		{
-			g_frontResource->waitForIdle(g_frontResourceIndex);
+			g_device->waitForIdle();
 		}
 	}
 

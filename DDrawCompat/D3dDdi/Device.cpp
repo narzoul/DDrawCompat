@@ -32,6 +32,8 @@ namespace D3dDdi
 		, m_adapter(adapter)
 		, m_device(device)
 		, m_runtimeDevice(runtimeDevice)
+		, m_eventQuery(nullptr)
+		, m_isEventQueryPending(false)
 		, m_depthStencil(nullptr)
 		, m_renderTarget(nullptr)
 		, m_renderTargetSubResourceIndex(0)
@@ -40,6 +42,10 @@ namespace D3dDdi
 		, m_state(*this)
 		, m_shaderBlitter(*this)
 	{
+		D3DDDIARG_CREATEQUERY createQuery = {};
+		createQuery.QueryType = D3DDDIQUERYTYPE_EVENT;
+		m_origVtable.pfnCreateQuery(m_device, &createQuery);
+		m_eventQuery = createQuery.hQuery;
 	}
 
 	void Device::add(Adapter& adapter, HANDLE device, HANDLE runtimeDevice)
@@ -566,6 +572,37 @@ namespace D3dDdi
 			resource.second->updateConfig();
 		}
 		m_state.updateConfig();
+	}
+
+	void Device::waitForIdle()
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		flushPrimitives();
+
+		if (m_origVtable.pfnFlush1)
+		{
+			m_origVtable.pfnFlush1(m_device, 0);
+		}
+		else
+		{
+			m_origVtable.pfnFlush(m_device);
+		}
+
+		if (m_isEventQueryPending)
+		{
+			BOOL result = FALSE;
+			D3DDDIARG_GETQUERYDATA getQueryData = {};
+			getQueryData.hQuery = m_eventQuery;
+			getQueryData.pData = &result;
+			while (S_FALSE == m_origVtable.pfnGetQueryData(m_device, &getQueryData))
+			{
+			}
+		}
+
+		D3DDDIARG_ISSUEQUERY issueQuery = {};
+		issueQuery.hQuery = m_eventQuery;
+		issueQuery.Flags.End = 1;
+		m_isEventQueryPending = SUCCEEDED(m_origVtable.pfnIssueQuery(m_device, &issueQuery));
 	}
 
 	std::map<HANDLE, Device> Device::s_devices;
