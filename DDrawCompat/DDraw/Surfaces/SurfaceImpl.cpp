@@ -207,7 +207,7 @@ namespace DDraw
 		Gdi::WinProc::startFrame();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 		HRESULT result = getOrigVtable(This).GetDC(This, lphDC);
-		if (SUCCEEDED(result))
+		if (SUCCEEDED(result) && !(m_data->m_origCaps & DDSCAPS_OWNDC))
 		{
 			Dll::g_origProcs.ReleaseDDThreadLock();
 		}
@@ -294,7 +294,7 @@ namespace DDraw
 	HRESULT SurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
 		HRESULT result = getOrigVtable(This).ReleaseDC(This, hDC);
-		if (SUCCEEDED(result))
+		if (SUCCEEDED(result) && !(m_data->m_origCaps & DDSCAPS_OWNDC))
 		{
 			Dll::g_origProcs.AcquireDDThreadLock();
 		}
