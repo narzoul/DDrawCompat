@@ -635,6 +635,7 @@ namespace D3dDdi
 		switch (filter)
 		{
 		case Config::Settings::DisplayFilter::POINT:
+		case Config::Settings::DisplayFilter::INTEGER:
 			m_device.getShaderBlitter().pointBlt(dstResource, dstSubResourceIndex, dstRect,
 				srcResource, srcSubResourceIndex, srcRect);
 			break;

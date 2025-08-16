@@ -191,7 +191,7 @@ namespace
 			return LOG_RESULT(windowRect);
 		}
 
-		RECT screenRect = adapter->applyDisplayAspectRatio(mi.rcReal);
+		RECT screenRect = adapter->applyDisplayAspectRatio(mi.rcReal, Rect::getSize(mi.rcEmulated));
 		Rect::transform(windowRect, mi.rcEmulated, screenRect);
 		LOG_DEBUG << "Scaled window rect: " << windowRect;
 

@@ -9,7 +9,7 @@ namespace Config
 		class DisplayFilter : public EnumSetting
 		{
 		public:
-			enum Values { POINT, BILINEAR, BICUBIC, LANCZOS, SPLINE };
+			enum Values { POINT, INTEGER, BILINEAR, BICUBIC, LANCZOS, SPLINE };
 
 			DisplayFilter();
 

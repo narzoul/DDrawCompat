@@ -5,7 +5,7 @@ namespace Config
 	namespace Settings
 	{
 		DisplayFilter::DisplayFilter()
-			: EnumSetting("DisplayFilter", "bilinear", { "point",  "bilinear", "bicubic", "lanczos", "spline" })
+			: EnumSetting("DisplayFilter", "bilinear", { "point", "integer", "bilinear", "bicubic", "lanczos", "spline" })
 		{
 		}
 

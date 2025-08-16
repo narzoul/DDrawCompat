@@ -9,6 +9,7 @@
 #include <Common/Rect.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/DisplayAspectRatio.h>
+#include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/RenderColorDepth.h>
 #include <Config/Settings/ResolutionScale.h>
 #include <Config/Settings/SupportedDepthFormats.h>
@@ -92,7 +93,7 @@ namespace D3dDdi
 	{
 	}
 
-	RECT Adapter::applyDisplayAspectRatio(const RECT& rect) const
+	RECT Adapter::applyDisplayAspectRatio(const RECT& rect, const SIZE& appResolution) const
 	{
 		const SIZE ar = getAspectRatio({}, {});
 		const SIZE srcSize = Rect::getSize(rect);
@@ -102,13 +103,26 @@ namespace D3dDdi
 		if (srcSize.cx * ar.cy > srcSize.cy * ar.cx)
 		{
 			dstSize.cx = srcSize.cy * ar.cx / ar.cy;
-			origin.x = rect.left + (srcSize.cx - dstSize.cx) / 2;
 		}
 		else
 		{
 			dstSize.cy = srcSize.cx * ar.cy / ar.cx;
-			origin.y = rect.top + (srcSize.cy - dstSize.cy) / 2;
 		}
+
+		if (Config::Settings::DisplayFilter::INTEGER == Config::displayFilter.get())
+		{
+			if (dstSize.cx > appResolution.cx)
+			{
+				dstSize.cx = dstSize.cx / appResolution.cx * appResolution.cx;
+			}
+			if (dstSize.cy > appResolution.cy)
+			{
+				dstSize.cy = dstSize.cy / appResolution.cy * appResolution.cy;
+			}
+		}
+
+		origin.x = rect.left + (srcSize.cx - dstSize.cx) / 2;
+		origin.y = rect.top + (srcSize.cy - dstSize.cy) / 2;
 
 		return { origin.x, origin.y, origin.x + dstSize.cx, origin.y + dstSize.cy };
 	}

@@ -1360,7 +1360,7 @@ namespace D3dDdi
 		LONG srcWidth = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Width;
 		LONG srcHeight = srcResource->m_fixedData.pSurfList[data.SrcSubResourceIndex].Height;
 		data.SrcRect = { 0, 0, srcWidth, srcHeight };
-		data.DstRect = m_device.getAdapter().applyDisplayAspectRatio(data.DstRect);
+		data.DstRect = m_device.getAdapter().applyDisplayAspectRatio(data.DstRect, { srcWidth, srcHeight });
 
 		auto& repo = m_device.getRepo();
 		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight, srcResource->m_fixedData.Format);
