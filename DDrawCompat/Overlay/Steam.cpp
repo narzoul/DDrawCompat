@@ -17,7 +17,7 @@
 namespace
 {
 	decltype(&DirectDrawCreateEx) g_steamDirectDrawCreateEx = nullptr;
-	D3dDdi::Adapter* g_adapter = nullptr;
+	D3dDdi::Device* g_device = nullptr;
 	IDirectDraw7* g_dd = nullptr;
 	IDirect3D7* g_d3d = nullptr;
 	IDirectDrawSurface7* g_rt = nullptr;
@@ -125,7 +125,7 @@ namespace
 		releaseDevice();
 		release(g_d3d);
 		release(g_dd);
-		g_adapter = nullptr;
+		g_device = nullptr;
 	}
 
 	void releaseDevice()
@@ -209,17 +209,17 @@ namespace
 
 	bool updateDevice(D3dDdi::Resource& resource)
 	{
-		auto adapter = &resource.getDevice().getAdapter();
-		if (adapter != g_adapter)
+		auto device = &resource.getDevice();
+		if (device != g_device)
 		{
 			releaseAll();
-			g_adapter = adapter;
+			g_device = device;
 		}
 
 		if (!g_dd)
 		{
 			auto result = g_steamDirectDrawCreateEx(
-				adapter->getGuid(), reinterpret_cast<void**>(&g_dd), IID_IDirectDraw7, nullptr);
+				device->getGuid(), reinterpret_cast<void**>(&g_dd), IID_IDirectDraw7, nullptr);
 			if (FAILED(result))
 			{
 				LOG_ONCE("Failed to create DirectDraw object for Steam overlay: " << Compat::hex(result));
@@ -258,7 +258,7 @@ namespace
 			desc.ddpfPixelFormat = D3dDdi::getPixelFormat(D3DDDIFMT_X8R8G8B8);
 			desc.ddsCaps.dwCaps = DDSCAPS_OFFSCREENPLAIN | DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY;
 
-			auto& formats = adapter->getInfo().formatOps;
+			auto& formats = device->getAdapter().getInfo().formatOps;
 			if (formats.find(D3dDdi::FOURCC_NULL) != formats.end())
 			{
 				D3dDdi::Resource::setFormatOverride(D3dDdi::FOURCC_NULL);

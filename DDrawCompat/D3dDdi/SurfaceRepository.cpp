@@ -17,7 +17,6 @@
 
 namespace
 {
-	std::map<LUID, D3dDdi::SurfaceRepository> g_repositories;
 	D3dDdi::SurfaceRepository* g_primaryRepository = nullptr;
 	bool g_enableSurfaceCheck = true;
 
@@ -45,11 +44,16 @@ namespace
 
 namespace D3dDdi
 {
-	SurfaceRepository::SurfaceRepository()
-		: m_cursor(nullptr)
+	SurfaceRepository::SurfaceRepository(CompatPtr<IDirectDraw7> dd)
+		: m_dd(dd)
+		, m_cursor(nullptr)
 		, m_cursorSize{}
 		, m_cursorHotspot{}
 	{
+		if (!g_primaryRepository)
+		{
+			g_primaryRepository = this;
+		}
 	}
 
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
@@ -119,11 +123,6 @@ namespace D3dDdi
 	void SurfaceRepository::enableSurfaceCheck(bool enable)
 	{
 		g_enableSurfaceCheck = enable;
-	}
-
-	SurfaceRepository& SurfaceRepository::get(const Adapter& adapter)
-	{
-		return g_repositories[adapter.getLuid()];
 	}
 
 	SurfaceRepository::Cursor SurfaceRepository::getCursor(HCURSOR cursor)
@@ -431,15 +430,6 @@ namespace D3dDdi
 		{
 			m_releasedSurfaces.push_back(surface);
 			surface = {};
-		}
-	}
-
-	void SurfaceRepository::setRepository(CompatWeakPtr<IDirectDraw7> dd)
-	{
-		m_dd = dd;
-		if (!g_primaryRepository)
-		{
-			g_primaryRepository = this;
 		}
 	}
 

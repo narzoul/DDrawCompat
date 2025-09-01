@@ -58,15 +58,17 @@ namespace D3dDdi
 
 		Adapter& getAdapter() const { return m_adapter; }
 		DrawPrimitive& getDrawPrimitive() { return m_drawPrimitive; }
+		GUID* getGuid() const { return m_guid; }
 		const D3DDDI_DEVICEFUNCS& getOrigVtable() const { return m_origVtable; }
 		RGBQUAD* getPalette(UINT paletteHandle) { return m_palettes[paletteHandle].data(); }
-		SurfaceRepository& getRepo() const { return SurfaceRepository::get(m_adapter); }
+		SurfaceRepository& getRepo() const { return *m_repository; }
 		Resource* getResource(HANDLE resource);
 		DeviceState& getState() { return m_state; }
 		ShaderBlitter& getShaderBlitter() { return m_shaderBlitter; }
 
 		HRESULT createPrivateResource(D3DDDIARG_CREATERESOURCE2& data);
 		void flushPrimitives() { m_drawPrimitive.flushPrimitives(); }
+		void initRepository(GUID* guid);
 		void prepareForGpuWrite();
 		void setDepthStencil(HANDLE resource);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& data);
@@ -77,6 +79,7 @@ namespace D3dDdi
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
+		static Device* findDeviceByDd(CompatRef<IDirectDraw7> dd);
 		static Device* findDeviceByRuntimeHandle(HANDLE runtimeDevice);
 		static Device* findDeviceByResource(HANDLE resource);
 		static Resource* findResource(HANDLE resource);
@@ -91,6 +94,9 @@ namespace D3dDdi
 
 		D3DDDI_DEVICEFUNCS m_origVtable;
 		Adapter& m_adapter;
+		GUID* m_guid;
+		GUID m_guidBuf;
+		std::shared_ptr<SurfaceRepository> m_repository;
 		HANDLE m_device;
 		HANDLE m_runtimeDevice;
 		HANDLE m_eventQuery;

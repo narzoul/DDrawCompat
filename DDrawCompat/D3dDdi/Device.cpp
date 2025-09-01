@@ -10,6 +10,7 @@
 #include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/DeviceFuncs.h>
+#include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/ShaderAssembler.h>
@@ -30,6 +31,8 @@ namespace D3dDdi
 	Device::Device(Adapter& adapter, HANDLE device, HANDLE runtimeDevice)
 		: m_origVtable(CompatVtable<D3DDDI_DEVICEFUNCS>::s_origVtable)
 		, m_adapter(adapter)
+		, m_guid(nullptr)
+		, m_guidBuf{}
 		, m_device(device)
 		, m_runtimeDevice(runtimeDevice)
 		, m_eventQuery(nullptr)
@@ -104,6 +107,20 @@ namespace D3dDdi
 		return LOG_RESULT(result);
 	}
 
+	Device* Device::findDeviceByDd(CompatRef<IDirectDraw7> dd)
+	{
+		const auto& adapterInfo = KernelModeThunks::getAdapterInfo(dd);
+		for (auto& device : s_devices)
+		{
+			if (adapterInfo.luid == device.second.m_adapter.getLuid() &&
+				adapterInfo.vidPnSourceId == device.second.m_adapter.getVidPnSourceId())
+			{
+				return &device.second;
+			}
+		}
+		return nullptr;
+	}
+
 	Device* Device::findDeviceByRuntimeHandle(HANDLE runtimeDevice)
 	{
 		for (auto& device : s_devices)
@@ -150,6 +167,35 @@ namespace D3dDdi
 	{
 		auto it = m_resources.find(resource);
 		return it != m_resources.end() ? it->second.get() : nullptr;
+	}
+
+	void Device::initRepository(GUID* guid)
+	{
+		if (m_repository)
+		{
+			return;
+		}
+
+		if (guid)
+		{
+			m_guidBuf = *guid;
+			m_guid = &m_guidBuf;
+		}
+
+		CompatPtr<IDirectDraw7> repo;
+		HRESULT result = CALL_ORIG_PROC(DirectDrawCreateEx)(
+			guid, reinterpret_cast<void**>(&repo.getRef()), IID_IDirectDraw7, nullptr);
+		if (SUCCEEDED(result))
+		{
+			result = repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
+		}
+		if (FAILED(result))
+		{
+			LOG_INFO << "ERROR: Failed to create a surface repository: " << Compat::hex(result);
+			return;
+		}
+
+		m_repository.reset(new SurfaceRepository(repo));
 	}
 
 	void Device::prepareForGpuWrite()

@@ -409,22 +409,7 @@ namespace DDraw
 		void onCreate(GUID* guid, CompatRef<IDirectDraw7> dd)
 		{
 			DDraw::ScopedThreadLock lock;
-			static std::map<LUID, CompatWeakPtr<IDirectDraw7>> repositories;
-			auto adapterInfo = D3dDdi::KernelModeThunks::getAdapterInfo(dd);
-			auto it = repositories.find(adapterInfo.luid);
-			if (it == repositories.end())
-			{
-				CompatPtr<IDirectDraw7> repo;
-				CALL_ORIG_PROC(DirectDrawCreateEx)(guid, reinterpret_cast<void**>(&repo.getRef()), IID_IDirectDraw7, nullptr);
-				if (!repo)
-				{
-					return;
-				}
-				repo.get()->lpVtbl->SetCooperativeLevel(repo, nullptr, DDSCL_NORMAL | DDSCL_FPUPRESERVE);
-				it = repositories.insert({ adapterInfo.luid, repo }).first;
-				D3dDdi::Adapter::setRepository(adapterInfo.luid, guid, it->second);
-				repo.detach();
-			}
+			D3dDdi::Device::findDeviceByDd(dd)->initRepository(guid);
 		}
 
 		void suppressEmulatedDirectDraw(GUID*& guid)

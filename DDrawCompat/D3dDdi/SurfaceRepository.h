@@ -37,7 +37,7 @@ namespace D3dDdi
 			D3DDDIFORMAT format = D3DDDIFMT_UNKNOWN;
 		};
 
-		SurfaceRepository();
+		SurfaceRepository(CompatPtr<IDirectDraw7> dd);
 
 		Cursor getCursor(HCURSOR cursor);
 		CompatWeakPtr<IDirectDraw7> getDirectDraw() { return m_dd; }
@@ -57,9 +57,7 @@ namespace D3dDdi
 		CompatWeakPtr<IDirectDrawSurface7> getWindowedPrimary();
 		CompatPtr<IDirectDrawSurface7> getWindowedSrc(RECT rect);
 		void release(Surface& surface);
-		void setRepository(CompatWeakPtr<IDirectDraw7> dd);
 
-		static SurfaceRepository& get(const Adapter& adapter);
 		static SurfaceRepository& getPrimaryRepo();
 		static bool inCreateSurface() { return s_inCreateSurface; }
 		static bool isLockResourceEnabled() { return s_isLockResourceEnabled; }
@@ -74,7 +72,7 @@ namespace D3dDdi
 		bool hasAlpha(CompatRef<IDirectDrawSurface7> surface);
 		bool isLost(Surface& surface);
 
-		CompatWeakPtr<IDirectDraw7> m_dd;
+		CompatPtr<IDirectDraw7> m_dd;
 		HCURSOR m_cursor;
 		SIZE m_cursorSize;
 		POINT m_cursorHotspot;

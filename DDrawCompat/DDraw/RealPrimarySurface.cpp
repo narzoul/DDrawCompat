@@ -400,7 +400,7 @@ namespace
 
 		if (g_presentationWindow)
 		{
-			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(g_presentationWindow, MONITOR_DEFAULTTOPRIMARY));
+			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(fullscreenWindow, MONITOR_DEFAULTTOPRIMARY));
 			auto& mr = mi.rcDpiAware;
 
 			Gdi::GuiThread::execute([&]()
