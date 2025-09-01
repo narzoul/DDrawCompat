@@ -94,6 +94,7 @@ namespace D3dDdi
 
 	ShaderBlitter::ShaderBlitter(Device& device)
 		: m_device(device)
+		, m_metaShader(device)
 		, m_psAlphaBlend(createPixelShader(g_psAlphaBlend))
 		, m_psBilinear(createPixelShader(g_psBilinear))
 		, m_psColorKey(createPixelShader(g_psColorKey))
@@ -255,8 +256,6 @@ namespace D3dDdi
 			LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
-
-		DeviceState::TempStateLock lock(state);
 
 		if (srcRgn)
 		{
@@ -618,8 +617,6 @@ namespace D3dDdi
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
 
 		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
-
-		DeviceState::TempStateLock lock(state);
 		drawRect(Rect::toRectF(dstRect));
 	}
 
@@ -627,37 +624,47 @@ namespace D3dDdi
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
 	{
 		auto filter = Config::displayFilter.get();
-		if (Rect::isEqualSize(dstRect, srcRect))
+		if (Config::Settings::DisplayFilter::CGP != filter)
 		{
-			filter = Config::Settings::DisplayFilter::POINT;
+			if (!m_metaShader.getRelPath().empty())
+			{
+				m_metaShader.reset();
+			}
+			if (Rect::isEqualSize(dstRect, srcRect))
+			{
+				filter = Config::Settings::DisplayFilter::POINT;
+			}
 		}
 
 		switch (filter)
 		{
 		case Config::Settings::DisplayFilter::POINT:
 		case Config::Settings::DisplayFilter::INTEGER:
-			m_device.getShaderBlitter().pointBlt(dstResource, dstSubResourceIndex, dstRect,
-				srcResource, srcSubResourceIndex, srcRect);
+			pointBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect);
 			break;
 
 		case Config::Settings::DisplayFilter::BILINEAR:
-			m_device.getShaderBlitter().bilinearBlt(dstResource, dstSubResourceIndex, dstRect,
-				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			bilinearBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				Config::displayFilter.getParam());
 			break;
 
 		case Config::Settings::DisplayFilter::BICUBIC:
-			m_device.getShaderBlitter().bicubicBlt(dstResource, dstSubResourceIndex, dstRect,
-				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			bicubicBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				Config::displayFilter.getParam());
 			break;
 
 		case Config::Settings::DisplayFilter::LANCZOS:
-			m_device.getShaderBlitter().lanczosBlt(dstResource, dstSubResourceIndex, dstRect,
-				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			lanczosBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				Config::displayFilter.getParam());
 			break;
 
 		case Config::Settings::DisplayFilter::SPLINE:
-			m_device.getShaderBlitter().splineBlt(dstResource, dstSubResourceIndex, dstRect,
-				srcResource, srcSubResourceIndex, srcRect, Config::displayFilter.getParam());
+			splineBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+				Config::displayFilter.getParam());
+			break;
+
+		case Config::Settings::DisplayFilter::CGP:
+			m_metaShader.render(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect);
 			break;
 		}
 	}

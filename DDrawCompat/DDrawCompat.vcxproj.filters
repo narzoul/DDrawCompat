@@ -744,6 +744,15 @@
     <ClInclude Include="Config\Settings\SupportedDevices.h">
       <Filter>Header Files\Config\Settings</Filter>
     </ClInclude>
+    <ClInclude Include="D3dDdi\ShaderCompiler.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="D3dDdi\MetaShader.h">
+      <Filter>Header Files\D3dDdi</Filter>
+    </ClInclude>
+    <ClInclude Include="Overlay\ShaderStatusControl.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1156,6 +1165,15 @@
     </ClCompile>
     <ClCompile Include="Config\Settings\SupportedDevices.cpp">
       <Filter>Source Files\Config\Settings</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\ShaderCompiler.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="D3dDdi\MetaShader.cpp">
+      <Filter>Source Files\D3dDdi</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\ShaderStatusControl.cpp">
+      <Filter>Source Files\Overlay</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

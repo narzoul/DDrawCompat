@@ -6,7 +6,8 @@ namespace Overlay
 {
 	ComboBoxControl::ComboBoxControl(Control& parent, const RECT& rect, const std::vector<std::string>& values)
 		: Control(&parent, rect, WS_BORDER | WS_VISIBLE)
-		, m_label(*this, { rect.left, rect.top, rect.right - ARROW_SIZE, rect.bottom }, std::string(), 0)
+		, m_label(*this, { rect.left, rect.top, rect.right - ARROW_SIZE, rect.bottom }, std::string(),
+			TA_LEFT, WS_CLIPCHILDREN)
 		, m_dropDown(*this, values)
 	{
 	}
@@ -27,5 +28,14 @@ namespace Overlay
 	void ComboBoxControl::onLButtonDown(POINT /*pos*/)
 	{
 		m_dropDown.setVisible(true);
+	}
+
+	void ComboBoxControl::setRect(const RECT& rect)
+	{
+		m_rect = rect;
+
+		RECT r = rect;
+		r.right -= ARROW_SIZE;
+		m_label.setRect(r);
 	}
 }

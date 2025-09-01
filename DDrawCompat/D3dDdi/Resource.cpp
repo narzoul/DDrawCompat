@@ -1363,10 +1363,11 @@ namespace D3dDdi
 		data.DstRect = m_device.getAdapter().applyDisplayAspectRatio(data.DstRect, { srcWidth, srcHeight });
 
 		auto& repo = m_device.getRepo();
-		const auto& rtSurface = repo.getNextRenderTarget(srcWidth, srcHeight, srcResource->m_fixedData.Format);
-		auto rt = rtSurface.resource ? rtSurface.resource : this;
-		auto rtIndex = rtSurface.resource ? 0 : data.DstSubResourceIndex;
-		auto rtRect = rtSurface.resource ? data.SrcRect : data.DstRect;
+		const auto& srcRtt = repo.getPresentationSourceRtt(srcWidth, srcHeight, srcResource->m_fixedData.Format);
+		if (!srcRtt.resource)
+		{
+			return LOG_RESULT(E_OUTOFMEMORY);
+		}
 
 		if (D3DDDIPOOL_SYSTEMMEM == srcResource->m_fixedData.Pool)
 		{
@@ -1391,28 +1392,25 @@ namespace D3dDdi
 				pal[i].rgbReserved = 0xFF;
 			}
 			m_device.getShaderBlitter().palettizedBlt(
-				*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect, pal);
+				*srcRtt.resource, 0, data.SrcRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect, pal);
 		}
 		else
 		{
-			copySubResourceRegion(*rt, rtIndex, rtRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect);
+			copySubResourceRegion(*srcRtt.resource, 0, data.SrcRect, *srcResource, data.SrcSubResourceIndex, data.SrcRect);
 		}
 
 		auto& mi = m_device.getAdapter().getMonitorInfo();
-		presentLayeredWindows(*rt, rtIndex, rtRect, Gdi::Window::getVisibleLayeredWindows(), mi.rcEmulated);
+		presentLayeredWindows(*srcRtt.resource, 0, data.SrcRect, Gdi::Window::getVisibleLayeredWindows(), mi.rcEmulated);
 
 		const auto cursorInfo = Gdi::Cursor::getEmulatedCursorInfo();
 		const bool isCursorEmulated = cursorInfo.flags == CURSOR_SHOWING && cursorInfo.hCursor;
 		if (isCursorEmulated)
 		{
-			m_device.getShaderBlitter().cursorBlt(*rt, rtIndex, rtRect, cursorInfo.hCursor, cursorInfo.ptScreenPos);
+			m_device.getShaderBlitter().cursorBlt(*srcRtt.resource, 0, data.SrcRect, cursorInfo.hCursor, cursorInfo.ptScreenPos);
 		}
 
-		if (rtSurface.resource)
-		{
-			m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *rt, 0, data.SrcRect);
-			clearRectExterior(data.DstSubResourceIndex, data.DstRect);
-		}
+		m_device.getShaderBlitter().displayBlt(*this, data.DstSubResourceIndex, data.DstRect, *srcRtt.resource, 0, data.SrcRect);
+		clearRectExterior(data.DstSubResourceIndex, data.DstRect);
 
 		presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
 			Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);

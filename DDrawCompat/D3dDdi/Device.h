@@ -77,6 +77,7 @@ namespace D3dDdi
 
 		static void add(Adapter& adapter, HANDLE device, HANDLE runtimeDevice);
 		static Device& get(HANDLE device) { return s_devices.find(device)->second; }
+		static std::map<HANDLE, Device>& getDevices() { return s_devices; }
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
 		static Device* findDeviceByDd(CompatRef<IDirectDraw7> dd);

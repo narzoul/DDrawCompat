@@ -6,6 +6,7 @@
 #include <Windows.h>
 
 #include <Common/Vector.h>
+#include <D3dDdi/MetaShader.h>
 #include <D3dDdi/ResourceDeleter.h>
 #include <Gdi/Region.h>
 
@@ -14,6 +15,7 @@ struct RectF;
 namespace D3dDdi
 {
 	class Device;
+	class MetaShader;
 	class Resource;
 
 	class ShaderBlitter
@@ -61,6 +63,8 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			UINT filter, ColorKeyInfo srcColorKey = {}, const BYTE* alpha = nullptr,
 			const Gdi::Region& srcRgn = nullptr);
+
+		MetaShader& getMetaShader() { return m_metaShader; }
 
 		static void resetGammaRamp();
 		static void setGammaRamp(const D3DDDI_GAMMA_RAMP_RGB256x3x16& ramp);
@@ -119,6 +123,7 @@ namespace D3dDdi
 		void setTextureCoords(UINT stage, const RECT& rect, UINT width, UINT height);
 
 		Device& m_device;
+		MetaShader m_metaShader;
 		std::unique_ptr<void, ResourceDeleter> m_psAlphaBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psBilinear;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;

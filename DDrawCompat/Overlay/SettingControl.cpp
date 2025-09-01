@@ -1,11 +1,4 @@
-#include <Config/Settings/Antialiasing.h>
-#include <Config/Settings/ColorKeyMethod.h>
-#include <Config/Settings/DepthFormat.h>
-#include <Config/Settings/RenderColorDepth.h>
-#include <Config/Settings/ResolutionScale.h>
-#include <Config/Settings/SpriteFilter.h>
-#include <Config/Settings/SpriteTexCoord.h>
-#include <Config/Settings/TextureFilter.h>
+#include <Config/Parser.h>
 #include <Config/Setting.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ConfigWindow.h>
@@ -121,25 +114,33 @@ namespace Overlay
 	{
 		const std::string value(getValueComboBox().getValue());
 		m_setting.set(value, "overlay");
-
-		if (m_paramControl)
-		{
-			m_paramLabel.reset();
-			m_paramControl.reset();
-		}
+		m_paramLabel.reset();
+		m_paramControl.reset();
+		m_shaderStatusControl.reset();
 
 		const auto paramInfo = m_setting.getParamInfo();
+		const bool isCgp = "cgp" == paramInfo.name;
+		RECT r = m_valueControl->getRect();
+		r.right = r.left + (isCgp ? SHADER_SETTING_CONTROL_WIDTH : SETTING_CONTROL_WIDTH);
+		m_valueControl->setRect(r);
+
 		if (!paramInfo.name.empty())
 		{
-			RECT r = m_valueControl->getRect();
 			r.left = r.right;
-			r.right = r.left + PARAM_LABEL_WIDTH;
-			m_paramLabel.reset(new LabelControl(*this, r, paramInfo.name + ':', 0));
-
-			r.left = r.right;
-			r.right = r.left + PARAM_CONTROL_WIDTH;
-			m_paramControl.reset(new ScrollBarControl(*this, r, paramInfo.min, paramInfo.max, m_setting.getParam()));
-			m_paramControl->setPos(m_setting.getParam());
+			if (isCgp)
+			{
+				r.right = m_rect.right - BORDER;
+				m_shaderStatusControl.reset(new ShaderStatusControl(*this, r));
+			}
+			else
+			{
+				r.right = r.left + PARAM_LABEL_WIDTH;
+				m_paramLabel.reset(new LabelControl(*this, r, paramInfo.name + ':', 0));
+				r.left = r.right;
+				r.right = r.left + PARAM_CONTROL_WIDTH;
+				m_paramControl.reset(new ScrollBarControl(*this, r, paramInfo.min, paramInfo.max, m_setting.getParam()));
+				m_paramControl->setPos(m_setting.getParam());
+			}
 		}
 	}
 

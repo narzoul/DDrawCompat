@@ -1,7 +1,9 @@
+#include <Windows.h>
 #include <dwmapi.h>
 #include <ShObjIdl.h>
-#include <Windows.h>
+#include <wincodec.h>
 
+#include <Common/CompatPtr.h>
 #include <Common/Log.h>
 #include <Common/Hook.h>
 #include <Common/Rect.h>
@@ -36,6 +38,7 @@ namespace
 	Overlay::ConfigWindow* g_configWindow = nullptr;
 	Overlay::StatsWindow* g_statsWindow = nullptr;
 	HWND g_messageWindow = nullptr;
+	IWICImagingFactory* g_wicImagingFactory = nullptr;
 	bool g_isReady = false;
 
 	unsigned WINAPI screenshotThreadProc(LPVOID /*lpParameter*/);
@@ -245,6 +248,64 @@ namespace
 		return TRUE;
 	}
 
+	HBITMAP loadImage(const std::filesystem::path& path)
+	{
+		if (!g_wicImagingFactory)
+		{
+			return nullptr;
+		}
+
+		CompatPtr<IWICBitmapDecoder> decoder;
+		g_wicImagingFactory->lpVtbl->CreateDecoderFromFilename(g_wicImagingFactory, path.c_str(), nullptr,
+			GENERIC_READ, WICDecodeMetadataCacheOnDemand, &decoder.getRef());
+		if (!decoder)
+		{
+			return nullptr;
+		}
+
+		CompatPtr<IWICBitmapFrameDecode> frameDecode;
+		decoder.get()->lpVtbl->GetFrame(decoder, 0, &frameDecode.getRef());
+		if (!frameDecode)
+		{
+			return nullptr;
+		}
+
+		UINT width = 0;
+		UINT height = 0;
+		WICPixelFormatGUID pixelFormat = {};
+		if (FAILED(frameDecode.get()->lpVtbl->GetSize(frameDecode, &width, &height)) ||
+			FAILED(frameDecode.get()->lpVtbl->GetPixelFormat(frameDecode, &pixelFormat)) ||
+			0 == width || 0 == height)
+		{
+			return nullptr;
+		}
+
+		CompatPtr<IWICBitmapSource> bitmapSource;
+		if (pixelFormat == GUID_WICPixelFormat32bppBGRA)
+		{
+			bitmapSource.reset(reinterpret_cast<IWICBitmapSource*>(frameDecode.get()));
+			bitmapSource.get()->lpVtbl->AddRef(bitmapSource);
+		}
+		else
+		{
+			WICConvertBitmapSource(GUID_WICPixelFormat32bppBGRA,
+				reinterpret_cast<IWICBitmapSource*>(frameDecode.get()), &bitmapSource.getRef());
+			if (!bitmapSource)
+			{
+				return nullptr;
+			}
+		}
+
+		std::vector<BYTE> imageBits(4 * width * height);
+		if (FAILED(bitmapSource.get()->lpVtbl->CopyPixels(
+			bitmapSource, nullptr, 4 * width, imageBits.size(), imageBits.data())))
+		{
+			return nullptr;
+		}
+
+		return CALL_ORIG_FUNC(CreateBitmap)(width, height, 1, 32, imageBits.data());
+	}
+
 	LRESULT CALLBACK messageWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam)
 	{
 		if (WM_USER_EXECUTE == uMsg)
@@ -295,6 +356,9 @@ namespace
 			taskbarList->lpVtbl->Release(taskbarList);
 			taskbarList = nullptr;
 		}
+
+		CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER, IID_IWICImagingFactory,
+			reinterpret_cast<void**>(&g_wicImagingFactory));
 
 		WNDCLASS wc = {};
 		wc.lpfnWndProc = &messageWindowProc;
@@ -490,6 +554,16 @@ namespace Gdi
 						rgn.release();
 					}
 				});
+		}
+
+		HBITMAP wicLoadImage(const std::filesystem::path& path)
+		{
+			HBITMAP bitmap = nullptr;
+			execute([&]()
+				{
+					bitmap = loadImage(path);
+				});
+			return bitmap;
 		}
 	}
 }

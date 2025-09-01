@@ -83,22 +83,15 @@ namespace D3dDdi
 			D3DDDIARG_SETPIXELSHADERCONSTI m_data;
 		};
 
-		class TempStateLock
+		class TempVertexShaderConst
 		{
 		public:
-			TempStateLock(DeviceState& state)
-				: m_state(state)
-			{
-				state.m_isLocked = true;
-			}
-
-			~TempStateLock()
-			{
-				m_state.m_isLocked = false;
-			}
+			TempVertexShaderConst(DeviceState& state, const D3DDDIARG_SETVERTEXSHADERCONST& data, const ShaderConstF* registers);
+			~TempVertexShaderConst();
 
 		private:
 			DeviceState& m_state;
+			D3DDDIARG_SETVERTEXSHADERCONST m_data;
 		};
 
 		struct VertexDecl
@@ -153,6 +146,7 @@ namespace D3dDdi
 		void setTempTexture(UINT stage, HANDLE texture);
 		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setTempVertexShaderDecl(HANDLE decl);
+		void setTempVertexShaderFunc(HANDLE shader);
 		void setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
 		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
 
@@ -165,7 +159,6 @@ namespace D3dDdi
 		UINT getTextureStageCount() const;
 		const VertexDecl& getVertexDecl() const;
 		const VertexFixupData& getVertexFixupData() const { return m_vertexFixupData; }
-		bool isLocked() const { return m_isLocked; }
 		void onDestroyResource(Resource* resource, HANDLE resourceHandle);
 		void unlockTexture(Resource& texture);
 		void updateConfig();
@@ -265,7 +258,6 @@ namespace D3dDdi
 		std::array<Resource*, 8> m_textureResource;
 		std::map<HANDLE, PixelShader> m_pixelShaders;
 		PixelShader* m_pixelShader;
-		bool m_isLocked;
 		bool m_spriteMode;
 	};
 }

@@ -29,6 +29,7 @@ namespace Overlay
 		virtual void onMouseWheel(POINT pos, SHORT delta);
 		virtual void onNotify(Control& /*control*/) {}
 		virtual void setVisible(bool isVisible);
+		virtual void setRect(const RECT& rect) { m_rect = rect; }
 
 		void drawAll(HDC dc);
 		Control* getParent() const { return m_parent; }
@@ -44,6 +45,7 @@ namespace Overlay
 		static const COLORREF DISABLED_COLOR = RGB(192, 192, 192);
 		static const COLORREF FOREGROUND_COLOR = RGB(0, 255, 0);
 		static const COLORREF HIGHLIGHT_COLOR = RGB(255, 255, 0);
+		static const COLORREF ERROR_COLOR = RGB(255, 0, 0);
 
 		void drawArrow(HDC dc, RECT rect, UINT state);
 

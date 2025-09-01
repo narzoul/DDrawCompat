@@ -552,26 +552,24 @@ namespace D3dDdi
 		auto& state = m_device.getState();
 		auto vertexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		m_vertexFixupFlags = 0;
-		if (!state.isLocked())
+
+		m_device.prepareForGpuWrite();
+		state.updateStreamSource();
+		if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 		{
-			m_device.prepareForGpuWrite();
-			state.updateStreamSource();
-			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
+			bool spriteMode = isSprite(data.VStart, vertexCount, nullptr);
+			state.setSpriteMode(spriteMode);
+			if (spriteMode)
 			{
-				bool spriteMode = isSprite(data.VStart, vertexCount, nullptr);
-				state.setSpriteMode(spriteMode);
-				if (spriteMode)
-				{
-					setTextureClampMode(data.VStart, nullptr, vertexCount);
-				}
+				setTextureClampMode(data.VStart, nullptr, vertexCount);
 			}
-			else
-			{
-				state.setSpriteMode(false);
-			}
-			state.flush();
-			setVertexFixupFlags(data.VStart, 0);
 		}
+		else
+		{
+			state.setSpriteMode(false);
+		}
+		state.flush();
+		setVertexFixupFlags(data.VStart, 0);
 
 		if (0 == m_batched.primitiveCount || flagBuffer ||
 			!appendPrimitives(data.PrimitiveType, data.VStart, data.PrimitiveCount, nullptr, 0, 0))
@@ -604,33 +602,28 @@ namespace D3dDdi
 		D3DDDIARG_DRAWINDEXEDPRIMITIVE2 data, const UINT16* indices, const UINT* flagBuffer)
 	{
 		auto& state = m_device.getState();
-		if (!state.isLocked())
-		{
-			m_device.prepareForGpuWrite();
-			state.updateStreamSource();
-		}
+		m_device.prepareForGpuWrite();
+		state.updateStreamSource();
 
 		auto indexCount = getVertexCount(data.PrimitiveType, data.PrimitiveCount);
 		auto vStart = data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride);
 		m_vertexFixupFlags = 0;
-		if (!state.isLocked())
+
+		if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
 		{
-			if (m_streamSource.vertices && data.PrimitiveType >= D3DPT_TRIANGLELIST)
+			bool spriteMode = isSprite(vStart, indexCount, indices);
+			state.setSpriteMode(spriteMode);
+			if (spriteMode)
 			{
-				bool spriteMode = isSprite(vStart, indexCount, indices);
-				state.setSpriteMode(spriteMode);
-				if (spriteMode)
-				{
-					setTextureClampMode(vStart, indices, indexCount);
-				}
+				setTextureClampMode(vStart, indices, indexCount);
 			}
-			else
-			{
-				state.setSpriteMode(false);
-			}
-			state.flush();
-			setVertexFixupFlags(vStart, indices[0]);
 		}
+		else
+		{
+			state.setSpriteMode(false);
+		}
+		state.flush();
+		setVertexFixupFlags(vStart, indices[0]);
 
 		auto [min, max] = std::minmax_element(indices, indices + indexCount);
 		data.MinIndex = *min;

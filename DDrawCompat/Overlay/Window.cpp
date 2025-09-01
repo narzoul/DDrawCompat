@@ -24,14 +24,19 @@ namespace
 
 	std::map<HWND, Overlay::Window&> g_windows;
 
-	HFONT createDefaultFont()
+	HFONT getDefaultFont()
 	{
-		LOGFONT lf = {};
-		lf.lfHeight = 13;
-		lf.lfWeight = FW_NORMAL;
-		lf.lfQuality = NONANTIALIASED_QUALITY;
-		strcpy_s(lf.lfFaceName, "Segoe UI");
-		return CreateFontIndirect(&lf);
+		static HFONT font = nullptr;
+		if (!font)
+		{
+			LOGFONT lf = {};
+			lf.lfHeight = 13;
+			lf.lfWeight = FW_NORMAL;
+			lf.lfQuality = NONANTIALIASED_QUALITY;
+			strcpy_s(lf.lfFaceName, "Segoe UI");
+			font = CreateFontIndirect(&lf);
+		}
+		return font;
 	}
 
 	void toggleWindow(void* window)
@@ -50,6 +55,7 @@ namespace Overlay
 		, m_alpha(alpha)
 		, m_scaleFactor(1)
 		, m_dc(CreateCompatibleDC(nullptr))
+		, m_font(getDefaultFont())
 		, m_bitmap(nullptr)
 		, m_bitmapBits(nullptr)
 		, m_invalid(true)
@@ -63,25 +69,9 @@ namespace Overlay
 			Input::registerHotKey(hotKey, &toggleWindow, this);
 		}
 
-		struct BITMAPINFO3 : public BITMAPINFO
-		{
-			RGBQUAD bmiRemainingColors[2];
-		};
+		updateBitmap();
 
-		BITMAPINFO3 bmi = {};
-		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
-		bmi.bmiHeader.biWidth = rect.right - rect.left;
-		bmi.bmiHeader.biHeight = rect.top - rect.bottom;
-		bmi.bmiHeader.biPlanes = 1;
-		bmi.bmiHeader.biBitCount = 32;
-		bmi.bmiHeader.biCompression = BI_BITFIELDS;
-		reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = 0xFF0000;
-		reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = 0x00FF00;
-		reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = 0x0000FF;
-
-		m_bitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &m_bitmapBits, nullptr, 0);
 		SaveDC(m_dc);
-		SelectObject(m_dc, m_bitmap);
 	}
 
 	Window::~Window()
@@ -154,11 +144,8 @@ namespace Overlay
 		{
 			return;
 		}
-		m_invalid = false;
 
-		static HFONT font = createDefaultFont();
-
-		SelectObject(m_dc, font);
+		SelectObject(m_dc, m_font);
 		SelectObject(m_dc, GetStockObject(DC_PEN));
 		SelectObject(m_dc, GetStockObject(NULL_BRUSH));
 		SetBkColor(m_dc, RGB(0, 0, 0));
@@ -175,6 +162,48 @@ namespace Overlay
 			windowDc, 0, 0, (m_rect.right - m_rect.left) * m_scaleFactor, (m_rect.bottom - m_rect.top) * m_scaleFactor,
 			m_dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, SRCCOPY);
 		ReleaseDC(m_hwnd, windowDc);
+
+		m_invalid = false;
+	}
+
+	void Window::updateBitmap()
+	{
+		if (m_bitmap)
+		{
+			BITMAP bm = {};
+			GetObject(m_bitmap, sizeof(BITMAP), &bm);
+			if (bm.bmWidth == m_rect.right - m_rect.left &&
+				bm.bmHeight == m_rect.bottom - m_rect.top)
+			{
+				return;
+			}
+			DeleteObject(m_bitmap);
+			m_bitmap = nullptr;
+		}
+
+		if (IsRectEmpty(&m_rect))
+		{
+			return;
+		}
+
+		struct BITMAPINFO3 : public BITMAPINFO
+		{
+			RGBQUAD bmiRemainingColors[2];
+		};
+
+		BITMAPINFO3 bmi = {};
+		bmi.bmiHeader.biSize = sizeof(bmi.bmiHeader);
+		bmi.bmiHeader.biWidth = m_rect.right - m_rect.left;
+		bmi.bmiHeader.biHeight = m_rect.top - m_rect.bottom;
+		bmi.bmiHeader.biPlanes = 1;
+		bmi.bmiHeader.biBitCount = 32;
+		bmi.bmiHeader.biCompression = BI_BITFIELDS;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[0]) = 0xFF0000;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[1]) = 0x00FF00;
+		reinterpret_cast<DWORD&>(bmi.bmiColors[2]) = 0x0000FF;
+
+		m_bitmap = CreateDIBSection(nullptr, &bmi, DIB_RGB_COLORS, &m_bitmapBits, nullptr, 0);
+		SelectObject(m_dc, m_bitmap);
 	}
 
 	void Window::updatePos()
@@ -199,6 +228,7 @@ namespace Overlay
 			Input::setCapture(Input::getCapture());
 		}
 
+		updateBitmap();
 		invalidate();
 	}
 

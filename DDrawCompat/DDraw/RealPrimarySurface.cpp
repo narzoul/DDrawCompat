@@ -355,7 +355,6 @@ namespace
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
 	{
 		updatePresentationParams();
-		present(src, isOverlayOnly);
 
 		{
 			Compat::ScopedCriticalSection lock(g_presentCs);
@@ -364,6 +363,7 @@ namespace
 			g_isUpdateReady = false;
 		}
 
+		present(src, isOverlayOnly);
 		D3dDdi::KernelModeThunks::setPresentEndVsyncCount();
 	}
 

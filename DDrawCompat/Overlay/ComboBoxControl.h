@@ -14,6 +14,8 @@ namespace Overlay
 	public:
 		ComboBoxControl(Control& parent, const RECT& rect, const std::vector<std::string>& values);
 
+		virtual void setRect(const RECT& rect) override;
+
 		const std::string& getValue() const { return m_label.getLabel(); }
 		void setValue(const std::string& value);
 

@@ -69,7 +69,8 @@ namespace Dll
 #undef  ADD_FARPROC_MEMBER
 	};
 
-	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority, unsigned initFlags = 0);
+	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority,
+		unsigned initFlags = 0, void* arg = nullptr);
 	std::string getEnvVar(const char* var);
 	void pinModule(HMODULE module);
 	void pinModule(LPCSTR moduleName);

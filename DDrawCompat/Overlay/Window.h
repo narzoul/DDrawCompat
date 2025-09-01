@@ -23,6 +23,7 @@ namespace Overlay
 		virtual void invalidate() override;
 		virtual void setVisible(bool isVisible) override;
 
+		HFONT getFont() const { return m_font; }
 		int getScaleFactor() const { return m_scaleFactor; }
 		HWND getWindow() const { return m_hwnd; }
 		void setAlpha(int alpha);
@@ -40,11 +41,13 @@ namespace Overlay
 		virtual void draw(HDC dc) override;
 
 		LRESULT windowProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
+		void updateBitmap();
 
 		static LRESULT CALLBACK staticWindowProc(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 		int m_scaleFactor;
 		HDC m_dc;
+		HFONT m_font;
 		HBITMAP m_bitmap;
 		void* m_bitmapBits;
 		bool m_invalid;

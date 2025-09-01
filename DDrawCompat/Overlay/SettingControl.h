@@ -5,6 +5,7 @@
 
 #include <Overlay/LabelControl.h>
 #include <Overlay/ScrollBarControl.h>
+#include <Overlay/ShaderStatusControl.h>
 
 namespace Config
 {
@@ -25,6 +26,7 @@ namespace Overlay
 		static const int PARAM_CONTROL_WIDTH = 241;
 		static const int SETTING_LABEL_WIDTH = 140;
 		static const int SETTING_CONTROL_WIDTH = 150;
+		static const int SHADER_SETTING_CONTROL_WIDTH = 380;
 		static const int TOTAL_WIDTH =
 			SETTING_LABEL_WIDTH + SETTING_CONTROL_WIDTH + PARAM_LABEL_WIDTH + PARAM_CONTROL_WIDTH + BORDER;
 
@@ -37,6 +39,7 @@ namespace Overlay
 		virtual void onNotify(Control& control) override;
 
 		Config::Setting& getSetting() const { return m_setting; }
+		Control* getValueControl() const { return m_valueControl.get(); }
 		void reset();
 
 	private:
@@ -50,5 +53,6 @@ namespace Overlay
 		std::unique_ptr<Control> m_valueControl;
 		std::unique_ptr<LabelControl> m_paramLabel;
 		std::unique_ptr<ScrollBarControl> m_paramControl;
+		std::unique_ptr<ShaderStatusControl> m_shaderStatusControl;
 	};
 }

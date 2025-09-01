@@ -1,12 +1,12 @@
 #include <Common/Hook.h>
 #include <Overlay/LabelControl.h>
+#include <Overlay/Window.h>
 
 namespace Overlay
 {
 	LabelControl::LabelControl(Control& parent, const RECT& rect, const std::string& label, UINT align, DWORD style)
 		: Control(&parent, rect, style)
 		, m_label(label)
-		, m_wlabel(label.begin(), label.end())
 		, m_align(align)
 		, m_color(FOREGROUND_COLOR)
 	{
@@ -14,6 +14,11 @@ namespace Overlay
 
 	void LabelControl::draw(HDC dc)
 	{
+		if (m_label.empty())
+		{
+			return;
+		}
+
 		LONG x = 0;
 		const LONG y = (m_rect.top + m_rect.bottom) / 2 - 7;
 
@@ -32,9 +37,16 @@ namespace Overlay
 			return;
 		}
 
-		auto prevColor = SetTextColor(dc, (FOREGROUND_COLOR == m_color && !isEnabled()) ? DISABLED_COLOR : m_color );
+		if (m_wlabel.empty())
+		{
+			updateWLabel();
+		}
+
+		auto prevColor = SetTextColor(dc, (FOREGROUND_COLOR == m_color && !isEnabled()) ? DISABLED_COLOR : m_color);
 		auto prevTextAlign = SetTextAlign(dc, m_align);
-		CALL_ORIG_FUNC(ExtTextOutW)(dc, x, y, ETO_IGNORELANGUAGE, nullptr, m_wlabel.c_str(), m_wlabel.length(), nullptr);
+		RECT r = { m_rect.left + BORDER, m_rect.top, m_rect.right - BORDER, m_rect.bottom };
+		CALL_ORIG_FUNC(ExtTextOutW)(dc, x, y, ETO_IGNORELANGUAGE | ((m_style & WS_CLIPCHILDREN) ? ETO_CLIPPED : 0),
+			&r, m_wlabel.c_str(), m_wlabel.length(), nullptr);
 		SetTextAlign(dc, prevTextAlign);
 		SetTextColor(dc, prevColor);
 	}
@@ -53,13 +65,44 @@ namespace Overlay
 		}
 	}
 
-	void LabelControl::setLabel(const std::string label)
+	void LabelControl::setLabel(const std::string& label)
 	{
 		if (m_label != label)
 		{
 			m_label = label;
-			m_wlabel.assign(label.begin(), label.end());
+			m_wlabel.clear();
 			invalidate();
+		}
+	}
+
+	void LabelControl::setRect(const RECT& rect)
+	{
+		m_rect = rect;
+		const auto label = m_label;
+		m_label.clear();
+		setLabel(label);
+	}
+
+	void LabelControl::updateWLabel()
+	{
+		if (m_style & WS_CLIPCHILDREN)
+		{
+			HDC dc = CreateCompatibleDC(nullptr);
+			auto origFont = SelectObject(dc, static_cast<Window&>(getRoot()).getFont());
+
+			auto shortLabel(m_label);
+			shortLabel.append(4, 0);
+			RECT r = { m_rect.left + BORDER, m_rect.top, m_rect.right - BORDER, m_rect.bottom };
+			CALL_ORIG_FUNC(DrawTextA)(dc, shortLabel.c_str(), m_label.length(), &r,
+				DT_CALCRECT | DT_MODIFYSTRING | DT_PATH_ELLIPSIS | DT_SINGLELINE);
+			m_wlabel.assign(shortLabel.begin(), shortLabel.begin() + strlen(shortLabel.c_str()));
+
+			SelectObject(dc, origFont);
+			DeleteDC(dc);
+		}
+		else
+		{
+			m_wlabel.assign(m_label.begin(), m_label.end());
 		}
 	}
 }

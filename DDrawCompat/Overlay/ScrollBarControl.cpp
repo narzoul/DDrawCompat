@@ -24,6 +24,7 @@ namespace Overlay
 		, m_min(min)
 		, m_max(std::max(min, max))
 		, m_pos(std::max(min, std::min(max, pos)))
+		, m_pageSize(0)
 		, m_state(State::IDLE)
 		, m_left(isHorizontal() ? &RECT::left : &RECT::top)
 		, m_top(isHorizontal() ? &RECT::top : &RECT::left)
@@ -65,6 +66,10 @@ namespace Overlay
 
 	int ScrollBarControl::getPageSize() const
 	{
+		if (m_pageSize > 0)
+		{
+			return m_pageSize;
+		}
 		return std::max((m_max - m_min) / 20, 1);
 	}
 

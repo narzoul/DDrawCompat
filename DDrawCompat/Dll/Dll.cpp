@@ -13,9 +13,11 @@ namespace Dll
 	Procs g_newProcs = {};
 	bool g_isHooked = false;
 
-	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority, unsigned initFlags)
+	HANDLE createThread(unsigned(__stdcall* threadProc)(void*), unsigned int* threadId, int priority,
+		unsigned initFlags, void* arg)
 	{
-		HANDLE thread = reinterpret_cast<HANDLE>(_beginthreadex(nullptr, 0, threadProc, nullptr, initFlags, threadId));
+		HANDLE thread = reinterpret_cast<HANDLE>(
+			_beginthreadex(nullptr, 0, threadProc, arg, initFlags, threadId));
 		if (thread)
 		{
 			SetThreadPriority(thread, priority);

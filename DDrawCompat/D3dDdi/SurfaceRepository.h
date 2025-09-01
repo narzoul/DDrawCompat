@@ -5,6 +5,10 @@
 #include <map>
 #include <vector>
 
+typedef long NTSTATUS;
+
+#include <Windows.h>
+#include <d3dkmthk.h>
 #include <ddraw.h>
 
 #include <Common/CompatPtr.h>
@@ -47,6 +51,8 @@ namespace D3dDdi
 		Resource* getGammaRampTexture();
 		const Surface& getNextRenderTarget(DWORD width, DWORD height, D3DDDIFORMAT format,
 			const Resource* currentSrcRt = nullptr, const Resource* currentDstRt = nullptr);
+		Surface& getPresentationSourceRtt() { return m_presentationSourceRtt; }
+		Surface& getPresentationSourceRtt(DWORD width, DWORD height, D3DDDIFORMAT format);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
@@ -83,6 +89,7 @@ namespace D3dDdi
 		Surface m_gammaRampTexture;
 		Surface m_logicalXorTexture;
 		Surface m_paletteTexture;
+		Surface m_presentationSourceRtt;
 		std::array<Surface, 3> m_renderTargets;
 		std::array<Surface, 3> m_hqRenderTargets;
 		std::map<D3DDDIFORMAT, Surface> m_textures;

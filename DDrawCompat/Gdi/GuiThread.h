@@ -1,5 +1,6 @@
 #pragma once
 
+#include <filesystem>
 #include <functional>
 
 #include <Windows.h>
@@ -21,6 +22,7 @@ namespace Gdi
 		void deleteTaskbarTab(HWND hwnd);
 		void destroyWindow(HWND hwnd);
 		void setWindowRgn(HWND hwnd, Gdi::Region rgn);
+		HBITMAP wicLoadImage(const std::filesystem::path& path);
 
 		Overlay::ConfigWindow* getConfigWindow();
 		Overlay::StatsWindow* getStatsWindow();

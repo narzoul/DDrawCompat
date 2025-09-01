@@ -1,9 +1,4 @@
-#undef WIN32_LEAN_AND_MEAN
-
 #include <map>
-
-#include <Windows.h>
-#include <d3dkmthk.h>
 
 #include <Common/Comparison.h>
 #include <D3dDdi/Adapter.h>
@@ -90,9 +85,12 @@ namespace D3dDdi
 
 		if (caps & DDSCAPS_MIPMAP)
 		{
-			desc.dwFlags |= DDSD_MIPMAPCOUNT;
 			desc.ddsCaps.dwCaps |= DDSCAPS_COMPLEX;
-			desc.dwMipMapCount = surfaceCount;
+			if (0 != surfaceCount)
+			{
+				desc.dwFlags |= DDSD_MIPMAPCOUNT;
+				desc.dwMipMapCount = surfaceCount;
+			}
 		}
 		else if (surfaceCount > 1)
 		{
@@ -296,6 +294,14 @@ namespace D3dDdi
 	Resource* SurfaceRepository::getPaletteTexture()
 	{
 		return getSurface(m_paletteTexture, 256, 1, D3DDDIFMT_A8R8G8B8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
+	}
+
+	SurfaceRepository::Surface& SurfaceRepository::getPresentationSourceRtt(
+		DWORD width, DWORD height, D3DDDIFORMAT format)
+	{
+		const bool hq = getFormatInfo(format).red.bitCount > 8;
+		return getSurface(m_presentationSourceRtt, width, height, hq ? format : D3DDDIFMT_X8R8G8B8,
+			DDSCAPS_3DDEVICE | DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY);
 	}
 
 	SurfaceRepository& SurfaceRepository::getPrimaryRepo()
