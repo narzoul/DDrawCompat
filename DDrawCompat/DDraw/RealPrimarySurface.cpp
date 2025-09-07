@@ -159,12 +159,6 @@ namespace
 		}
 
 		updatePresentationParams();
-
-		Compat::ScopedCriticalSection lock(g_presentCs);
-		g_isOverlayUpdatePending = false;
-		g_isUpdatePending = false;
-		g_isUpdateReady = false;
-		g_qpcUpdateStart = Time::queryPerformanceCounter();
 	}
 
 	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src)
