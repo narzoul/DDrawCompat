@@ -25,6 +25,33 @@ namespace
 		return LOG_RESULT(0);
 	}
 
+	BOOL WINAPI getDeviceGammaRamp(HDC hdc, LPVOID lpRamp)
+	{
+		LOG_FUNC("GetDeviceGammaRamp", hdc, lpRamp);
+		if (!CALL_ORIG_FUNC(GetDeviceGammaRamp)(hdc, lpRamp))
+		{
+			return LOG_RESULT(FALSE);
+		}
+
+		auto p = static_cast<WORD*>(lpRamp);
+		if (Config::logLevel.get() >= Config::Settings::LogLevel::DEBUG)
+		{
+			LOG_DEBUG << "Original gamma ramp (red):   " << Compat::array(p, 256);
+			LOG_DEBUG << "Original gamma ramp (green): " << Compat::array(p + 256, 256);
+			LOG_DEBUG << "Original gamma ramp (blue):  " << Compat::array(p + 512, 256);
+		}
+
+		for (unsigned i = 0; i < 3; ++i)
+		{
+			for (unsigned k = 0; k < 256; ++k)
+			{
+				*p = static_cast<WORD>(k * 257);
+				++p;
+			}
+		}
+		return LOG_RESULT(TRUE);
+	}
+
 	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
 	{
 		DWORD windowPid = 0;
@@ -61,6 +88,7 @@ namespace Gdi
 #pragma warning (disable : 4995)
 		HOOK_FUNCTION(dwmapi, DwmEnableComposition, dwmEnableComposition);
 #pragma warning (default : 4995)
+		HOOK_FUNCTION(gdi32, GetDeviceGammaRamp, getDeviceGammaRamp);
 
 		checkDesktopComposition();
 		DisableProcessWindowsGhosting();
