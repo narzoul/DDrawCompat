@@ -35,6 +35,14 @@ namespace
 	{
 		initDitherTexture(tex, pitch, 0, 0, size, 1, 0);
 	}
+
+	void setGammaValues(BYTE* ptr, const USHORT* ramp)
+	{
+		for (UINT i = 0; i < 256; ++i)
+		{
+			ptr[i] = static_cast<BYTE>(ramp[i] / 256);
+		}
+	}
 }
 
 namespace D3dDdi
@@ -229,9 +237,15 @@ namespace D3dDdi
 			});
 	}
 
-	Resource* SurfaceRepository::getGammaRampTexture()
+	Resource* SurfaceRepository::getGammaRampTexture(const D3DDDI_GAMMA_RAMP_RGB256x3x16& gammaRamp, bool forceInit)
 	{
-		return getSurface(m_gammaRampTexture, 256, 3, D3DDDIFMT_L8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY).resource;
+		return getInitializedResource(m_gammaRampTexture, 256, 3, D3DDDIFMT_L8, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY,
+			[&](const DDSURFACEDESC2& desc) {
+				auto ptr = static_cast<BYTE*>(desc.lpSurface);
+				setGammaValues(ptr, gammaRamp.Red);
+				setGammaValues(ptr + desc.lPitch, gammaRamp.Green);
+				setGammaValues(ptr + 2 * desc.lPitch, gammaRamp.Blue);
+			}, forceInit);
 	}
 
 	Resource* SurfaceRepository::getLogicalXorTexture()
@@ -251,9 +265,12 @@ namespace D3dDdi
 	}
 
 	Resource* SurfaceRepository::getInitializedResource(Surface& surface, DWORD width, DWORD height,
-		D3DDDIFORMAT format, DWORD caps, std::function<void(const DDSURFACEDESC2&)> initFunc)
+		D3DDDIFORMAT format, DWORD caps, std::function<void(const DDSURFACEDESC2&)> initFunc, bool forceInit)
 	{
-		if (!isLost(surface) || !getSurface(surface, width, height, format, caps).resource)
+		bool isNew = false;
+		getSurface(surface, width, height, format, caps, 1, 0, &isNew);
+		if (!surface.resource ||
+			!isNew && !forceInit)
 		{
 			return surface.resource;
 		}
@@ -263,6 +280,7 @@ namespace D3dDdi
 		surface.surface->Lock(surface.surface, nullptr, &desc, DDLOCK_DISCARDCONTENTS | DDLOCK_WAIT, nullptr);
 		if (!desc.lpSurface)
 		{
+			surface = {};
 			return nullptr;
 		}
 
@@ -310,7 +328,7 @@ namespace D3dDdi
 	}
 
 	SurfaceRepository::Surface& SurfaceRepository::getSurface(Surface& surface, DWORD width, DWORD height,
-		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount, DWORD caps2)
+		D3DDDIFORMAT format, DWORD caps, UINT surfaceCount, DWORD caps2, bool* isNew)
 	{
 		if (!g_enableSurfaceCheck)
 		{
@@ -332,6 +350,10 @@ namespace D3dDdi
 				surface.width = width;
 				surface.height = height;
 				surface.format = format;
+				if (isNew)
+				{
+					*isNew = true;
+				}
 			}
 		}
 

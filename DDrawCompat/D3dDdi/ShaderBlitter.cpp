@@ -73,14 +73,6 @@ namespace
 			-n * n * n * a + n * n * b - n * c + d
 		};
 	}
-
-	void setGammaValues(BYTE* ptr, USHORT* ramp)
-	{
-		for (UINT i = 0; i < 256; ++i)
-		{
-			ptr[i] = static_cast<BYTE>(ramp[i] / 256);
-		}
-	}
 }
 
 namespace D3dDdi
@@ -386,9 +378,11 @@ namespace D3dDdi
 
 		DWORD flags = 0;
 		Resource* gammaRampTexture = nullptr;
-		if (!g_isGammaRampDefault && nullptr != (gammaRampTexture = m_device.getRepo().getGammaRampTexture()))
+		if (!g_isGammaRampDefault && nullptr != (gammaRampTexture = m_device.getRepo().getGammaRampTexture(
+			g_gammaRamp, g_isGammaRampInvalidated)))
 		{
 			flags |= CF_GAMMARAMP;
+			g_isGammaRampInvalidated = false;
 		}
 
 		const auto& dstFi = getFormatInfo(m_device.getAdapter().getRenderColorDepthDstFormat());
@@ -403,30 +397,6 @@ namespace D3dDdi
 		if (0 != maxBpcDiff && nullptr != (ditherTexture = m_device.getRepo().getDitherTexture(ditherSize)))
 		{
 			flags |= CF_DITHERING;
-		}
-
-		if ((flags & CF_GAMMARAMP) && g_isGammaRampInvalidated)
-		{
-			D3DDDIARG_LOCK lock = {};
-			lock.hResource = *gammaRampTexture;
-			lock.Flags.Discard = 1;
-			m_device.getOrigVtable().pfnLock(m_device, &lock);
-			if (lock.pSurfData)
-			{
-				auto ptr = static_cast<BYTE*>(lock.pSurfData);
-				setGammaValues(ptr, g_gammaRamp.Red);
-				setGammaValues(ptr + lock.Pitch, g_gammaRamp.Green);
-				setGammaValues(ptr + 2 * lock.Pitch, g_gammaRamp.Blue);
-
-				D3DDDIARG_UNLOCK unlock = {};
-				unlock.hResource = *gammaRampTexture;
-				m_device.getOrigVtable().pfnUnlock(m_device, &unlock);
-				g_isGammaRampInvalidated = false;
-			}
-			else
-			{
-				flags &= ~CF_GAMMARAMP;
-			}
 		}
 
 		if (flags & CF_GAMMARAMP)

@@ -48,13 +48,13 @@ namespace D3dDdi
 		Resource* getDitherTexture(DWORD size);
 		Resource* getLogicalXorTexture();
 		Resource* getPaletteTexture();
-		Resource* getGammaRampTexture();
+		Resource* getGammaRampTexture(const D3DDDI_GAMMA_RAMP_RGB256x3x16& gammaRamp, bool forceInit);
 		const Surface& getNextRenderTarget(DWORD width, DWORD height, D3DDDIFORMAT format,
 			const Resource* currentSrcRt = nullptr, const Resource* currentDstRt = nullptr);
 		Surface& getPresentationSourceRtt() { return m_presentationSourceRtt; }
 		Surface& getPresentationSourceRtt(DWORD width, DWORD height, D3DDDIFORMAT format);
 		Surface& getSurface(Surface& surface, DWORD width, DWORD height,
-			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0);
+			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1, DWORD caps2 = 0, bool* isNew = nullptr);
 		Surface& getTempSysMemSurface(DWORD width, DWORD height);
 		Surface& getTempSurface(Surface& surface, DWORD width, DWORD height,
 			D3DDDIFORMAT format, DWORD caps, UINT surfaceCount = 1);
@@ -74,7 +74,7 @@ namespace D3dDdi
 			D3DDDIFORMAT format, DWORD caps, DWORD caps2, UINT surfaceCount);
 		bool getCursorImage(Surface& surface, HCURSOR cursor, DWORD width, DWORD height, UINT flags);
 		Resource* getInitializedResource(Surface& surface, DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps,
-			std::function<void(const DDSURFACEDESC2&)> initFunc);
+			std::function<void(const DDSURFACEDESC2&)> initFunc, bool forceInit = false);
 		bool hasAlpha(CompatRef<IDirectDrawSurface7> surface);
 		bool isLost(Surface& surface);
 
