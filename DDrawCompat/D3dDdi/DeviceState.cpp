@@ -452,13 +452,7 @@ namespace D3dDdi
 			return value && Config::Settings::ColorKeyMethod::NATIVE == Config::colorKeyMethod.get();
 		}
 
-		if (D3DDDIRS_FOGENABLE == state)
-		{
-			m_changedStates |= CS_VERTEX_FIXUP;
-			return value;
-		}
-
-		if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
+			if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
 		{
 			return 0 != value && !m_spriteMode;
 		}
@@ -648,7 +642,7 @@ namespace D3dDdi
 	HRESULT DeviceState::pfnSetPixelShader(HANDLE shader)
 	{
 		m_app.pixelShader = shader;
-		m_changedStates |= CS_SHADER | CS_VERTEX_FIXUP;
+		m_changedStates |= CS_SHADER;
 		auto it = m_pixelShaders.find(shader);
 		m_pixelShader = it != m_pixelShaders.end() ? &it->second : nullptr;
 		return S_OK;
@@ -1449,15 +1443,6 @@ namespace D3dDdi
 			data.Register = 253;
 			data.Count = 3;
 			pfnSetVertexShaderConst(&data, &m_vertexFixupData.texCoordAdj);
-		}
-
-		const BOOL usePerspective = 0 != getTextureStageCount() || m_app.renderState[D3DDDIRS_FOGENABLE];
-		if (usePerspective != m_vertexShaderConstB[14][0])
-		{
-			D3DDDIARG_SETVERTEXSHADERCONSTB data = {};
-			data.Register = 14;
-			data.Count = 1;
-			pfnSetVertexShaderConstB(&data, &usePerspective);
 		}
 	}
 }

@@ -14,18 +14,16 @@ struct VS
 
 VS main(const VS i)
 {
+    const float max_rhw = 1U << 31;
+    const float min_rhw = 1.0f / max_rhw;
+    const float rhw = clamp(i.pos.w, min_rhw, max_rhw);
+    const float w = 1.0f / rhw;
+
     VS o = i;
     o.pos = (i.pos + g_offset) * g_multiplier;
     o.pos.z = saturate(o.pos.z);
-    [branch] if (g_usePerspective)
-    {
-        o.pos.w = 1 / o.pos.w;
-        o.pos.xyz *= o.pos.w;
-    }
-    else
-    {
-        o.pos.w = 1;
-    }
+    o.pos.xyz *= w;
+    o.pos.w = w;
     o.fog = i.color[1].a;
     [branch] if (g_useTexCoordAdj)
     {

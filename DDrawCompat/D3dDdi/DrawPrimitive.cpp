@@ -381,13 +381,13 @@ namespace D3dDdi
 			for (unsigned i = 0; i < count; ++i)
 			{
 				auto& z = *reinterpret_cast<float*>(zPos);
-				if (z > 1)
-				{
-					z = 1;
-				}
-				else if (z < 0 || isnan(z))
+				if (isnan(z) || z < 0)
 				{
 					z = 0;
+				}
+				else if (z > 1)
+				{
+					z = 1;
 				}
 				zPos += m_streamSource.stride;
 			}
@@ -398,7 +398,17 @@ namespace D3dDdi
 			auto rhwPos = reinterpret_cast<BYTE*>(&reinterpret_cast<D3DTLVERTEX*>(firstVertex)->rhw);
 			for (unsigned i = 0; i < count; ++i)
 			{
-				*reinterpret_cast<float*>(rhwPos) = 1;
+				auto& rhw = *reinterpret_cast<float*>(rhwPos);
+				if (isnan(rhw))
+				{
+					rhw = 1;
+				}
+				else
+				{
+					const float max_rhw = 1U << 31;
+					const float min_rhw = 1.0f / max_rhw;
+					rhw = std::min(std::max(rhw, min_rhw), max_rhw);
+				}
 				rhwPos += m_streamSource.stride;
 			}
 		}
@@ -1003,7 +1013,7 @@ namespace D3dDdi
 			m_vertexFixupFlags |= VF_XY;
 		}
 
-		if (0 == state.getTextureStageCount() && !state.getAppState().renderState[D3DDDIRS_FOGENABLE])
+		if (0 == state.getTextureStageCount())
 		{
 			m_vertexFixupFlags |= VF_Z | VF_RHW;
 		}
