@@ -60,8 +60,9 @@ namespace Gdi
 	{
 		Mapper::Mapper(HDC dc) : m_dc(dc), m_origFont(nullptr)
 		{
-			if (!dc || Config::Settings::FontAntialiasing::ON == Config::fontAntialiasing.get() ||
-				g_isFontSmoothingEnabled && Config::Settings::FontAntialiasing::APP == Config::fontAntialiasing.get())
+			const auto fontAntialiasing = Config::fontAntialiasing.get();
+			if (!dc || Config::Settings::FontAntialiasing::ON == fontAntialiasing ||
+				g_isFontSmoothingEnabled && Config::Settings::FontAntialiasing::APP == fontAntialiasing)
 			{
 				return;
 			}

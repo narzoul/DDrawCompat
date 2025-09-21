@@ -1,3 +1,4 @@
+#include <atomic>
 #include <memory>
 #include <vector>
 
@@ -10,6 +11,7 @@
 #include <Common/ScopedCriticalSection.h>
 #include <Common/ScopedThreadPriority.h>
 #include <Common/Time.h>
+#include <Config/AtomicSetting.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/PresentDelay.h>
@@ -70,6 +72,8 @@ namespace
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
 	HWND g_presentationWindow = nullptr;
+
+	Config::AtomicSettingStore g_fpsLimiter(Config::fpsLimiter);
 
 	CompatPtr<IDirectDrawSurface7> getBackBuffer()
 	{
@@ -572,9 +576,10 @@ namespace DDraw
 				if (g_isUpdatePending)
 				{
 					auto msSinceUpdateStart = Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcUpdateStart);
-					if (msSinceUpdateStart < Config::presentDelay.getParam())
+					const auto presentDelay = Config::presentDelay.getParam();
+					if (msSinceUpdateStart < presentDelay)
 					{
-						return Config::presentDelay.getParam() - static_cast<int>(msSinceUpdateStart);
+						return presentDelay - static_cast<int>(msSinceUpdateStart);
 					}
 					g_isUpdateReady = true;
 				}
@@ -608,6 +613,11 @@ namespace DDraw
 		}
 
 		return 1;
+	}
+
+	Config::AtomicSetting RealPrimarySurface::getFpsLimiter()
+	{
+		return g_fpsLimiter.get();
 	}
 
 	HRESULT RealPrimarySurface::getGammaRamp(DDGAMMARAMP* rampData)
@@ -705,6 +715,8 @@ namespace DDraw
 
 	void RealPrimarySurface::scheduleUpdate(bool allowFlush)
 	{
+		const bool isPresentDelayEnabled = Config::presentDelay.get();
+
 		{
 			Compat::ScopedCriticalSection lock(g_presentCs);
 			if (!g_isUpdatePending)
@@ -712,10 +724,10 @@ namespace DDraw
 				g_qpcUpdateStart = Time::queryPerformanceCounter();
 				g_isUpdatePending = true;
 			}
-			g_isUpdateReady = !Config::presentDelay.get();
+			g_isUpdateReady = !isPresentDelayEnabled;
 		}
 
-		if (allowFlush && !Config::presentDelay.get())
+		if (allowFlush && !isPresentDelayEnabled)
 		{
 			flush();
 		}
@@ -758,6 +770,11 @@ namespace DDraw
 		}
 	}
 
+	void RealPrimarySurface::updateFpsLimiter()
+	{
+		g_fpsLimiter.update();
+	}
+
 	void RealPrimarySurface::waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface)
 	{
 		auto primary(DDraw::PrimarySurface::getPrimary());
@@ -779,11 +796,11 @@ namespace DDraw
 		}
 	}
 
-	void RealPrimarySurface::waitForFlipFpsLimit(bool doFlush)
+	void RealPrimarySurface::waitForFlipFpsLimit(unsigned fpsLimit, bool doFlush)
 	{
 		static long long g_qpcPrevWaitEnd = Time::queryPerformanceCounter() - Time::g_qpcFrequency;
 		auto qpcNow = Time::queryPerformanceCounter();
-		auto qpcWaitEnd = g_qpcPrevWaitEnd + Time::g_qpcFrequency / Config::fpsLimiter.getParam();
+		auto qpcWaitEnd = g_qpcPrevWaitEnd + Time::g_qpcFrequency / fpsLimit;
 		if (qpcNow - qpcWaitEnd >= 0)
 		{
 			g_qpcPrevWaitEnd = qpcNow;

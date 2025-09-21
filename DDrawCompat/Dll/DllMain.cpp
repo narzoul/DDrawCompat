@@ -20,6 +20,7 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
 #include <DDraw/LogUsedResourceFormat.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
@@ -307,6 +308,8 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		Config::Parser::loadAllConfigFiles(processPath);
 		Compat::Log::initLogging(processPath, Config::logLevel.get());
+		DDraw::RealPrimarySurface::updateFpsLimiter();
+		Input::updateMouseSensitivitySetting();
 
 		if (Config::Settings::CrashDump::OFF != Config::crashDump.get() &&
 			Config::enableDDrawCompat.get())

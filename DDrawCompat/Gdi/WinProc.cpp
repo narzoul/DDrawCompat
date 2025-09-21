@@ -644,7 +644,13 @@ namespace
 			clipMouseCoords(*lpMsg);
 		}
 
-		if (!g_isFrameStarted || Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get())
+		if (!g_isFrameStarted)
+		{
+			return result;
+		}
+
+		const auto fpsLimiter = DDraw::RealPrimarySurface::getFpsLimiter();
+		if (Config::Settings::FpsLimiter::MSGLOOP != fpsLimiter.value)
 		{
 			return result;
 		}
@@ -1057,12 +1063,13 @@ namespace Gdi
 		
 		void startFrame()
 		{
-			if (Config::Settings::FpsLimiter::MSGLOOP != Config::fpsLimiter.get() || g_inWindowProc)
+			const auto fpsLimiter = DDraw::RealPrimarySurface::getFpsLimiter();
+			if (Config::Settings::FpsLimiter::MSGLOOP != fpsLimiter.value || g_inWindowProc)
 			{
 				return;
 			}
 
-			auto fps = Config::fpsLimiter.getParam();
+			auto fps = fpsLimiter.param;
 			if (0 == fps)
 			{
 				fps = 1000;

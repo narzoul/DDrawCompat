@@ -1,5 +1,6 @@
 #include <Config/Parser.h>
 #include <Config/Setting.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
@@ -85,6 +86,7 @@ namespace Overlay
 
 	void SettingControl::onNotify(Control& control)
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		if (&control == m_paramControl.get())
 		{
 			onParamChanged();
@@ -104,6 +106,7 @@ namespace Overlay
 
 	void SettingControl::onParamChanged()
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		const std::string value(Config::Parser::removeParam(m_setting.getValueStr()) +
 			'(' + std::to_string(m_paramControl->getPos()) + ')');
 		m_setting.set(value, "overlay");
@@ -112,6 +115,7 @@ namespace Overlay
 
 	void SettingControl::onValueChanged()
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		const std::string value(getValueComboBox().getValue());
 		m_setting.set(value, "overlay");
 		m_paramLabel.reset();

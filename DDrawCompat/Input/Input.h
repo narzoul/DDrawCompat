@@ -36,4 +36,5 @@ namespace Input
 	void setFullscreenMonitorInfo(const Win32::DisplayMode::MonitorInfo& mi);
 	void updateCursor();
 	void updateMouseSensitivity();
+	void updateMouseSensitivitySetting();
 }

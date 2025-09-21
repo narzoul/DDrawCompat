@@ -4,6 +4,7 @@
 
 #include <Common/CompatPtr.h>
 #include <Common/CompatRef.h>
+#include <Config/AtomicSetting.h>
 
 namespace DDraw
 {
@@ -15,6 +16,7 @@ namespace DDraw
 		static HRESULT create(CompatRef<IDirectDraw> dd);
 		static void flip(CompatPtr<IDirectDrawSurface7> surfaceTargetOverride, DWORD flags);
 		static int flush();
+		static Config::AtomicSetting getFpsLimiter();
 		static HRESULT getGammaRamp(DDGAMMARAMP* rampData);
 		static HWND getPresentationWindow();
 		static CompatWeakPtr<IDirectDrawSurface7> getSurface();
@@ -31,7 +33,8 @@ namespace DDraw
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPresentationWindowTopmost();
 		static void setUpdateReady();
+		static void updateFpsLimiter();
 		static void waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface);
-		static void waitForFlipFpsLimit(bool doFlush = true);
+		static void waitForFlipFpsLimit(unsigned fpsLimit, bool doFlush = true);
 	};
 }

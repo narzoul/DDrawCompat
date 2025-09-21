@@ -229,10 +229,11 @@ namespace
 		if (hasDisplayDcArg(hdc, params...))
 		{
 			Gdi::CompatDc compatDc(hdc, isReadOnly<origFunc>());
-			if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get() &&
+			const auto fpsLimiter = DDraw::RealPrimarySurface::getFpsLimiter();
+			if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value &&
 				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
 			{
-				DDraw::RealPrimarySurface::waitForFlipFpsLimit(false);
+				DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
 			}
 			Result result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
 			if (isPositionUpdated<origFunc>() && result)
@@ -241,10 +242,10 @@ namespace
 				GetCurrentPositionEx(compatDc, &currentPos);
 				MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
 			}
-			if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() &&
+			if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value &&
 				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
 			{
-				DDraw::RealPrimarySurface::waitForFlipFpsLimit(false);
+				DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
 			}
 			return LOG_RESULT(result);
 		}

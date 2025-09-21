@@ -33,6 +33,8 @@
 #include <Config/Settings/ViewportEdgeFix.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
+#include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Input/Input.h>
@@ -62,9 +64,9 @@ namespace
 		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
 		{ &Config::displayFilter },
 		{ &Config::fontAntialiasing },
-		{ &Config::fpsLimiter },
+		{ &Config::fpsLimiter, &DDraw::RealPrimarySurface::updateFpsLimiter },
 		{ &Config::mousePollingRate, &Input::updateMouseSensitivity },
-		{ &Config::mouseSensitivity, &Input::updateMouseSensitivity },
+		{ &Config::mouseSensitivity, &Input::updateMouseSensitivitySetting },
 		{ &Config::presentDelay },
 		{ &Config::renderColorDepth, &D3dDdi::Device::updateAllConfig },
 		{ &Config::resolutionScale, &D3dDdi::Device::updateAllConfig },
@@ -73,9 +75,10 @@ namespace
 		{ &Config::spriteDetection },
 		{ &Config::spriteFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
-		{ &Config::statsPosX, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
-		{ &Config::statsPosY, []() { Gdi::GuiThread::getStatsWindow()->updatePos(); } },
-		{ &Config::statsTransparency, [&]() { Gdi::GuiThread::getStatsWindow()->setAlpha(Config::statsTransparency.get()); }},
+		{ &Config::statsPosX, []() { if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->updatePos(); } } },
+		{ &Config::statsPosY, []() { if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->updatePos(); } } },
+		{ &Config::statsTransparency, [&]() {
+			if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->setAlpha(Config::statsTransparency.get()); } } },
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vertexFixup, &D3dDdi::Device::updateAllConfig },
 		{ &Config::viewportEdgeFix },
@@ -325,6 +328,7 @@ namespace Overlay
 
 	void ConfigWindow::updateSettings(std::function<std::string(const Config::Setting&)> getValue)
 	{
+		D3dDdi::ScopedCriticalSection lock;
 		for (auto& settingRow : g_settingRows)
 		{
 			const auto value = getValue(*settingRow.setting);

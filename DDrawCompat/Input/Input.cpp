@@ -69,6 +69,7 @@ namespace
 	HHOOK g_mouseHook = nullptr;
 	UINT g_mousePollingRate = 0;
 	UINT g_mousePollingTimerId = 0;
+	Config::AtomicSettingStore g_mouseSensitivity(Config::mouseSensitivity);
 	BitSet<VK_LBUTTON, VK_OEM_CLEAR> g_keyState;
 
 	DInputMouseHookData g_dinputMouseHookData = {};
@@ -866,8 +867,9 @@ namespace Input
 		Gdi::GuiThread::execute([]()
 			{
 				g_mouseScale = {};
+				const auto mouseSensitivity = g_mouseSensitivity.get();
 
-				if (Config::Settings::MouseSensitivity::NATIVE == Config::mouseSensitivity.get() ||
+				if (Config::Settings::MouseSensitivity::NATIVE == mouseSensitivity.value ||
 					IsRectEmpty(&g_fullscreenMonitorInfo.rcEmulated) ||
 					Overlay::Steam::isOverlayOpen())
 				{
@@ -884,7 +886,7 @@ namespace Input
 				}
 
 				g_mouseScale.useRaw = !g_capture &&
-					(Config::Settings::MouseSensitivity::NOACCEL == Config::mouseSensitivity.get() ||
+					(Config::Settings::MouseSensitivity::NOACCEL == mouseSensitivity.value ||
 						g_fullscreenMonitorInfo.rcDpiAware != g_fullscreenMonitorInfo.rcReal ||
 						!getMouseAccel());
 
@@ -896,7 +898,7 @@ namespace Input
 				long long num = emulatedSize.*size * g_fullscreenMonitorInfo.dpiScale;
 				long long denom = desktopSize.*size * 100;
 
-				num *= Config::mouseSensitivity.getParam();
+				num *= mouseSensitivity.param;
 				denom *= 100;
 
 				g_mouseScale.multiplier = num;
@@ -916,5 +918,11 @@ namespace Input
 
 				g_mouseScale.multiplier = num * 65536 / denom;
 			});
+	}
+
+	void updateMouseSensitivitySetting()
+	{
+		g_mouseSensitivity.update();
+		updateMouseSensitivity();
 	}
 }

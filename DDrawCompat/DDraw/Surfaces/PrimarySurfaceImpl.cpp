@@ -143,9 +143,10 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
-		if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
+		const auto fpsLimiter = RealPrimarySurface::getFpsLimiter();
+		if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value && isFsBlt(lpDestRect))
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 		HRESULT result = SurfaceImpl::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
@@ -158,9 +159,9 @@ namespace DDraw
 			}
 			RealPrimarySurface::scheduleUpdate(true);
 		}
-		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get() && isFsBlt(lpDestRect))
+		if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value && isFsBlt(lpDestRect))
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 		return result;
 	}
@@ -175,10 +176,11 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
-		if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get()
+		const auto fpsLimiter = RealPrimarySurface::getFpsLimiter();
+		if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value
 			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 		HRESULT result = SurfaceImpl::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
@@ -190,10 +192,10 @@ namespace DDraw
 			}
 			RealPrimarySurface::scheduleUpdate(true);
 		}
-		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get()
+		if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value
 			&& isFsBltFast(dwX, dwY, lpDDSrcSurface, lpSrcRect))
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 		return result;
 	}
@@ -210,9 +212,10 @@ namespace DDraw
 		RealPrimarySurface::flush();
 		RealPrimarySurface::waitForFlip(m_data->getDDS());
 
-		if (Config::Settings::FpsLimiter::FLIPSTART == Config::fpsLimiter.get())
+		const auto fpsLimiter = RealPrimarySurface::getFpsLimiter();
+		if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value)
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 
 		auto surfaceTargetOverride(CompatPtr<TSurface>::from(lpDDSurfaceTargetOverride));
@@ -253,9 +256,9 @@ namespace DDraw
 		RealPrimarySurface::flip(surfaceTargetOverride, dwFlags);
 		PrimarySurface::waitForIdle();
 
-		if (Config::Settings::FpsLimiter::FLIPEND == Config::fpsLimiter.get())
+		if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value)
 		{
-			RealPrimarySurface::waitForFlipFpsLimit();
+			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
 		return DD_OK;
 	}
