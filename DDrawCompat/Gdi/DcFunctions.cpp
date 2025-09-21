@@ -1,3 +1,5 @@
+#include <type_traits>
+
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Common/Rect.h>
@@ -191,10 +193,11 @@ namespace
 		return false;
 	}
 
-	template <auto origFunc, typename... Params>
-	bool isFsBlt(HDC /*hdc*/, int x, int y, int cx, int cy, Params...)
+	template <auto origFunc, typename Size, typename... Params, std::enable_if_t<std::is_integral_v<Size>, bool> = true>
+	bool isFsBlt(HDC /*hdc*/, int x, int y, Size cx, Size cy, Params...)
 	{
-		return isFsBltFunc<origFunc>() && 0 == x && 0 == y && g_fullscreenSize.cx == cx && g_fullscreenSize.cy == cy;
+		return isFsBltFunc<origFunc>() && 0 == x && 0 == y &&
+			g_fullscreenSize.cx == static_cast<int>(cx) && g_fullscreenSize.cy == static_cast<int>(cy);
 	}
 
 	bool lpToScreen(HWND hwnd, HDC dc, POINT& p)
