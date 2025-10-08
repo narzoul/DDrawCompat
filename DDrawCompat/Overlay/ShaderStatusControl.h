@@ -11,10 +11,12 @@ namespace Overlay
 		ShaderStatusControl(Control& parent, const RECT& rect);
 
 		virtual void draw(HDC dc) override;
+		virtual void invalidate() override;
 
 	private:
 		void updateStatus();
 
 		D3dDdi::MetaShader::ShaderStatus m_status = D3dDdi::MetaShader::ShaderStatus::Compiling;
+		bool m_isShaderStatusInvalidated = true;
 	};
 }

@@ -594,16 +594,9 @@ namespace D3dDdi
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
 	{
 		auto filter = Config::displayFilter.get();
-		if (Config::Settings::DisplayFilter::CGP != filter)
+		if (Config::Settings::DisplayFilter::CGP != filter && Rect::isEqualSize(dstRect, srcRect))
 		{
-			if (!m_metaShader.getRelPath().empty())
-			{
-				m_metaShader.reset();
-			}
-			if (Rect::isEqualSize(dstRect, srcRect))
-			{
-				filter = Config::Settings::DisplayFilter::POINT;
-			}
+			filter = Config::Settings::DisplayFilter::POINT;
 		}
 
 		switch (filter)

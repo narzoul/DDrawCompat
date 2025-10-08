@@ -40,6 +40,7 @@
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
+#include <Overlay/ShaderSettingControl.h>
 #include <Overlay/StatsWindow.h>
 #include <Overlay/Steam.h>
 
@@ -62,7 +63,7 @@ namespace
 		{ &Config::colorKeyMethod, &D3dDdi::Device::updateAllConfig },
 		{ &Config::configTransparency, [&]() { Gdi::GuiThread::getConfigWindow()->setAlpha(Config::configTransparency.get()); }},
 		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
-		{ &Config::displayFilter },
+		{ &Config::displayFilter, []() { Gdi::GuiThread::getConfigWindow()->updateDisplayFilter(); }},
 		{ &Config::fontAntialiasing },
 		{ &Config::fpsLimiter, &DDraw::RealPrimarySurface::updateFpsLimiter },
 		{ &Config::mousePollingRate, &Input::updateMouseSensitivity },
@@ -92,6 +93,7 @@ namespace Overlay
 		: Window(nullptr, { 0, 0, VIRTUAL_SCREEN_WIDTH, VIRTUAL_SCREEN_HEIGHT },
 			WS_BORDER, Config::configTransparency.get(), Config::configHotKey.get())
 		, m_buttonCount(0)
+		, m_displayFilterSettingControl(nullptr)
 		, m_focus(nullptr)
 	{
 		RECT r = { 0, 0, m_rect.right - CAPTION_HEIGHT + 1, CAPTION_HEIGHT };
@@ -106,9 +108,10 @@ namespace Overlay
 		r.bottom = r.top + ROWS * ROW_HEIGHT;
 
 		const auto settingCount = Config::configRows.get().size();
-		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, settingCount - ROWS, 0,
-			WS_VISIBLE | (settingCount < ROWS ? WS_DISABLED : 0)));
+		m_scrollBar.reset(new ScrollBarControl(*this, r, 0, settingCount - 1, 0,
+			WS_VISIBLE | (settingCount <= 1 ? WS_DISABLED : 0)));
 
+		updateDisplayFilter();
 		addSettingControls();
 
 		m_closeButton = addButton("Close", onClose);
@@ -132,27 +135,48 @@ namespace Overlay
 		return std::make_unique<ButtonControl>(*this, r, label, clickHandler);
 	}
 
-	void ConfigWindow::addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc, bool isReadOnly)
-	{
-		const int index = m_settingControls.size();
-		RECT rect = { 0, index * ROW_HEIGHT + BORDER, SettingControl::TOTAL_WIDTH, (index + 1) * ROW_HEIGHT + BORDER };
-		OffsetRect(&rect, 0, CAPTION_HEIGHT);
-		m_settingControls.emplace_back(*this, rect, setting, updateFunc, isReadOnly);
-	}
-
 	void ConfigWindow::addSettingControls()
 	{
+		m_displayFilterSettingControl = nullptr;
 		m_settingControls.clear();
 		const auto& configRows = Config::configRows.get();
 		const unsigned pos = m_scrollBar->getPos();
 
-		for (int i = 0; i < ROWS && pos + i < configRows.size(); ++i)
+		int displayFilterIndex = INT_MAX;
+		for (unsigned i = 0; i < configRows.size(); ++i)
 		{
-			const auto setting = configRows[pos + i];
+			if (&Config::displayFilter == configRows[i])
+			{
+				displayFilterIndex = i;
+				break;
+			}
+		}
+
+		for (int i = 0; i < ROWS && pos + i < configRows.size() + m_shaderParameters.size(); ++i)
+		{
+			int row = pos + i;
+			if (row > displayFilterIndex)
+			{
+				const std::size_t shaderParamIndex = row - displayFilterIndex - 1;
+				if (shaderParamIndex < m_shaderParameters.size())
+				{
+					m_settingControls.push_back(std::make_unique<ShaderSettingControl>(
+						*this, getNextSettingControlRect(), m_shaderParameters[shaderParamIndex]));
+					continue;
+				}
+				row -= m_shaderParameters.size();
+			}
+
+			const auto setting = configRows[row];
 			const auto it = std::find_if(g_settingRows.begin(), g_settingRows.end(),
 				[&](auto& settingRow) { return setting == settingRow.setting; });
 			const bool isReadOnly = it == g_settingRows.end();
-			addSettingControl(*setting, isReadOnly ? SettingControl::UpdateFunc() : it->updateFunc, isReadOnly);
+			m_settingControls.push_back(std::make_unique<SettingControl>(*this, getNextSettingControlRect(),
+				*setting, isReadOnly ? SettingControl::UpdateFunc() : it->updateFunc, isReadOnly));
+			if (&Config::displayFilter == setting)
+			{
+				m_displayFilterSettingControl = static_cast<SettingControl*>(m_settingControls.back().get());
+			}
 		}
 	}
 
@@ -161,6 +185,7 @@ namespace Overlay
 		RECT r = { 0, 0, m_rect.right - m_rect.left, m_rect.bottom - m_rect.top };
 		OffsetRect(&r, monitorRect.left + (monitorRect.right - monitorRect.left - r.right) / 2,
 			monitorRect.top + (monitorRect.bottom - monitorRect.top - r.bottom) / 2);
+		invalidateShaderStatus();
 		return r;
 	}
 
@@ -201,6 +226,14 @@ namespace Overlay
 		updateButtons();
 	}
 
+	RECT ConfigWindow::getNextSettingControlRect() const
+	{
+		const int index = m_settingControls.size();
+		RECT rect = { 0, 0, SettingControl::TOTAL_WIDTH, ROW_HEIGHT };
+		OffsetRect(&rect, 0, CAPTION_HEIGHT + BORDER + index * ROW_HEIGHT);
+		return rect;
+	}
+
 	std::set<std::string> ConfigWindow::getRwSettingNames()
 	{
 		std::set<std::string> names;
@@ -216,19 +249,27 @@ namespace Overlay
 		updateSettings([](const Config::Setting& setting) { return setting.getExportedValue(); });
 	}
 
-	void ConfigWindow::onClose(Control& control)
+	void ConfigWindow::invalidateShaderStatus() const
 	{
-		static_cast<ConfigWindow*>(control.getParent())->setVisible(false);
+		if (m_displayFilterSettingControl)
+		{
+			m_displayFilterSettingControl->invalidateShaderStatus();
+		}
 	}
 
-	void ConfigWindow::onExport(Control& control)
+	void ConfigWindow::onClose(ButtonControl& button)
 	{
-		static_cast<ConfigWindow*>(control.getParent())->exportSettings();
+		static_cast<ConfigWindow*>(button.getParent())->setVisible(false);
 	}
 
-	void ConfigWindow::onImport(Control& control)
+	void ConfigWindow::onExport(ButtonControl& button)
 	{
-		static_cast<ConfigWindow*>(control.getParent())->importSettings();
+		static_cast<ConfigWindow*>(button.getParent())->exportSettings();
+	}
+
+	void ConfigWindow::onImport(ButtonControl& button)
+	{
+		static_cast<ConfigWindow*>(button.getParent())->importSettings();
 	}
 
 	void ConfigWindow::onMouseWheel(POINT pos, SHORT delta)
@@ -245,9 +286,9 @@ namespace Overlay
 		}
 	}
 
-	void ConfigWindow::onResetAll(Control& control)
+	void ConfigWindow::onResetAll(ButtonControl& button)
 	{
-		static_cast<ConfigWindow*>(control.getParent())->resetSettings();
+		static_cast<ConfigWindow*>(button.getParent())->resetSettings();
 	}
 
 	void ConfigWindow::resetSettings()
@@ -255,7 +296,7 @@ namespace Overlay
 		updateSettings([](const Config::Setting& setting) { return setting.getBaseValue(); });
 	}
 
-	void ConfigWindow::setFocus(SettingControl* control)
+	void ConfigWindow::setFocus(Control* control)
 	{
 		if (m_focus == control)
 		{
@@ -274,6 +315,7 @@ namespace Overlay
 		}
 		else
 		{
+			addSettingControls();
 			Gdi::GuiThread::setWindowRgn(m_hwnd, nullptr);
 		}
 
@@ -326,6 +368,20 @@ namespace Overlay
 		m_resetAllButton->setEnabled(enableReset);
 	}
 
+	void ConfigWindow::updateDisplayFilter()
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		m_shaderParameters.clear();
+		for (auto& device : D3dDdi::Device::getDevices())
+		{
+			auto& metaShader = device.second.getShaderBlitter().getMetaShader();
+			metaShader.init();
+			m_shaderParameters = metaShader.getParameters();
+		}
+		D3dDdi::MetaShader::clearUnusedBitmaps();
+		m_scrollBar->setRange(0, Config::configRows.get().size() + m_shaderParameters.size() - 1);
+	}
+
 	void ConfigWindow::updateSettings(std::function<std::string(const Config::Setting&)> getValue)
 	{
 		D3dDdi::ScopedCriticalSection lock;
@@ -342,11 +398,8 @@ namespace Overlay
 			}
 		}
 
-		for (auto& settingControl : m_settingControls)
-		{
-			settingControl.reset();
-		}
-
+		addSettingControls();
+		onMouseMove(Input::getRelativeCursorPos());
 		updateButtons();
 	}
 }

@@ -11,7 +11,7 @@ namespace Overlay
 	class ButtonControl : public Control
 	{
 	public:
-		typedef void (*ClickHandler)(Control&);
+		typedef void (*ClickHandler)(ButtonControl&);
 
 		ButtonControl(Control& parent, const RECT& rect, const std::string& label, ClickHandler clickHandler);
 

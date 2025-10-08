@@ -388,6 +388,7 @@ namespace
 
 		{
 			D3dDdi::ScopedCriticalSection lock;
+			D3dDdi::MetaShader::loadBitmaps();
 			g_isReady = true;
 			CALL_ORIG_FUNC(EnumWindows)(initTopLevelWindow, 0);
 		}

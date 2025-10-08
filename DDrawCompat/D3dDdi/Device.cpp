@@ -121,6 +121,18 @@ namespace D3dDdi
 		return nullptr;
 	}
 
+	Device* Device::findDeviceByName(const std::wstring& deviceName)
+	{
+		for (auto& device : s_devices)
+		{
+			if (deviceName == device.second.m_adapter.getDeviceName())
+			{
+				return &device.second;
+			}
+		}
+		return nullptr;
+	}
+
 	Device* Device::findDeviceByRuntimeHandle(HANDLE runtimeDevice)
 	{
 		for (auto& device : s_devices)

@@ -1,9 +1,32 @@
+#include <D3dDdi/Adapter.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/MetaShader.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <Gdi/GuiThread.h>
 #include <Overlay/ComboBoxControl.h>
+#include <Overlay/ConfigWindow.h>
 #include <Overlay/SettingControl.h>
 #include <Overlay/ShaderStatusControl.h>
+
+namespace
+{
+	D3dDdi::MetaShader::ShaderStatus getShaderStatus()
+	{
+		D3dDdi::ScopedCriticalSection lock;
+		for (auto& device : D3dDdi::Device::getDevices())
+		{
+			MONITORINFOEXW mi = {};
+			mi.cbSize = sizeof(mi);
+			CALL_ORIG_FUNC(GetMonitorInfoW)(
+				MonitorFromWindow(Gdi::GuiThread::getConfigWindow()->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
+			if (device.second.getAdapter().getDeviceName() == mi.szDevice)
+			{
+				return device.second.getShaderBlitter().getMetaShader().getStatus();
+			}
+		}
+		return D3dDdi::MetaShader::ShaderStatus::Compiling;
+	}
+}
 
 namespace Overlay
 {
@@ -19,32 +42,26 @@ namespace Overlay
 		LabelControl::draw(dc);
 	}
 
+	void ShaderStatusControl::invalidate()
+	{
+		m_isShaderStatusInvalidated = true;
+		LabelControl::invalidate();
+	}
+
 	void ShaderStatusControl::updateStatus()
 	{
-		if (static_cast<int>(m_status) > static_cast<int>(D3dDdi::MetaShader::ShaderStatus::ParseError))
+		if (!m_isShaderStatusInvalidated)
 		{
 			return;
 		}
+		m_isShaderStatusInvalidated = false;
 
-		auto valueControl = static_cast<Overlay::SettingControl&>(*m_parent).getValueControl();
-		auto relPath = static_cast<ComboBoxControl*>(valueControl)->getValue();
-
+		auto status = getShaderStatus();
+		if (status == m_status)
 		{
-			D3dDdi::ScopedCriticalSection lock;
-			for (auto& device : D3dDdi::Device::getDevices())
-			{
-				if (relPath == device.second.getShaderBlitter().getMetaShader().getRelPath().u8string())
-				{
-					const auto status = device.second.getShaderBlitter().getMetaShader().getStatus();
-					if (status == m_status)
-					{
-						return;
-					}
-					m_status = status;
-					break;
-				}
-			}
+			return;
 		}
+		m_status = status;
 
 		switch (m_status)
 		{

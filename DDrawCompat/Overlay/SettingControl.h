@@ -40,7 +40,7 @@ namespace Overlay
 
 		Config::Setting& getSetting() const { return m_setting; }
 		Control* getValueControl() const { return m_valueControl.get(); }
-		void reset();
+		void invalidateShaderStatus();
 
 	private:
 		ComboBoxControl& getValueComboBox() const;

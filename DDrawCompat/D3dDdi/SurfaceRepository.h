@@ -2,6 +2,7 @@
 
 #include <array>
 #include <functional>
+#include <list>
 #include <map>
 #include <vector>
 
@@ -43,6 +44,7 @@ namespace D3dDdi
 
 		SurfaceRepository(CompatPtr<IDirectDraw7> dd);
 
+		void clearReleasedSurfaces();
 		Cursor getCursor(HCURSOR cursor);
 		CompatWeakPtr<IDirectDraw7> getDirectDraw() { return m_dd; }
 		Resource* getDitherTexture(DWORD size);
@@ -93,7 +95,7 @@ namespace D3dDdi
 		std::array<Surface, 3> m_renderTargets;
 		std::array<Surface, 3> m_hqRenderTargets;
 		std::map<D3DDDIFORMAT, Surface> m_textures;
-		std::vector<Surface> m_releasedSurfaces;
+		std::list<CompatPtr<IDirectDrawSurface7>> m_releasedSurfaces;
 		Surface m_sysMemSurface;
 		Surface m_windowedBackBuffer;
 		CompatPtr<IDirectDrawSurface7> m_windowedPrimary;

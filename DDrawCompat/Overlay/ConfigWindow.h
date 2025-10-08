@@ -1,11 +1,11 @@
 #pragma once
 
 #include <functional>
-#include <list>
 #include <memory>
 #include <set>
 #include <string>
 
+#include <D3dDdi/ShaderCompiler.h>
 #include <Overlay/ButtonControl.h>
 #include <Overlay/LabelControl.h>
 #include <Overlay/ScrollBarControl.h>
@@ -23,24 +23,27 @@ namespace Overlay
 		virtual void onNotify(Control& control) override;
 		virtual void setVisible(bool isVisible) override;
 
-		void setFocus(SettingControl* control);
+		const std::vector<D3dDdi::ShaderCompiler::Parameter>& getShaderParameters() const { return m_shaderParameters; }
+		void invalidateShaderStatus() const;
+		void setFocus(Control* control);
 		void updateButtons();
+		void updateDisplayFilter();
 
 		static std::set<std::string> getRwSettingNames();
 
 	private:
-		static void onClose(Control& control);
-		static void onExport(Control& control);
-		static void onImport(Control& control);
-		static void onResetAll(Control& control);
+		static void onClose(ButtonControl& button);
+		static void onExport(ButtonControl& button);
+		static void onImport(ButtonControl& button);
+		static void onResetAll(ButtonControl& button);
 
 		virtual RECT calculateRect(const RECT& monitorRect) const override;
 
 		std::unique_ptr<ButtonControl> addButton(const std::string& label, ButtonControl::ClickHandler clickHandler);
-		void addSettingControl(Config::Setting& setting, SettingControl::UpdateFunc updateFunc, bool isReadOnly);
 		void addSettingControls();
 		std::string constructFileContent();
 		void exportSettings();
+		RECT getNextSettingControlRect() const;
 		void importSettings();
 		void resetSettings();
 		void updateSettings(std::function<std::string(const Config::Setting&)> getValue);
@@ -53,8 +56,10 @@ namespace Overlay
 		std::unique_ptr<ButtonControl> m_importButton;
 		std::unique_ptr<ButtonControl> m_resetAllButton;
 		std::unique_ptr<ScrollBarControl> m_scrollBar;
-		std::list<SettingControl> m_settingControls;
-		SettingControl* m_focus;
+		SettingControl* m_displayFilterSettingControl;
+		std::vector<std::unique_ptr<Control>> m_settingControls;
+		std::vector<D3dDdi::ShaderCompiler::Parameter> m_shaderParameters;
+		Control* m_focus;
 		std::string m_fileContent;
 	};
 }

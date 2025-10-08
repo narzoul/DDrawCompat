@@ -326,6 +326,7 @@
     <ClInclude Include="Overlay\ButtonControl.h" />
     <ClInclude Include="Overlay\ComboBoxControl.h" />
     <ClInclude Include="Overlay\ComboBoxDropDown.h" />
+    <ClInclude Include="Overlay\ShaderSettingControl.h" />
     <ClInclude Include="Overlay\ShaderStatusControl.h" />
     <ClInclude Include="Overlay\ConfigWindow.h" />
     <ClInclude Include="Overlay\Control.h" />
@@ -469,6 +470,7 @@
     <ClCompile Include="Overlay\ButtonControl.cpp" />
     <ClCompile Include="Overlay\ComboBoxControl.cpp" />
     <ClCompile Include="Overlay\ComboBoxDropDown.cpp" />
+    <ClCompile Include="Overlay\ShaderSettingControl.cpp" />
     <ClCompile Include="Overlay\ShaderStatusControl.cpp" />
     <ClCompile Include="Overlay\ConfigWindow.cpp" />
     <ClCompile Include="Overlay\Control.cpp" />

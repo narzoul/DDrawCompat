@@ -20,7 +20,8 @@ namespace D3dDdi
 		{
 			std::string name;
 			std::string description;
-			float default;
+			float defaultValue;
+			float currentValue;
 			float min;
 			float max;
 			float step;

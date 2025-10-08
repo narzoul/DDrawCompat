@@ -39,14 +39,19 @@ namespace D3dDdi
 
 		MetaShader(Device& device);
 
+		static void clearUnusedBitmaps();
 		static const std::vector<std::filesystem::path>& getBaseDirs();
+		static void loadBitmaps();
 
+		std::vector<ShaderCompiler::Parameter> getParameters() const;
 		const std::filesystem::path& getRelPath() const { return m_relPath; }
 		ShaderStatus getStatus() const { return m_status; }
 
+		void init();
 		void render(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void reset();
+		void updateParameters();
 
 	private:
 		enum class ScaleType
@@ -158,7 +163,6 @@ namespace D3dDdi
 		static unsigned WINAPI compileThreadProc(LPVOID lpParameter);
 		static void CALLBACK frameTimerCallback(UINT uTimerID, UINT uMsg, DWORD_PTR dwUser, DWORD_PTR dw1, DWORD_PTR dw2);
 		static CompiledShader getCompiledShader(const ShaderCompiler::Shader& shader);
-		static void loadBitmaps();
 		static bool parseRegisterComment(const std::string& comment, CompiledShader& compiledShader);
 		static ScaleType parseScaleType(const std::string& value);
 

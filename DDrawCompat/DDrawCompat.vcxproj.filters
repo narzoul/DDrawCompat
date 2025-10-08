@@ -756,6 +756,9 @@
     <ClInclude Include="Config\AtomicSetting.h">
       <Filter>Header Files\Config</Filter>
     </ClInclude>
+    <ClInclude Include="Overlay\ShaderSettingControl.h">
+      <Filter>Header Files\Overlay</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1180,6 +1183,9 @@
     </ClCompile>
     <ClCompile Include="Config\AtomicSetting.cpp">
       <Filter>Source Files\Config</Filter>
+    </ClCompile>
+    <ClCompile Include="Overlay\ShaderSettingControl.cpp">
+      <Filter>Source Files\Overlay</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

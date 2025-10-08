@@ -81,6 +81,7 @@ namespace D3dDdi
 
 		static void enableFlush(bool enable) { s_isFlushEnabled = enable; }
 		static Device* findDeviceByDd(CompatRef<IDirectDraw7> dd);
+		static Device* findDeviceByName(const std::wstring& deviceName);
 		static Device* findDeviceByRuntimeHandle(HANDLE runtimeDevice);
 		static Device* findDeviceByResource(HANDLE resource);
 		static Resource* findResource(HANDLE resource);

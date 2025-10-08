@@ -36,6 +36,7 @@ namespace D3dDdi
 		operator HANDLE() const { return m_adapter; }
 
 		RECT applyDisplayAspectRatio(const RECT& rect, const SIZE& appResolution) const;
+		const std::wstring& getDeviceName() const { return m_deviceName; }
 		const AdapterInfo& getInfo() const { return m_info; }
 		LUID getLuid() const { return m_luid; }
 		const auto& getMonitorInfo() const { return Win32::DisplayMode::getMonitorInfo(m_deviceName); }

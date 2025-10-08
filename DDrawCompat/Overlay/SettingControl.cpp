@@ -60,6 +60,14 @@ namespace Overlay
 		return static_cast<ComboBoxControl&>(*m_valueControl);
 	}
 
+	void SettingControl::invalidateShaderStatus()
+	{
+		if (m_shaderStatusControl)
+		{
+			m_shaderStatusControl->invalidate();
+		}
+	}
+
 	void SettingControl::onLButtonDown(POINT pos)
 	{
 		auto configWindow = static_cast<ConfigWindow*>(m_parent);
@@ -145,15 +153,6 @@ namespace Overlay
 				m_paramControl.reset(new ScrollBarControl(*this, r, paramInfo.min, paramInfo.max, m_setting.getParam()));
 				m_paramControl->setPos(m_setting.getParam());
 			}
-		}
-	}
-
-	void SettingControl::reset()
-	{
-		if (!(getStyle() & WS_DISABLED))
-		{
-			getValueComboBox().setValue(m_setting.getValueStr());
-			onValueChanged();
 		}
 	}
 }

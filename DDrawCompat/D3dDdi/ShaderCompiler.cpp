@@ -547,7 +547,8 @@ namespace D3dDdi
 				Parameter param = {};
 				param.name = it->str(1);
 				param.description = it->str(2);
-				param.default = parseFloat(it->str(3));
+				param.defaultValue = parseFloat(it->str(3));
+				param.currentValue = param.defaultValue;
 				param.min = parseFloat(it->str(4));
 				param.max = parseFloat(it->str(5));
 				param.step = parseFloat(it->str(6));

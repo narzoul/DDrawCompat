@@ -59,6 +59,15 @@ namespace D3dDdi
 		}
 	}
 
+	void SurfaceRepository::clearReleasedSurfaces()
+	{
+		// clear() can crash if more elements are added during surface release
+		while (!m_releasedSurfaces.empty())
+		{
+			m_releasedSurfaces.pop_front();
+		}
+	}
+
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::createSurface(
 		DWORD width, DWORD height, D3DDDIFORMAT format, DWORD caps, DWORD caps2, UINT surfaceCount)
 	{
@@ -456,7 +465,7 @@ namespace D3dDdi
 	{
 		if (surface.surface)
 		{
-			m_releasedSurfaces.push_back(surface);
+			m_releasedSurfaces.emplace_back(surface.surface.detach());
 			surface = {};
 		}
 	}

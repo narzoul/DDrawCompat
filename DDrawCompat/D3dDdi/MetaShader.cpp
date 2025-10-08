@@ -175,7 +175,32 @@ namespace D3dDdi
 		: m_device(device)
 		, m_frameTimer(0)
 	{
-		reset();
+		init();
+	}
+
+	void MetaShader::clearUnusedBitmaps()
+	{
+		std::set<std::filesystem::path> usedBitmaps;
+		for (auto& device : D3dDdi::Device::getDevices())
+		{
+			for (const auto& texture : device.second.getShaderBlitter().getMetaShader().m_textures)
+			{
+				usedBitmaps.insert(texture.second.bitmap->first);
+			}
+		}
+
+		auto it = s_bitmaps.begin();
+		while (it != s_bitmaps.end())
+		{
+			if (usedBitmaps.find(it->first) == usedBitmaps.end())
+			{
+				it = s_bitmaps.erase(it);
+			}
+			else
+			{
+				++it;
+			}
+		}
 	}
 
 	void MetaShader::compile()
@@ -467,6 +492,35 @@ namespace D3dDdi
 		default:
 			return static_cast<int>(inputSize * scale);
 		}
+	}
+
+	std::vector<ShaderCompiler::Parameter> MetaShader::getParameters() const
+	{
+		std::vector<ShaderCompiler::Parameter> parameters;
+		const auto& configParameters = Config::displayFilter.getCgpParameters();
+		for (int i = 0; i < m_passCount; ++i)
+		{
+			for (const auto& parameter : m_passes[i].shader->second.parameters)
+			{
+				if (parameters.end() == std::find_if(parameters.begin(), parameters.end(),
+					[&](const auto& p) { return p.name == parameter.name; }))
+				{
+					parameters.push_back(parameter);
+					auto it = m_parameters.find(parameter.name);
+					if (it != m_parameters.end())
+					{
+						parameters.back().defaultValue = it->second;
+					}
+
+					it = configParameters.find(Config::Parser::tolower(parameter.name));
+					if (it != configParameters.end())
+					{
+						parameters.back().currentValue = it->second;
+					}
+				}
+			}
+		}
+		return parameters;
 	}
 
 	int MetaShader::getPassIndexFromStructName(const std::string& structName, int passIndex) const
@@ -828,6 +882,30 @@ namespace D3dDdi
 		throw ShaderStatus::ParseError;
 	}
 
+	void MetaShader::init()
+	{
+		LOG_FUNC("MetaShader::init");
+
+		reset();
+
+		if (Config::Settings::DisplayFilter::CGP != Config::displayFilter.get())
+		{
+			return;
+		}
+
+		try
+		{
+			loadCgp(Config::displayFilter.getCgpPath());
+			m_status = ShaderStatus::Compiling;
+			compile();
+			updateParameters();
+		}
+		catch (ShaderStatus status)
+		{
+			setStatus(status);
+		}
+	}
+
 	void MetaShader::render(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
 	{
@@ -836,7 +914,6 @@ namespace D3dDdi
 
 		try
 		{
-			loadCgp(Config::displayFilter.getCgpPath());
 			compile();
 			if (ShaderStatus::Compiled == m_status)
 			{
@@ -978,12 +1055,27 @@ namespace D3dDdi
 		m_vertices.clear();
 		m_absPath.clear();
 		m_relPath.clear();
+		m_device.getRepo().release(m_prevInputFrameCandidate.rtt);
 		m_prevInputFrameCandidate = {};
+		for (auto& inputFrame : m_prevInputFrames)
+		{
+			m_device.getRepo().release(inputFrame.rtt);
+		}
 		m_prevInputFrames = {};
+		m_device.getRepo().release(m_srcPass.rtt);
 		m_srcPass = {};
+		for (auto& pass : m_passes)
+		{
+			m_device.getRepo().release(pass.rtt);
+		}
 		m_passes = {};
+		m_device.getRepo().release(m_dstPass.rtt);
 		m_dstPass = {};
 		m_parameters.clear();
+		for (auto& texture : m_textures)
+		{
+			m_device.getRepo().release(texture.second.surface);
+		}
 		m_textures.clear();
 		m_maxPrevInputFrames = 0;
 		m_prevInputFrameCount = 0;
@@ -997,7 +1089,7 @@ namespace D3dDdi
 		}
 		m_frameCount = 0;
 		m_prevInputSize = {};
-		m_status = ShaderStatus::Compiling;
+		m_status = ShaderStatus::Init;
 	}
 
 	void MetaShader::setExternalPass(Pass& pass, const Resource& resource, UINT subResourceIndex, const RECT& rect)
@@ -1174,7 +1266,7 @@ namespace D3dDdi
 				auto configWindow = Gdi::GuiThread::getConfigWindow();
 				if (configWindow)
 				{
-					configWindow->invalidate();
+					configWindow->invalidateShaderStatus();
 				}
 				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 			});
@@ -1374,6 +1466,7 @@ namespace D3dDdi
 		}
 
 		auto dst = &consts.consts[reg.index][0];
+		const auto& configParameters = Config::displayFilter.getCgpParameters();
 		for (int i = 0; i < m_passCount; ++i)
 		{
 			const auto& parameters = m_passes[i].shader->second.parameters;
@@ -1381,13 +1474,21 @@ namespace D3dDdi
 				[&](const ShaderCompiler::Parameter& parameter) { return name == parameter.name; });
 			if (it != parameters.end())
 			{
-				auto value = it->default;
+				auto value = it->defaultValue;
 				const auto parameterOverride = m_parameters.find(name);
 				if (parameterOverride != m_parameters.end())
 				{
-					value = std::max(parameterOverride->second, it->min);
-					value = std::min(parameterOverride->second, it->max);
+					value = parameterOverride->second;
 				}
+
+				auto configOverride = configParameters.find(Config::Parser::tolower(name));
+				if (configOverride != configParameters.end())
+				{
+					value = configOverride->second;
+				}
+
+				value = std::max(value, it->min);
+				value = std::min(value, it->max);
 				*dst = value;
 				return true;
 			}
@@ -1573,6 +1674,15 @@ namespace D3dDdi
 		{
 			m_frameTimer = timeSetEvent(FRAME_INTERVAL, 1, &frameTimerCallback,
 				reinterpret_cast<DWORD_PTR>(this), TIME_PERIODIC);
+		}
+	}
+
+	void MetaShader::updateParameters()
+	{
+		for (int i = 0; i < m_passCount; ++i)
+		{
+			setupUniforms(m_passes[i].shader->second.vs, m_passes[i].vsConsts, i);
+			setupUniforms(m_passes[i].shader->second.ps, m_passes[i].psConsts, i);
 		}
 	}
 

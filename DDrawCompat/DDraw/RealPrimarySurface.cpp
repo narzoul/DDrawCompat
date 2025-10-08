@@ -564,6 +564,14 @@ namespace DDraw
 				statsWindow->updateStats();
 			}
 			Overlay::Steam::flush();
+			for (const auto& device : D3dDdi::Device::getDevices())
+			{
+				const auto repo = &device.second.getRepo();
+				if (repo)
+				{
+					repo->clearReleasedSurfaces();
+				}
+			}
 			lastOverlayCheckVsyncCount = vsyncCount;
 		}
 

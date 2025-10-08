@@ -213,6 +213,20 @@ namespace Overlay
 		}
 	}
 
+	void ScrollBarControl::setRange(int min, int max)
+	{
+		max = std::max(min, max);
+		if (m_min == min && m_max == max)
+		{
+			return;
+		}
+
+		m_min = min;
+		m_max = std::max(min, max);
+		invalidate();
+		setPos(m_pos);
+	}
+
 	void ScrollBarControl::startRepeatTimer(DWORD time)
 	{
 		g_repeatTimerId = SetTimer(nullptr, g_repeatTimerId, time, &repeatTimerProc);

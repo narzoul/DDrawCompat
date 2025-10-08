@@ -17,6 +17,7 @@ namespace Overlay
 		int getPos() const { return m_pos; }
 		void setPos(int pos);
 		void setPageSize(int pageSize) { m_pageSize = pageSize; }
+		void setRange(int min, int max);
 
 	private:
 		enum class State
