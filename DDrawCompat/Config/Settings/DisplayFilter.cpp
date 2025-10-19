@@ -31,9 +31,22 @@ namespace Config
 
 					for (auto p = std::filesystem::begin(iter); p != std::filesystem::end(iter); p.increment(ec))
 					{
-						if (!p->is_directory(ec) && p->path().extension() == ".cgp")
+						if (p->is_directory(ec))
+						{
+							continue;
+						}
+						if (p->path().extension() == ".cgp")
 						{
 							paths.insert(p->path().lexically_relative(baseDir).u8string());
+						}
+						else if (p->path().extension() == ".tmp")
+						{
+							auto fn(p->path().filename());
+							fn.replace_extension();
+							if (fn.extension() == ".dcc")
+							{
+								DeleteFileW(p->path().c_str());
+							}
 						}
 					}
 				}

@@ -1,10 +1,12 @@
 #include <algorithm>
+#include <array>
 #include <map>
 #include <regex>
 #include <set>
 #include <sstream>
 
 #include <Windows.h>
+#include <bcrypt.h>
 #include <d3dcompiler.h>
 
 #include <Common/CompatPtr.h>
@@ -12,8 +14,15 @@
 #include <Common/Path.h>
 #include <D3dDdi/ShaderCompiler.h>
 
+#define NT_SUCCESS(Status) (((NTSTATUS)(Status)) >= 0)
+
 namespace
 {
+	const auto COMPILER_FLAGS =
+		D3DCOMPILE_PACK_MATRIX_ROW_MAJOR |
+		D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY |
+		D3DCOMPILE_OPTIMIZATION_LEVEL3;
+
 	typedef std::string_view Token;
 	typedef std::vector<Token>::const_iterator TokenIter;
 	typedef std::initializer_list<D3dDdi::ShaderCompiler::Pattern> PatternSeq;
@@ -45,12 +54,65 @@ namespace
 		{}
 	};
 
+	struct ShaderCacheHeader
+	{
+		std::array<BYTE, 16> compilerMd5;
+		std::array<BYTE, 16> shaderMd5;
+		UINT compilerFlags;
+		UINT vsSize;
+		UINT psSize;
+	};
+
 	struct D3DCompilerFuncs
 	{
 		decltype(&D3DCompile) d3dCompile;
 		decltype(&D3DDisassemble) d3dDisassemble;
 		decltype(&D3DPreprocess) d3dPreprocess;
+		std::vector<BYTE> md5;
 	};
+
+	std::vector<BYTE> md5sum(const void* input, DWORD inputSize)
+	{
+		static BCRYPT_ALG_HANDLE alg = []()
+			{
+				BCRYPT_ALG_HANDLE handle = nullptr;
+				BCryptOpenAlgorithmProvider(&handle, BCRYPT_MD5_ALGORITHM, nullptr, 0);
+				return handle;
+			}();
+
+		static ULONG hashObjectSize = []()
+			{
+				ULONG size = 0;
+				if (alg)
+				{
+					ULONG result = 0;
+					BCryptGetProperty(alg, BCRYPT_OBJECT_LENGTH, reinterpret_cast<PUCHAR>(&size), sizeof(size), &result, 0);
+				}
+				return size;
+			}();
+
+		std::vector<BYTE> md5(16);
+		if (0 != hashObjectSize)
+		{
+			std::vector<BYTE> hashObject(hashObjectSize);
+			BCRYPT_HASH_HANDLE hash = nullptr;
+			if (NT_SUCCESS(BCryptCreateHash(alg, &hash, hashObject.data(), hashObject.size(), nullptr, 0, 0)))
+			{
+				if (!NT_SUCCESS(BCryptHashData(hash, static_cast<PUCHAR>(const_cast<void*>(input)), inputSize, 0)) ||
+					!NT_SUCCESS(BCryptFinishHash(hash, md5.data(), md5.size(), 0)))
+				{
+					md5.clear();
+				}
+				BCryptDestroyHash(hash);
+			}
+		}
+
+		if (md5.empty())
+		{
+			LOG_ONCE("ERROR: md5sum failed");
+		}
+		return md5;
+	}
 
 	FARPROC loadD3dCompilerFunc(HMODULE d3dCompiler, const char* name)
 	{
@@ -80,6 +142,24 @@ namespace
 		funcs.d3dCompile = reinterpret_cast<decltype(&D3DCompile)>(loadD3dCompilerFunc(d3dCompiler, "D3DCompile"));
 		funcs.d3dDisassemble = reinterpret_cast<decltype(&D3DDisassemble)>(loadD3dCompilerFunc(d3dCompiler, "D3DDisassemble"));
 		funcs.d3dPreprocess = reinterpret_cast<decltype(&D3DPreprocess)>(loadD3dCompilerFunc(d3dCompiler, "D3DPreprocess"));
+
+		auto modulePath = Compat::getModulePath(d3dCompiler);
+		if (!modulePath.empty())
+		{
+			Compat::Log log(Config::Settings::LogLevel::INFO);
+			log << "Using shader compiler: " << modulePath.u8string();
+			std::ifstream f(modulePath, std::ios::binary);
+			if (f)
+			{
+				std::ostringstream oss;
+				oss << f.rdbuf();
+				funcs.md5 = md5sum(oss.str().data(), oss.str().size());
+				if (!funcs.md5.empty())
+				{
+					log << " (MD5: " << Compat::HexDump(funcs.md5.data(), funcs.md5.size()) << ')';
+				}
+			}
+		}
 		return funcs;
 	}
 
@@ -310,13 +390,17 @@ namespace D3dDdi
 			return;
 		}
 
+		auto cachePath(m_absPath);
+		cachePath += ".dcc";
+		const bool cached = loadFromCache(cachePath);
+
 		for (unsigned i = 0; i < 2; ++i)
 		{
 			const char* entry = 0 == i ? "main_vertex" : "main_fragment";
 			const char* target = 0 == i ? "vs_3_0" : "ps_3_0";
 			auto& shader = 0 == i ? m_vs : m_ps;
 			std::string errors;
-			shader = compile(entry, target, errors);
+			compile(entry, target, shader, errors);
 			if (!errors.empty() && errors.back() == '\n')
 			{
 				errors.pop_back();
@@ -328,7 +412,13 @@ namespace D3dDdi
 					<< "\" due to the following errors:\n" << errors;
 				return;
 			}
-			else if (errors.empty())
+			if (shader.assembly.empty())
+			{
+				LOG_INFO << "ERROR: Failed to disassemble " << entry << " in shader \"" << m_absPath.u8string() << '"';
+				return;
+			}
+
+			if (errors.empty())
 			{
 				LOG_DEBUG << "Successfully compiled " << entry << " in shader \"" << m_absPath.u8string() << '"';
 			}
@@ -338,41 +428,46 @@ namespace D3dDdi
 					<< "\" with the following warnings:\n" << errors;
 			}
 		}
+
+		if (!cached)
+		{
+			saveToCache(cachePath);
+		}
 	}
 
-	ShaderCompiler::Shader ShaderCompiler::compile(const char* entry, const char* target, std::string& errors)
+	void ShaderCompiler::compile(const char* entry, const char* target, Shader& shader, std::string& errors)
 	{
 		LOG_FUNC("ShaderCompiler::compile", entry, target, errors);
 
 		const auto& funcs = getD3DCompilerFuncs();
-		CompatPtr<ID3DBlob> blob = nullptr;
-		CompatPtr<ID3DBlob> errorMsgs = nullptr;
-		HRESULT result = funcs.d3dCompile(m_content.c_str(), m_content.length(), "",
-			nullptr, nullptr, entry, target,
-			D3DCOMPILE_PACK_MATRIX_ROW_MAJOR | D3DCOMPILE_ENABLE_BACKWARDS_COMPATIBILITY | D3DCOMPILE_OPTIMIZATION_LEVEL3,
-			0, &blob.getRef(), &errorMsgs.getRef());
-		if (errorMsgs)
+		if (shader.code.empty())
 		{
-			errors = static_cast<const char*>(errorMsgs.get()->lpVtbl->GetBufferPointer(errorMsgs));
-		}
-		if (SUCCEEDED(result))
-		{
-			Shader shader;
+			CompatPtr<ID3DBlob> blob = nullptr;
+			CompatPtr<ID3DBlob> errorMsgs = nullptr;
+			HRESULT result = funcs.d3dCompile(m_content.c_str(), m_content.length(), "",
+				nullptr, nullptr, entry, target, COMPILER_FLAGS, 0, &blob.getRef(), &errorMsgs.getRef());
+			if (errorMsgs)
+			{
+				errors = static_cast<const char*>(errorMsgs.get()->lpVtbl->GetBufferPointer(errorMsgs));
+			}
+			if (FAILED(result))
+			{
+				return;
+			}
+
 			const BYTE* tokens = static_cast<BYTE*>(blob.get()->lpVtbl->GetBufferPointer(blob));
 			const auto codeSize = blob.get()->lpVtbl->GetBufferSize(blob);
 			shader.code.assign(tokens, tokens + codeSize);
-
-			CompatPtr<ID3DBlob> assembly;
-			result = funcs.d3dDisassemble(tokens, codeSize, 0, nullptr, &assembly.getRef());
-			if (SUCCEEDED(result))
-			{
-				shader.assembly = static_cast<char*>(assembly.get()->lpVtbl->GetBufferPointer(assembly));
-				LOG_DEBUG << "Disassembled shader:\n" << shader.assembly;
-				return shader;
-			}
-			errors += "Failed to disassemble shader";
 		}
-		return {};
+
+		CompatPtr<ID3DBlob> assembly;
+		HRESULT result = funcs.d3dDisassemble(shader.code.data(), shader.code.size(), 0, nullptr, &assembly.getRef());
+		if (SUCCEEDED(result))
+		{
+			shader.assembly = static_cast<char*>(assembly.get()->lpVtbl->GetBufferPointer(assembly));
+			LOG_DEBUG << "Disassembled shader:\n" << shader.assembly;
+		}
+
 	}
 
 	bool ShaderCompiler::exists(TokenIter it)
@@ -523,6 +618,78 @@ namespace D3dDdi
 			}
 		}
 		return '{' + init.substr(1) + '}';
+	}
+
+	bool ShaderCompiler::loadFromCache(const std::filesystem::path& absPath)
+	{
+		LOG_FUNC("ShaderCompiler::loadFromCache", absPath.u8string());
+		const auto compilerMd5 = getD3DCompilerFuncs().md5;
+		if (compilerMd5.empty() || m_contentMd5.empty())
+		{
+			LOG_DEBUG << "Missing MD5";
+			return LOG_RESULT(false);
+		}
+
+		std::ifstream f(absPath, std::ios::binary);
+		if (f.fail())
+		{
+			LOG_DEBUG << "Failed to open file";
+			return LOG_RESULT(false);
+		}
+
+		ShaderCacheHeader fileHeader = {};
+		f.read(reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+		if (f.fail())
+		{
+			LOG_DEBUG << "Failed to read file header";
+			return LOG_RESULT(false);
+		}
+
+		if (0 != memcmp(fileHeader.compilerMd5.data(), compilerMd5.data(), fileHeader.compilerMd5.size()))
+		{
+			LOG_DEBUG << "Compiler MD5 mismatch";
+			return LOG_RESULT(false);
+		}
+
+		if (0 != memcmp(fileHeader.shaderMd5.data(), m_contentMd5.data(), fileHeader.shaderMd5.size()))
+		{
+			LOG_DEBUG << "Shader MD5 mismatch";
+			return LOG_RESULT(false);
+		}
+
+		if (fileHeader.compilerFlags != COMPILER_FLAGS)
+		{
+			LOG_DEBUG << "Compiler flags mismatch";
+			return LOG_RESULT(false);
+		}
+
+		std::vector<BYTE> vs(fileHeader.vsSize);
+		f.read(reinterpret_cast<char*>(vs.data()), vs.size());
+		if (f.fail())
+		{
+			LOG_DEBUG << "Failed to read VS data";
+			return LOG_RESULT(false);
+		}
+
+		std::vector<BYTE> ps(fileHeader.psSize);
+		f.read(reinterpret_cast<char*>(ps.data()), ps.size());
+		if (f.fail())
+		{
+			LOG_DEBUG << "Failed to read PS data";
+			return LOG_RESULT(false);
+		}
+
+		char c = 0;
+		f.read(&c, 1);
+		if (!f.eof())
+		{
+			LOG_DEBUG << "Unexpected data at end of file";
+			return LOG_RESULT(false);
+		}
+
+		m_vs.code = vs;
+		m_ps.code = ps;
+		return LOG_RESULT(true);
 	}
 
 	std::string ShaderCompiler::loadShaderFile(const std::filesystem::path& absPath)
@@ -1173,6 +1340,8 @@ namespace D3dDdi
 		m_content = std::regex_replace(m_content, std::regex("#.*"), "");
 		m_content = std::regex_replace(m_content, std::regex("[ \t]+\n"), "\n");
 		m_content = std::regex_replace(m_content, std::regex("\n{3,}"), "\n\n");
+		m_contentMd5 = md5sum(m_content.data(), m_content.size());
+		LOG_DEBUG << "MD5: " << Compat::HexDump(m_contentMd5.data(), m_contentMd5.size());
 		logContent("Postprocessed content");
 	}
 
@@ -1456,5 +1625,59 @@ float4 _tex3Dproj(sampler3D s, float4 t, int texel_off) { return tex3Dproj(s, t)
 	std::string ShaderCompiler::toString(TokenIter begin, TokenIter end)
 	{
 		return toString(tokenFromRange(begin, end));
+	}
+
+	void ShaderCompiler::saveToCache(const std::filesystem::path& absPath)
+	{
+		LOG_FUNC("ShaderCompiler::saveToCache", absPath.u8string());
+		const auto compilerMd5 = getD3DCompilerFuncs().md5;
+		if (compilerMd5.empty() || m_contentMd5.empty())
+		{
+			LOG_DEBUG << "Missing MD5";
+			return;
+		}
+
+		ShaderCacheHeader fileHeader = {};
+		memcpy(fileHeader.compilerMd5.data(), compilerMd5.data(), compilerMd5.size());
+		memcpy(fileHeader.shaderMd5.data(), m_contentMd5.data(), m_contentMd5.size());
+		fileHeader.compilerFlags = COMPILER_FLAGS;
+		fileHeader.vsSize = m_vs.code.size();
+		fileHeader.psSize = m_ps.code.size();
+
+		auto tmpPath(absPath);
+		tmpPath += ".tmp";
+		std::ofstream f(tmpPath, std::ios::binary);
+		if (f.fail())
+		{
+			LOG_DEBUG << "Failed to open temporary file";
+			return;
+		}
+
+		f.write(reinterpret_cast<char*>(&fileHeader), sizeof(fileHeader));
+		if (f)
+		{
+			f.write(reinterpret_cast<char*>(m_vs.code.data()), m_vs.code.size());
+		}
+		if (f)
+		{
+			f.write(reinterpret_cast<char*>(m_ps.code.data()), m_ps.code.size());
+		}
+
+		if (f)
+		{
+			f.close();
+			if (MoveFileExW(tmpPath.c_str(), absPath.c_str(), MOVEFILE_REPLACE_EXISTING))
+			{
+				return;
+			}
+			LOG_DEBUG << "MoveFileEx failed: " << Compat::hex(GetLastError());
+		}
+		else
+		{
+			f.close();
+			LOG_DEBUG << "Failed to write into temporary file";
+		}
+
+		DeleteFileW(tmpPath.c_str());
 	}
 }

@@ -160,6 +160,13 @@ namespace Compat
 		BYTE val;
 	};
 
+	struct HexDump
+	{
+		HexDump(const void* data, unsigned long size) : data(data), size(size) {}
+		const void* data;
+		const unsigned long size;
+	};
+
 	template <typename T>
 	struct Out
 	{
@@ -235,6 +242,17 @@ namespace Compat
 	{
 		auto fill = os.getStream().fill('0');
 		return os << std::setw(2) << std::hex << static_cast<DWORD>(hexByte.val) << std::dec << std::setfill(fill);
+	}
+
+	inline LogStream operator<<(LogStream os, HexDump hexDump)
+	{
+		const auto fill = os.getStream().fill('0');
+		os << std::hex;
+		for (unsigned long i = 0; i < hexDump.size; ++i)
+		{
+			os << std::setw(2) << static_cast<DWORD>(static_cast<const BYTE*>(hexDump.data)[i]);
+		}
+		return os << std::dec << std::setfill(fill);
 	}
 
 	template <typename T>

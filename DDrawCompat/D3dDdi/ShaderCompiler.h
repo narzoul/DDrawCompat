@@ -108,7 +108,7 @@ namespace D3dDdi
 		};
 
 		void applyTokenPatches();
-		Shader compile(const char* entry, const char* target, std::string& errors);
+		void compile(const char* entry, const char* target, Shader& shader, std::string& errors);
 		bool exists(TokenIter it);
 		TokenIter findBracketEnd(TokenIter begin, TokenIter end);
 		TokenIter findToken(Token token);
@@ -117,6 +117,7 @@ namespace D3dDdi
 		std::string getNextUnusedSemantic(Token semantic, std::map<Token, std::set<unsigned>>& usedSemantics);
 		bool hasSampler(const std::vector<Field>& fields);
 		std::string initStruct(std::map<Token, std::vector<Field>>::const_iterator s);
+		bool loadFromCache(const std::filesystem::path& absPath);
 		std::string loadShaderFile(const std::filesystem::path& absPath);
 		void logContent(const std::string& header);
 		std::string makeUnique(Token token);
@@ -143,9 +144,11 @@ namespace D3dDdi
 		std::string toString(Token token);
 		std::string toString(TokenIter it);
 		std::string toString(TokenIter begin, TokenIter end);
+		void saveToCache(const std::filesystem::path& absPath);
 
 		std::filesystem::path m_absPath;
 		std::string m_content;
+		std::vector<BYTE> m_contentMd5;
 		std::vector<Parameter> m_parameters;
 		std::map<std::string, unsigned> m_texCoords;
 		std::map<Token, std::vector<Field>> m_structs;
