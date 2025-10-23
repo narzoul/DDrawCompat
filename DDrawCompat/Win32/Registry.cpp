@@ -1,3 +1,5 @@
+#include <array>
+#include <filesystem>
 #include <map>
 #include <string>
 #include <vector>
@@ -6,6 +8,7 @@
 
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <Common/Path.h>
 #include <Common/ScopedCriticalSection.h>
 #include <Dll/Dll.h>
 #include <Win32/Registry.h>
@@ -82,9 +85,10 @@ namespace
 
 	const std::vector<RegEntry> g_regEntries = {
 		{ L"HKEY_LOCAL_MACHINE\\Software\\Microsoft\\DirectDraw", L"EmulationOnly", {} },
-		{ L"HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv31", RegSz(L"ir32_32.dll") },
-		{ L"HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv41", RegSz(L"ir41_32.ax") },
-		{ L"HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv50", RegSz(L"ir50_32.dll") },
+		{ L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv31", RegSz(L"ir32_32.dll") },
+		{ L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv32", RegSz(L"ir32_32.dll") },
+		{ L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv41", RegSz(L"ir41_32.ax") },
+		{ L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32", L"vidc.iv50", RegSz(L"ir50_32.dll") },
 	};
 
 #undef HKLM_SOFTWARE_KEY
@@ -102,6 +106,52 @@ namespace
 			lpSecurityAttributes, phkResult, lpdwDisposition));
 	}
 
+	std::map<const wchar_t*, std::wstring> enumCodecs()
+	{
+		LOG_FUNC("enumCodecs");
+		struct Codec
+		{
+			const wchar_t* origModuleName;
+			const wchar_t* replacementModuleName;
+			std::filesystem::path pathPrefix;
+		};
+
+		const auto sxsPath(Compat::getWindowsPath() / "WinSxS");
+		const std::array<Codec, 3> sxsCodecs = { {
+			{ L"ir32_32.dll", L"ir32_32original.dll", sxsPath / "x86_microsoft-windows-vcm-core-codecs_" },
+			{ L"ir41_32.ax", L"ir41_32original.dll", sxsPath / "x86_microsoft-windows-indeo4-codecs_" },
+			{ L"ir50_32.dll", L"ir50_32original.dll", sxsPath / "x86_microsoft-windows-indeo5-codecs_" }
+		} };
+
+		std::error_code ec;
+		auto iter = std::filesystem::directory_iterator(sxsPath, ec);
+		if (ec)
+		{
+			return {};
+		}
+
+		std::map<const wchar_t*, std::wstring> codecs;
+		for (auto p = std::filesystem::begin(iter); p != std::filesystem::end(iter); p.increment(ec))
+		{
+			if (!p->is_directory(ec))
+			{
+				continue;
+			}
+
+			for (const auto& codec : sxsCodecs)
+			{
+				if (Compat::isPrefix(codec.pathPrefix, p->path()) &&
+					std::filesystem::is_regular_file(p->path() / codec.replacementModuleName, ec))
+				{
+					const auto replacement(p->path() / codec.replacementModuleName);
+					codecs[codec.origModuleName] = replacement;
+					LOG_DEBUG << codec.origModuleName << " -> " << replacement.u8string();
+				}
+			}
+		}
+		return codecs;
+	}
+
 	bool filterType(DWORD type, const DWORD* flags)
 	{
 		if (!flags)
@@ -116,6 +166,31 @@ namespace
 		}
 
 		return false;
+	}
+
+	const wchar_t* findCodec(const wchar_t* codec)
+	{
+		static std::map<const wchar_t*, std::wstring> codecs;
+		auto it = codecs.find(codec);
+		if (it != codecs.end())
+		{
+			return it->second.c_str();
+		}
+
+		std::error_code ec;
+		if (!std::filesystem::is_regular_file(Compat::getSystemPath() / codec, ec))
+		{
+			static std::map<const wchar_t*, std::wstring> sxsCodecs = enumCodecs();
+			it = sxsCodecs.find(codec);
+			if (it != sxsCodecs.end())
+			{
+				codecs[codec] = it->second;
+				return it->second.c_str();
+			}
+		}
+
+		codecs[codec] = codec;
+		return codec;
 	}
 
 	template <typename... Params>
@@ -193,6 +268,14 @@ namespace
 			if (0 == lstrcmpiW(valueName, regEntry.valueName) &&
 				0 == lstrcmpiW(keyName.c_str(), regEntry.keyName))
 			{
+				if (0 == lstrcmpW(keyName.c_str(),
+					L"HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\DRIVERS32"))
+				{
+					static RegValue value = {};
+					value.type = REG_SZ;
+					value.str = findCodec(regEntry.value.str);
+					return &value;
+				}
 				return &regEntry.value;
 			}
 		}

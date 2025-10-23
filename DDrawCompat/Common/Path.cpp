@@ -22,6 +22,13 @@ namespace Compat
 		return path;
 	}
 
+	std::filesystem::path getWindowsPath()
+	{
+		wchar_t path[MAX_PATH] = {};
+		GetWindowsDirectoryW(path, MAX_PATH);
+		return path;
+	}
+
 	bool isEqual(const std::filesystem::path& p1, const std::filesystem::path& p2)
 	{
 		return 0 == _wcsicmp(p1.c_str(), p2.c_str());
