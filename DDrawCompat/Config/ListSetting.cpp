@@ -3,8 +3,8 @@
 
 namespace Config
 {
-	ListSetting::ListSetting(const std::string& name, const std::string& default)
-		: Setting(name, default)
+	ListSetting::ListSetting(const std::string& name, const std::string& defaultValue)
+		: Setting(name, defaultValue)
 	{
 	}
 

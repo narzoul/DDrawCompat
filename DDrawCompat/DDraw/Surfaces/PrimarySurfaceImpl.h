@@ -13,6 +13,10 @@ namespace DDraw
 	class PrimarySurfaceImpl : public SurfaceImpl<TSurface>
 	{
 	public:
+		using SurfaceImpl<TSurface>::TDdsCaps;
+		using SurfaceImpl<TSurface>::TSurfaceDesc;
+		using SurfaceImpl<TSurface>::TUnlockParam;
+
 		PrimarySurfaceImpl(Surface* data);
 
 		virtual HRESULT AddAttachedSurface(TSurface* This, TSurface* lpDDSAttachedSurface) override;

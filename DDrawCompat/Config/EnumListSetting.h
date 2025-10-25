@@ -9,7 +9,8 @@ namespace Config
 	class EnumListSetting : public ListSetting
 	{
 	public:
-		EnumListSetting(const std::string& name, const std::string& default, const std::vector<std::string>& enumNames);
+		EnumListSetting(const std::string& name, const std::string& defaultValue,
+			const std::vector<std::string>& enumNames);
 
 		const std::vector<int>& get() const { return m_values; }
 

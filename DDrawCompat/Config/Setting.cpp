@@ -12,10 +12,10 @@ namespace
 
 namespace Config
 {
-	Setting::Setting(const std::string& name, const std::string& default)
+	Setting::Setting(const std::string& name, const std::string& defaultValue)
 		: m_param(0)
 		, m_name(name)
-		, m_default(default)
+		, m_default(defaultValue)
 	{
 		getSettings().emplace(name, *this);
 	}
@@ -59,7 +59,7 @@ namespace Config
 
 		try
 		{
-			m_param = getParamInfo().default;
+			m_param = getParamInfo().defaultValue;
 			if (!param.empty())
 			{
 				setParam(param);

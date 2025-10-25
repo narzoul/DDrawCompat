@@ -2,13 +2,15 @@
 #include <D3dDdi/DeviceCallbacks.h>
 #include <D3dDdi/Visitors/DeviceCallbacksVisitor.h>
 
+template<>
+const D3DDDI_DEVICECALLBACKS& getOrigVtable(HANDLE /*device*/)
+{
+	return CompatVtable<D3DDDI_DEVICECALLBACKS>::s_origVtable;
+}
+
 namespace
 {
-	const D3DDDI_DEVICECALLBACKS& getOrigVtable(HANDLE /*device*/)
-	{
-		return CompatVtable<D3DDDI_DEVICECALLBACKS>::s_origVtable;
-	}
-
+	template<>
 	constexpr void setCompatVtable(D3DDDI_DEVICECALLBACKS& /*vtable*/)
 	{
 	}

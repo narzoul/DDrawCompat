@@ -95,7 +95,7 @@ namespace
 			return isFsBlt(lpSrcRect->right - lpSrcRect->left, lpSrcRect->bottom - lpSrcRect->top);
 		}
 
-		DDraw::Types<TSurface>::TSurfaceDesc desc = {};
+		typename DDraw::Types<TSurface>::TSurfaceDesc desc = {};
 		desc.dwSize = sizeof(desc);
 		getOrigVtable(lpDDSrcSurface).GetSurfaceDesc(lpDDSrcSurface, &desc);
 		return isFsBlt(desc.dwWidth, desc.dwHeight);
@@ -112,7 +112,7 @@ namespace DDraw
 {
 	template <typename TSurface>
 	PrimarySurfaceImpl<TSurface>::PrimarySurfaceImpl(Surface* data)
-		: SurfaceImpl(data)
+		: SurfaceImpl<TSurface>(data)
 	{
 	}
 
@@ -148,7 +148,7 @@ namespace DDraw
 		{
 			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
-		HRESULT result = SurfaceImpl::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		HRESULT result = SurfaceImpl<TSurface>::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
 		if (SUCCEEDED(result))
 		{
 			bltToGdi(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
@@ -182,7 +182,7 @@ namespace DDraw
 		{
 			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
-		HRESULT result = SurfaceImpl::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
+		HRESULT result = SurfaceImpl<TSurface>::BltFast(This, dwX, dwY, lpDDSrcSurface, lpSrcRect, dwTrans);
 		if (SUCCEEDED(result))
 		{
 			auto statsWindow = Gdi::GuiThread::getStatsWindow();
@@ -210,7 +210,7 @@ namespace DDraw
 
 		RealPrimarySurface::setUpdateReady();
 		RealPrimarySurface::flush();
-		RealPrimarySurface::waitForFlip(m_data->getDDS());
+		RealPrimarySurface::waitForFlip(this->m_data->getDDS());
 
 		const auto fpsLimiter = RealPrimarySurface::getFpsLimiter();
 		if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value)
@@ -229,7 +229,7 @@ namespace DDraw
 				getOrigVtable(This).GetAttachedSurface(This, &caps, &surfaceTargetOverride.getRef());
 			}
 
-			HRESULT result = SurfaceImpl::Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
+			HRESULT result = SurfaceImpl<TSurface>::Blt(This, nullptr, surfaceTargetOverride.get(), nullptr, DDBLT_WAIT, nullptr);
 			if (FAILED(result))
 			{
 				return result;
@@ -239,7 +239,7 @@ namespace DDraw
 		}
 		else
 		{
-			HRESULT result = SurfaceImpl::Flip(This, surfaceTargetOverride, DDFLIP_WAIT);
+			HRESULT result = SurfaceImpl<TSurface>::Flip(This, surfaceTargetOverride, DDFLIP_WAIT);
 			if (FAILED(result))
 			{
 				return result;
@@ -266,19 +266,19 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetAttachedSurface(TSurface* This, TDdsCaps* lpDDSCaps, TSurface** lplpDDAttachedSurface)
 	{
-		if (lpDDSCaps && (m_data->getOrigCaps() & DDSCAPS_SYSTEMMEMORY))
+		if (lpDDSCaps && (this->m_data->getOrigCaps() & DDSCAPS_SYSTEMMEMORY))
 		{
 			TDdsCaps caps = *lpDDSCaps;
 			caps.dwCaps &= ~DDSCAPS_SYSTEMMEMORY;
-			return SurfaceImpl::GetAttachedSurface(This, &caps, lplpDDAttachedSurface);
+			return SurfaceImpl<TSurface>::GetAttachedSurface(This, &caps, lplpDDAttachedSurface);
 		}
-		return SurfaceImpl::GetAttachedSurface(This, lpDDSCaps, lplpDDAttachedSurface);
+		return SurfaceImpl<TSurface>::GetAttachedSurface(This, lpDDSCaps, lplpDDAttachedSurface);
 	}
 
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetCaps(TSurface* This, TDdsCaps* lpDDSCaps)
 	{
-		HRESULT result = SurfaceImpl::GetCaps(This, lpDDSCaps);
+		HRESULT result = SurfaceImpl<TSurface>::GetCaps(This, lpDDSCaps);
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSCaps->dwCaps);
@@ -295,7 +295,7 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
-		HRESULT result = SurfaceImpl::GetDC(This, lphDC);
+		HRESULT result = SurfaceImpl<TSurface>::GetDC(This, lphDC);
 		if (SUCCEEDED(result))
 		{
 			auto statsWindow = Gdi::GuiThread::getStatsWindow();
@@ -311,7 +311,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::GetSurfaceDesc(TSurface* This, TSurfaceDesc* lpDDSurfaceDesc)
 	{
-		HRESULT result = SurfaceImpl::GetSurfaceDesc(This, lpDDSurfaceDesc);
+		HRESULT result = SurfaceImpl<TSurface>::GetSurfaceDesc(This, lpDDSurfaceDesc);
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
@@ -322,7 +322,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::IsLost(TSurface* This)
 	{
-		HRESULT result = SurfaceImpl::IsLost(This);
+		HRESULT result = SurfaceImpl<TSurface>::IsLost(This);
 		if (SUCCEEDED(result))
 		{
 			result = RealPrimarySurface::isLost() ? DDERR_SURFACELOST : DD_OK;
@@ -341,7 +341,7 @@ namespace DDraw
 		}
 
 		RealPrimarySurface::flush();
-		HRESULT result = SurfaceImpl::Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
+		HRESULT result = SurfaceImpl<TSurface>::Lock(This, lpDestRect, lpDDSurfaceDesc, dwFlags, hEvent);
 		if (SUCCEEDED(result))
 		{
 			restorePrimaryCaps(lpDDSurfaceDesc->ddsCaps.dwCaps);
@@ -358,7 +358,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::ReleaseDC(TSurface* This, HDC hDC)
 	{
-		HRESULT result = SurfaceImpl::ReleaseDC(This, hDC);
+		HRESULT result = SurfaceImpl<TSurface>::ReleaseDC(This, hDC);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::scheduleUpdate(true);
@@ -376,7 +376,7 @@ namespace DDraw
 			result = SUCCEEDED(realPrimary->IsLost(realPrimary)) ? DD_OK : RealPrimarySurface::restore();
 			if (SUCCEEDED(result))
 			{
-				return SurfaceImpl::Restore(This);
+				return SurfaceImpl<TSurface>::Restore(This);
 			}
 		}
 		return result;
@@ -390,7 +390,7 @@ namespace DDraw
 			DirectDrawPalette::waitForNextUpdate();
 		}
 
-		HRESULT result = SurfaceImpl::SetPalette(This, lpDDPalette);
+		HRESULT result = SurfaceImpl<TSurface>::SetPalette(This, lpDDPalette);
 		if (SUCCEEDED(result))
 		{
 			PrimarySurface::s_palette = lpDDPalette;
@@ -402,7 +402,7 @@ namespace DDraw
 	template <typename TSurface>
 	HRESULT PrimarySurfaceImpl<TSurface>::Unlock(TSurface* This, TUnlockParam lpRect)
 	{
-		HRESULT result = SurfaceImpl::Unlock(This, lpRect);
+		HRESULT result = SurfaceImpl<TSurface>::Unlock(This, lpRect);
 		if (SUCCEEDED(result))
 		{
 			RealPrimarySurface::scheduleUpdate(true);

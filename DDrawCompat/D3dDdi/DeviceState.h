@@ -189,7 +189,7 @@ namespace D3dDdi
 			return createVertexShader(reinterpret_cast<const UINT*>(code), N);
 		}
 
-		std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const UINT* code, UINT size);
+		std::unique_ptr<void, ResourceDeleter> createVertexShader(const UINT* code, UINT size);
 		HRESULT deleteShader(HANDLE shader, HANDLE State::* shaderMember,
 			HRESULT(APIENTRY* origDeleteShaderFunc)(HANDLE, HANDLE));
 

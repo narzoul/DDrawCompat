@@ -7,6 +7,7 @@
 
 namespace
 {
+	template<>
 	constexpr void setCompatVtable(IDirectDrawClipperVtbl& /*vtable*/)
 	{
 	}

@@ -336,7 +336,7 @@ namespace Direct3d
 		template <typename Vtable>
 		void hookVtable(const Vtable& vtable)
 		{
-			CompatVtable<Vtable>::hookVtable<DDraw::ScopedThreadLock>(vtable);
+			CompatVtable<Vtable>::template hookVtable<DDraw::ScopedThreadLock>(vtable);
 		}
 
 		template void hookVtable(const IDirect3DDeviceVtbl&);

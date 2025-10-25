@@ -14,10 +14,10 @@ namespace Config
 			std::string name;
 			int min;
 			int max;
-			int default;
+			int defaultValue;
 		};
 
-		Setting(const std::string& name, const std::string& default);
+		Setting(const std::string& name, const std::string& defaultValue);
 
 		Setting(const Setting&) = delete;
 		Setting(Setting&&) = delete;

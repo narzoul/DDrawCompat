@@ -3,9 +3,9 @@
 
 namespace Config
 {
-	EnumListSetting::EnumListSetting(const std::string& name, const std::string& default,
+	EnumListSetting::EnumListSetting(const std::string& name, const std::string& defaultValue,
 		const std::vector<std::string>& enumNames)
-		: ListSetting(name, default)
+		: ListSetting(name, defaultValue)
 		, m_enumNames(enumNames)
 	{
 	}

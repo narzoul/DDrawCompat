@@ -9,8 +9,8 @@ namespace Config
 		class BoolSetting : public EnumSetting
 		{
 		public:
-			BoolSetting(const std::string& name, const std::string& default)
-				: EnumSetting(name, default, { "off", "on" })
+			BoolSetting(const std::string& name, const std::string& defaultValue)
+				: EnumSetting(name, defaultValue, { "off", "on" })
 			{
 			}
 		};

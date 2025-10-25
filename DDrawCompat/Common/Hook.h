@@ -4,7 +4,7 @@
 
 #include <Windows.h>
 
-#define CALL_ORIG_FUNC(func) Compat::g_origFuncPtr<&func>
+#define CALL_ORIG_FUNC(func) Compat::g_origFuncPtr<func>
 
 #define GET_PROC_ADDRESS(module, func) \
 	reinterpret_cast<decltype(&func)>(GetProcAddress(GetModuleHandle(#module), #func))

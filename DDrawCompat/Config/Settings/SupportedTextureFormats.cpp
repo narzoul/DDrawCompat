@@ -1,6 +1,6 @@
 #include <Config/Settings/SupportedTextureFormats.h>
 
-#define FOURCC(cc) *reinterpret_cast<D3DDDIFORMAT*>(#cc)
+#define FOURCC(cc) *reinterpret_cast<D3DDDIFORMAT*>(const_cast<char*>(#cc))
 
 namespace Config
 {

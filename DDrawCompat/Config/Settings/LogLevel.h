@@ -11,7 +11,7 @@ namespace Config
 		public:
 			enum Values { NONE, INFO, DEBUG, TRACE };
 
-			LogLevel::LogLevel()
+			LogLevel()
 				: EnumSetting("LogLevel",
 #ifdef _DEBUG
 					"debug",

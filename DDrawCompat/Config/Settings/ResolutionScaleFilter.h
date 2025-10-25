@@ -12,7 +12,7 @@ namespace Config
 			static const UINT POINT = 0;
 			static const UINT BILINEAR = 1;
 
-			ResolutionScaleFilter::ResolutionScaleFilter()
+			ResolutionScaleFilter()
 				: EnumSetting("ResolutionScaleFilter", "point", { "point", "bilinear" })
 			{
 			}

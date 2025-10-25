@@ -19,24 +19,24 @@ public:
 	{
 	}
 
-	explicit CompatPtr(Intf* intf) : CompatWeakPtr(intf)
+	explicit CompatPtr(Intf* intf) : CompatWeakPtr<Intf>(intf)
 	{
 	}
 
 	CompatPtr(const CompatPtr& other)
 	{
-		m_intf = Compat::queryInterface<Intf>(other.get());
+		this->m_intf = Compat::queryInterface<Intf>(other.get());
 	}
 
 	template <typename OtherIntf>
 	CompatPtr(const CompatPtr<OtherIntf>& other)
 	{
-		m_intf = Compat::queryInterface<Intf>(other.get());
+		this->m_intf = Compat::queryInterface<Intf>(other.get());
 	}
 
 	~CompatPtr()
 	{
-		release();
+		this->release();
 	}
 
 	CompatPtr& operator=(CompatPtr rhs)
@@ -47,8 +47,8 @@ public:
 
 	Intf* detach()
 	{
-		Intf* intf = m_intf;
-		m_intf = nullptr;
+		Intf* intf = this->m_intf;
+		this->m_intf = nullptr;
 		return intf;
 	}
 
@@ -59,7 +59,7 @@ public:
 
 	void swap(CompatPtr& other)
 	{
-		std::swap(m_intf, other.m_intf);
+		std::swap(this->m_intf, other.m_intf);
 	}
 };
 

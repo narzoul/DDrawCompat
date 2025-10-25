@@ -42,7 +42,7 @@ namespace DDraw
 		template <typename TDirectDraw>
 		HWND* getDeviceWindowPtr(TDirectDraw& dd)
 		{
-			return &reinterpret_cast<HWND>(getInt(dd).lpLcl->hWnd);
+			return reinterpret_cast<HWND*>(&getInt(dd).lpLcl->hWnd);
 		}
 
 		template <typename Vtable>

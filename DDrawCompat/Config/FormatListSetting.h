@@ -16,7 +16,7 @@ namespace Config
 		bool isSupported(D3DDDIFORMAT format) const;
 
 	protected:
-		FormatListSetting(const std::string& name, const std::string& default,
+		FormatListSetting(const std::string& name, const std::string& defaultValue,
 			const std::set<D3DDDIFORMAT>& allowedFormats,
 			const std::map<std::string, std::set<D3DDDIFORMAT>>& allowedGroups,
 			bool allowFourCCs);

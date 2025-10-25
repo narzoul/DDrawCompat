@@ -131,6 +131,35 @@ namespace Compat
 		return os << static_cast<const T*>(ptr);
 	}
 
+	class LogStruct
+	{
+	public:
+		LogStruct(std::ostream& os) : m_os(os), m_isFirst(true) { m_os << '{'; }
+		~LogStruct() { m_os << '}'; }
+
+		template <typename T>
+		LogStruct& operator<<(const T& val)
+		{
+			if (m_isFirst)
+			{
+				m_isFirst = false;
+			}
+			else
+			{
+				m_os << ',';
+			}
+			m_os << val;
+			return *this;
+		}
+
+		operator LogStream() const { return m_os; }
+		operator std::ostream& () const { return m_os.getStream(); }
+
+	private:
+		LogStream m_os;
+		bool m_isFirst;
+	};
+
 	template <typename T1, typename T2>
 	LogStream operator<<(LogStream os, const std::pair<T1, T2>& pair)
 	{
@@ -255,20 +284,6 @@ namespace Compat
 		return os << std::dec << std::setfill(fill);
 	}
 
-	template <typename T>
-	LogStream operator<<(LogStream os, Out<T> out)
-	{
-		if (Log::isLeaveLog())
-		{
-			os << out.val;
-		}
-		else
-		{
-			os.getStream() << '<' << getOutPtr(out.val) << '>';
-		}
-		return os;
-	}
-
 	class Log
 	{
 	public:
@@ -300,6 +315,20 @@ namespace Compat
 		static unsigned s_logLevel;
 		static std::ostream* s_logStream;
 	};
+
+	template <typename T>
+	LogStream operator<<(LogStream os, Out<T> out)
+	{
+		if (Log::isLeaveLog())
+		{
+			os << out.val;
+		}
+		else
+		{
+			os.getStream() << '<' << getOutPtr(out.val) << '>';
+		}
+		return os;
+	}
 
 	template <auto funcPtr, int paramIndex, typename = decltype(funcPtr)>
 	class LogParam;
@@ -442,34 +471,5 @@ namespace Compat
 		{
 			std::apply([&](auto&... params) { logParams<0>(log, params...); }, pack);
 		}
-	};
-
-	class LogStruct
-	{
-	public:
-		LogStruct(std::ostream& os) : m_os(os), m_isFirst(true) { m_os << '{'; }
-		~LogStruct() { m_os << '}'; }
-
-		template <typename T>
-		LogStruct& operator<<(const T& val)
-		{
-			if (m_isFirst)
-			{
-				m_isFirst = false;
-			}
-			else
-			{
-				m_os << ',';
-			}
-			m_os << val;
-			return *this;
-		}
-
-		operator LogStream() const { return m_os; }
-		operator std::ostream& () const { return m_os.getStream(); }
-
-	private:
-		LogStream m_os;
-		bool m_isFirst;
 	};
 }

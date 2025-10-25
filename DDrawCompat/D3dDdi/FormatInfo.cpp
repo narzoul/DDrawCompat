@@ -27,7 +27,7 @@ namespace
 
 	struct FormatInfoXARGB : FormatInfoBuilder
 	{
-		FormatInfoXARGB::FormatInfoXARGB(BYTE x, BYTE a, BYTE r, BYTE g, BYTE b)
+		FormatInfoXARGB(BYTE x, BYTE a, BYTE r, BYTE g, BYTE b)
 		{
 			setComponent(blue, b);
 			setComponent(green, g);
@@ -40,7 +40,7 @@ namespace
 
 	struct FormatInfoXABGR : FormatInfoBuilder
 	{
-		FormatInfoXABGR::FormatInfoXABGR(BYTE x, BYTE a, BYTE b, BYTE g, BYTE r)
+		FormatInfoXABGR(BYTE x, BYTE a, BYTE b, BYTE g, BYTE r)
 		{
 			setComponent(red, r);
 			setComponent(green, g);
@@ -53,7 +53,7 @@ namespace
 
 	struct FormatInfoAP : FormatInfoBuilder
 	{
-		FormatInfoAP::FormatInfoAP(BYTE a, BYTE p)
+		FormatInfoAP(BYTE a, BYTE p)
 		{
 			setComponent(palette, p);
 			setComponent(alpha, a);
@@ -63,7 +63,7 @@ namespace
 
 	struct FormatInfoDXS : FormatInfoBuilder
 	{
-		FormatInfoDXS::FormatInfoDXS(BYTE d, BYTE x, BYTE s)
+		FormatInfoDXS(BYTE d, BYTE x, BYTE s)
 		{
 			setComponent(stencil, s);
 			setComponent(unused, x);
@@ -74,7 +74,7 @@ namespace
 
 	struct FormatInfoXSD : FormatInfoBuilder
 	{
-		FormatInfoXSD::FormatInfoXSD(BYTE x, BYTE s, BYTE d)
+		FormatInfoXSD(BYTE x, BYTE s, BYTE d)
 		{
 			setComponent(depth, d);
 			setComponent(stencil, s);
@@ -85,7 +85,7 @@ namespace
 	
 	struct FormatInfoXALVU : FormatInfoBuilder
 	{
-		FormatInfoXALVU::FormatInfoXALVU(BYTE x, BYTE a, BYTE l, BYTE v, BYTE u)
+		FormatInfoXALVU(BYTE x, BYTE a, BYTE l, BYTE v, BYTE u)
 		{
 			setComponent(du, u);
 			setComponent(dv, v);

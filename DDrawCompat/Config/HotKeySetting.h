@@ -14,7 +14,7 @@ namespace Config
 		virtual std::string getValueStr() const override { return toString(m_value); }
 
 	protected:
-		HotKeySetting(const std::string& name, const std::string& default) : Setting(name, default) {}
+		HotKeySetting(const std::string& name, const std::string& defaultValue) : Setting(name, defaultValue) {}
 
 		virtual void setValue(const std::string& value) override { m_value = Input::parseHotKey(value); }
 

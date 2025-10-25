@@ -18,8 +18,8 @@ namespace Config
 		}
 
 	protected:
-		IntSetting(const std::string& name, const std::string& default, int min, int max)
-			: Setting(name, default)
+		IntSetting(const std::string& name, const std::string& defaultValue, int min, int max)
+			: Setting(name, defaultValue)
 			, m_min(min)
 			, m_max(max)
 			, m_value(min)

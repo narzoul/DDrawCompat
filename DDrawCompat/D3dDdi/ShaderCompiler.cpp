@@ -27,7 +27,7 @@ namespace
 	typedef std::vector<Token>::const_iterator TokenIter;
 	typedef std::initializer_list<D3dDdi::ShaderCompiler::Pattern> PatternSeq;
 
-	const D3dDdi::ShaderCompiler::Regex IDENTIFIER = "[A-Za-z_][A-Za-z0-9_]*";
+	const D3dDdi::ShaderCompiler::Regex IDENTIFIER("[A-Za-z_][A-Za-z0-9_]*");
 
 #define THROW_EXCEPTION(...) throw std::runtime_error((std::ostringstream() << __func__ << ": " << __VA_ARGS__).str())
 

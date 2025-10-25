@@ -23,11 +23,11 @@ namespace
 
 namespace Config
 {
-	FormatListSetting::FormatListSetting(const std::string& name, const std::string& default,
+	FormatListSetting::FormatListSetting(const std::string& name, const std::string& defaultValue,
 		const std::set<D3DDDIFORMAT>& allowedFormats,
 		const std::map<std::string, std::set<D3DDDIFORMAT>>& allowedGroups,
 		bool allowFourCCs)
-		: ListSetting(name, default)
+		: ListSetting(name, defaultValue)
 		, m_allowedFormats(allowedFormats)
 		, m_allowedGroups(allowedGroups)
 		, m_allowFourCCs(allowFourCCs)

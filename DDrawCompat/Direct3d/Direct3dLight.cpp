@@ -5,6 +5,7 @@
 
 namespace
 {
+	template<>
 	constexpr void setCompatVtable(IDirect3DLightVtbl& /*vtable*/)
 	{
 	}

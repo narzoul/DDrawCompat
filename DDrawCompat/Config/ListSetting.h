@@ -13,7 +13,7 @@ namespace Config
 		virtual bool isMultiValued() const override { return true; }
 
 	protected:
-		ListSetting(const std::string& name, const std::string& default);
+		ListSetting(const std::string& name, const std::string& defaultValue);
 
 		virtual void setValue(const std::string& value) override;
 

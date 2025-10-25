@@ -23,7 +23,7 @@ namespace Config
 				for (const auto& pair : m_valueMapping)
 				{
 					m_value = pair.second;
-					m_param = getParamInfo().default;
+					m_param = getParamInfo().defaultValue;
 					m_defaultValueStrings.push_back(getValueStr());
 				}
 				m_value = prevValue;
@@ -63,9 +63,9 @@ namespace Config
 		}
 
 	protected:
-		MappedSetting(const std::string& name, const std::string& default,
+		MappedSetting(const std::string& name, const std::string& defaultValue,
 			const std::vector<std::pair<std::string, Value>>& valueMapping)
-			: Setting(name, default)
+			: Setting(name, defaultValue)
 			, m_value{}
 			, m_valueMapping(valueMapping)
 		{

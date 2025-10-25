@@ -128,10 +128,15 @@ namespace
 
 	SIZE makeSize(DWORD width, DWORD height);
 
+	template <typename Char>
+	BOOL enumDisplaySettingsEx(const Char* lpszDeviceName, DWORD iModeNum, DevMode<Char>* lpDevMode, DWORD dwFlags);
+
 	LONG origChangeDisplaySettingsEx(LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam);
 	LONG origChangeDisplaySettingsEx(LPCWSTR lpszDeviceName, DEVMODEW* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam);
 	BOOL origEnumDisplaySettingsEx(LPCSTR lpszDeviceName, DWORD iModeNum, DEVMODEA* lpDevMode, DWORD dwFlags);
 	BOOL origEnumDisplaySettingsEx(LPCWSTR lpszDeviceName, DWORD iModeNum, DEVMODEW* lpDevMode, DWORD dwFlags);
+
+	BOOL CALLBACK sendDisplayChange(HWND hwnd, LPARAM lParam);
 
 	void setDwmDxFullscreenTransitionEvent();
 

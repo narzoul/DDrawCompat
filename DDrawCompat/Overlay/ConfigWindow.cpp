@@ -61,7 +61,7 @@ namespace
 		{ &Config::antialiasing, &D3dDdi::Device::updateAllConfig },
 		{ &Config::bltFilter },
 		{ &Config::colorKeyMethod, &D3dDdi::Device::updateAllConfig },
-		{ &Config::configTransparency, [&]() { Gdi::GuiThread::getConfigWindow()->setAlpha(Config::configTransparency.get()); }},
+		{ &Config::configTransparency, []() { Gdi::GuiThread::getConfigWindow()->setAlpha(Config::configTransparency.get()); }},
 		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
 		{ &Config::displayFilter, []() { Gdi::GuiThread::getConfigWindow()->updateDisplayFilter(); }},
 		{ &Config::fontAntialiasing },
@@ -78,7 +78,7 @@ namespace
 		{ &Config::spriteTexCoord, &D3dDdi::Device::updateAllConfig },
 		{ &Config::statsPosX, []() { if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->updatePos(); } } },
 		{ &Config::statsPosY, []() { if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->updatePos(); } } },
-		{ &Config::statsTransparency, [&]() {
+		{ &Config::statsTransparency, []() {
 			if (auto statsWindow = Gdi::GuiThread::getStatsWindow()) { statsWindow->setAlpha(Config::statsTransparency.get()); } } },
 		{ &Config::textureFilter, &D3dDdi::Device::updateAllConfig },
 		{ &Config::vertexFixup, &D3dDdi::Device::updateAllConfig },

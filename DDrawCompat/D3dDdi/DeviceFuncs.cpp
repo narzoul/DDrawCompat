@@ -4,6 +4,12 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/Visitors/DeviceFuncsVisitor.h>
 
+template<>
+const D3DDDI_DEVICEFUNCS& getOrigVtable(HANDLE device)
+{
+	return D3dDdi::Device::get(device).getOrigVtable();
+}
+
 namespace
 {
 	template <auto deviceMethod, typename... Params>
@@ -26,23 +32,7 @@ namespace
 		return (device.getOrigVtable().*memberPtr)(hDevice, params...);
 	}
 
-	template <auto memberPtr, typename... Params>
-	auto WINAPI origDeviceFunc(HANDLE device, Params... params)
-	{
-		return (D3dDdi::Device::get(device).getOrigVtable().*memberPtr)(device, params...);
-	}
-
-	template <auto memberPtr>
-	constexpr auto getCompatFunc(D3DDDI_DEVICEFUNCS*)
-	{
-		auto func = getCompatVtable<D3DDDI_DEVICEFUNCS>().*memberPtr;
-		if (!func)
-		{
-			func = &origDeviceFunc<memberPtr>;
-		}
-		return func;
-	}
-
+	template<>
 	constexpr void setCompatVtable(D3DDDI_DEVICEFUNCS& vtable)
 	{
 #define SET_DEVICE_FUNC(func) vtable.func = &deviceFunc<&D3dDdi::Device::func>

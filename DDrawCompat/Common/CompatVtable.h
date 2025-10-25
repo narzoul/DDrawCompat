@@ -6,20 +6,6 @@
 #include <Common/VtableSizeVisitor.h>
 #include <Common/VtableVisitor.h>
 
-template <typename Interface>
-using Vtable = typename std::remove_pointer<decltype(Interface::lpVtbl)>::type;
-
-template <typename Interface>
-const Vtable<Interface>& getOrigVtable(Interface* /*This*/)
-{
-	return CompatVtable<Vtable<Interface>>::s_origVtable;
-}
-
-inline const IUnknownVtbl& getOrigVtable(IUnknown* This)
-{
-	return *This->lpVtbl;
-}
-
 template <typename Vtable>
 class CompatVtable
 {

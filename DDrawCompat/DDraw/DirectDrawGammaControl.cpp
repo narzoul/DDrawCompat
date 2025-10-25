@@ -34,6 +34,7 @@ namespace
 		return DDraw::RealPrimarySurface::setGammaRamp(lpRampData);
 	}
 
+	template<>
 	constexpr void setCompatVtable(IDirectDrawGammaControlVtbl& vtable)
 	{
 		vtable.GetGammaRamp = &GetGammaRamp;

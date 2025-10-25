@@ -2,13 +2,15 @@
 #include <D3dDdi/AdapterCallbacks.h>
 #include <D3dDdi/Visitors/AdapterCallbacksVisitor.h>
 
+template <>
+const D3DDDI_ADAPTERCALLBACKS& getOrigVtable(HANDLE /*adapter*/)
+{
+	return CompatVtable<D3DDDI_ADAPTERCALLBACKS>::s_origVtable;
+}
+
 namespace
 {
-	const D3DDDI_ADAPTERCALLBACKS& getOrigVtable(HANDLE /*adapter*/)
-	{
-		return CompatVtable<D3DDDI_ADAPTERCALLBACKS>::s_origVtable;
-	}
-
+	template <>
 	constexpr void setCompatVtable(D3DDDI_ADAPTERCALLBACKS& /*vtable*/)
 	{
 	}

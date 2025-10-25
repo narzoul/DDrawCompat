@@ -11,7 +11,7 @@ namespace Config
 		public:
 			enum Values { POINT, BILINEAR };
 
-			BltFilter::BltFilter()
+			BltFilter()
 				: EnumSetting("BltFilter", "point", { "point", "bilinear" })
 			{
 			}

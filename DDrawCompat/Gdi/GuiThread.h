@@ -27,10 +27,11 @@ namespace Gdi
 		Overlay::ConfigWindow* getConfigWindow();
 		Overlay::StatsWindow* getStatsWindow();
 
-		template <typename Func>
-		void execute(const Func& func) { executeFunc(std::cref(func)); }
 		void executeAsyncFunc(void(*func)());
 		void executeFunc(const std::function<void()>& func);
+
+		template <typename Func>
+		void execute(const Func& func) { executeFunc(std::cref(func)); }
 
 		bool isGuiThreadWindow(HWND hwnd);
 		bool isReady();

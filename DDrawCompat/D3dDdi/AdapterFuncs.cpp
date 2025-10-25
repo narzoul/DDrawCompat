@@ -9,6 +9,12 @@
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/Visitors/AdapterFuncsVisitor.h>
 
+template<>
+const D3DDDI_ADAPTERFUNCS& getOrigVtable(HANDLE adapter)
+{
+	return D3dDdi::Adapter::get(adapter).getOrigVtable();
+}
+
 namespace
 {
 	template <auto adapterMethod, typename... Params>
@@ -17,11 +23,7 @@ namespace
 		return (D3dDdi::Adapter::get(adapter).*adapterMethod)(params...);
 	}
 
-	const D3DDDI_ADAPTERFUNCS& getOrigVtable(HANDLE adapter)
-	{
-		return D3dDdi::Adapter::get(adapter).getOrigVtable();
-	}
-
+	template<>
 	constexpr void setCompatVtable(D3DDDI_ADAPTERFUNCS& vtable)
 	{
 #define SET_ADAPTER_FUNC(func) vtable.func = &adapterFunc<&D3dDdi::Adapter::func>

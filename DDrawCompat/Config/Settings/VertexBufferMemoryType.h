@@ -13,7 +13,7 @@ namespace Config
 		public:
 			static const DWORD APP = 0;
 
-			VertexBufferMemoryType::VertexBufferMemoryType()
+			VertexBufferMemoryType()
 				: MappedSetting("VertexBufferMemoryType", "sysmem", {
 					{"app", APP},
 					{"sysmem", DDSCAPS_SYSTEMMEMORY},

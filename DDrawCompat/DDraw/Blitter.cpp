@@ -104,17 +104,6 @@ namespace
 		return vec;
 	}
 
-	template <int pixelsPerVector, int count>
-	__forceinline void loadSrcVectorRemainder(__m128i& vec1, __m128i& vec2,
-		const BYTE*& src, int& offset, int delta, std::integral_constant<int, count>)
-	{
-		vec1 = _mm_insert_epi16(vec1, *(src + (offset >> 16)), (pixelsPerVector - count) / 2);
-		offset += delta;
-		vec2 = _mm_insert_epi16(vec2, *(src + (offset >> 16)), (pixelsPerVector - count) / 2);
-		offset += delta;
-		loadSrcVectorRemainder<pixelsPerVector>(vec1, vec2, src, offset, delta, std::integral_constant<int, count - 2>());
-	}
-
 	template <int pixelsPerVector>
 	__forceinline void loadSrcVectorRemainder(__m128i& vec1, __m128i& vec2,
 		const BYTE*& src, int& offset, int delta, std::integral_constant<int, 1> /*count*/)
@@ -136,6 +125,17 @@ namespace
 	}
 
 	template <int pixelsPerVector, int count>
+	__forceinline void loadSrcVectorRemainder(__m128i& vec1, __m128i& vec2,
+		const BYTE*& src, int& offset, int delta, std::integral_constant<int, count>)
+	{
+		vec1 = _mm_insert_epi16(vec1, *(src + (offset >> 16)), (pixelsPerVector - count) / 2);
+		offset += delta;
+		vec2 = _mm_insert_epi16(vec2, *(src + (offset >> 16)), (pixelsPerVector - count) / 2);
+		offset += delta;
+		loadSrcVectorRemainder<pixelsPerVector>(vec1, vec2, src, offset, delta, std::integral_constant<int, count - 2>());
+	}
+
+	template <int pixelsPerVector, int count>
 	__forceinline void loadSrcVectorRemainder(__m128i& vec,
 		const BYTE* src, int& offset, int delta, std::integral_constant<int, count>)
 	{
@@ -144,6 +144,12 @@ namespace
 		loadSrcVectorRemainder<pixelsPerVector>(vec, vec2, src, offset, delta, std::integral_constant<int, count - 1>());
 		vec2 = _mm_slli_si128(vec2, 1);
 		vec = _mm_or_si128(vec, vec2);
+	}
+
+	template <int pixelsPerVector>
+	__forceinline void loadSrcVectorRemainder(__m128i& /*vec*/,
+		const WORD* /*src*/, int& /*offset*/, int /*delta*/, std::integral_constant<int, 0> /*count*/)
+	{
 	}
 
 	template <int pixelsPerVector, int count>
@@ -157,7 +163,7 @@ namespace
 
 	template <int pixelsPerVector>
 	__forceinline void loadSrcVectorRemainder(__m128i& /*vec*/,
-		const WORD* /*src*/, int& /*offset*/, int /*delta*/, std::integral_constant<int, 0> /*count*/)
+		const DWORD* /*src*/, int& /*offset*/, int /*delta*/, std::integral_constant<int, 0> /*count*/)
 	{
 	}
 
@@ -170,12 +176,6 @@ namespace
 		vec = _mm_or_si128(vec, pixel);
 		offset += delta;
 		loadSrcVectorRemainder<pixelsPerVector>(vec, src, offset, delta, std::integral_constant<int, count - 1>());
-	}
-
-	template <int pixelsPerVector>
-	__forceinline void loadSrcVectorRemainder(__m128i& /*vec*/,
-		const DWORD* /*src*/, int& /*offset*/, int /*delta*/, std::integral_constant<int, 0> /*count*/)
-	{
 	}
 
 	template <int vectorSize, bool stretch, bool mirror, typename Pixel>

@@ -103,7 +103,7 @@ namespace DDraw
 		template <typename Vtable>
 		void hookVtable(const Vtable& vtable)
 		{
-			CompatVtable<Vtable>::hookVtable<ScopedThreadLock>(vtable);
+			CompatVtable<Vtable>::template hookVtable<ScopedThreadLock>(vtable);
 		}
 
 		template void hookVtable(const IDirectDrawSurfaceVtbl&);

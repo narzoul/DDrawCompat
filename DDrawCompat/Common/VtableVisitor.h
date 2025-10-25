@@ -8,7 +8,7 @@ struct VtableForEach;
 template <typename Vtable, typename Visitor>
 void forEach(Visitor& visitor, UINT version)
 {
-	VtableForEach<Vtable>::forEach<Vtable>(visitor, version);
+	VtableForEach<Vtable>::template forEach<Vtable>(visitor, version);
 }
 
 #define DD_VISIT(member) visitor.visit<&Vtable::member>(#member)

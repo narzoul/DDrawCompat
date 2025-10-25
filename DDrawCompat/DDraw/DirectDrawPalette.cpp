@@ -32,6 +32,7 @@ namespace
 		return result;
 	}
 
+	template<>
 	constexpr void setCompatVtable(IDirectDrawPaletteVtbl& vtable)
 	{
 		vtable.SetEntries = &SetEntries;
