@@ -348,6 +348,7 @@ namespace
 			Input::setFullscreenMonitorInfo(mi);
 			prevMi = mi;
 		}
+		Gdi::Window::setFullscreenMode(0 != mi.cbSize);
 	}
 
 	void updateNow(CompatWeakPtr<IDirectDrawSurface7> src, bool isOverlayOnly)
@@ -394,29 +395,6 @@ namespace
 			fullscreenPresentationWindow = Gdi::Window::getPresentationWindow(fullscreenWindow);
 		}
 
-		g_presentationWindow = fullscreenPresentationWindow;
-
-		if (g_presentationWindow)
-		{
-			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(fullscreenWindow, MONITOR_DEFAULTTOPRIMARY));
-			auto& mr = mi.rcDpiAware;
-
-			Gdi::GuiThread::execute([&]()
-				{
-					Win32::ScopedDpiAwareness dpiAwareness;
-					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, mr.left, mr.top, 0, 0,
-						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER | SWP_SHOWWINDOW | SWP_NOSIZE);
-					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, nullptr, 0, 0, mr.right - mr.left, mr.bottom - mr.top,
-						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
-				});
-
-			setFullscreenPresentationMode(mi);
-		}
-		else
-		{
-			setFullscreenPresentationMode({});
-		}
-
 		static HWND prevFullscreenWindow = nullptr;
 		if (prevFullscreenWindow && prevFullscreenWindow != fullscreenWindow)
 		{
@@ -428,6 +406,29 @@ namespace
 			}
 		}
 		prevFullscreenWindow = fullscreenWindow;
+
+		g_presentationWindow = fullscreenPresentationWindow;
+
+		if (g_presentationWindow)
+		{
+			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(fullscreenWindow, MONITOR_DEFAULTTOPRIMARY));
+			auto& mr = mi.rcDpiAware;
+
+			Gdi::GuiThread::execute([&]()
+				{
+					Win32::ScopedDpiAwareness dpiAwareness;
+					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, nullptr, mr.left, mr.top, 0, 0,
+						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_SHOWWINDOW | SWP_NOSIZE);
+					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, nullptr, 0, 0, mr.right - mr.left, mr.bottom - mr.top,
+						SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOZORDER | SWP_NOOWNERZORDER | SWP_NOMOVE);
+				});
+
+			setFullscreenPresentationMode(mi);
+		}
+		else
+		{
+			setFullscreenPresentationMode({});
+		}
 	}
 
 	unsigned WINAPI updateThreadProc(LPVOID /*lpParameter*/)

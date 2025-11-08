@@ -33,6 +33,7 @@ namespace Gdi
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);
 		void setDpiAwareness(HWND hwnd, bool dpiAware);
+		void setFullscreenMode(bool isFullscreen);
 		void updateAll();
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
 			COLORREF colorKey, BYTE alpha, BYTE alphaFormat);

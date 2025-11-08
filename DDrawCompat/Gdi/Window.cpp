@@ -126,6 +126,7 @@ namespace
 	std::map<HWND, Window> g_windows;
 	std::vector<Window*> g_windowZOrder;
 	HWND g_fullscreenWindow = nullptr;
+	bool g_isFullscreen = false;
 
 	bool bltWindow(const RECT& dst, const RECT& src, const Gdi::Region& clipRegion)
 	{
@@ -366,8 +367,7 @@ namespace
 				context.invalidatedRegion |= visibleRegion - it->second.visibleRegion;
 			}
 
-			if (it->second.presentationWindow &&
-				it->second.presentationWindow != DDraw::RealPrimarySurface::getPresentationWindow())
+			if (it->second.presentationWindow)
 			{
 				Gdi::Window::updatePresentationWindowPos(it->second.presentationWindow, hwnd);
 			}
@@ -665,6 +665,24 @@ namespace Gdi
 			}
 		}
 
+		void setFullscreenMode(bool isFullscreen)
+		{
+			if (isFullscreen == g_isFullscreen)
+			{
+				return;
+			}
+			g_isFullscreen = isFullscreen;
+
+			D3dDdi::ScopedCriticalSection lock;
+			for (auto it = g_windows.begin(); it != g_windows.end(); ++it)
+			{
+				if (it->second.presentationWindow)
+				{
+					updatePresentationWindowPos(it->second.presentationWindow, it->first);
+				}
+			}
+		}
+
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
 			COLORREF colorKey, BYTE alpha, BYTE alphaFormat)
 		{
@@ -682,14 +700,14 @@ namespace Gdi
 
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner)
 		{
-			if (IsIconic(owner))
+			if (IsIconic(owner) || presentationWindow == DDraw::RealPrimarySurface::getPresentationWindow())
 			{
 				return;
 			}
 
 			WINDOWPOS wp = {};
 			wp.flags = SWP_NOACTIVATE | SWP_NOOWNERZORDER | SWP_NOREDRAW | SWP_NOSENDCHANGING;
-			if (IsWindowVisible(owner))
+			if (!g_isFullscreen && IsWindowVisible(owner))
 			{
 				Gdi::GuiThread::setWindowRgn(presentationWindow, getWindowRgn(owner));
 				wp.hwndInsertAfter = CALL_ORIG_FUNC(GetWindow)(owner, GW_HWNDPREV);
