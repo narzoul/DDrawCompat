@@ -121,11 +121,15 @@ namespace D3dDdi
 			desc.ddpfPixelFormat = getPixelFormat((caps & DDSCAPS_ZBUFFER) ? D3DDDIFMT_D16 : D3DDDIFMT_X8R8G8B8);
 			D3dDdi::Resource::setFormatOverride(format);
 		}
+		else
+		{
+			D3dDdi::Resource::setFormatOverride(D3DDDIFMT_UNKNOWN);
+		}
 
 		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
-		s_inCreateSurface = true;
+		++s_inCreateSurface;
 		HRESULT result = m_dd.get()->lpVtbl->CreateSurface(m_dd, &desc, &surface.getRef(), nullptr);
-		s_inCreateSurface = false;
+		--s_inCreateSurface;
 		D3dDdi::Resource::setFormatOverride(D3DDDIFMT_UNKNOWN);
 		if (FAILED(result))
 		{
@@ -470,6 +474,6 @@ namespace D3dDdi
 		}
 	}
 
-	bool SurfaceRepository::s_inCreateSurface = false;
+	unsigned SurfaceRepository::s_inCreateSurface = 0;
 	bool SurfaceRepository::s_isLockResourceEnabled = false;
 }

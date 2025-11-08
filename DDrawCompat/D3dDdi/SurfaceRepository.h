@@ -100,7 +100,7 @@ namespace D3dDdi
 		Surface m_windowedBackBuffer;
 		CompatPtr<IDirectDrawSurface7> m_windowedPrimary;
 		
-		static bool s_inCreateSurface;
+		static unsigned s_inCreateSurface;
 		static bool s_isLockResourceEnabled;
 	};
 }

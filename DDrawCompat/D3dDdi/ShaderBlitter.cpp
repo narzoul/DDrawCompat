@@ -551,15 +551,15 @@ namespace D3dDdi
 	}
 
 	void ShaderBlitter::depthBlt(const Resource& dstResource, const RECT& dstRect,
-		const Resource& srcResource, const RECT& srcRect, HANDLE nullResource)
+		const Resource& srcResource, const RECT& srcRect)
 	{
 		LOG_FUNC("ShaderBlitter::depthBlt", static_cast<HANDLE>(dstResource), dstRect,
-			static_cast<HANDLE>(srcResource), srcRect, nullResource);
+			static_cast<HANDLE>(srcResource), srcRect);
 
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
 
 		auto& state = m_device.getState();
-		state.setTempRenderTarget({ 0, nullResource, 0 });
+		state.setTempRenderTarget({ 0, dstResource.getNullRtHandle(), 0});
 		state.setTempDepthStencil({ dstResource });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
@@ -582,6 +582,7 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_CLIPPLANEENABLE, 0 });
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0 });
+		state.setTempRenderState({ D3DDDIRS_SCISSORTESTENABLE, FALSE });
 
 		setTempTextureStage(0, srcResource, 0, srcRect, D3DTEXF_POINT);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });

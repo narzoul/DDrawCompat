@@ -45,7 +45,7 @@ namespace D3dDdi
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
 		void depthBlt(const Resource& dstResource, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect, HANDLE nullResource);
+			const Resource& srcResource, const RECT& srcRect);
 		void displayBlt(Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

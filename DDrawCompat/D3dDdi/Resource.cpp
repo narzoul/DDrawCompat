@@ -107,7 +107,7 @@ namespace D3dDdi
 		, m_lockRefSurface{}
 		, m_msaaSurface{}
 		, m_msaaResolvedSurface{}
-		, m_nullSurface{}
+		, m_nullRt{}
 		, m_colorKeyedSurface{}
 		, m_colorKey(0)
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
@@ -185,6 +185,12 @@ namespace D3dDdi
 				(m_fixedData.MipLevels > 1 ? DDSCAPS_MIPMAP : 0),
 				m_fixedData.SurfCount,
 				m_fixedData.Flags.CubeMap ? DDSCAPS2_CUBEMAP : 0);
+		}
+
+		if (m_fixedData.Flags.ZBuffer && !m_device.getAdapter().getInfo().isD3D9On12)
+		{
+			m_device.getRepo().getSurface(m_nullRt, m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
+				FOURCC_NULL, DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 		}
 
 		data.hResource = m_fixedData.hResource;
@@ -685,7 +691,9 @@ namespace D3dDdi
 
 		auto& state = m_device.getState();
 		state.flush();
+		state.setTempRenderTarget({ 0, dstResource.getNullRtHandle(), data.SubResourceIndex});
 		state.setTempDepthStencil({ dstResource });
+		state.setTempRenderState({ D3DDDIRS_SCISSORTESTENABLE, FALSE });
 		state.setTempViewport({ 0, 0, si.Width, si.Height });
 
 		RECT rect = data.DstRect;
@@ -965,14 +973,13 @@ namespace D3dDdi
 				loadMsaaResolvedResource(subResourceIndex);
 				if (m_fixedData.Flags.ZBuffer)
 				{
-					bool isD3D9On12 = m_device.getAdapter().getInfo().isD3D9On12;
+					const bool isD3D9On12 = m_device.getAdapter().getInfo().isD3D9On12;
 					if (isD3D9On12 ||
-						m_nullSurface.resource && isDepthTexture(m_msaaResolvedSurface.resource->m_fixedData.Format))
+						m_nullRt.resource && isDepthTexture(m_msaaResolvedSurface.resource->m_fixedData.Format))
 					{
 						RECT r = m_msaaResolvedSurface.resource->getRect(0);
 						m_device.getShaderBlitter().depthBlt(
-							*m_msaaSurface.resource, r, *m_msaaResolvedSurface.resource, r,
-							isD3D9On12 ? nullptr : static_cast<HANDLE>(*m_nullSurface.resource));
+							*m_msaaSurface.resource, r, *m_msaaResolvedSurface.resource, r);
 					}
 				}
 				else
@@ -1680,10 +1687,9 @@ namespace D3dDdi
 		{
 			const bool isD3D9On12 = m_device.getAdapter().getInfo().isD3D9On12;
 			if (isD3D9On12 ||
-				m_nullSurface.resource && isDepthTexture(srcRes->m_fixedData.Format))
+				m_nullRt.resource && isDepthTexture(srcRes->m_fixedData.Format))
 			{
-				m_device.getShaderBlitter().depthBlt(*dstRes, dstRect, *srcRes, srcRect,
-					isD3D9On12 ? nullptr : static_cast<HANDLE>(*m_nullSurface.resource));
+				m_device.getShaderBlitter().depthBlt(*dstRes, dstRect, *srcRes, srcRect);
 			}
 		}
 		else
@@ -1772,6 +1778,7 @@ namespace D3dDdi
 		const auto msaa = getMultisampleConfig();
 		const auto formatConfig = getFormatConfig();
 		const auto scaledSize = getScaledSize();
+
 		if (m_multiSampleConfig == msaa && m_formatConfig == formatConfig && m_scaledSize == scaledSize)
 		{
 			return;
@@ -1797,7 +1804,6 @@ namespace D3dDdi
 
 		m_msaaSurface = {};
 		m_msaaResolvedSurface = {};
-		m_nullSurface = {};
 		m_lockRefSurface = {};
 
 		const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
@@ -1813,13 +1819,6 @@ namespace D3dDdi
 				g_msaaOverride = {};
 			}
 
-			if (m_fixedData.Flags.ZBuffer && (m_msaaSurface.resource || m_fixedData.Format != formatConfig))
-			{
-				g_msaaOverride = msaa;
-				repo.getSurface(m_nullSurface, scaledSize.cx, scaledSize.cy, FOURCC_NULL,
-					DDSCAPS_3DDEVICE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
-				g_msaaOverride = {};
-			}
 			repo.getSurface(m_msaaResolvedSurface, scaledSize.cx, scaledSize.cy,
 				formatConfig, caps, m_fixedData.SurfCount);
 

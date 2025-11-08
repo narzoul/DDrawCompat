@@ -31,6 +31,7 @@ namespace D3dDdi
 		Device& getDevice() const { return m_device; }
 		const D3DDDIARG_CREATERESOURCE2& getFixedDesc() const { return m_fixedData; }
 		FORMATOP getFormatOp() const { return m_formatOp; }
+		HANDLE getNullRtHandle() const { return m_nullRt.resource ? *m_nullRt.resource : nullptr; }
 		const D3DDDIARG_CREATERESOURCE2& getOrigDesc() const { return m_origData; }
 		UINT getPaletteHandle() const { return m_paletteHandle; }
 		bool isClampable() const { return m_isClampable; }
@@ -145,7 +146,7 @@ namespace D3dDdi
 		SurfaceRepository::Surface m_lockRefSurface;
 		SurfaceRepository::Surface m_msaaSurface;
 		SurfaceRepository::Surface m_msaaResolvedSurface;
-		SurfaceRepository::Surface m_nullSurface;
+		SurfaceRepository::Surface m_nullRt;
 		SurfaceRepository::Surface m_paletteResolvedSurface;
 		SurfaceRepository::Surface m_colorKeyedSurface;
 		UINT m_colorKey;
