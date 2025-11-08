@@ -250,6 +250,8 @@ namespace Gdi
 				}
 			}
 
+			const auto prevBounds = g_bounds;
+
 			{
 				D3dDdi::ScopedCriticalSection driverLock;
 				Compat::ScopedCriticalSection lock(g_cs);
@@ -309,7 +311,14 @@ namespace Gdi
 				}
 			}
 
-			Gdi::Window::updateAll();
+			if (g_bounds != prevBounds)
+			{
+				Gdi::Window::updateAll();
+			}
+			else
+			{
+				Gdi::Window::updateFullscreenWindow();
+			}
 			Gdi::redraw(nullptr);
 			return LOG_RESULT(true);
 		}

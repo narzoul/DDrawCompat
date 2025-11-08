@@ -35,6 +35,7 @@ namespace Gdi
 		void setDpiAwareness(HWND hwnd, bool dpiAware);
 		void setFullscreenMode(bool isFullscreen);
 		void updateAll();
+		void updateFullscreenWindow();
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
 			COLORREF colorKey, BYTE alpha, BYTE alphaFormat);
 		void updatePresentationWindowPos(HWND presentationWindow, HWND owner);

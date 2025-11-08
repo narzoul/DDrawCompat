@@ -234,11 +234,6 @@ namespace
 						preservedRegion -= r;
 					}
 				}
-
-				Gdi::Region updateRegion;
-				GetUpdateRgn(window.hwnd, updateRegion, FALSE);
-				updateRegion.offset(window.clientRect.left, window.clientRect.top);
-				preservedRegion -= updateRegion;
 			}
 
 			bool isCopied = false;
@@ -681,6 +676,12 @@ namespace Gdi
 					updatePresentationWindowPos(it->second.presentationWindow, it->first);
 				}
 			}
+		}
+
+		void updateFullscreenWindow()
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			g_fullscreenWindow = findFullscreenWindow();
 		}
 
 		void updateLayeredWindowInfo(HWND hwnd, HDC hdcSrc, const POINT* pptSrc,
