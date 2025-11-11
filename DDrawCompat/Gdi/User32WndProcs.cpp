@@ -68,21 +68,30 @@ namespace
 		switch (msg)
 		{
 		case WM_PAINT:
-			return onPaint(hwnd, origWndProc);
+			if (BS_OWNERDRAW != (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & BS_TYPEMASK))
+			{
+				return onPaint(hwnd, origWndProc);
+			}
+			break;
+
+		case BM_SETSTATE:
+			if (static_cast<bool>(wParam) == static_cast<bool>(CallWindowProc(origWndProc, hwnd, BM_GETSTATE, 0, 0) & BST_PUSHED))
+			{
+				break;
+			}
+			[[fallthrough]];
 
 		case WM_ENABLE:
 		case WM_SETTEXT:
 		case BM_SETCHECK:
-		case BM_SETSTATE:
 		{
 			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			InvalidateRect(hwnd, nullptr, TRUE);
 			return result;
 		}
-
-		default:
-			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		}
+
+		return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 	}
 
 	LRESULT comboBoxWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
