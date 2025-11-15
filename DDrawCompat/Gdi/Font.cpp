@@ -24,12 +24,11 @@ namespace
 		case SPI_GETWORKAREA:
 			if (pvParam)
 			{
-				auto dm = Win32::DisplayMode::getEmulatedDisplayMode();
-				if (0 != dm.width)
-				{
-					*static_cast<RECT*>(pvParam) = { 0, 0, static_cast<LONG>(dm.width), static_cast<LONG>(dm.height) };
-					return TRUE;
-				}
+				MONITORINFO mi = {};
+				mi.cbSize = sizeof(mi);
+				GetMonitorInfoA(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+				*static_cast<RECT*>(pvParam) = mi.rcWork;
+				return TRUE;
 			}
 			break;
 		case SPI_SETFONTSMOOTHING:

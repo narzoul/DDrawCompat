@@ -561,24 +561,22 @@ namespace
 		return mi.szDevice;
 	}
 
-	BOOL WINAPI getMonitorInfoA(HMONITOR hMonitor, LPMONITORINFO lpmi)
+	template <auto func>
+	BOOL WINAPI getMonitorInfo(HMONITOR hMonitor, LPMONITORINFO lpmi)
 	{
-		LOG_FUNC("GetMonitorInfoA", hMonitor, lpmi);
-		BOOL result = CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, lpmi);
+		LOG_FUNC(Compat::g_origFuncName<func>.c_str(), hMonitor, lpmi);
+		const BOOL result = CALL_ORIG_FUNC(func)(hMonitor, lpmi);
 		if (result)
 		{
-			lpmi->rcMonitor = Win32::DisplayMode::getMonitorInfo(hMonitor).rcEmulated;
-		}
-		return LOG_RESULT(result);
-	}
-
-	BOOL WINAPI getMonitorInfoW(HMONITOR hMonitor, LPMONITORINFO lpmi)
-	{
-		LOG_FUNC("GetMonitorInfoW", hMonitor, lpmi);
-		BOOL result = CALL_ORIG_FUNC(GetMonitorInfoW)(hMonitor, lpmi);
-		if (result)
-		{
-			lpmi->rcMonitor = Win32::DisplayMode::getMonitorInfo(hMonitor).rcEmulated;
+			const RECT rcEmulated = Win32::DisplayMode::getMonitorInfo(hMonitor).rcEmulated;
+			if (rcEmulated != lpmi->rcMonitor)
+			{
+				const SIZE monitorSize = Rect::getSize(lpmi->rcMonitor);
+				const SIZE emulatedSize = Rect::getSize(rcEmulated);
+				lpmi->rcMonitor = rcEmulated;
+				lpmi->rcWork.right += emulatedSize.cx - monitorSize.cx;
+				lpmi->rcWork.bottom += emulatedSize.cy - monitorSize.cy;
+			}
 		}
 		return LOG_RESULT(result);
 	}
@@ -944,8 +942,8 @@ namespace Win32
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExW, enumDisplaySettingsExW);
 			HOOK_FUNCTION(gdi32, GdiEntry13, gdiEntry13);
 			HOOK_FUNCTION(gdi32, GetDeviceCaps, getDeviceCaps);
-			HOOK_FUNCTION(user32, GetMonitorInfoA, getMonitorInfoA);
-			HOOK_FUNCTION(user32, GetMonitorInfoW, getMonitorInfoW);
+			HOOK_FUNCTION(user32, GetMonitorInfoA, ::getMonitorInfo<GetMonitorInfoA>);
+			HOOK_FUNCTION(user32, GetMonitorInfoW, ::getMonitorInfo<GetMonitorInfoW>);
 
 			disableDwm8And16BitMitigation();
 
