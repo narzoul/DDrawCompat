@@ -6,6 +6,7 @@ namespace Gdi
 {
 	namespace WinProc
 	{
+		DWORD adjustComboListBoxRect(HWND hwnd, DWORD awFlags);
 		void dllThreadDetach();
 		WNDPROC getDDrawOrigWndProc(HWND hwnd);
 		void installHooks();

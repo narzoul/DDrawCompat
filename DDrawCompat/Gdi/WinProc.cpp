@@ -61,6 +61,7 @@ namespace
 	std::map<HWND, WNDPROC> g_ddrawWindowProc;
 
 	thread_local POINT* g_cursorPos = nullptr;
+	thread_local HWND g_droppedDownComboBox = nullptr;
 	thread_local unsigned g_inCreateDialog = 0;
 	thread_local unsigned g_inMessageBox = 0;
 	thread_local unsigned g_inWindowProc = 0;
@@ -84,11 +85,20 @@ namespace
 	BOOL WINAPI animateWindow(HWND hWnd, DWORD dwTime, DWORD dwFlags)
 	{
 		LOG_FUNC("AnimateWindow", hWnd, dwTime, Compat::hex(dwFlags));
+
 		if (dwFlags & AW_BLEND)
 		{
 			dwFlags &= ~AW_BLEND;
 			dwFlags |= AW_SLIDE | AW_HOR_POSITIVE;
 		}
+
+		WNDCLASSA wc = {};
+		static const ATOM comboLBoxAtom = static_cast<ATOM>(GetClassInfoA(nullptr, "ComboLBox", &wc));
+		if (g_droppedDownComboBox && (dwFlags & AW_VER_POSITIVE) && comboLBoxAtom == GetClassLongA(hWnd, GCW_ATOM))
+		{
+			dwFlags = Gdi::WinProc::adjustComboListBoxRect(hWnd, dwFlags);
+		}
+
 		return LOG_RESULT(CALL_ORIG_FUNC(AnimateWindow)(hWnd, dwTime, dwFlags));
 	}
 
@@ -156,6 +166,17 @@ namespace
 
 		switch (uMsg)
 		{
+		case WM_COMMAND:
+			if (CBN_DROPDOWN == HIWORD(wParam))
+			{
+				g_droppedDownComboBox = reinterpret_cast<HWND>(lParam);
+			}
+			else if (CBN_CLOSEUP == HIWORD(wParam))
+			{
+				g_droppedDownComboBox = nullptr;
+			}
+			break;
+
 		case WM_DISPLAYCHANGE:
 			if (0 != wParam)
 			{
@@ -934,6 +955,55 @@ namespace Gdi
 {
 	namespace WinProc
 	{
+		DWORD adjustComboListBoxRect(HWND hwnd, DWORD awFlags)
+		{
+			LOG_FUNC("adjustComboListBoxRect", hwnd, awFlags, g_droppedDownComboBox);
+			if (!g_droppedDownComboBox)
+			{
+				return LOG_RESULT(awFlags);
+			}
+
+			MONITORINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			GetMonitorInfoA(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
+
+			RECT cbRect = {};
+			CALL_ORIG_FUNC(GetWindowRect)(g_droppedDownComboBox, &cbRect);
+			RECT lbRect = {};
+			CALL_ORIG_FUNC(GetWindowRect)(hwnd, &lbRect);
+
+			if (lbRect.bottom > mi.rcMonitor.bottom)
+			{
+				if (cbRect.top - mi.rcMonitor.top > mi.rcMonitor.bottom - cbRect.bottom)
+				{
+					const LONG lbHeight = lbRect.bottom - lbRect.top;
+					lbRect.bottom = cbRect.top;
+					lbRect.top = std::max(cbRect.top - lbHeight, mi.rcMonitor.top);
+					awFlags &= ~AW_VER_POSITIVE;
+					awFlags |= AW_VER_NEGATIVE;
+				}
+				else
+				{
+					lbRect.bottom = mi.rcMonitor.bottom;
+				}
+
+				CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, lbRect.left, lbRect.top,
+					lbRect.right - lbRect.left, lbRect.bottom - lbRect.top, SWP_NOZORDER | SWP_NOACTIVATE);
+
+				if (awFlags & AW_VER_NEGATIVE)
+				{
+					CALL_ORIG_FUNC(GetWindowRect)(hwnd, &lbRect);
+					if (lbRect.bottom != cbRect.top)
+					{
+						OffsetRect(&lbRect, 0, cbRect.top - lbRect.bottom);
+						CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, lbRect.left, lbRect.top,
+							lbRect.right - lbRect.left, lbRect.bottom - lbRect.top, SWP_NOZORDER | SWP_NOACTIVATE);
+					}
+				}
+			}
+			return LOG_RESULT(awFlags);
+		}
+
 		void dllThreadDetach()
 		{
 			auto threadId = GetCurrentThreadId();

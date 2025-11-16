@@ -108,6 +108,13 @@ namespace
 		case WM_NCPAINT:
 			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			break;
+
+		case WM_SHOWWINDOW:
+			if (wParam)
+			{
+				Gdi::WinProc::adjustComboListBoxRect(hwnd, 0);
+			}
+			break;
 		}
 
 		return result;
