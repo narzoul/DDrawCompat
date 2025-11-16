@@ -274,8 +274,23 @@ namespace
 				DDraw::ScopedThreadLock invalidateRealPrimary;
 			}
 
-			if (!wParam)
+			static HWND lastActivePopup = nullptr;
+			if (wParam)
 			{
+				if (lastActivePopup)
+				{
+					ShowWindow(hwnd, IsIconic(hwnd) ? SW_RESTORE : SW_SHOW);
+					SetFocus(lastActivePopup);
+					lastActivePopup = nullptr;
+				}
+			}
+			else
+			{
+				lastActivePopup = GetLastActivePopup(hwnd);
+				if (lastActivePopup == hwnd)
+				{
+					lastActivePopup = nullptr;
+				}
 				ShowWindow(hwnd, SW_SHOWMINNOACTIVE);
 				CALL_ORIG_FUNC(ClipCursor)(nullptr);
 			}
