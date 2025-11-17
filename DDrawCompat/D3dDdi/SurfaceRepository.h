@@ -42,6 +42,15 @@ namespace D3dDdi
 			D3DDDIFORMAT format = D3DDDIFMT_UNKNOWN;
 		};
 
+		struct ScopedSurface : Surface
+		{
+			SurfaceRepository& repo;
+
+			ScopedSurface(SurfaceRepository& repo) : repo(repo) {}
+			~ScopedSurface() { repo.release(*this); }
+			void reset() { static_cast<Surface&>(*this) = {}; }
+		};
+
 		SurfaceRepository(CompatPtr<IDirectDraw7> dd);
 
 		void clearReleasedSurfaces();

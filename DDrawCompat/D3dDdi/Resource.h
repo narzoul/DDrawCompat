@@ -24,7 +24,6 @@ namespace D3dDdi
 		Resource(Resource&&) = delete;
 		Resource& operator=(const Resource&) = delete;
 		Resource& operator=(Resource&&) = delete;
-		~Resource();
 
 		operator HANDLE() const { return m_handle; }
 		Resource* getCustomResource() const { return m_msaaSurface.resource ? m_msaaSurface.resource : m_msaaResolvedSurface.resource; }
@@ -143,12 +142,12 @@ namespace D3dDdi
 		std::unique_ptr<void, void(*)(void*)> m_lockBuffer;
 		std::vector<LockData> m_lockData;
 		std::unique_ptr<void, ResourceDeleter> m_lockResource;
-		SurfaceRepository::Surface m_lockRefSurface;
-		SurfaceRepository::Surface m_msaaSurface;
-		SurfaceRepository::Surface m_msaaResolvedSurface;
-		SurfaceRepository::Surface m_nullRt;
-		SurfaceRepository::Surface m_paletteResolvedSurface;
-		SurfaceRepository::Surface m_colorKeyedSurface;
+		SurfaceRepository::ScopedSurface m_lockRefSurface;
+		SurfaceRepository::ScopedSurface m_msaaSurface;
+		SurfaceRepository::ScopedSurface m_msaaResolvedSurface;
+		SurfaceRepository::ScopedSurface m_nullRt;
+		SurfaceRepository::ScopedSurface m_paletteResolvedSurface;
+		SurfaceRepository::ScopedSurface m_colorKeyedSurface;
 		UINT m_colorKey;
 		D3DDDIFORMAT m_formatConfig;
 		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> m_multiSampleConfig;

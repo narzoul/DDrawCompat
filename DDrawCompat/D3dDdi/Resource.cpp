@@ -104,11 +104,12 @@ namespace D3dDdi
 		, m_formatOp{}
 		, m_lockBuffer(nullptr, &heapFree)
 		, m_lockResource(nullptr, ResourceDeleter(device, device.getOrigVtable().pfnDestroyResource))
-		, m_lockRefSurface{}
-		, m_msaaSurface{}
-		, m_msaaResolvedSurface{}
-		, m_nullRt{}
-		, m_colorKeyedSurface{}
+		, m_lockRefSurface(device.getRepo())
+		, m_msaaSurface(device.getRepo())
+		, m_msaaResolvedSurface(device.getRepo())
+		, m_nullRt(device.getRepo())
+		, m_paletteResolvedSurface(device.getRepo())
+		, m_colorKeyedSurface(device.getRepo())
 		, m_colorKey(0)
 		, m_formatConfig(D3DDDIFMT_UNKNOWN)
 		, m_multiSampleConfig{ D3DDDIMULTISAMPLE_NONE, 0 }
@@ -195,17 +196,6 @@ namespace D3dDdi
 
 		data.hResource = m_fixedData.hResource;
 		updateConfig();
-	}
-
-	Resource::~Resource()
-	{
-		if (m_msaaSurface.surface || m_msaaResolvedSurface.surface || m_lockRefSurface.surface)
-		{
-			auto& repo = m_device.getRepo();
-			repo.release(m_msaaSurface);
-			repo.release(m_msaaResolvedSurface);
-			repo.release(m_lockRefSurface);
-		}
 	}
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
@@ -1802,9 +1792,9 @@ namespace D3dDdi
 		m_formatConfig = formatConfig;
 		m_scaledSize = scaledSize;
 
-		m_msaaSurface = {};
-		m_msaaResolvedSurface = {};
-		m_lockRefSurface = {};
+		m_msaaSurface.reset();
+		m_msaaResolvedSurface.reset();
+		m_lockRefSurface.reset();
 
 		const bool isScaled = static_cast<LONG>(m_fixedData.pSurfList[0].Width) != m_scaledSize.cx ||
 			static_cast<LONG>(m_fixedData.pSurfList[0].Height) != m_scaledSize.cy;
@@ -1824,7 +1814,7 @@ namespace D3dDdi
 
 			if (!m_msaaResolvedSurface.resource && m_msaaSurface.resource)
 			{
-				m_msaaSurface = {};
+				m_msaaSurface.reset();
 				repo.getSurface(m_msaaResolvedSurface, scaledSize.cx, scaledSize.cy,
 					formatConfig, caps, m_fixedData.SurfCount);
 			}
