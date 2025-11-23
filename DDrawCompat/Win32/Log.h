@@ -50,6 +50,10 @@ std::ostream& operator<<(std::ostream& os, const STYLESTRUCT& ss);
 std::ostream& operator<<(std::ostream& os, const TITLEBARINFOEX& tbi);
 std::ostream& operator<<(std::ostream& os, const TOUCH_HIT_TESTING_INPUT& thti);
 std::ostream& operator<<(std::ostream& os, const WINDOWPOS& wp);
+std::ostream& operator<<(std::ostream& os, const WNDCLASSA& wc);
+std::ostream& operator<<(std::ostream& os, const WNDCLASSW& wc);
+std::ostream& operator<<(std::ostream& os, const WNDCLASSEXA& wc);
+std::ostream& operator<<(std::ostream& os, const WNDCLASSEXW& wc);
 
 namespace Compat
 {

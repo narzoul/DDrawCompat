@@ -3,6 +3,7 @@
 #include <Common/Hook.h>
 #include <Common/Time.h>
 #include <D3dDdi/ScopedCriticalSection.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Dll/Dll.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Gdi.h>
@@ -35,6 +36,12 @@ namespace
 
 	void drawCaret()
 	{
+		if (!Gdi::isRedirected(g_caret.hwnd))
+		{
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			return;
+		}
+
 		HDC dc = GetDCEx(g_caret.hwnd, nullptr, DCX_CACHE | DCX_USESTYLE);
 		PatBlt(dc, g_caret.left, g_caret.top, g_caret.width, g_caret.height, PATINVERT);
 		CALL_ORIG_FUNC(ReleaseDC)(g_caret.hwnd, dc);

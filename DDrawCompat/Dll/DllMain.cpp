@@ -16,6 +16,7 @@
 #include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/EnableDDrawCompat.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/GdiInterops.h>
 #include <D3dDdi/Hooks.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/Hooks.h>
@@ -384,7 +385,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Win32::Winmm::installHooks();
 
 		Win32::DpiAwareness::init();
-		SetThemeAppProperties(0);
+		if (Config::gdiInterops.get().themes)
+		{
+			SetThemeAppProperties(0);
+		}
 		Time::init();
 		Win32::Thread::applyConfig();
 

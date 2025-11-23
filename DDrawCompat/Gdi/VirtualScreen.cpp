@@ -1,6 +1,7 @@
 #include <map>
 
 #include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/SurfacePatches.h>
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Resource.h>
@@ -38,6 +39,7 @@ namespace
 	RGBQUAD g_defaultPalette[256] = {};
 	RGBQUAD g_hardwarePalette[256] = {};
 	std::map<HDC, VirtualScreenDc> g_dcs;
+	HDC g_dc = nullptr;
 
 	RGBQUAD convertToRgbQuad(PALETTEENTRY entry)
 	{
@@ -190,8 +192,18 @@ namespace Gdi
 			return g_bounds;
 		}
 
+		HDC getDc()
+		{
+			return g_dc;
+		}
+
 		DDSURFACEDESC2 getSurfaceDesc(const RECT& rect)
 		{
+			if (!Config::gdiInterops.anyRedirects())
+			{
+				return {};
+			}
+
 			Compat::ScopedCriticalSection lock(g_cs);
 			if (rect.left < g_bounds.left || rect.top < g_bounds.top ||
 				rect.right > g_bounds.right || rect.bottom > g_bounds.bottom)
@@ -259,9 +271,6 @@ namespace Gdi
 				prevDisplaySettingsUniqueness = Win32::DisplayMode::queryEmulatedDisplaySettingsUniqueness();
 				prevIsFullscreen = g_isFullscreen;
 
-				auto gdiResource = D3dDdi::Device::getGdiResource();
-				D3dDdi::Device::setGdiResourceHandle(nullptr);
-
 				if (g_isFullscreen)
 				{
 					g_bounds = DDraw::PrimarySurface::getMonitorInfo().rcEmulated;
@@ -274,6 +283,15 @@ namespace Gdi
 						UnionRect(&g_bounds, &g_bounds, &mi.second.rcMonitor);
 					}
 				}
+
+				if (!Config::gdiInterops.anyRedirects())
+				{
+					Gdi::Window::updateFullscreenWindow();
+					return LOG_RESULT(true);
+				}
+
+				auto gdiResource = D3dDdi::Device::getGdiResource();
+				D3dDdi::Device::setGdiResourceHandle(nullptr);
 
 				g_bpp = Win32::DisplayMode::getBpp();
 				g_width = g_bounds.right - g_bounds.left;
@@ -309,6 +327,12 @@ namespace Gdi
 				{
 					D3dDdi::Device::setGdiResourceHandle(*gdiResource);
 				}
+
+				if (!g_dc)
+				{
+					g_dc = createDc(false);
+				}
+				SetViewportOrgEx(g_dc, -g_bounds.left, -g_bounds.top, nullptr);
 			}
 
 			if (g_bounds != prevBounds)
@@ -319,7 +343,7 @@ namespace Gdi
 			{
 				Gdi::Window::updateFullscreenWindow();
 			}
-			Gdi::redraw(nullptr);
+			Gdi::Window::redrawAll();
 			return LOG_RESULT(true);
 		}
 

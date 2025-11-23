@@ -11,7 +11,7 @@ namespace Gdi
 	{
 	public:
 		Region(std::nullptr_t);
-		Region(HRGN rgn);
+		explicit Region(HRGN rgn);
 		Region(const RECT& rect = RECT{ 0, 0, 0, 0 });
 		Region(HWND hwnd);
 		~Region();

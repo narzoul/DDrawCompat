@@ -193,6 +193,7 @@
     <ClInclude Include="Config\Settings\ForceD3D9On12.h" />
     <ClInclude Include="Config\Settings\FpsLimiter.h" />
     <ClInclude Include="Config\Settings\FullscreenMode.h" />
+    <ClInclude Include="Config\Settings\GdiInterops.h" />
     <ClInclude Include="Config\Settings\LogLevel.h" />
     <ClInclude Include="Config\Settings\MousePollingRate.h" />
     <ClInclude Include="Config\Settings\MouseSensitivity.h" />
@@ -381,6 +382,7 @@
     <ClCompile Include="Config\Settings\DisplayRefreshRate.cpp" />
     <ClCompile Include="Config\Settings\DisplayResolution.cpp" />
     <ClCompile Include="Config\Settings\FpsLimiter.cpp" />
+    <ClCompile Include="Config\Settings\GdiInterops.cpp" />
     <ClCompile Include="Config\Settings\ResolutionScale.cpp" />
     <ClCompile Include="Config\Settings\SpriteDetection.cpp" />
     <ClCompile Include="Config\Settings\SpriteFilter.cpp" />

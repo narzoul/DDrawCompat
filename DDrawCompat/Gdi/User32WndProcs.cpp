@@ -54,7 +54,7 @@ namespace
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc);
 	LRESULT onNcActivate(HWND hwnd, WPARAM wParam, LPARAM lParam);
 	LRESULT onNcPaint(HWND hwnd, WNDPROC origWndProc);
-	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc);
+	LRESULT onPaint(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
 	LRESULT onPrint(HWND hwnd, UINT msg, HDC dc, LONG flags, WNDPROC origWndProc);
 	LRESULT onSetText(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc);
 
@@ -70,7 +70,7 @@ namespace
 		case WM_PAINT:
 			if (BS_OWNERDRAW != (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & BS_TYPEMASK))
 			{
-				return onPaint(hwnd, origWndProc);
+				return onPaint(hwnd, wParam, lParam, origWndProc);
 			}
 			break;
 
@@ -85,8 +85,15 @@ namespace
 		case WM_SETTEXT:
 		case BM_SETCHECK:
 		{
-			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			InvalidateRect(hwnd, nullptr, TRUE);
+			const LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			if (Gdi::isRedirected(hwnd))
+			{
+				InvalidateRect(hwnd, nullptr, TRUE);
+			}
+			else
+			{
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			}
 			return result;
 		}
 		}
@@ -105,10 +112,6 @@ namespace
 
 		switch (msg)
 		{
-		case WM_NCPAINT:
-			CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-			break;
-
 		case WM_SHOWWINDOW:
 			if (wParam)
 			{
@@ -132,6 +135,22 @@ namespace
 
 	LRESULT defPaintProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
+		if (!Gdi::isRedirected(hwnd))
+		{
+			const LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			switch (msg)
+			{
+			case WM_ERASEBKGND:
+			case WM_NCPAINT:
+			case WM_PRINT:
+			case WM_PRINTCLIENT:
+			case WM_SETTEXT:
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				break;
+			}
+			return result;
+		}
+
 		switch (msg)
 		{
 		case WM_ERASEBKGND:
@@ -177,7 +196,14 @@ namespace
 			if (reinterpret_cast<HWND>(lParam) == hwnd)
 			{
 				LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
-				Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+				if (Gdi::isRedirected(hwnd))
+				{
+					Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+				}
+				else
+				{
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				}
 				return result;
 			}
 			break;
@@ -187,6 +213,12 @@ namespace
 				reinterpret_cast<WPARAM>(static_cast<HDC>(Gdi::CompatDc(reinterpret_cast<HDC>(wParam)))), lParam);
 
 		case WM_NCACTIVATE:
+			if (!Gdi::isRedirected(hwnd))
+			{
+				const LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				return result;
+			}
 			return onNcActivate(hwnd, wParam, lParam);
 
 		case WM_NCCREATE:
@@ -211,6 +243,12 @@ namespace
 		{
 			if (wParam == HTHSCROLL || wParam == HTVSCROLL)
 			{
+				if (!Gdi::isRedirected(hwnd))
+				{
+					const LRESULT result = origDefWindowProc(hwnd, msg, wParam, lParam);
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+					return result;
+				}
 				Gdi::ScrollBar sb(hwnd, wParam == HTHSCROLL ? SB_HORZ : SB_VERT);
 				sb.onLButtonDown(lParam);
 				return origDefWindowProc(hwnd, msg, wParam, lParam);
@@ -271,7 +309,6 @@ namespace
 		}
 
 		case WM_SETREDRAW:
-		{
 			if (Gdi::Window::isTopLevelWindow(hwnd))
 			{
 				BOOL isVisible = IsWindowVisible(hwnd);
@@ -283,7 +320,6 @@ namespace
 				return result;
 			}
 			break;
-		}
 		}
 
 		return defPaintProc(hwnd, msg, wParam, lParam, origDefWindowProc);
@@ -325,7 +361,14 @@ namespace
 				horz != GetScrollPos(hwnd, SB_HORZ) ||
 				vert != GetScrollPos(hwnd, SB_VERT))
 			{
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
+				if (Gdi::isRedirected(hwnd))
+				{
+					RedrawWindow(hwnd, nullptr, nullptr, RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW);
+				}
+				else
+				{
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				}
 			}
 			return result;
 		}
@@ -445,22 +488,21 @@ namespace
 
 	LRESULT menuWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
+		const LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 		switch (msg)
 		{
 		case WM_WINDOWPOSCHANGING:
 		{
-			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			auto& wp = *reinterpret_cast<WINDOWPOS*>(lParam);
 			if (!(wp.flags & SWP_NOMOVE))
 			{
 				fixPopupMenuPosition(wp);
 			}
-			return result;
+			break;
 		}
 
 		case WM_WINDOWPOSCHANGED:
 		{
-			LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
 			auto exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
 			if (exStyle & WS_EX_LAYERED)
 			{
@@ -468,13 +510,14 @@ namespace
 			}
 			RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_UPDATENOW);
 			DDraw::RealPrimarySurface::scheduleUpdate();
-			return result;
+			break;
 		}
 
 		default:
 			DDraw::RealPrimarySurface::scheduleUpdate();
-			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			break;
 		}
+		return result;
 	}
 
 	LRESULT onEraseBackground(HWND hwnd, HDC dc, WNDPROC origWndProc)
@@ -504,8 +547,15 @@ namespace
 		return 0;
 	}
 
-	LRESULT onPaint(HWND hwnd, WNDPROC origWndProc)
+	LRESULT onPaint(HWND hwnd, WPARAM wParam, LPARAM lParam, WNDPROC origWndProc)
 	{
+		if (!Gdi::isRedirected(hwnd))
+		{
+			const LRESULT result = CallWindowProc(origWndProc, hwnd, WM_PAINT, wParam, lParam);
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			return result;
+		}
+
 		PAINTSTRUCT paint = {};
 		HDC dc = BeginPaint(hwnd, &paint);
 		CallWindowProc(origWndProc, hwnd, WM_PRINTCLIENT,
@@ -536,14 +586,22 @@ namespace
 		switch (msg)
 		{
 		case WM_LBUTTONDOWN:
-		{
-			Gdi::ScrollBar sb(hwnd, SB_CTL);
-			sb.onLButtonDown(lParam);
-			return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
-		}
+			if (Gdi::isRedirected(hwnd))
+			{
+				Gdi::ScrollBar sb(hwnd, SB_CTL);
+				sb.onLButtonDown(lParam);
+				return CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+			}
+			else
+			{
+				const LRESULT result = CallWindowProc(origWndProc, hwnd, msg, wParam, lParam);
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				return result;
+			}
+			break;
 
 		case WM_PAINT:
-			return onPaint(hwnd, origWndProc);
+			return onPaint(hwnd, wParam, lParam, origWndProc);
 
 		case WM_SETCURSOR:
 			if (CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_STYLE) & (SBS_SIZEBOX | SBS_SIZEGRIP))

@@ -153,7 +153,7 @@ namespace Gdi
 
 		HDC getDc(HDC origDc)
 		{
-			if (!isDisplayDc(origDc))
+			if (!isRedirected(origDc))
 			{
 				return nullptr;
 			}

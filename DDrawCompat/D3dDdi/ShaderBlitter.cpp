@@ -247,8 +247,6 @@ namespace D3dDdi
 		setTempTextureStage(0, srcResource, srcSubResourceIndex, srcRect,
 			LOWORD(filter) | (srgbRead ? D3DTEXF_SRGBREAD : 0));
 
-		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
-
 		if (srcRgn)
 		{
 			auto srcRects(srcRgn.getRects());
@@ -587,7 +585,6 @@ namespace D3dDdi
 		setTempTextureStage(0, srcResource, 0, srcRect, D3DTEXF_POINT);
 		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
 
-		state.setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
 		drawRect(Rect::toRectF(dstRect));
 	}
 
@@ -639,6 +636,8 @@ namespace D3dDdi
 		m_vertices[1].xy = { rect.right - 0.5f, rect.top - 0.5f };
 		m_vertices[2].xy = { rect.left - 0.5f, rect.bottom - 0.5f };
 		m_vertices[3].xy = { rect.right - 0.5f, rect.bottom - 0.5f };
+
+		m_device.getState().setTempStreamSourceUm({ 0, sizeof(Vertex) }, m_vertices.data());
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
 		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;

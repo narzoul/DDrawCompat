@@ -32,6 +32,7 @@ namespace Gdi
 		void present(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src,
 			CompatRef<IDirectDrawClipper> clipper);
 		void present(Gdi::Region excludeRegion);
+		void redrawAll();
 		void setDpiAwareness(HWND hwnd, bool dpiAware);
 		void setFullscreenMode(bool isFullscreen);
 		void updateAll();

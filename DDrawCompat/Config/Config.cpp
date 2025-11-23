@@ -24,6 +24,7 @@
 #include <Config/Settings/ForceD3D9On12.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/LogLevel.h>
 #include <Config/Settings/MousePollingRate.h>
 #include <Config/Settings/MouseSensitivity.h>
@@ -88,6 +89,7 @@ namespace Config
 	Settings::ForceD3D9On12 forceD3D9On12;
 	Settings::FpsLimiter fpsLimiter;
 	Settings::FullscreenMode fullscreenMode;
+	Settings::GdiInterops gdiInterops;
 	Settings::LogLevel logLevel;
 	Settings::MousePollingRate mousePollingRate;
 	Settings::MouseSensitivity mouseSensitivity;

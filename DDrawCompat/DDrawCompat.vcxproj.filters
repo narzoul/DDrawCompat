@@ -759,6 +759,9 @@
     <ClInclude Include="Overlay\ShaderSettingControl.h">
       <Filter>Header Files\Overlay</Filter>
     </ClInclude>
+    <ClInclude Include="Config\Settings\GdiInterops.h">
+      <Filter>Header Files\Config\Settings</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Gdi\Gdi.cpp">
@@ -1186,6 +1189,9 @@
     </ClCompile>
     <ClCompile Include="Overlay\ShaderSettingControl.cpp">
       <Filter>Source Files\Overlay</Filter>
+    </ClCompile>
+    <ClCompile Include="Config\Settings\GdiInterops.cpp">
+      <Filter>Source Files\Config\Settings</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

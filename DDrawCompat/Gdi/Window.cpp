@@ -2,8 +2,11 @@
 #include <map>
 #include <vector>
 
+#include <dwmapi.h>
+
 #include <Common/Log.h>
 #include <Common/Rect.h>
+#include <Config/Settings/GdiInterops.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -107,7 +110,6 @@ namespace
 		RECT clientRect;
 		Gdi::Region visibleRegion;
 		LayeredWindowContent layeredWindowContent;
-		bool isMenu;
 		bool isLayered;
 		bool isDpiAware;
 
@@ -116,7 +118,6 @@ namespace
 			, presentationWindow(nullptr)
 			, windowRect{}
 			, clientRect{}
-			, isMenu(Gdi::MENU_ATOM == GetClassLong(hwnd, GCW_ATOM))
 			, isLayered(true)
 			, isDpiAware(false)
 		{
@@ -150,14 +151,18 @@ namespace
 		for (auto& window : g_windows)
 		{
 			for (const auto& mi : allMi)
-				if (!window.second.isLayered &&
+			{
+				if (mi.second.isEmulated &&
 					window.second.windowRect.left <= mi.second.rcEmulated.left &&
 					window.second.windowRect.top <= mi.second.rcEmulated.top &&
 					window.second.windowRect.right >= mi.second.rcEmulated.right &&
-					window.second.windowRect.bottom >= mi.second.rcEmulated.bottom)
+					window.second.windowRect.bottom >= mi.second.rcEmulated.bottom &&
+					IsWindowVisible(window.second.hwnd) && !IsIconic(window.second.hwnd) &&
+					!(CALL_ORIG_FUNC(GetWindowLongA)(window.second.hwnd, GWL_EXSTYLE) & WS_EX_LAYERED))
 				{
 					return window.first;
 				}
+			}
 		}
 		return nullptr;
 	}
@@ -176,6 +181,12 @@ namespace
 			it->second.presentationWindow = nullptr;
 		}
 		return g_windows.erase(it);
+	}
+
+	void updateNcRenderingPolicy(Window& window)
+	{
+		DWMNCRENDERINGPOLICY policy = (g_isFullscreen || !window.isLayered) ? DWMNCRP_DISABLED : DWMNCRP_USEWINDOWSTYLE;
+		DwmSetWindowAttribute(window.hwnd, DWMWA_NCRENDERING_POLICY, &policy, sizeof(policy));
 	}
 
 	bool updatePosition(Window& window, const RECT& oldWindowRect, const RECT& oldClientRect,
@@ -275,7 +286,7 @@ namespace
 			return TRUE;
 		}
 
-		const bool isWindowVisible = IsWindowVisible(hwnd);
+		const bool isWindowVisible = IsWindowVisible(hwnd) && Gdi::getSysShadowAtom() != GetClassLongA(hwnd, GCW_ATOM);
 		const bool isVisible = isWindowVisible && !IsIconic(hwnd);
 		auto it = g_windows.find(hwnd);
 		if (it == g_windows.end())
@@ -285,14 +296,15 @@ namespace
 				return TRUE;
 			}
 			it = g_windows.emplace(hwnd, Window(hwnd)).first;
+			updateNcRenderingPolicy(it->second);
 		}
 
-		const LONG exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
-		const bool isLayered = it->second.isMenu || (exStyle & WS_EX_LAYERED);
+		const bool isLayered = !Gdi::isRedirected(hwnd);
 
 		if (isLayered != it->second.isLayered)
 		{
 			it->second.isLayered = isLayered;
+			updateNcRenderingPolicy(it->second);
 			if (!isLayered)
 			{
 				it->second.presentationWindow = Gdi::PresentationWindow::create(hwnd);
@@ -305,6 +317,7 @@ namespace
 			}
 		}
 
+		const LONG exStyle = CALL_ORIG_FUNC(GetWindowLongA)(hwnd, GWL_EXSTYLE);
 		WINDOWINFO wi = {};
 		Gdi::Region visibleRegion;
 
@@ -333,10 +346,7 @@ namespace
 				}
 
 				visibleRegion &= context.virtualScreenRegion;
-				if (!it->second.isMenu)
-				{
-					visibleRegion -= context.obscuredRegion;
-				}
+				visibleRegion -= context.obscuredRegion;
 
 				if (!isLayered && !(exStyle & WS_EX_TRANSPARENT))
 				{
@@ -416,10 +426,23 @@ namespace Gdi
 				auto& window = **it;
 				if (window.isLayered && !window.visibleRegion.isEmpty())
 				{
+					auto visibleRegion(window.visibleRegion);
+					if (window.isDpiAware && DDraw::RealPrimarySurface::isFullscreen())
+					{
+						WINDOWINFO wi = {};
+						wi.cbSize = sizeof(wi);
+						GetWindowInfo(window.hwnd, &wi);
+						visibleRegion -= window.clientRect;
+						if (visibleRegion.isEmpty())
+						{
+							continue;
+						}
+					}
+
 					layeredWindows.push_back({
 						window.hwnd,
 						window.windowRect,
-						window.visibleRegion,
+						visibleRegion,
 						window.layeredWindowContent.getDc(),
 						window.layeredWindowContent.getColorKey(),
 						window.layeredWindowContent.getAlpha(),
@@ -489,7 +512,7 @@ namespace Gdi
 			}
 
 			HWND root = GetAncestor(hwnd, GA_ROOT);
-			if (!root)
+			if (!root || !Gdi::isRedirected(root))
 			{
 				return result;
 			}
@@ -508,7 +531,7 @@ namespace Gdi
 		Gdi::Region getWindowRgn(HWND hwnd)
 		{
 			Gdi::Region rgn;
-			if (ERROR == CALL_ORIG_FUNC(GetWindowRgn)(hwnd, rgn))
+			if (ERROR == GetWindowRgn(hwnd, rgn))
 			{
 				return nullptr;
 			}
@@ -526,9 +549,9 @@ namespace Gdi
 			{
 				D3dDdi::ScopedCriticalSection lock;
 				auto it = g_windows.find(hwnd);
-				if (it != g_windows.end() && !it->second.isMenu)
+				if (it != g_windows.end())
 				{
-					const bool isLayered = GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_LAYERED;
+					const bool isLayered = !Gdi::isRedirected(hwnd);
 					if (isLayered != it->second.isLayered)
 					{
 						updateAll();
@@ -554,9 +577,12 @@ namespace Gdi
 
 		void present(Gdi::Region excludeRegion)
 		{
+			if (!Config::gdiInterops.anyRedirects())
+			{
+				return;
+			}
+
 			D3dDdi::ScopedCriticalSection lock;
-			std::unique_ptr<HDC__, void(*)(HDC)> virtualScreenDc(nullptr, &Gdi::VirtualScreen::deleteDc);
-			RECT virtualScreenBounds = Gdi::VirtualScreen::getBounds();
 			auto fsPresentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
 
 			for (auto window : g_windowZOrder)
@@ -577,23 +603,25 @@ namespace Gdi
 					continue;
 				}
 
-				if (!virtualScreenDc)
-				{
-					const bool useDefaultPalette = false;
-					virtualScreenDc.reset(Gdi::VirtualScreen::createDc(useDefaultPalette));
-					if (!virtualScreenDc)
-					{
-						return;
-					}
-				}
-
 				HDC dc = GetWindowDC(window->presentationWindow);
 				RECT rect = window->windowRect;
 				visibleRegion.offset(-rect.left, -rect.top);
 				SelectClipRgn(dc, visibleRegion);
-				CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, virtualScreenDc.get(),
-					rect.left - virtualScreenBounds.left, rect.top - virtualScreenBounds.top, SRCCOPY);
+				CALL_ORIG_FUNC(BitBlt)(dc, 0, 0, rect.right - rect.left, rect.bottom - rect.top, VirtualScreen::getDc(),
+					rect.left, rect.top, SRCCOPY);
 				CALL_ORIG_FUNC(ReleaseDC)(window->presentationWindow, dc);
+			}
+		}
+
+		void redrawAll()
+		{
+			D3dDdi::ScopedCriticalSection lock;
+			for (const auto& window : g_windowZOrder)
+			{
+				if (!window->isLayered && !window->visibleRegion.isEmpty())
+				{
+					RedrawWindow(window->hwnd, nullptr, nullptr, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
+				}
 			}
 		}
 
@@ -633,30 +661,31 @@ namespace Gdi
 			{
 				SendNotifyMessage(hwnd, WM_SYNCPAINT, 0, 0);
 			}
+
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 		}
 
 		void setDpiAwareness(HWND hwnd, bool dpiAware)
 		{
-			if (!Win32::DpiAwareness::isMixedModeSupported())
-			{
-				return;
-			}
-
 			D3dDdi::ScopedCriticalSection lock;
 			auto it = g_windows.find(hwnd);
 			if (it != g_windows.end() && it->second.isDpiAware != dpiAware)
 			{
+				LOG_DEBUG << "setDpiAwareness: " << dpiAware << ' ' << hwnd;
 				it->second.isDpiAware = dpiAware;
-				auto prevPresentationWindow = it->second.presentationWindow;
-				it->second.presentationWindow = Gdi::PresentationWindow::create(hwnd, dpiAware);
-
-				if (it->second.presentationWindow)
+				if (Win32::DpiAwareness::isMixedModeSupported())
 				{
-					updatePresentationWindowText(it->second.presentationWindow);
-					Gdi::GuiThread::setWindowRgn(it->second.presentationWindow, getWindowRgn(hwnd));
-				}
+					auto prevPresentationWindow = it->second.presentationWindow;
+					it->second.presentationWindow =
+						(it->second.isLayered && !dpiAware) ? nullptr : Gdi::PresentationWindow::create(hwnd, dpiAware);
 
-				Gdi::GuiThread::destroyWindow(prevPresentationWindow);
+					if (it->second.presentationWindow)
+					{
+						updatePresentationWindowText(it->second.presentationWindow);
+					}
+
+					Gdi::GuiThread::destroyWindow(prevPresentationWindow);
+				}
 			}
 		}
 
@@ -671,6 +700,7 @@ namespace Gdi
 			D3dDdi::ScopedCriticalSection lock;
 			for (auto it = g_windows.begin(); it != g_windows.end(); ++it)
 			{
+				updateNcRenderingPolicy(it->second);
 				if (it->second.presentationWindow)
 				{
 					updatePresentationWindowPos(it->second.presentationWindow, it->first);

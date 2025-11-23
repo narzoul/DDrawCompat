@@ -1,6 +1,8 @@
 #include <dwmapi.h>
 
 #include <Common/Hook.h>
+#include <Config/Settings/GdiInterops.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
@@ -19,6 +21,20 @@
 
 namespace
 {
+	ATOM g_autoSuggestDropdownAtom = 0;
+	ATOM g_comboLBoxAtom = 0;
+	ATOM g_microsoftWindowsTooltipAtom = 0;
+	ATOM g_sysShadowAtom = 0;
+	ATOM g_tooltips_class32Atom = 0;
+
+	const std::map<std::wstring, ATOM&> g_classAtoms = {
+		{ L"Auto-Suggest Dropdown", g_autoSuggestDropdownAtom },
+		{ L"ComboLBox", g_comboLBoxAtom },
+		{ L"MicrosoftWindowsTooltip", g_microsoftWindowsTooltipAtom },
+		{ L"SysShadow", g_sysShadowAtom },
+		{ L"tooltips_class32", g_tooltips_class32Atom }
+	};
+
 	HRESULT WINAPI dwmEnableComposition([[maybe_unused]] UINT uCompositionAction)
 	{
 		LOG_FUNC("DwmEnableComposition", uCompositionAction);
@@ -51,17 +67,6 @@ namespace
 		}
 		return LOG_RESULT(TRUE);
 	}
-
-	BOOL CALLBACK redrawWindowCallback(HWND hwnd, LPARAM lParam)
-	{
-		DWORD windowPid = 0;
-		GetWindowThreadProcessId(hwnd, &windowPid);
-		if (GetCurrentProcessId() == windowPid)
-		{
-			Gdi::redrawWindow(hwnd, reinterpret_cast<HRGN>(lParam));
-		}
-		return TRUE;
-	}
 }
 
 namespace Gdi
@@ -83,8 +88,29 @@ namespace Gdi
 		Dc::dllThreadDetach();
 	}
 
+	ATOM getClassAtom(const std::wstring& className)
+	{
+		WNDCLASSW wc = {};
+		return static_cast<ATOM>(GetClassInfoW(nullptr, className.c_str(), &wc));
+	}
+
+	ATOM getComboLBoxAtom()
+	{
+		return g_comboLBoxAtom;
+	}
+
+	ATOM getSysShadowAtom()
+	{
+		return g_sysShadowAtom;
+	}
+
 	void installHooks()
 	{
+		for (const auto& atom : g_classAtoms)
+		{
+			atom.second = getClassAtom(atom.first.c_str());
+		}
+
 #pragma warning (disable : 4995)
 		HOOK_FUNCTION(dwmapi, DwmEnableComposition, dwmEnableComposition);
 #pragma warning (default : 4995)
@@ -109,42 +135,44 @@ namespace Gdi
 
 	bool isDisplayDc(HDC dc)
 	{
-		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == CALL_ORIG_FUNC(GetDeviceCaps)(dc, TECHNOLOGY) &&
-			!(CALL_ORIG_FUNC(GetWindowLongA)(CALL_ORIG_FUNC(WindowFromDC)(dc), GWL_EXSTYLE) & WS_EX_LAYERED) &&
-			MENU_ATOM != GetClassLong(CALL_ORIG_FUNC(WindowFromDC)(dc), GCW_ATOM);
+		return dc && OBJ_DC == GetObjectType(dc) && DT_RASDISPLAY == CALL_ORIG_FUNC(GetDeviceCaps)(dc, TECHNOLOGY);
 	}
 
-	void redraw(HRGN rgn)
+	bool isRedirected(HWND hwnd)
 	{
-		CALL_ORIG_FUNC(EnumWindows)(&redrawWindowCallback, reinterpret_cast<LPARAM>(rgn));
+		const HWND root = GetAncestor(hwnd, GA_ROOT);
+		const DWORD rootAtom = root ? GetClassLongA(root, GCW_ATOM) : MAXDWORD;
+		if (!root && !Config::gdiInterops.get().desktop ||
+			DIALOG_ATOM == rootAtom && !Config::gdiInterops.get().dialogs ||
+			!Config::gdiInterops.get().windows ||
+			MENU_ATOM == rootAtom ||
+			g_autoSuggestDropdownAtom == rootAtom && !isRedirected(GetParent(hwnd)) ||
+			g_comboLBoxAtom == rootAtom && !GetPropA(root, "DDCRedirected") ||
+			g_microsoftWindowsTooltipAtom == rootAtom ||
+			g_tooltips_class32Atom == rootAtom ||
+			(CALL_ORIG_FUNC(GetWindowLongA)(root, GWL_EXSTYLE) & WS_EX_LAYERED))
+		{
+			return false;
+		}
+		return true;
 	}
 
-	void redrawWindow(HWND hwnd, HRGN rgn)
+	bool isRedirected(HDC dc)
 	{
-		if (!IsWindowVisible(hwnd) || IsIconic(hwnd) || GuiThread::isGuiThreadWindow(hwnd))
+		if (!Config::gdiInterops.anyRedirects() || !isDisplayDc(dc))
 		{
-			return;
+			return false;
 		}
-
-		POINT origin = {};
-		if (rgn)
-		{
-			ClientToScreen(hwnd, &origin);
-			OffsetRgn(rgn, -origin.x, -origin.y);
-		}
-
-		RedrawWindow(hwnd, nullptr, rgn, RDW_ERASE | RDW_FRAME | RDW_INVALIDATE | RDW_ALLCHILDREN);
-
-		if (rgn)
-		{
-			OffsetRgn(rgn, origin.x, origin.y);
-		}
+		const HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(dc);
+		return hwnd ? Gdi::isRedirected(hwnd) : Config::gdiInterops.get().desktop;
 	}
 
-	void unhookWndProc(LPCSTR className, WNDPROC oldWndProc)
+	void onRegisterClass(const std::wstring& className, ATOM atom)
 	{
-		HWND hwnd = CreateWindow(className, nullptr, 0, 0, 0, 0, 0, nullptr, nullptr, nullptr, 0);
-		SetClassLongPtr(hwnd, GCLP_WNDPROC, reinterpret_cast<LONG>(oldWndProc));
-		DestroyWindow(hwnd);
+		auto it = g_classAtoms.find(className);
+		if (it != g_classAtoms.end())
+		{
+			it->second = atom;
+		}
 	}
 }

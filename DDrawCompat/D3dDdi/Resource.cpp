@@ -8,6 +8,7 @@
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
 #include <Config/Settings/DepthFormat.h>
+#include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
 #include <Config/Settings/SurfacePatches.h>
 #include <D3dDdi/Adapter.h>
@@ -1331,8 +1332,18 @@ namespace D3dDdi
 
 	HRESULT Resource::presentationBlt(D3DDDIARG_BLT data, Resource* srcResource)
 	{
-		LOG_FUNC("Resource::presentationBlt", data, *srcResource);
+		LOG_FUNC("Resource::presentationBlt", data, srcResource ? *srcResource : nullptr);
 		m_device.flushPrimitives();
+
+		if (!srcResource)
+		{
+			clearRectInterior(data.DstSubResourceIndex, data.DstRect);
+			presentLayeredWindows(*this, data.DstSubResourceIndex, getRect(data.DstSubResourceIndex),
+				Gdi::Window::getVisibleOverlayWindows(), m_device.getAdapter().getMonitorInfo().rcMonitor);
+			Overlay::Steam::render(*this, data.DstSubResourceIndex);
+			return LOG_RESULT(S_OK);
+		}
+
 		if (srcResource->m_lockResource)
 		{
 			auto& lockData = srcResource->m_lockData[data.SrcSubResourceIndex];
@@ -1534,6 +1545,11 @@ namespace D3dDdi
 
 	void Resource::setAsGdiResource(bool isGdiResource)
 	{
+		if (!Config::gdiInterops.anyRedirects())
+		{
+			return;
+		}
+
 		m_device.flushPrimitives();
 		m_lockResource.reset();
 		m_lockData.clear();

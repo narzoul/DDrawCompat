@@ -1,5 +1,6 @@
 #include <Common/CompatPtr.h>
 #include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/GdiInterops.h>
 #include <D3dDdi/KernelModeThunks.h>
 #include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/DirectDrawClipper.h>
@@ -148,10 +149,40 @@ namespace DDraw
 		{
 			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);
 		}
-		HRESULT result = SurfaceImpl<TSurface>::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+
+		HRESULT result = DD_OK;
+		bool isRedirected = true;
+
+		CompatPtr<IDirectDrawClipper> clipper;
+		getOrigVtable(This).GetClipper(This, &clipper.getRef());
+		if (clipper)
+		{
+			HWND hwnd = nullptr;
+			clipper->GetHWnd(clipper, &hwnd);
+			isRedirected = !hwnd || Gdi::isRedirected(hwnd);
+			if (!isRedirected)
+			{
+				auto realPrimary(RealPrimarySurface::getSurface());
+				CompatPtr<IDirectDrawClipper> realClipper;
+				realPrimary->GetClipper(realPrimary, &realClipper.getRef());
+				realPrimary->SetClipper(realPrimary, clipper);
+				auto src(CompatPtr<IDirectDrawSurface7>::from(lpDDSrcSurface));
+				result = realPrimary->Blt(realPrimary, lpDestRect, src, lpSrcRect, dwFlags, lpDDBltFx);
+				realPrimary->SetClipper(realPrimary, realClipper);
+			}
+		}
+
+		if (isRedirected)
+		{
+			result = SurfaceImpl<TSurface>::Blt(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+		}
+
 		if (SUCCEEDED(result))
 		{
-			bltToGdi(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+			if (isRedirected && Config::gdiInterops.anyRedirects())
+			{
+				bltToGdi(This, lpDestRect, lpDDSrcSurface, lpSrcRect, dwFlags, lpDDBltFx);
+			}
 			auto statsWindow = Gdi::GuiThread::getStatsWindow();
 			if (statsWindow)
 			{
@@ -159,6 +190,7 @@ namespace DDraw
 			}
 			RealPrimarySurface::scheduleUpdate(true);
 		}
+
 		if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value && isFsBlt(lpDestRect))
 		{
 			RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param);

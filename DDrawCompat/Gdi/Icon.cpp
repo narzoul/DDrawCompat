@@ -1,6 +1,7 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
 #include <Gdi/DcFunctions.h>
+#include <Gdi/Gdi.h>
 #include <Gdi/Icon.h>
 
 namespace
@@ -67,7 +68,14 @@ namespace
 		wc.cbSize = sizeof(wc);
 		memcpy(&wc.style, lpWndClass, sizeof(*lpWndClass));
 		wc.hIconSm = wc.hIcon;
-		return origRegisterClassEx(&wc);
+		ATOM atom = origRegisterClassEx(&wc);
+		if (atom && reinterpret_cast<DWORD>(wc.lpszClassName) > 0xFFFF)
+		{
+			typedef std::remove_const_t<std::remove_pointer_t<decltype(wc.lpszClassName)>> Char;
+			const std::basic_string<Char> className(wc.lpszClassName);
+			Gdi::onRegisterClass(std::wstring(className.begin(), className.end()), atom);
+		}
+		return atom;
 	}
 
 	template <typename WndClassEx>

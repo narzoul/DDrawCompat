@@ -16,6 +16,7 @@
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DisplayRefreshRate.h>
 #include <Config/Settings/DisplayResolution.h>
+#include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/SupportedRefreshRates.h>
 #include <Config/Settings/SupportedResolutions.h>
 #include <DDraw/DirectDraw.h>
@@ -490,14 +491,14 @@ namespace
 		switch (nIndex)
 		{
 		case BITSPIXEL:
-			if (Gdi::isDisplayDc(hdc))
+			if (Config::gdiInterops.get().colors && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(Win32::DisplayMode::getBpp());
 			}
 			break;
 
 		case COLORRES:
-			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
+			if (Config::gdiInterops.get().colors && 8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(24);
 			}
@@ -514,21 +515,21 @@ namespace
 
 		case NUMCOLORS:
 		case NUMRESERVED:
-			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
+			if (Config::gdiInterops.get().colors && 8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(20);
 			}
 			break;
 
 		case RASTERCAPS:
-			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
+			if (Config::gdiInterops.get().colors && 8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(CALL_ORIG_FUNC(GetDeviceCaps)(hdc, nIndex) | RC_PALETTE);
 			}
 			break;
 
 		case SIZEPALETTE:
-			if (8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
+			if (Config::gdiInterops.get().colors && 8 == Win32::DisplayMode::getBpp() && Gdi::isDisplayDc(hdc))
 			{
 				return LOG_RESULT(256);
 			}

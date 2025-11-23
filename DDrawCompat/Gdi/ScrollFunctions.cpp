@@ -1,5 +1,6 @@
 #include <Common/Hook.h>
 #include <Common/Log.h>
+#include <DDraw/RealPrimarySurface.h>
 #include <Gdi/Dc.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/Region.h>
@@ -22,7 +23,14 @@ namespace
 		BOOL result = CALL_ORIG_FUNC(ScrollWindow)(hWnd, XAmount, YAmount, lpRect, lpClipRect);
 		if (result)
 		{
-			scrollWindowDc(hWnd, XAmount, YAmount, lpRect, lpClipRect);
+			if (Gdi::isRedirected(hWnd))
+			{
+				scrollWindowDc(hWnd, XAmount, YAmount, lpRect, lpClipRect);
+			}
+			else
+			{
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			}
 		}
 		return LOG_RESULT(result);
 	}
@@ -32,7 +40,8 @@ namespace
 	{
 		LOG_FUNC("ScrollWindowEx", hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 
-		if (flags & SW_SMOOTHSCROLL)
+		const bool isRedirected = Gdi::isRedirected(hWnd);
+		if ((flags & SW_SMOOTHSCROLL) && isRedirected)
 		{
 			flags = (LOWORD(flags) & ~SW_SMOOTHSCROLL) | SW_INVALIDATE | SW_ERASE;
 		}
@@ -41,7 +50,14 @@ namespace
 			hWnd, dx, dy, prcScroll, prcClip, hrgnUpdate, prcUpdate, flags);
 		if (ERROR != result)
 		{
-			scrollWindowDc(hWnd, dx, dy, prcScroll, prcClip);
+			if (isRedirected)
+			{
+				scrollWindowDc(hWnd, dx, dy, prcScroll, prcClip);
+			}
+			else
+			{
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			}
 		}
 
 		return LOG_RESULT(result);

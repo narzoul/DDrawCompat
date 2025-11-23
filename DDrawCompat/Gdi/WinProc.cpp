@@ -92,11 +92,18 @@ namespace
 			dwFlags |= AW_SLIDE | AW_HOR_POSITIVE;
 		}
 
-		WNDCLASSA wc = {};
-		static const ATOM comboLBoxAtom = static_cast<ATOM>(GetClassInfoA(nullptr, "ComboLBox", &wc));
-		if (g_droppedDownComboBox && (dwFlags & AW_VER_POSITIVE) && comboLBoxAtom == GetClassLongA(hWnd, GCW_ATOM))
+		if (g_droppedDownComboBox && Gdi::getComboLBoxAtom() == GetClassLongA(hWnd, GCW_ATOM))
 		{
-			dwFlags = Gdi::WinProc::adjustComboListBoxRect(hWnd, dwFlags);
+			if ((dwFlags & AW_VER_POSITIVE))
+			{
+				dwFlags = Gdi::WinProc::adjustComboListBoxRect(hWnd, dwFlags);
+			}
+			if (CALL_ORIG_FUNC(AnimateWindow)(hWnd, dwTime, dwFlags))
+			{
+				return LOG_RESULT(TRUE);
+			}
+			RedrawWindow(hWnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE | RDW_FRAME | RDW_ALLCHILDREN | RDW_ERASENOW);
+			return LOG_RESULT(FALSE);
 		}
 
 		return LOG_RESULT(CALL_ORIG_FUNC(AnimateWindow)(hWnd, dwTime, dwFlags));
@@ -273,7 +280,14 @@ namespace
 			if (reinterpret_cast<HWND>(lParam) != hwnd &&
 				isUser32ScrollBar(reinterpret_cast<HWND>(lParam)))
 			{
-				Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+				if (Gdi::isRedirected(hwnd))
+				{
+					Gdi::ScrollBar::onCtlColorScrollBar(hwnd, wParam, lParam, result);
+				}
+				else
+				{
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				}
 			}
 			break;
 
@@ -542,8 +556,7 @@ namespace
 
 	bool isUser32ScrollBar(HWND hwnd)
 	{
-		WNDCLASS wc = {};
-		static const ATOM sbAtom = static_cast<ATOM>(GetClassInfo(nullptr, "ScrollBar", &wc));
+		static const ATOM sbAtom = Gdi::getClassAtom(L"ScrollBar");
 		if (sbAtom != GetClassLong(hwnd, GCW_ATOM))
 		{
 			return false;
@@ -628,7 +641,7 @@ namespace
 			DDraw::RealPrimarySurface::setPresentationWindowTopmost();
 			Gdi::Window::updateWindowPos(hwnd);
 
-			if (g_dwmSetIconicThumbnail)
+			if (g_dwmSetIconicThumbnail && Gdi::isRedirected(hwnd))
 			{
 				const BOOL isIconic = IsIconic(hwnd);
 				DwmSetWindowAttribute(hwnd, DWMWA_FORCE_ICONIC_REPRESENTATION, &isIconic, sizeof(isIconic));
@@ -638,20 +651,23 @@ namespace
 
 		if (wp.flags & SWP_FRAMECHANGED)
 		{
-			RECT r = { -1, -1, 0, 0 };
-			RedrawWindow(hwnd, &r, nullptr, RDW_INVALIDATE | RDW_FRAME);
+			if (Gdi::isRedirected(hwnd))
+			{
+				RECT r = { -1, -1, 0, 0 };
+				RedrawWindow(hwnd, &r, nullptr, RDW_INVALIDATE | RDW_FRAME);
+			}
+			else
+			{
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			}
 		}
 	}
 
 	void onWindowPosChanging(HWND hwnd, WINDOWPOS& wp)
 	{
-		if (Gdi::Window::isTopLevelWindow(hwnd))
+		if (Gdi::isRedirected(hwnd))
 		{
-			wp.flags |= SWP_NOREDRAW;
-		}
-		else
-		{
-			wp.flags |= SWP_NOCOPYBITS;
+			wp.flags |= Gdi::Window::isTopLevelWindow(hwnd) ? SWP_NOREDRAW : SWP_NOCOPYBITS;
 		}
 	}
 
@@ -916,12 +932,17 @@ namespace
 			switch (idObject)
 			{
 			case OBJID_TITLEBAR:
-			{
-				HDC dc = GetWindowDC(hwnd);
-				Gdi::TitleBar(hwnd).drawButtons(dc);
-				ReleaseDC(hwnd, dc);
+				if (Gdi::isRedirected(hwnd))
+				{
+					HDC dc = GetWindowDC(hwnd);
+					Gdi::TitleBar(hwnd).drawButtons(dc);
+					ReleaseDC(hwnd, dc);
+				}
+				else
+				{
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+				}
 				break;
-			}
 
 			case OBJID_CLIENT:
 				if (!isUser32ScrollBar(hwnd))
@@ -930,21 +951,26 @@ namespace
 				}
 			case OBJID_HSCROLL:
 			case OBJID_VSCROLL:
-			{
-				HDC dc = GetWindowDC(hwnd);
-				if (OBJID_CLIENT == idObject)
+				if (Gdi::isRedirected(hwnd))
 				{
-					SendMessage(GetParent(hwnd), WM_CTLCOLORSCROLLBAR,
-						reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+					HDC dc = GetWindowDC(hwnd);
+					if (OBJID_CLIENT == idObject)
+					{
+						SendMessage(GetParent(hwnd), WM_CTLCOLORSCROLLBAR,
+							reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+					}
+					else
+					{
+						DefWindowProc(hwnd, WM_CTLCOLORSCROLLBAR,
+							reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+					}
+					ReleaseDC(hwnd, dc);
 				}
 				else
 				{
-					DefWindowProc(hwnd, WM_CTLCOLORSCROLLBAR,
-						reinterpret_cast<WPARAM>(dc), reinterpret_cast<LPARAM>(hwnd));
+					DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 				}
-				ReleaseDC(hwnd, dc);
 				break;
-			}
 			}
 			break;
 		}
@@ -962,6 +988,8 @@ namespace Gdi
 			{
 				return LOG_RESULT(awFlags);
 			}
+
+			SetPropA(hwnd, "DDCRedirected", reinterpret_cast<HANDLE>(isRedirected(g_droppedDownComboBox)));
 
 			MONITORINFO mi = {};
 			mi.cbSize = sizeof(mi);
@@ -1116,17 +1144,8 @@ namespace Gdi
 				return;
 			}
 
-			DWMNCRENDERINGPOLICY ncRenderingPolicy = DWMNCRP_DISABLED;
-			DwmSetWindowAttribute(hwnd, DWMWA_NCRENDERING_POLICY, &ncRenderingPolicy, sizeof(ncRenderingPolicy));
-
 			BOOL disableTransitions = TRUE;
 			DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disableTransitions, sizeof(disableTransitions));
-
-			const auto style = GetClassLong(hwnd, GCL_STYLE);
-			if (style & CS_DROPSHADOW)
-			{
-				CALL_ORIG_FUNC(SetClassLongA)(hwnd, GCL_STYLE, style & ~CS_DROPSHADOW);
-			}
 
 			Gdi::Window::updateWindowPos(hwnd);
 		}

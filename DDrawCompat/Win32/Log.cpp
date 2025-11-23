@@ -98,6 +98,27 @@ namespace
 		memcpy(&viEx, &vi, std::min<DWORD>(sizeof(viEx), vi.dwOSVersionInfoSize));
 		return logOsVersionInfoEx(os, viEx);
 	}
+
+	template <typename WndClass>
+	std::ostream& logWndClass(std::ostream& os, const WndClass& wc)
+	{
+		Compat::LogStruct log(os);
+		log << Compat::hex(wc.style)
+			<< wc.lpfnWndProc
+			<< wc.cbClsExtra
+			<< wc.cbWndExtra
+			<< wc.hInstance
+			<< wc.hIcon
+			<< wc.hCursor
+			<< wc.hbrBackground
+			<< wc.lpszMenuName
+			<< wc.lpszClassName;
+		if constexpr (std::is_same_v<WndClass, WNDCLASSEXA> || std::is_same_v<WndClass, WNDCLASSEXW>)
+		{
+			log << wc.hIconSm;
+		}
+		return log;
+	}
 }
 
 std::ostream& operator<<(std::ostream& os, const BITMAP& bm)
@@ -529,6 +550,26 @@ std::ostream& operator<<(std::ostream& os, const WINDOWPOS& wp)
 		<< wp.cx
 		<< wp.cy
 		<< Compat::hex(wp.flags);
+}
+
+std::ostream& operator<<(std::ostream& os, const WNDCLASSA& wc)
+{
+	return logWndClass(os, wc);
+}
+
+std::ostream& operator<<(std::ostream& os, const WNDCLASSW& wc)
+{
+	return logWndClass(os, wc);
+}
+
+std::ostream& operator<<(std::ostream& os, const WNDCLASSEXA& wc)
+{
+	return logWndClass(os, wc);
+}
+
+std::ostream& operator<<(std::ostream& os, const WNDCLASSEXW& wc)
+{
+	return logWndClass(os, wc);
 }
 
 namespace Compat

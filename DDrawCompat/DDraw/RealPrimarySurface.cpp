@@ -14,6 +14,7 @@
 #include <Config/AtomicSetting.h>
 #include <Config/Settings/FpsLimiter.h>
 #include <Config/Settings/FullscreenMode.h>
+#include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/PresentDelay.h>
 #include <Config/Settings/VSync.h>
 #include <D3dDdi/Device.h>
@@ -165,23 +166,26 @@ namespace
 		updatePresentationParams();
 	}
 
-	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatRef<IDirectDrawSurface7> src)
+	void presentationBlt(CompatRef<IDirectDrawSurface7> dst, CompatWeakPtr<IDirectDrawSurface7> src)
 	{
-		LOG_FUNC("RealPrimarySurface::presentationBlt", dst, src);
+		LOG_FUNC("RealPrimarySurface::presentationBlt", &dst.get(), src.get());
 		D3dDdi::ScopedCriticalSection lock;
-		auto srcResource = D3dDdi::Device::findResource(
-			DDraw::DirectDrawSurface::getDriverResourceHandle(src.get()));
+		auto srcResource = src ? D3dDdi::Device::findResource(
+			DDraw::DirectDrawSurface::getDriverResourceHandle(*src)) : nullptr;
 		auto dstResource = D3dDdi::Device::findResource(
 			DDraw::DirectDrawSurface::getDriverResourceHandle(dst.get()));
-		if (!srcResource || !dstResource)
+		if (src && !srcResource || !dstResource)
 		{
 			return;
 		}
 
 		D3DDDIARG_BLT blt = {};
-		blt.hSrcResource = *srcResource;
-		blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(src.get());
-		blt.SrcRect = srcResource->getRect(blt.SrcSubResourceIndex);
+		if (srcResource)
+		{
+			blt.hSrcResource = *srcResource;
+			blt.SrcSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(*src);
+			blt.SrcRect = srcResource->getRect(blt.SrcSubResourceIndex);
+		}
 		blt.hDstResource = *dstResource;
 		blt.DstSubResourceIndex = DDraw::DirectDrawSurface::getSubResourceIndex(dst.get());
 		blt.DstRect = dstResource->getRect(blt.DstSubResourceIndex);
@@ -263,12 +267,15 @@ namespace
 			else
 			{
 				repo = &D3dDdi::SurfaceRepository::getPrimaryRepo();
-				windowedSrc = repo->getWindowedSrc(mi.rcEmulated);
-				if (!windowedSrc)
+				if (Config::gdiInterops.anyRedirects())
 				{
-					return;
+					windowedSrc = repo->getWindowedSrc(mi.rcEmulated);
+					if (!windowedSrc)
+					{
+						return;
+					}
+					src = windowedSrc;
 				}
-				src = windowedSrc;
 			}
 
 			backBuffer = repo->getWindowedBackBuffer(
@@ -283,7 +290,7 @@ namespace
 		Gdi::Window::present(excludeRegion);
 		if (backBuffer)
 		{
-			presentationBlt(*backBuffer, *src);
+			presentationBlt(*backBuffer, src);
 		}
 
 		if (useFlip)
@@ -315,7 +322,7 @@ namespace
 				g_clipper->SetHWnd(g_clipper, 0, g_presentationWindow);
 				frontBuffer->Blt(frontBuffer, nullptr, backBuffer, nullptr, DDBLT_WAIT, nullptr);
 			}
-			else
+			else if (src)
 			{
 				LOG_DEBUG << "Present mode: windowed blt";
 				Gdi::Window::present(*frontBuffer, *src, *g_clipper);
@@ -395,6 +402,8 @@ namespace
 			fullscreenPresentationWindow = Gdi::Window::getPresentationWindow(fullscreenWindow);
 		}
 
+		g_presentationWindow = fullscreenPresentationWindow;
+
 		static HWND prevFullscreenWindow = nullptr;
 		if (prevFullscreenWindow && prevFullscreenWindow != fullscreenWindow)
 		{
@@ -406,8 +415,6 @@ namespace
 			}
 		}
 		prevFullscreenWindow = fullscreenWindow;
-
-		g_presentationWindow = fullscreenPresentationWindow;
 
 		if (g_presentationWindow)
 		{

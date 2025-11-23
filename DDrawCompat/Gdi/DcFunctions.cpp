@@ -5,6 +5,8 @@
 #include <Common/Rect.h>
 #include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/FpsLimiter.h>
+#include <Config/Settings/GdiInterops.h>
+#include <D3dDdi/ScopedCriticalSection.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <Gdi/CompatDc.h>
 #include <Gdi/Dc.h>
@@ -145,6 +147,9 @@ namespace
 	SET_DC_FUNC_ATTRIBUTE(attribute, func##A) \
 	SET_DC_FUNC_ATTRIBUTE(attribute, func##W)
 
+	CREATE_DC_FUNC_ATTRIBUTE(isExtTextOutW);
+	SET_DC_FUNC_ATTRIBUTE(isExtTextOutW, ExtTextOutW);
+
 	CREATE_DC_FUNC_ATTRIBUTE(isFsBltFunc);
 	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, BitBlt);
 	SET_DC_FUNC_ATTRIBUTE(isFsBltFunc, SetDIBitsToDevice);
@@ -200,6 +205,18 @@ namespace
 			g_fullscreenSize.cx == static_cast<int>(cx) && g_fullscreenSize.cy == static_cast<int>(cy);
 	}
 
+	template <auto origFunc, typename... Params>
+	POINT getExtTextOutCoords(Params...)
+	{
+		return {};
+	}
+
+	template <>
+	POINT getExtTextOutCoords<&ExtTextOutW>(HDC, int x, int y, UINT, const RECT*, LPCWSTR, UINT, const INT*)
+	{
+		return { x, y };
+	}
+
 	bool lpToScreen(HWND hwnd, HDC dc, POINT& p)
 	{
 		LPtoDP(dc, &p, 1);
@@ -226,73 +243,62 @@ namespace
 	{
 		LOG_FUNC_CUSTOM(origFunc, g_funcName<origFunc>, hdc, params...);
 
+		const auto fpsLimiter = DDraw::RealPrimarySurface::getFpsLimiter();
+		if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value &&
+			isFsBlt<origFunc>(hdc, params...) && Gdi::isDisplayDc(hdc))
+		{
+			DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
+		}
+
+		Result result = 0;
 		if (hasDisplayDcArg(hdc, params...))
 		{
-			Gdi::CompatDc compatDc(hdc, isReadOnly<origFunc>());
-			const auto fpsLimiter = DDraw::RealPrimarySurface::getFpsLimiter();
-			if (Config::Settings::FpsLimiter::FLIPSTART == fpsLimiter.value &&
-				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
+			if (isExtTextOutW<origFunc>() && Gdi::isRedirected(hdc))
 			{
-				DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
+				HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
+				POINT p = getExtTextOutCoords<origFunc>(hdc, params...);
+				if (GetCurrentThreadId() == GetWindowThreadProcessId(hwnd, nullptr) &&
+					lpToScreen(hwnd, hdc, p) &&
+					HTMENU == SendMessage(hwnd, WM_NCHITTEST, 0, (p.y << 16) | (p.x & 0xFFFF)))
+				{
+					CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, 0, 0, 0, 0,
+						SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_NOSENDCHANGING);
+					return LOG_RESULT(TRUE);
+				}
 			}
-			Result result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
-			if (isPositionUpdated<origFunc>() && result)
+
+			Gdi::CompatDc compatDc(hdc, isReadOnly<origFunc>());
+			if (!isReadOnly<origFunc>() && compatDc == hdc)
+			{
+				// Lock needed as the write may be lost if reading at the same time (from Resource::presentLayeredWindows)
+				D3dDdi::ScopedCriticalSection lock;
+				result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
+				DDraw::RealPrimarySurface::scheduleOverlayUpdate();
+			}
+			else
+			{
+				result = Compat::g_origFuncPtr<origFunc>(compatDc, replaceDc(params)...);
+			}
+
+			if (isPositionUpdated<origFunc>() && result && compatDc != hdc)
 			{
 				POINT currentPos = {};
 				GetCurrentPositionEx(compatDc, &currentPos);
 				MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
 			}
-			if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value &&
-				isFsBlt<origFunc>(hdc, params...) && compatDc != hdc)
-			{
-				DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
-			}
-			return LOG_RESULT(result);
-		}
-
-		return LOG_RESULT(Compat::g_origFuncPtr<origFunc>(hdc, params...));
-	}
-
-	template <>
-	BOOL WINAPI compatGdiDcFunc<&ExtTextOutW>(
-		HDC hdc, int x, int y, UINT options, const RECT* lprect, LPCWSTR lpString, UINT c, const INT* lpDx)
-	{
-		LOG_FUNC_CUSTOM(&ExtTextOutW, "ExtTextOutW", hdc, x, y, options, lprect, lpString, c, lpDx);
-
-		if (hasDisplayDcArg(hdc))
-		{
-			HWND hwnd = CALL_ORIG_FUNC(WindowFromDC)(hdc);
-			ATOM atom = static_cast<ATOM>(GetClassLong(hwnd, GCW_ATOM));
-			POINT p = { x, y };
-			if (Gdi::MENU_ATOM == atom)
-			{
-				RedrawWindow(hwnd, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
-			}
-			else if (GetCurrentThreadId() == GetWindowThreadProcessId(hwnd, nullptr) &&
-				lpToScreen(hwnd, hdc, p) &&
-				HTMENU == SendMessage(hwnd, WM_NCHITTEST, 0, (p.y << 16) | (p.x & 0xFFFF)))
-			{
-				CALL_ORIG_FUNC(SetWindowPos)(hwnd, nullptr, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED | SWP_NOSENDCHANGING);
-			}
-			else
-			{
-				Gdi::CompatDc compatDc(hdc);
-				BOOL result = CALL_ORIG_FUNC(ExtTextOutW)(compatDc, x, y, options, lprect, lpString, c, lpDx);
-				if (result)
-				{
-					POINT currentPos = {};
-					GetCurrentPositionEx(compatDc, &currentPos);
-					MoveToEx(hdc, currentPos.x, currentPos.y, nullptr);
-				}
-				return LOG_RESULT(result);
-			}
 		}
 		else
 		{
-			return LOG_RESULT(CALL_ORIG_FUNC(ExtTextOutW)(hdc, x, y, options, lprect, lpString, c, lpDx));
+			result = Compat::g_origFuncPtr<origFunc>(hdc, params...);
 		}
 
-		return LOG_RESULT(TRUE);
+		if (Config::Settings::FpsLimiter::FLIPEND == fpsLimiter.value &&
+			isFsBlt<origFunc>(hdc, params...) && Gdi::isDisplayDc(hdc))
+		{
+			DDraw::RealPrimarySurface::waitForFlipFpsLimit(fpsLimiter.param, false);
+		}
+
+		return LOG_RESULT(result);
 	}
 
 	template <auto origFunc, typename Result, typename... Params>
@@ -326,7 +332,7 @@ namespace
 	HBITMAP WINAPI createCompatibleBitmap(HDC hdc, int cx, int cy)
 	{
 		LOG_FUNC("CreateCompatibleBitmap", hdc, cx, cy);
-		if (!g_disableDibRedirection && cx > 0 && cy > 0 && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && cx > 0 && cy > 0 && Config::gdiInterops.get().colors && Gdi::isDisplayDc(hdc))
 		{
 			return LOG_RESULT(Gdi::VirtualScreen::createOffScreenDib(cx, -cy, Win32::DisplayMode::getBpp()));
 		}
@@ -337,7 +343,7 @@ namespace
 		const void* lpbInit, const BITMAPINFO* lpbmi, UINT fuUsage)
 	{
 		LOG_FUNC("CreateDIBitmap", hdc, lpbmih, fdwInit, lpbInit, lpbmi, fuUsage);
-		if (!g_disableDibRedirection && lpbmih && Gdi::isDisplayDc(hdc))
+		if (!g_disableDibRedirection && lpbmih && Config::gdiInterops.get().colors && Gdi::isDisplayDc(hdc))
 		{
 			HBITMAP bitmap = Gdi::VirtualScreen::createOffScreenDib(
 				lpbmih->biWidth, lpbmih->biHeight, Win32::DisplayMode::getBpp());
@@ -359,7 +365,7 @@ namespace
 	BOOL WINAPI drawCaption(HWND hwnd, HDC hdc, const RECT* lprect, UINT flags)
 	{
 		LOG_FUNC("DrawCaption", hwnd, hdc, lprect, flags);
-		if (Gdi::isDisplayDc(hdc))
+		if (Gdi::isRedirected(hdc))
 		{
 			return LOG_RESULT(CALL_ORIG_FUNC(DrawCaption)(hwnd, Gdi::CompatDc(hdc), lprect, flags));
 		}

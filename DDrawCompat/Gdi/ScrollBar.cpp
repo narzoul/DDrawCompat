@@ -33,7 +33,7 @@ namespace Gdi
 		, m_windowRect{}
 		, m_sbi{}
 		, m_isVertical(isVertical(hwnd, bar))
-		, m_arrowSize(CALL_ORIG_FUNC(GetSystemMetrics)(m_isVertical ? SM_CYVSCROLL : SM_CXHSCROLL))
+		, m_arrowSize(0)
 		, m_left(m_isVertical ? &RECT::left : &RECT::top)
 		, m_top(m_isVertical ? &RECT::top : &RECT::left)
 		, m_right(m_isVertical ? &RECT::right : &RECT::bottom)
@@ -52,6 +52,19 @@ namespace Gdi
 		}
 		m_sbi.cbSize = sizeof(m_sbi);
 		GetScrollBarInfo(hwnd, objectId, &m_sbi);
+
+		if (SB_HORZ == bar)
+		{
+			m_arrowSize = m_sbi.rcScrollBar.bottom - m_sbi.rcScrollBar.top;
+		}
+		else if (SB_VERT == bar)
+		{
+			m_arrowSize = m_sbi.rcScrollBar.right - m_sbi.rcScrollBar.left;
+		}
+		else
+		{
+			m_arrowSize = CALL_ORIG_FUNC(GetSystemMetrics)(m_isVertical ? SM_CYVSCROLL : SM_CXHSCROLL);
+		}
 
 		CALL_ORIG_FUNC(GetWindowRect)(hwnd, &m_windowRect);
 		OffsetRect(&m_sbi.rcScrollBar, -m_windowRect.left, -m_windowRect.top);
