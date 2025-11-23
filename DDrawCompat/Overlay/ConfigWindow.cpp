@@ -12,6 +12,7 @@
 #include <Config/Settings/ConfigRows.h>
 #include <Config/Settings/ConfigTransparency.h>
 #include <Config/Settings/DepthFormat.h>
+#include <Config/Settings/DisplayAspectRatio.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Config/Settings/FpsLimiter.h>
@@ -63,6 +64,7 @@ namespace
 		{ &Config::colorKeyMethod, &D3dDdi::Device::updateAllConfig },
 		{ &Config::configTransparency, []() { Gdi::GuiThread::getConfigWindow()->setAlpha(Config::configTransparency.get()); }},
 		{ &Config::depthFormat, &D3dDdi::Device::updateAllConfig },
+		{ &Config::displayAspectRatio, &D3dDdi::Device::updateAllConfig },
 		{ &Config::displayFilter, []() { Gdi::GuiThread::getConfigWindow()->updateDisplayFilter(); }},
 		{ &Config::fontAntialiasing },
 		{ &Config::fpsLimiter, &DDraw::RealPrimarySurface::updateFpsLimiter },

@@ -9,6 +9,16 @@ namespace Config
 		{
 		}
 
+		std::vector<std::string> DisplayAspectRatio::getDefaultValueStrings()
+		{
+			if (m_defaultValueStrings.empty())
+			{
+				MappedSetting::getDefaultValueStrings();
+				m_defaultValueStrings.push_back("4:3");
+			}
+			return m_defaultValueStrings;
+		}
+
 		std::string DisplayAspectRatio::getValueStr() const
 		{
 			try

@@ -17,6 +17,8 @@ namespace Config
 
 			DisplayAspectRatio();
 
+			virtual std::vector<std::string> getDefaultValueStrings() override;
+
 		protected:
 			std::string getValueStr() const override;
 			void setValue(const std::string& value) override;
