@@ -372,9 +372,6 @@
     <ClInclude Include="D3dDdi\DrawPrimitive.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
-    <ClInclude Include="D3dDdi\DynamicBuffer.h">
-      <Filter>Header Files\D3dDdi</Filter>
-    </ClInclude>
     <ClInclude Include="D3dDdi\DeviceState.h">
       <Filter>Header Files\D3dDdi</Filter>
     </ClInclude>
@@ -948,9 +945,6 @@
       <Filter>Source Files\D3dDdi\Log</Filter>
     </ClCompile>
     <ClCompile Include="D3dDdi\DrawPrimitive.cpp">
-      <Filter>Source Files\D3dDdi</Filter>
-    </ClCompile>
-    <ClCompile Include="D3dDdi\DynamicBuffer.cpp">
       <Filter>Source Files\D3dDdi</Filter>
     </ClCompile>
     <ClCompile Include="D3dDdi\DeviceState.cpp">

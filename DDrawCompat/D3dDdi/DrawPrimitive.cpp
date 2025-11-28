@@ -61,22 +61,10 @@ namespace D3dDdi
 	DrawPrimitive::DrawPrimitive(Device& device)
 		: m_device(device)
 		, m_origVtable(device.getOrigVtable())
-		, m_vertexBuffer(device, VERTEX_BUFFER_SIZE)
-		, m_indexBuffer(device, m_vertexBuffer ? INDEX_BUFFER_SIZE : 0)
 		, m_streamSource{}
 		, m_batched{}
 		, m_vertexFixupFlags(0)
 	{
-		LOG_ONCE("Dynamic vertex buffers are " << (m_vertexBuffer ? "" : "not ") << "available");
-		LOG_ONCE("Dynamic index buffers are " << (m_indexBuffer ? "" : "not ") << "available");
-
-		if (m_indexBuffer)
-		{
-			D3DDDIARG_SETINDICES si = {};
-			si.hIndexBuffer = m_indexBuffer;
-			si.Stride = 2;
-			m_origVtable.pfnSetIndices(m_device, &si);
-		}
 	}
 
 	void DrawPrimitive::addSysMemVertexBuffer(HANDLE resource, BYTE* vertices)
@@ -94,52 +82,14 @@ namespace D3dDdi
 	void DrawPrimitive::appendIndexedVerticesWithoutRebase(const UINT16* indices, UINT count,
 		INT baseVertexIndex, UINT minIndex, UINT maxIndex)
 	{
-		UINT vertexCount = maxIndex - minIndex + 1;
-		if (vertexCount <= count)
-		{
-			INT delta = getBatchedVertexCount() - minIndex;
-			for (UINT i = 0; i < count; ++i)
-			{
-				m_batched.indices.push_back(static_cast<UINT16>(indices[i] + delta));
-			}
-			appendVertices(baseVertexIndex + minIndex, vertexCount);
-			return;
-		}
-
-		static UINT16 indexMap[D3DMAXNUMVERTICES] = {};
-		static BYTE indexCycles[D3DMAXNUMVERTICES] = {};
-		static BYTE currentCycle = 0;
-		static UINT maxVertexCount = 0;
-
-		++currentCycle;
-		if (0 == currentCycle)
-		{
-			memset(indexCycles, 0, maxVertexCount);
-			maxVertexCount = vertexCount;
-			++currentCycle;
-		}
-		else
-		{
-			updateMax(maxVertexCount, vertexCount);
-		}
-
-		UINT16 newIndex = static_cast<UINT16>(getBatchedVertexCount());
+		const INT delta = getBatchedVertexCount() - minIndex;
 		for (UINT i = 0; i < count; ++i)
 		{
-			const UINT16 zeroBasedIndex = static_cast<UINT16>(indices[i] - minIndex);
-			if (currentCycle != indexCycles[zeroBasedIndex])
-			{
-				appendVertices(baseVertexIndex + indices[i], 1);
-				indexMap[zeroBasedIndex] = newIndex;
-				indexCycles[zeroBasedIndex] = currentCycle;
-				m_batched.indices.push_back(newIndex);
-				++newIndex;
-			}
-			else
-			{
-				m_batched.indices.push_back(indexMap[zeroBasedIndex]);
-			}
+			m_batched.indices.push_back(static_cast<UINT16>(indices[i] + delta));
 		}
+
+		const UINT vertexCount = maxIndex - minIndex + 1;
+		appendVertices(baseVertexIndex + minIndex, vertexCount);
 	}
 
 	void DrawPrimitive::appendIndexRange(UINT base, UINT count)
@@ -676,7 +626,8 @@ namespace D3dDdi
 
 		if (m_streamSource.vertices)
 		{
-			data.VStart = loadVertices(getBatchedVertexCount());
+			loadVertices();
+			data.VStart = 0;
 		}
 
 		clearBatchedPrimitives();
@@ -702,33 +653,11 @@ namespace D3dDdi
 
 		if (m_streamSource.vertices)
 		{
-			INT baseVertexIndex = loadVertices(data.NumVertices) - data.MinIndex;
-			data.BaseVertexOffset = baseVertexIndex * static_cast<INT>(m_streamSource.stride);
+			loadVertices();
+			data.BaseVertexOffset = -static_cast<INT>(data.MinIndex) * static_cast<INT>(m_streamSource.stride);
 		}
 
-		INT startIndex = -1;
-		if ((!m_streamSource.vertices || m_vertexBuffer) && m_indexBuffer && !flagBuffer)
-		{
-			startIndex = loadIndices(m_batched.indices.data(), m_batched.indices.size());
-		}
-
-		HRESULT result = S_OK;
-		if (startIndex >= 0)
-		{
-			D3DDDIARG_DRAWINDEXEDPRIMITIVE dp = {};
-			dp.PrimitiveType = data.PrimitiveType;
-			dp.BaseVertexIndex = data.BaseVertexOffset / static_cast<INT>(m_streamSource.stride);
-			dp.MinIndex = data.MinIndex;
-			dp.NumVertices = data.NumVertices;
-			dp.StartIndex = startIndex;
-			dp.PrimitiveCount = data.PrimitiveCount;
-			result = m_origVtable.pfnDrawIndexedPrimitive(m_device, &dp);
-		}
-		else
-		{
-			result = m_origVtable.pfnDrawIndexedPrimitive2(m_device, &data, 2, m_batched.indices.data(), flagBuffer);
-		}
-
+		HRESULT result = m_origVtable.pfnDrawIndexedPrimitive2(m_device, &data, 2, m_batched.indices.data(), flagBuffer);
 		clearBatchedPrimitives();
 		return result;
 	}
@@ -792,59 +721,11 @@ namespace D3dDdi
 		return true;
 	}
 
-	INT DrawPrimitive::loadIndices(const void* indices, UINT count)
+	void DrawPrimitive::loadVertices()
 	{
-		INT startIndex = m_indexBuffer.load(indices, count);
-		if (startIndex >= 0)
-		{
-			return startIndex;
-		}
-
-		LOG_ONCE("WARN: Dynamic index buffer lock failed");
-		m_indexBuffer.resize(0);
-		return -1;
-	}
-
-	INT DrawPrimitive::loadVertices(UINT count)
-	{
-		auto vertices = m_batched.vertices.data();
-		if (m_vertexBuffer)
-		{
-			UINT size = count * m_streamSource.stride;
-			if (size > m_vertexBuffer.getSize())
-			{
-				m_vertexBuffer.resize((size + VERTEX_BUFFER_SIZE - 1) / VERTEX_BUFFER_SIZE * VERTEX_BUFFER_SIZE);
-				if (m_vertexBuffer)
-				{
-					D3DDDIARG_SETSTREAMSOURCE ss = {};
-					ss.hVertexBuffer = m_vertexBuffer;
-					ss.Stride = m_streamSource.stride;
-					m_origVtable.pfnSetStreamSource(m_device, &ss);
-				}
-				else
-				{
-					LOG_ONCE("WARN: Dynamic vertex buffer resize failed");
-				}
-			}
-
-			if (m_vertexBuffer)
-			{
-				INT baseVertexIndex = m_vertexBuffer.load(vertices, count);
-				if (baseVertexIndex >= 0)
-				{
-					return baseVertexIndex;
-				}
-				LOG_ONCE("WARN: Dynamic vertex buffer lock failed");
-			}
-
-			m_vertexBuffer.resize(0);
-			m_indexBuffer.resize(0);
-		}
-
 		D3DDDIARG_SETSTREAMSOURCEUM ss = {};
 		ss.Stride = m_streamSource.stride;
-		m_origVtable.pfnSetStreamSourceUm(m_device, &ss, vertices);
-		return 0;
+		m_origVtable.pfnSetStreamSourceUm(m_device, &ss, m_batched.vertices.data());
 	}
 
 	void DrawPrimitive::rebaseIndices()
@@ -925,17 +806,6 @@ namespace D3dDdi
 		if (!m_streamSource.vertices || stride != m_streamSource.stride)
 		{
 			flushPrimitives();
-			if (m_vertexBuffer)
-			{
-				D3DDDIARG_SETSTREAMSOURCE ss = {};
-				ss.hVertexBuffer = m_vertexBuffer;
-				ss.Stride = stride;
-				result = m_origVtable.pfnSetStreamSource(m_device, &ss);
-				if (SUCCEEDED(result))
-				{
-					m_vertexBuffer.setStride(stride);
-				}
-			}
 		}
 
 		if (SUCCEEDED(result))

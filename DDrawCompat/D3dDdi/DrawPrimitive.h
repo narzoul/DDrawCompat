@@ -6,8 +6,6 @@
 #include <d3d.h>
 #include <d3dumddi.h>
 
-#include <D3dDdi/DynamicBuffer.h>
-
 namespace D3dDdi
 {
 	class Device;
@@ -73,8 +71,7 @@ namespace D3dDdi
 		HRESULT flushIndexed(const UINT* flagBuffer);
 		bool isSprite(INT baseVertexIndex, UINT count, const UINT16* indices);
 		void setVertexFixupFlags(INT baseVertexIndex, UINT16 index);
-		INT loadIndices(const void* indices, UINT count);
-		INT loadVertices(UINT count);
+		void loadVertices();
 		UINT getBatchedVertexCount() const;
 		void rebaseIndices();
 		void repeatLastBatchedVertex();
@@ -84,8 +81,6 @@ namespace D3dDdi
 
 		Device& m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
-		DynamicVertexBuffer m_vertexBuffer;
-		DynamicIndexBuffer m_indexBuffer;
 		StreamSource m_streamSource;
 		std::map<HANDLE, BYTE*> m_sysMemVertexBuffers;
 		BatchedPrimitives m_batched;
