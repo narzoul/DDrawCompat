@@ -782,6 +782,8 @@ namespace D3dDdi
 
 		if (D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool)
 		{
+			m_fixedData.Flags.RenderTarget = 0;
+
 			switch (m_fixedData.Format)
 			{
 			case FOURCC_DXT1:
