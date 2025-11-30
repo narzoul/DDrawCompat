@@ -485,7 +485,7 @@ namespace D3dDdi
 		{
 			static RECT rect = {};
 			HWND presentationWindow = DDraw::RealPrimarySurface::getPresentationWindow();
-			if (presentationWindow)
+			if (presentationWindow && data.hWindow == presentationWindow)
 			{
 				Win32::ScopedDpiAwareness dpiAwareness;
 				CALL_ORIG_FUNC(GetWindowRect)(presentationWindow, &rect);

@@ -678,13 +678,14 @@ namespace Gdi
 					auto prevPresentationWindow = it->second.presentationWindow;
 					it->second.presentationWindow =
 						(it->second.isLayered && !dpiAware) ? nullptr : Gdi::PresentationWindow::create(hwnd, dpiAware);
-
 					if (it->second.presentationWindow)
 					{
 						updatePresentationWindowText(it->second.presentationWindow);
 					}
-
-					Gdi::GuiThread::destroyWindow(prevPresentationWindow);
+					if (dpiAware && prevPresentationWindow)
+					{
+						Gdi::GuiThread::destroyWindow(prevPresentationWindow);
+					}
 				}
 			}
 		}

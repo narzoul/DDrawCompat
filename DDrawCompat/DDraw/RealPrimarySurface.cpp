@@ -73,6 +73,8 @@ namespace
 	HWND g_deviceWindow = nullptr;
 	HWND* g_deviceWindowPtr = nullptr;
 	HWND g_presentationWindow = nullptr;
+	HWND g_prevPresentationWindow = nullptr;
+	long long g_qpcPrevPresentationWindow = 0;
 
 	Config::AtomicSettingStore g_fpsLimiter(Config::fpsLimiter);
 
@@ -226,7 +228,8 @@ namespace
 				Input::updateCursor();
 			});
 
-		if (!src && !g_presentationWindow)
+		const auto presentationWindow = g_presentationWindow ? g_presentationWindow : g_prevPresentationWindow;
+		if (!src && !presentationWindow)
 		{
 			LOG_DEBUG << "Present mode: windowed GDI";
 			Gdi::Window::present(nullptr);
@@ -250,14 +253,14 @@ namespace
 		}
 		else
 		{
-			mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(g_presentationWindow, MONITOR_DEFAULTTOPRIMARY));
+			mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(presentationWindow, MONITOR_DEFAULTTOPRIMARY));
 			if (!DDraw::TagSurface::findFullscreenWindow())
 			{
 				frontBuffer = D3dDdi::SurfaceRepository::getPrimaryRepo().getWindowedPrimary();
 			}
 		}
 
-		if (g_presentationWindow && !backBuffer)
+		if (presentationWindow && !backBuffer)
 		{
 			D3dDdi::SurfaceRepository* repo = nullptr;
 			if (src)
@@ -303,7 +306,7 @@ namespace
 			else
 			{
 				LOG_DEBUG << "Present mode: borderless fullscreen flip";
-				*g_deviceWindowPtr = g_presentationWindow;
+				*g_deviceWindowPtr = presentationWindow;
 				frontBuffer->Flip(frontBuffer, nullptr, DDFLIP_WAIT);
 				*g_deviceWindowPtr = g_deviceWindow;
 			}
@@ -316,10 +319,10 @@ namespace
 			}
 			frontBuffer->SetClipper(frontBuffer, g_clipper);
 
-			if (g_presentationWindow)
+			if (presentationWindow)
 			{
 				LOG_DEBUG << "Present mode: windowed fullscreen blt";
-				g_clipper->SetHWnd(g_clipper, 0, g_presentationWindow);
+				g_clipper->SetHWnd(g_clipper, 0, presentationWindow);
 				frontBuffer->Blt(frontBuffer, nullptr, backBuffer, nullptr, DDBLT_WAIT, nullptr);
 			}
 			else if (src)
@@ -331,7 +334,7 @@ namespace
 		else
 		{
 			LOG_DEBUG << "Present mode: windowed fullscreen GDI";
-			HDC dstDc = GetWindowDC(g_presentationWindow);
+			HDC dstDc = GetWindowDC(presentationWindow);
 			HDC srcDc = nullptr;
 			D3dDdi::Resource::setReadOnlyLock(true);
 			backBuffer->GetDC(backBuffer, &srcDc);
@@ -339,7 +342,7 @@ namespace
 			CALL_ORIG_FUNC(BitBlt)(dstDc, 0, 0, mi.rcDpiAware.right - mi.rcDpiAware.left, mi.rcDpiAware.bottom - mi.rcDpiAware.top,
 				srcDc, 0, 0, SRCCOPY);
 			backBuffer->ReleaseDC(backBuffer, srcDc);
-			ReleaseDC(g_presentationWindow, dstDc);
+			ReleaseDC(presentationWindow, dstDc);
 		}
 	}
 
@@ -392,6 +395,11 @@ namespace
 		else if (g_isFullscreen)
 		{
 			setFullscreenPresentationMode({});
+			if (g_prevPresentationWindow)
+			{
+				Gdi::GuiThread::destroyWindow(g_prevPresentationWindow);
+				g_prevPresentationWindow = nullptr;
+			}
 			return;
 		}
 
@@ -407,8 +415,10 @@ namespace
 		static HWND prevFullscreenWindow = nullptr;
 		if (prevFullscreenWindow && prevFullscreenWindow != fullscreenWindow)
 		{
+			g_prevPresentationWindow = Gdi::Window::getPresentationWindow(prevFullscreenWindow);
+			g_qpcPrevPresentationWindow = Time::queryPerformanceCounter();
 			Gdi::Window::setDpiAwareness(prevFullscreenWindow, false);
-			HWND prevFullscreenPresentationWindow = Gdi::Window::getPresentationWindow(prevFullscreenWindow);
+			const HWND prevFullscreenPresentationWindow = Gdi::Window::getPresentationWindow(prevFullscreenWindow);
 			if (prevFullscreenPresentationWindow)
 			{
 				Gdi::Window::updatePresentationWindowPos(prevFullscreenPresentationWindow, prevFullscreenWindow);
@@ -435,6 +445,14 @@ namespace
 		else
 		{
 			setFullscreenPresentationMode({});
+		}
+
+		if (g_prevPresentationWindow &&
+			(g_presentationWindow || Time::qpcToMs(Time::queryPerformanceCounter() - g_qpcPrevPresentationWindow) >= 500))
+		{
+			Gdi::GuiThread::destroyWindow(g_prevPresentationWindow);
+			g_prevPresentationWindow = nullptr;
+			DDraw::RealPrimarySurface::scheduleOverlayUpdate();
 		}
 	}
 
@@ -660,7 +678,7 @@ namespace DDraw
 
 	HWND RealPrimarySurface::getTopmost()
 	{
-		return g_presentationWindow ? g_presentationWindow : HWND_TOPMOST;
+		return g_presentationWindow ? g_presentationWindow : (g_prevPresentationWindow ? g_prevPresentationWindow : HWND_TOPMOST);
 	}
 
 	void RealPrimarySurface::init()
@@ -766,13 +784,15 @@ namespace DDraw
 
 	void RealPrimarySurface::setPresentationWindowTopmost()
 	{
-		if (g_presentationWindow && IsWindowVisible(g_presentationWindow))
+		const auto presentationWindow = g_presentationWindow ? g_presentationWindow : g_prevPresentationWindow;
+		if (presentationWindow && IsWindowVisible(presentationWindow))
 		{
 			Gdi::GuiThread::execute([&]()
 				{
-					CALL_ORIG_FUNC(SetWindowPos)(g_presentationWindow, HWND_TOPMOST, 0, 0, 0, 0,
+					const bool isOwnerVisible = IsWindowVisible(CALL_ORIG_FUNC(GetWindow)(presentationWindow, GW_OWNER));
+					CALL_ORIG_FUNC(SetWindowPos)(presentationWindow, HWND_TOPMOST, 0, 0, 0, 0,
 						SWP_NOSIZE | SWP_NOMOVE | SWP_NOACTIVATE | SWP_NOSENDCHANGING | SWP_NOREDRAW | SWP_NOOWNERZORDER |
-						(IsWindowVisible(GetWindow(g_presentationWindow, GW_OWNER)) ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
+						(isOwnerVisible ? SWP_SHOWWINDOW : SWP_HIDEWINDOW));
 				});
 		}
 	}
