@@ -6,6 +6,7 @@
 
 #include <Common/Comparison.h>
 #include <Common/CompatVtable.h>
+#include <Common/Path.h>
 #include <Common/Rect.h>
 #include <Config/Settings/Antialiasing.h>
 #include <Config/Settings/DisplayAspectRatio.h>
@@ -151,13 +152,14 @@ namespace D3dDdi
 		LOG_INFO << "Supported resource formats:";
 		info.formatOps = getFormatOps();
 
-		auto d3d9on12 = GetModuleHandle("d3d9on12");
-		info.isD3D9On12 = d3d9on12 && d3d9on12 == Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
+		const auto driverModule = Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
+		const auto driverFilename(Compat::getModulePath(driverModule).stem().u8string());
+		info.isD3D9On12 = 0 == _stricmp(driverFilename.c_str(), "d3d9on12");
 
 		info.isMsaaDepthResolveSupported =
 			!info.isD3D9On12 &&
+			0 != _stricmp(driverFilename.c_str(), "amdxn32") &&
 			info.formatOps.find(FOURCC_RESZ) != info.formatOps.end() &&
-			info.formatOps.find(FOURCC_INTZ) != info.formatOps.end() &&
 			info.formatOps.find(FOURCC_NULL) != info.formatOps.end();
 		info.fixedFormatOps = getFixedFormatOps(info);
 		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.fixedFormatOps);
@@ -295,7 +297,7 @@ namespace D3dDdi
 		auto msTypes = it->second.BltMsTypes;
 		if (0 == msTypes && (FOURCC_DF16 == it->first || FOURCC_INTZ == it->first))
 		{
-			auto replacement = info.formatOps.find(FOURCC_DF16 == it->first ? D3DDDIFMT_D16 : D3DDDIFMT_S8D24);
+			auto replacement = info.formatOps.find(D3DDDIFMT_D16);
 			if (replacement != info.formatOps.end())
 			{
 				msTypes = replacement->second.BltMsTypes;
