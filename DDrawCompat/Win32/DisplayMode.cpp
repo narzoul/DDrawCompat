@@ -97,6 +97,7 @@ namespace
 		DevMode<Char> m_origDm;
 	};
 
+	decltype(&GetSystemMetricsForDpi) g_origGetSystemMetricsForDpi = nullptr;
 	DWORD g_desktopBpp = 0;
 	SIZE g_desktopResolution = {};
 	ULONG g_displaySettingsUniquenessBias = 0;
@@ -448,6 +449,16 @@ namespace
 		return CALL_ORIG_FUNC(GdiEntry13)() + g_displaySettingsUniquenessBias;
 	}
 
+	int getAdjustedDisplayMetrics(int nIndex, int cxIndex)
+	{
+		int result = CALL_ORIG_FUNC(GetSystemMetrics)(nIndex);
+		auto mi = Win32::DisplayMode::getMonitorInfo();
+		result += (nIndex == cxIndex)
+			? (mi.rcEmulated.right - mi.rcMonitor.right)
+			: (mi.rcEmulated.bottom - mi.rcMonitor.bottom);
+		return result;
+	}
+
 	template <typename Char>
 	DWORD getConfiguredRefreshRate(const Char* deviceName)
 	{
@@ -660,6 +671,48 @@ namespace
 			}
 		}
 		return displayModeVector;
+	}
+
+	int WINAPI getSystemMetrics(int nIndex)
+	{
+		LOG_FUNC("GetSystemMetrics", nIndex);
+
+		switch (nIndex)
+		{
+		case SM_CXSCREEN:
+		case SM_CYSCREEN:
+		{
+			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXSCREEN));
+		}
+
+		case SM_CXFULLSCREEN:
+		case SM_CYFULLSCREEN:
+		{
+			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXFULLSCREEN));
+		}
+
+		case SM_CXMAXIMIZED:
+		case SM_CYMAXIMIZED:
+		{
+			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXMAXIMIZED));
+		}
+
+		case SM_CXSIZE:
+			nIndex = SM_CYSIZE;
+			break;
+		}
+
+		return LOG_RESULT(CALL_ORIG_FUNC(GetSystemMetrics)(nIndex));
+	}
+
+	int WINAPI getSystemMetricsForDpi(int nIndex, UINT dpi)
+	{
+		LOG_FUNC("GetSystemMetricsForDpi", nIndex, dpi);
+		if (SM_CXSIZE == nIndex)
+		{
+			nIndex = SM_CYSIZE;
+		}
+		return LOG_RESULT(g_origGetSystemMetricsForDpi(nIndex, dpi));
 	}
 
 	BOOL CALLBACK initMonitor(HMONITOR hMonitor, HDC /*hdcMonitor*/, LPRECT /*lprcMonitor*/, LPARAM /*dwData*/)
@@ -913,6 +966,15 @@ namespace Win32
 
 		void installHooks()
 		{
+			DDraw::ScopedThreadLock lock;
+			static bool isInstalled = false;
+			if (isInstalled)
+			{
+				return;
+			}
+			isInstalled = true;
+
+			LOG_INFO << "Installing display mode hooks";
 			g_desktopBpp = Config::desktopColorDepth.get();
 			g_desktopResolution = Config::desktopResolution.get();
 
@@ -945,6 +1007,10 @@ namespace Win32
 			HOOK_FUNCTION(gdi32, GetDeviceCaps, getDeviceCaps);
 			HOOK_FUNCTION(user32, GetMonitorInfoA, ::getMonitorInfo<GetMonitorInfoA>);
 			HOOK_FUNCTION(user32, GetMonitorInfoW, ::getMonitorInfo<GetMonitorInfoW>);
+			HOOK_FUNCTION(user32, GetSystemMetrics, getSystemMetrics);
+
+			Compat::hookFunction("user32", "GetSystemMetricsForDpi",
+				reinterpret_cast<void*&>(g_origGetSystemMetricsForDpi), getSystemMetricsForDpi);
 
 			disableDwm8And16BitMitigation();
 

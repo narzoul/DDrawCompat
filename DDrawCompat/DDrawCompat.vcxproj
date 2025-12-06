@@ -312,7 +312,6 @@
     <ClInclude Include="Gdi\DcFunctions.h" />
     <ClInclude Include="Gdi\GuiThread.h" />
     <ClInclude Include="Gdi\Icon.h" />
-    <ClInclude Include="Gdi\Metrics.h" />
     <ClInclude Include="Gdi\PresentationWindow.h" />
     <ClInclude Include="Gdi\User32WndProcs.h" />
     <ClInclude Include="Gdi\Palette.h" />
@@ -456,7 +455,6 @@
     <ClCompile Include="Gdi\DcFunctions.cpp" />
     <ClCompile Include="Gdi\GuiThread.cpp" />
     <ClCompile Include="Gdi\Icon.cpp" />
-    <ClCompile Include="Gdi\Metrics.cpp" />
     <ClCompile Include="Gdi\PresentationWindow.cpp" />
     <ClCompile Include="Gdi\User32WndProcs.cpp" />
     <ClCompile Include="Gdi\Palette.cpp" />

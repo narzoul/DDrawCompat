@@ -103,11 +103,8 @@ namespace
 
 		DDraw::SuppressResourceFormatLogs suppressResourceFormatLogs;
 		Overlay::Steam::installHooks();
-		LOG_INFO << "Installing display mode hooks";
 		Win32::DisplayMode::installHooks();
-		LOG_INFO << "Installing registry hooks";
 		Win32::Registry::installHooks();
-		LOG_INFO << "Installing Direct3D driver hooks";
 		D3dDdi::installHooks();
 		Gdi::VirtualScreen::init();
 
@@ -141,11 +138,8 @@ namespace
 			return;
 		}
 
-		LOG_INFO << "Installing DirectDraw hooks";
 		DDraw::installHooks(dd7);
-		LOG_INFO << "Installing Direct3D hooks";
 		Direct3d::installHooks(dd, dd7);
-		LOG_INFO << "Installing GDI hooks";
 		Gdi::installHooks();
 		LOG_INFO << "Finished installing hooks";
 	}
@@ -400,6 +394,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 
 		if (Config::Settings::DesktopResolution::DESKTOP != Config::desktopResolution.get())
 		{
+			Win32::DisplayMode::installHooks();
 			Dll::createThread(&installHooksThreadProc, nullptr, THREAD_PRIORITY_TIME_CRITICAL);
 		}
 

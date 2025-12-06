@@ -12,7 +12,6 @@
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Icon.h>
-#include <Gdi/Metrics.h>
 #include <Gdi/Palette.h>
 #include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollFunctions.h>
@@ -106,6 +105,7 @@ namespace Gdi
 
 	void installHooks()
 	{
+		LOG_INFO << "Installing GDI hooks";
 		for (const auto& atom : g_classAtoms)
 		{
 			atom.second = getClassAtom(atom.first.c_str());
@@ -121,7 +121,6 @@ namespace Gdi
 
 		DcFunctions::installHooks();
 		Icon::installHooks();
-		Metrics::installHooks();
 		Palette::installHooks();
 		PresentationWindow::installHooks();
 		ScrollFunctions::installHooks();

@@ -539,6 +539,7 @@ namespace Win32
 	{
 		void installHooks()
 		{
+			LOG_INFO << "Installing registry hooks";
 			HOOK_REGISTRY_OPEN_FUNCTION(RegCreateKeyA);
 			HOOK_REGISTRY_OPEN_FUNCTION(RegCreateKeyW);
 			HOOK_REGISTRY_OPEN_FUNCTION(RegCreateKeyExA);

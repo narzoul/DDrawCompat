@@ -97,6 +97,7 @@ namespace DDraw
 {
 	void installHooks(CompatPtr<IDirectDraw7> dd7)
 	{
+		LOG_INFO << "Installing DirectDraw hooks";
 		g_origInitialize = dd7.get()->lpVtbl->Initialize;
 		Compat::hookFunction(reinterpret_cast<void*&>(g_origInitialize), initialize, "IDirectDrawVtbl::Initialize");
 

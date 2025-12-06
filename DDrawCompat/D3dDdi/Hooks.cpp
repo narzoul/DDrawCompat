@@ -188,8 +188,8 @@ namespace D3dDdi
 {
 	void installHooks()
 	{
+		LOG_INFO << "Installing Direct3D driver hooks";
 		Compat::hookIatFunction(Dll::g_origDDrawModule, "GetProcAddress", getProcAddress);
-
 		KernelModeThunks::installHooks();
 	}
 }

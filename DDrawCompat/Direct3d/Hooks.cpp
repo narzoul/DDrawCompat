@@ -240,6 +240,7 @@ namespace Direct3d
 {
 	void installHooks(CompatPtr<IDirectDraw> dd, CompatPtr<IDirectDraw7> dd7)
 	{
+		LOG_INFO << "Installing Direct3D hooks";
 		CompatPtr<IDirectDrawSurface7> renderTarget7(createRenderTarget(*dd7));
 		if (renderTarget7)
 		{
