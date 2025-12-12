@@ -162,9 +162,13 @@ namespace Gdi
 
 		void installHooks()
 		{
+			g_cursor = GetCursor();
+			LOG_DEBUG << "Initial cursor: " << g_cursor;
+
 			BYTE andPlane = 0xFF;
 			BYTE xorPlane = 0;
 			g_nullCursor = CreateCursor(nullptr, 0, 0, 1, 1, &andPlane, &xorPlane);
+			LOG_DEBUG << "g_nullCursor: " << g_nullCursor;
 
 			HOOK_FUNCTION(user32, ClipCursor, clipCursor);
 			HOOK_FUNCTION(user32, GetCursor, getCursor);
@@ -191,6 +195,18 @@ namespace Gdi
 			g_cursor = cursor;
 			CALL_ORIG_FUNC(SetCursor)(g_isEmulated && cursor ? g_nullCursor : cursor);
 			return LOG_RESULT(prevCursor);
+		}
+
+		void setCursor()
+		{
+			Compat::ScopedCriticalSection lock(g_cs);
+			const auto cursor = CALL_ORIG_FUNC(GetCursor)();
+			const auto expectedCursor = g_isEmulated ? g_nullCursor : g_cursor;
+			if (cursor != expectedCursor)
+			{
+				LOG_DEBUG << "Restoring expected cursor " << g_cursor << " instead of " << cursor;
+				SetCursor(INVALID_CURSOR != g_cursor ? g_cursor : cursor);
+			}
 		}
 
 		void setEmulated(bool isEmulated)

@@ -307,7 +307,7 @@ namespace
 			break;
 
 		case WM_SETCURSOR:
-			SetCursor(GetCursor());
+			Gdi::Cursor::setCursor();
 			break;
 
 		case WM_STYLECHANGED:

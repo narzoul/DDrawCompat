@@ -11,6 +11,7 @@ namespace Gdi
 		void installHooks();
 		bool isEmulated();
 		HCURSOR setCursor(HCURSOR cursor);
+		void setCursor();
 		void setMonitorClipRect(const RECT& rect);
 		void setEmulated(bool isEmulated);
 		void update();
