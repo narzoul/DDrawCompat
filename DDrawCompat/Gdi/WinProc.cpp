@@ -859,6 +859,17 @@ namespace
 		}
 	}
 
+	int WINAPI setWindowRgn(HWND hWnd, HRGN hRgn, BOOL bRedraw)
+	{
+		LOG_FUNC("SetWindowRgn", hWnd, hRgn, bRedraw);
+		int result = CALL_ORIG_FUNC(SetWindowRgn)(hWnd, hRgn, bRedraw);
+		if (result && Gdi::Window::isTopLevelWindow(hWnd))
+		{
+			Gdi::Window::updateWindowPos(hWnd);
+		}
+		return LOG_RESULT(result);
+	}
+
 	BOOL WINAPI updateLayeredWindow(HWND hWnd, HDC hdcDst, POINT* pptDst, SIZE* psize,
 		HDC hdcSrc, POINT* pptSrc, COLORREF crKey, BLENDFUNCTION* pblend, DWORD dwFlags)
 	{
@@ -1087,6 +1098,7 @@ namespace Gdi
 			HOOK_FUNCTION(user32, SetWindowLongA, setWindowLongA);
 			HOOK_FUNCTION(user32, SetWindowLongW, setWindowLongW);
 			HOOK_FUNCTION(user32, SetWindowPos, setWindowPos);
+			HOOK_FUNCTION(user32, SetWindowRgn, setWindowRgn);
 			HOOK_FUNCTION(user32, UpdateLayeredWindow, updateLayeredWindow);
 			HOOK_FUNCTION(user32, UpdateLayeredWindowIndirect, updateLayeredWindowIndirect);
 

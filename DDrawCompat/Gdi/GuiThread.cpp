@@ -550,7 +550,7 @@ namespace Gdi
 		{
 			execute([&]()
 				{
-					if (SetWindowRgn(hwnd, rgn, FALSE))
+					if (CALL_ORIG_FUNC(SetWindowRgn)(hwnd, rgn, FALSE))
 					{
 						rgn.release();
 					}
