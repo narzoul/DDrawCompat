@@ -890,6 +890,8 @@ namespace D3dDdi
 		m_current.pixelShader = DELETED_RESOURCE;
 		m_current.vertexShaderDecl = DELETED_RESOURCE;
 		m_current.vertexShaderFunc = DELETED_RESOURCE;
+		m_current.scissorRect = {};
+		memset(&m_current.viewport, 0xFF, sizeof(m_current.viewport));
 		m_changedStates |= CS_SHADER;
 		LOG_DS << renderTarget;
 	}
