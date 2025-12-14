@@ -653,6 +653,7 @@ namespace D3dDdi
 		data.pSurfList = surfaceInfo.data();
 		data.SurfCount = surfaceInfo.size();
 		data.Rotation = D3DDDI_ROTATION_IDENTITY;
+		data.Flags.Texture = m_fixedData.Flags.Texture;
 
 		HRESULT result = m_device.createPrivateResource(data);
 		if (SUCCEEDED(result))
