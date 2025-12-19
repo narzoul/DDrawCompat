@@ -64,7 +64,8 @@ namespace D3dDdi
 		// clear() can crash if more elements are added during surface release
 		while (!m_releasedSurfaces.empty())
 		{
-			m_releasedSurfaces.pop_front();
+			std::list<CompatPtr<IDirectDrawSurface7>> surfaces;
+			m_releasedSurfaces.swap(surfaces);
 		}
 	}
 
@@ -77,7 +78,7 @@ namespace D3dDdi
 			return nullptr;
 		}
 
-		m_releasedSurfaces.clear();
+		clearReleasedSurfaces();
 		CompatPtr<IDirectDrawSurface7> surface;
 
 		if (D3DDDIFMT_P8 == format)
