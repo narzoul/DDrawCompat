@@ -387,9 +387,6 @@
     <ClInclude Include="Gdi\PresentationWindow.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
-    <ClInclude Include="Gdi\Metrics.h">
-      <Filter>Header Files\Gdi</Filter>
-    </ClInclude>
     <ClInclude Include="Gdi\CompatDc.h">
       <Filter>Header Files\Gdi</Filter>
     </ClInclude>
@@ -957,9 +954,6 @@
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\PresentationWindow.cpp">
-      <Filter>Source Files\Gdi</Filter>
-    </ClCompile>
-    <ClCompile Include="Gdi\Metrics.cpp">
       <Filter>Source Files\Gdi</Filter>
     </ClCompile>
     <ClCompile Include="Gdi\CompatDc.cpp">

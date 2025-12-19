@@ -293,10 +293,10 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		}
 
 		auto processPath(Compat::getModulePath(nullptr));
-		LOG_INFO << "Process path: " << processPath.u8string();
+		LOG_INFO << "Process path: " << processPath.string();
 
 		auto currentDllPath(Compat::getModulePath(hinstDLL));
-		LOG_INFO << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.u8string();
+		LOG_INFO << "Loading DDrawCompat " << (lpvReserved ? "statically" : "dynamically") << " from " << currentDllPath.string();
 		LOG_INFO << "DDrawCompat version: " VERSION_STRING;
 		logWindowsVersion();
 		logEnvironmentVariable("__COMPAT_LAYER");
@@ -337,7 +337,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
 		Dll::g_origDDrawModule = LoadLibraryW(origDDrawModulePath.c_str());
 		if (!Dll::g_origDDrawModule)
 		{
-			LOG_INFO << "ERROR: Failed to load system ddraw.dll from " << systemPath.u8string();
+			LOG_INFO << "ERROR: Failed to load system ddraw.dll from " << systemPath.string();
 			return FALSE;
 		}
 

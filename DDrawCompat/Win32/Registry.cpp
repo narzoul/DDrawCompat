@@ -145,7 +145,7 @@ namespace
 				{
 					const auto replacement(p->path() / codec.replacementModuleName);
 					codecs[codec.origModuleName] = replacement;
-					LOG_DEBUG << codec.origModuleName << " -> " << replacement.u8string();
+					LOG_DEBUG << codec.origModuleName << " -> " << replacement.string();
 				}
 			}
 		}

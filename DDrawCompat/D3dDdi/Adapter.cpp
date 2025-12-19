@@ -153,7 +153,7 @@ namespace D3dDdi
 		info.formatOps = getFormatOps();
 
 		const auto driverModule = Compat::getModuleHandleFromAddress(m_origVtable.pfnGetCaps);
-		const auto driverFilename(Compat::getModulePath(driverModule).stem().u8string());
+		const auto driverFilename(Compat::getModulePath(driverModule).stem().string());
 		info.isD3D9On12 = 0 == _stricmp(driverFilename.c_str(), "d3d9on12");
 
 		info.isMsaaDepthResolveSupported =

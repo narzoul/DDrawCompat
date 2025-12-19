@@ -213,7 +213,7 @@ namespace Overlay
 		std::ofstream f(path);
 		if (f.fail())
 		{
-			LOG_ONCE("ERROR: Failed to open overlay config file for writing: " << path.u8string());
+			LOG_ONCE("ERROR: Failed to open overlay config file for writing: " << path.string());
 			return;
 		}
 

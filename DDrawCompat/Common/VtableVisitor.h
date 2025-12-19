@@ -11,7 +11,7 @@ void forEach(Visitor& visitor, UINT version)
 	VtableForEach<Vtable>::template forEach<Vtable>(visitor, version);
 }
 
-#define DD_VISIT(member) visitor.visit<&Vtable::member>(#member)
+#define DD_VISIT(member) visitor.template visit<&Vtable::member>(#member)
 
 template <>
 struct VtableForEach<IUnknownVtbl>

@@ -37,10 +37,10 @@ Only the latest release is supported. Please provide as much information as poss
 - Applications that mix other graphics APIs with DirectX 1-7, e.g. DirectX 8+, OpenGL, Vulkan, Glide, etc.
 
 ### Development
-DDrawCompat is developed in C++ using Microsoft Visual Studio Community 2022.
+DDrawCompat is developed in C++ using Microsoft Visual Studio Community 2026.
 
 Additional dependencies:
-- Windows 10 SDK & DDK (see WindowsTargetPlatformVersion in [DDrawCompat.vcxproj](DDrawCompat/DDrawCompat.vcxproj) for the exact version)
+- Windows SDK & DDK (see WindowsTargetPlatformVersion in [DDrawCompat.vcxproj](DDrawCompat/DDrawCompat.vcxproj) for the exact version)
 - Git for Windows (optional, needed for proper DLL versioning)
 
 ### Contributing

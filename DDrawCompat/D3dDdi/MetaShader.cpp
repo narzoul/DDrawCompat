@@ -362,7 +362,7 @@ namespace D3dDdi
 		if (FAILED(m_device.getOrigVtable().pfnCreateVertexShaderFunc(
 			m_device, &vs, reinterpret_cast<UINT*>(pass.shader->second.vs.code.data()))))
 		{
-			LOG_DEBUG << "Failed to create vertex shader: " << pass.shader->first.u8string();
+			LOG_DEBUG << "Failed to create vertex shader: " << pass.shader->first.string();
 			throw ShaderStatus::SetupError;
 		}
 		pass.vs = { vs.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc) };
@@ -372,7 +372,7 @@ namespace D3dDdi
 		if (FAILED(m_device.getOrigVtable().pfnCreatePixelShader(
 			m_device, &ps, reinterpret_cast<UINT*>(pass.shader->second.ps.code.data()))))
 		{
-			LOG_DEBUG << "Failed to create pixel shader: " << pass.shader->first.u8string();
+			LOG_DEBUG << "Failed to create pixel shader: " << pass.shader->first.string();
 			throw ShaderStatus::SetupError;
 		}
 		pass.ps = { ps.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader) };
@@ -751,7 +751,7 @@ namespace D3dDdi
 
 	bool MetaShader::parseCgp(const std::filesystem::path& baseDir)
 	{
-		LOG_FUNC("MetaShader::parseCgp", baseDir.u8string());
+		LOG_FUNC("MetaShader::parseCgp", baseDir.string());
 		const auto absPath((baseDir / m_relPath).lexically_normal());
 		std::ifstream f(absPath);
 		if (f.fail())

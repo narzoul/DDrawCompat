@@ -16,7 +16,7 @@ namespace
 
 	void loadConfigFile(const std::string& source, const std::filesystem::path& path)
 	{
-		LOG_INFO << "Loading " << source << " config file: " << path.u8string();
+		LOG_INFO << "Loading " << source << " config file: " << path.string();
 		std::ifstream f(path);
 		if (!f.is_open())
 		{

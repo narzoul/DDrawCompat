@@ -716,7 +716,7 @@ namespace D3dDdi
 	HRESULT DeviceState::pfnSetTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE* data)
 	{
 		m_changedStates |= CS_TEXTURE_STAGE;
-		if (D3DTSS_ADDRESS == data->State)
+		if (static_cast<D3DDDITEXTURESTAGESTATETYPE>(D3DTSS_ADDRESS) == data->State)
 		{
 			m_app.textureStageState[data->Stage][D3DDDITSS_ADDRESSU] = data->Value;
 			m_app.textureStageState[data->Stage][D3DDDITSS_ADDRESSV] = data->Value;

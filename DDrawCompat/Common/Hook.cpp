@@ -184,7 +184,7 @@ namespace Compat
 		HMODULE module = Compat::getModuleHandleFromAddress(funcPtr);
 		if (module)
 		{
-			oss << Compat::getModulePath(module).u8string() << "+0x" << std::hex <<
+			oss << Compat::getModulePath(module).string() << "+0x" << std::hex <<
 				reinterpret_cast<DWORD>(funcPtr) - reinterpret_cast<DWORD>(module);
 		}
 		else

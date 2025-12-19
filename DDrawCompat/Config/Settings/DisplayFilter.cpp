@@ -37,7 +37,7 @@ namespace Config
 						}
 						if (p->path().extension() == ".cgp")
 						{
-							paths.insert(p->path().lexically_relative(baseDir).u8string());
+							paths.insert(p->path().lexically_relative(baseDir).string());
 						}
 						else if (p->path().extension() == ".tmp")
 						{
@@ -93,7 +93,7 @@ namespace Config
 			if (CGP == m_value)
 			{
 				std::ostringstream oss;
-				oss << m_cgpPath.u8string();
+				oss << m_cgpPath.string();
 				for (const auto& param : m_cgpParameters)
 				{
 					oss << ':' << param.first << '=' << std::fixed << std::setprecision(3) << param.second;

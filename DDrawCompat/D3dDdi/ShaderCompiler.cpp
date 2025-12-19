@@ -147,7 +147,7 @@ namespace
 		if (!modulePath.empty())
 		{
 			Compat::Log log(Config::Settings::LogLevel::INFO);
-			log << "Using shader compiler: " << modulePath.u8string();
+			log << "Using shader compiler: " << modulePath.string();
 			std::ifstream f(modulePath, std::ios::binary);
 			if (f)
 			{
@@ -310,7 +310,7 @@ namespace D3dDdi
 			std::string content(self->m_compiler.loadShaderFile(absPath));
 			if (content.empty())
 			{
-				LOG_DEBUG << "Failed to load include file: " << absPath.u8string();
+				LOG_DEBUG << "Failed to load include file: " << absPath.string();
 				return LOG_RESULT(E_FAIL);
 			}
 
@@ -344,7 +344,7 @@ namespace D3dDdi
 	ShaderCompiler::ShaderCompiler(const std::filesystem::path& absPath)
 		: m_absPath(absPath)
 	{
-		LOG_FUNC("ShaderCompiler::ShaderCompiler", absPath.u8string());
+		LOG_FUNC("ShaderCompiler::ShaderCompiler", absPath.string());
 		const auto& funcs = getD3DCompilerFuncs();
 		if (!funcs.d3dPreprocess || !funcs.d3dCompile || !funcs.d3dDisassemble)
 		{
@@ -385,7 +385,7 @@ namespace D3dDdi
 		}
 		catch (std::exception& e)
 		{
-			LOG_INFO << "ERROR: Failed to postprocess shader \"" << m_absPath.u8string()
+			LOG_INFO << "ERROR: Failed to postprocess shader \"" << m_absPath.string()
 				<< "\" due to the following error:\n" << e.what();
 			return;
 		}
@@ -408,23 +408,23 @@ namespace D3dDdi
 
 			if (shader.code.empty())
 			{
-				LOG_INFO << "ERROR: Failed to compile " << entry << " in shader \"" << m_absPath.u8string()
+				LOG_INFO << "ERROR: Failed to compile " << entry << " in shader \"" << m_absPath.string()
 					<< "\" due to the following errors:\n" << errors;
 				return;
 			}
 			if (shader.assembly.empty())
 			{
-				LOG_INFO << "ERROR: Failed to disassemble " << entry << " in shader \"" << m_absPath.u8string() << '"';
+				LOG_INFO << "ERROR: Failed to disassemble " << entry << " in shader \"" << m_absPath.string() << '"';
 				return;
 			}
 
 			if (errors.empty())
 			{
-				LOG_DEBUG << "Successfully compiled " << entry << " in shader \"" << m_absPath.u8string() << '"';
+				LOG_DEBUG << "Successfully compiled " << entry << " in shader \"" << m_absPath.string() << '"';
 			}
 			else
 			{
-				LOG_DEBUG << "Successfully compiled " << entry << " in shader \"" << m_absPath.u8string()
+				LOG_DEBUG << "Successfully compiled " << entry << " in shader \"" << m_absPath.string()
 					<< "\" with the following warnings:\n" << errors;
 			}
 		}
@@ -622,7 +622,7 @@ namespace D3dDdi
 
 	bool ShaderCompiler::loadFromCache(const std::filesystem::path& absPath)
 	{
-		LOG_FUNC("ShaderCompiler::loadFromCache", absPath.u8string());
+		LOG_FUNC("ShaderCompiler::loadFromCache", absPath.string());
 		const auto compilerMd5 = getD3DCompilerFuncs().md5;
 		if (compilerMd5.empty() || m_contentMd5.empty())
 		{
@@ -694,7 +694,7 @@ namespace D3dDdi
 
 	std::string ShaderCompiler::loadShaderFile(const std::filesystem::path& absPath)
 	{
-		LOG_FUNC("ShaderCompiler::loadShaderFile", absPath.u8string());
+		LOG_FUNC("ShaderCompiler::loadShaderFile", absPath.string());
 		std::ifstream f(absPath);
 		if (f.fail())
 		{
@@ -1351,7 +1351,7 @@ namespace D3dDdi
 		auto sourceFileContent = loadShaderFile(m_absPath);
 		if (sourceFileContent.empty())
 		{
-			LOG_INFO << "Failed to open shader: " << m_absPath.u8string();
+			LOG_INFO << "Failed to open shader: " << m_absPath.string();
 			return;
 		}
 
@@ -1470,7 +1470,7 @@ float4 _tex3Dproj(sampler3D s, float4 t, int texel_off) { return tex3Dproj(s, t)
 
 		if (FAILED(result))
 		{
-			LOG_INFO << "ERROR: Failed to preprocess shader \"" << m_absPath.u8string()
+			LOG_INFO << "ERROR: Failed to preprocess shader \"" << m_absPath.string()
 				<< "\" due to the following errors:\n" << errors;
 			return;
 		}
@@ -1478,7 +1478,7 @@ float4 _tex3Dproj(sampler3D s, float4 t, int texel_off) { return tex3Dproj(s, t)
 		if (Config::logLevel.get() >= Config::Settings::LogLevel::DEBUG)
 		{
 			Compat::Log log(Config::Settings::LogLevel::DEBUG);
-			log << "Successfully preprocessed shader \"" << m_absPath.u8string() << '"';
+			log << "Successfully preprocessed shader \"" << m_absPath.string() << '"';
 			if (!errors.empty())
 			{
 				log << " with the following warnings:\n" << errors;
@@ -1629,7 +1629,7 @@ float4 _tex3Dproj(sampler3D s, float4 t, int texel_off) { return tex3Dproj(s, t)
 
 	void ShaderCompiler::saveToCache(const std::filesystem::path& absPath)
 	{
-		LOG_FUNC("ShaderCompiler::saveToCache", absPath.u8string());
+		LOG_FUNC("ShaderCompiler::saveToCache", absPath.string());
 		const auto compilerMd5 = getD3DCompilerFuncs().md5;
 		if (compilerMd5.empty() || m_contentMd5.empty())
 		{
