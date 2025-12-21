@@ -511,23 +511,27 @@ namespace
 		return LOG_RESULT(result);
 	}
 
+	void resetKeyboardHookAsync()
+	{
+		removeHook(g_keyboardHook);
+		g_keyState.reset();
+		g_keyboardHook = addHook(WH_KEYBOARD_LL, &lowLevelKeyboardProc);
+	}
+
 	void resetKeyboardHook()
 	{
-		Gdi::GuiThread::execute([]()
-			{
-				removeHook(g_keyboardHook);
-				g_keyState.reset();
-				g_keyboardHook = addHook(WH_KEYBOARD_LL, &lowLevelKeyboardProc);
-			});
+		Gdi::GuiThread::executeAsyncFunc(resetKeyboardHookAsync);
+	}
+
+	void resetMouseHookAsync()
+	{
+		removeHook(g_mouseHook);
+		Input::updateMouseSensitivity();
 	}
 
 	void resetMouseHook()
 	{
-		Gdi::GuiThread::execute([]()
-			{
-				removeHook(g_mouseHook);
-				Input::updateMouseSensitivity();
-			});
+		Gdi::GuiThread::executeAsyncFunc(resetMouseHookAsync);
 	}
 
 	void sendMouseMove()
