@@ -503,6 +503,12 @@
     <None Include="genversion.ps1" />
     <None Include="Shaders\Convolution.hlsli" />
     <None Include="Shaders\CubicConvolution.hlsli" />
+    <None Include="Shaders\DepthConvert.hlsli" />
+    <None Include="Shaders\DepthCopyPcf.hlsli" />
+    <None Include="Shaders\DepthLockRef.hlsli" />
+    <None Include="Shaders\DepthRead.hlsli" />
+    <None Include="Shaders\DepthReadPcf.hlsli" />
+    <None Include="Shaders\DepthWrite.hlsli" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\AlphaBlend.hlsl" />
@@ -512,7 +518,17 @@
     <FxCompile Include="Shaders\CubicConvolution2.hlsl" />
     <FxCompile Include="Shaders\CubicConvolution3.hlsl" />
     <FxCompile Include="Shaders\CubicConvolution4.hlsl" />
-    <FxCompile Include="Shaders\DepthBlt.hlsl" />
+    <FxCompile Include="Shaders\DepthCopy.hlsl" />
+    <FxCompile Include="Shaders\DepthCopyPcf16.hlsl" />
+    <FxCompile Include="Shaders\DepthCopyPcf24.hlsl" />
+    <FxCompile Include="Shaders\DepthLockRef16.hlsl" />
+    <FxCompile Include="Shaders\DepthLockRef24.hlsl" />
+    <FxCompile Include="Shaders\DepthRead16.hlsl" />
+    <FxCompile Include="Shaders\DepthRead24.hlsl" />
+    <FxCompile Include="Shaders\DepthReadPcf16.hlsl" />
+    <FxCompile Include="Shaders\DepthReadPcf24.hlsl" />
+    <FxCompile Include="Shaders\DepthWrite16.hlsl" />
+    <FxCompile Include="Shaders\DepthWrite24.hlsl" />
     <FxCompile Include="Shaders\DrawCursor.hlsl" />
     <FxCompile Include="Shaders\Lanczos.hlsl" />
     <FxCompile Include="Shaders\LockRef.hlsl" />

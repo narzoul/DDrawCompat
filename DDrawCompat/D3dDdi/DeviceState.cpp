@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <type_traits>
 
 #include <Config/Settings/AlternatePixelCenter.h>
 #include <Config/Settings/ColorKeyMethod.h>
@@ -831,6 +832,10 @@ namespace D3dDdi
 		{
 			m_current.*data = {};
 			m_current.*data.*resourceMember = DELETED_RESOURCE;
+			if constexpr (!std::is_same_v<D3DDDIARG_SETSTREAMSOURCE, Data>)
+			{
+				m_changedStates |= CS_RENDER_TARGET;
+			}
 		}
 		if (resource == m_app.*data.*resourceMember)
 		{

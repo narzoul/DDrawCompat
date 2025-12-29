@@ -7,9 +7,7 @@
 #include <d3dnthal.h>
 #include <d3dumddi.h>
 
-#include <Common/CompatPtr.h>
 #include <Common/Vector.h>
-#include <DDraw/DirectDraw.h>
 #include <Win32/DisplayMode.h>
 
 namespace D3dDdi
@@ -23,7 +21,6 @@ namespace D3dDdi
 			std::map<D3DDDIFORMAT, FORMATOP> formatOps;
 			std::map<D3DDDIFORMAT, FORMATOP> fixedFormatOps;
 			DWORD supportedZBufferBitDepths;
-			bool isMsaaDepthResolveSupported;
 			bool isD3D9On12;
 		};
 

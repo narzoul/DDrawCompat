@@ -116,12 +116,12 @@ namespace D3dDdi
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		void fixResourceData();
 		D3DDDIFORMAT getFormatConfig();
-		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig();
+		std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> getMultisampleConfig(D3DDDIFORMAT format);
 		SIZE getScaledSize();
 		bool isPalettizedTexture() const;
 		bool isScaled(UINT subResourceIndex);
 		bool isValidRect(UINT subResourceIndex, const RECT& rect);
-		void loadFromLockRefResource(UINT subResourceIndex);
+		void loadFromLockRefResource(Resource& dstResource, UINT subResourceIndex);
 		void loadMsaaResource(UINT subResourceIndex);
 		void loadMsaaResolvedResource(UINT subResourceIndex);
 		void loadSysMemResource(UINT subResourceIndex);
@@ -129,7 +129,6 @@ namespace D3dDdi
 		void notifyLock(UINT subResourceIndex);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect,
 			std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect);
-		void resolveMsaaDepthBuffer();
 		HRESULT shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter);
 		bool shouldBltViaCpu(const D3DDDIARG_BLT &data, Resource& srcResource);
 

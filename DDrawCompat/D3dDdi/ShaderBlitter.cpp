@@ -7,7 +7,6 @@
 #include <D3dDdi/Resource.h>
 #include <D3dDdi/ShaderBlitter.h>
 #include <D3dDdi/SurfaceRepository.h>
-#include <DDraw/Surfaces/PrimarySurface.h>
 #include <Shaders/AlphaBlend.h>
 #include <Shaders/Bilinear.h>
 #include <Shaders/ColorKey.h>
@@ -15,7 +14,17 @@
 #include <Shaders/CubicConvolution2.h>
 #include <Shaders/CubicConvolution3.h>
 #include <Shaders/CubicConvolution4.h>
-#include <Shaders/DepthBlt.h>
+#include <Shaders/DepthCopy.h>
+#include <Shaders/DepthCopyPcf16.h>
+#include <Shaders/DepthCopyPcf24.h>
+#include <Shaders/DepthLockRef16.h>
+#include <Shaders/DepthLockRef24.h>
+#include <Shaders/DepthRead16.h>
+#include <Shaders/DepthRead24.h>
+#include <Shaders/DepthReadPcf16.h>
+#include <Shaders/DepthReadPcf24.h>
+#include <Shaders/DepthWrite16.h>
+#include <Shaders/DepthWrite24.h>
 #include <Shaders/DrawCursor.h>
 #include <Shaders/Lanczos.h>
 #include <Shaders/LockRef.h>
@@ -96,7 +105,17 @@ namespace D3dDdi
 			createPixelShader(g_psCubicConvolution3),
 			createPixelShader(g_psCubicConvolution4)
 		}
-		, m_psDepthBlt(createPixelShader(g_psDepthBlt))
+		, m_psDepthCopy(createPixelShader(g_psDepthCopy))
+		, m_psDepthCopyPcf16(createPixelShader(g_psDepthCopyPcf16))
+		, m_psDepthCopyPcf24(createPixelShader(g_psDepthCopyPcf24))
+		, m_psDepthLockRef16(createPixelShader(g_psDepthLockRef16))
+		, m_psDepthLockRef24(createPixelShader(g_psDepthLockRef24))
+		, m_psDepthRead16(createPixelShader(g_psDepthRead16))
+		, m_psDepthRead24(createPixelShader(g_psDepthRead24))
+		, m_psDepthReadPcf16(createPixelShader(g_psDepthReadPcf16))
+		, m_psDepthReadPcf24(createPixelShader(g_psDepthReadPcf24))
+		, m_psDepthWrite16(createPixelShader(g_psDepthWrite16))
+		, m_psDepthWrite24(createPixelShader(g_psDepthWrite24))
 		, m_psDrawCursor(createPixelShader(g_psDrawCursor))
 		, m_psLanczos(createPixelShader(g_psLanczos))
 		, m_psLockRef(createPixelShader(g_psLockRef))
@@ -548,20 +567,79 @@ namespace D3dDdi
 		}
 	}
 
-	void ShaderBlitter::depthBlt(const Resource& dstResource, const RECT& dstRect,
-		const Resource& srcResource, const RECT& srcRect)
+	void ShaderBlitter::depthCopy(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
 	{
-		LOG_FUNC("ShaderBlitter::depthBlt", static_cast<HANDLE>(dstResource), dstRect,
-			static_cast<HANDLE>(srcResource), srcRect);
+		LOG_FUNC("ShaderBlitter::depthCopy", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
 
-		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[0];
+		HANDLE pixelShader = nullptr;
+		const auto srcFormat = srcResource.getFixedDesc().Format;
+		const bool is16BitSrc = D3DDDIFMT_D16 == srcFormat || FOURCC_DF16 == srcFormat;
+		if (&dstResource != &srcResource)
+		{
+			if (srcFormat > 0xFF)
+			{
+				pixelShader = m_psDepthCopy.get();
+			}
+			else
+			{
+				pixelShader = is16BitSrc ? m_psDepthCopyPcf16.get() : m_psDepthCopyPcf24.get();
+			}
+			depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, pixelShader);
+			return;
+		}
+
+		const RECT rect = { 0, 0, srcRect.right - srcRect.left, srcRect.bottom - srcRect.top };
+		const auto& rtt = m_device.getRepo().getTempTexture(rect.right, rect.bottom,
+			is16BitSrc ? D3DDDIFMT_R5G6B5 : D3DDDIFMT_A8R8G8B8);
+		if (rtt.resource)
+		{
+			depthRead(*rtt.resource, 0, rect, srcResource, srcSubResourceIndex, srcRect);
+			depthWrite(dstResource, dstSubResourceIndex, dstRect, *rtt.resource, 0, rect);
+		}
+	}
+
+	void ShaderBlitter::depthLockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+		const Resource& lockRefResource)
+	{
+		LOG_FUNC("ShaderBlitter::depthLockRefBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
+			static_cast<HANDLE>(lockRefResource));
+
+		setTempTextureStage(1, lockRefResource, srcSubResourceIndex, srcRect, D3DTEXF_POINT);
+		depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthLockRef16.get() : m_psDepthLockRef24.get());
+	}
+
+	void ShaderBlitter::depthRead(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
+	{
+		LOG_FUNC("ShaderBlitter::depthRead", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
+
+		const auto& ps = srcResource.getFixedDesc().Format > 0xFF
+			? (D3DDDIFMT_R5G6B5 == dstResource.getFixedDesc().Format ? m_psDepthRead16 : m_psDepthRead24)
+			: (D3DDDIFMT_R5G6B5 == dstResource.getFixedDesc().Format ? m_psDepthReadPcf16 : m_psDepthReadPcf24);
+
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, ps.get(), D3DTEXF_POINT);
+	}
+
+	void ShaderBlitter::depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader)
+	{
+		LOG_FUNC("ShaderBlitter::depthWrite", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader);
+
+		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 
 		auto& state = m_device.getState();
-		state.setTempRenderTarget({ 0, dstResource.getNullRtHandle(), 0});
+		state.setTempRenderTarget({ 0, dstResource.getNullRtHandle(), dstSubResourceIndex });
 		state.setTempDepthStencil({ dstResource });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
-		state.setTempPixelShader(m_psDepthBlt.get());
+		state.setTempPixelShader(pixelShader);
 		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
 
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -581,11 +659,21 @@ namespace D3dDdi
 		state.setTempRenderState({ D3DDDIRS_MULTISAMPLEANTIALIAS, FALSE });
 		state.setTempRenderState({ D3DDDIRS_COLORWRITEENABLE, 0 });
 		state.setTempRenderState({ D3DDDIRS_SCISSORTESTENABLE, FALSE });
+		state.setTempRenderState({ D3DDDIRS_SRGBWRITEENABLE, FALSE });
 
 		setTempTextureStage(0, srcResource, 0, srcRect, D3DTEXF_POINT);
-		state.setTempTextureStageState({ 0, D3DDDITSS_SRGBTEXTURE, FALSE });
 
 		drawRect(Rect::toRectF(dstRect));
+	}
+
+	void ShaderBlitter::depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect)
+	{
+		LOG_FUNC("ShaderBlitter::depthWrite", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
+
+		depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
+			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthWrite16.get() : m_psDepthWrite24.get());
 	}
 
 	void ShaderBlitter::displayBlt(Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,

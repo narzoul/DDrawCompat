@@ -125,16 +125,18 @@ namespace
 		{ D3DDDIFMT_L6V5U5,   FormatInfoXALVU(0, 0, 6, 5, 5) },
 		{ D3DDDIFMT_X8L8V8U8, FormatInfoXALVU(8, 0, 8, 8, 8) },
 
-		{ D3DDDIFMT_D32,      FormatInfoDXS(32, 0, 0) },
-		{ D3DDDIFMT_D15S1,    FormatInfoDXS(15, 0, 1) },
+		{ D3DDDIFMT_D32,			FormatInfoDXS(32, 0, 0) },
+		{ D3DDDIFMT_D32F_LOCKABLE,  FormatInfoDXS(32, 0, 0) },
+		{ D3DDDIFMT_D32_LOCKABLE,   FormatInfoDXS(32, 0, 0) },
+
 		{ D3DDDIFMT_D24S8,    FormatInfoDXS(24, 0, 8) },
 		{ D3DDDIFMT_D24X8,    FormatInfoDXS(24, 8, 0) },
 		{ D3DDDIFMT_D16,      FormatInfoDXS(16, 0, 0) },
 
-		{ D3DDDIFMT_S1D15,     FormatInfoXSD(0, 1, 15) },
 		{ D3DDDIFMT_S8D24,     FormatInfoXSD(0, 8, 24) },
 		{ D3DDDIFMT_X8D24,     FormatInfoXSD(8, 0, 24) },
 		{ D3dDdi::FOURCC_DF16, FormatInfoXSD(0, 0, 16) },
+		{ D3dDdi::FOURCC_DF24, FormatInfoXSD(8, 0, 24) },
 		{ D3dDdi::FOURCC_INTZ, FormatInfoXSD(0, 8, 24) }
 	};
 
@@ -207,7 +209,7 @@ namespace D3dDdi
 		{
 			return 0;
 		}
-		const UINT max = (1 << component.bitCount) - 1;
+		const UINT max = (1ULL << component.bitCount) - 1;
 		const UINT mask = max << component.pos;
 		return static_cast<float>((color & mask) >> component.pos) / max;
 	}

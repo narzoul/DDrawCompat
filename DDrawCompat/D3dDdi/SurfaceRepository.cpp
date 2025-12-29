@@ -117,7 +117,7 @@ namespace D3dDdi
 			desc.dwBackBufferCount = surfaceCount - 1;
 		}
 
-		if (0 == desc.ddpfPixelFormat.dwFlags || D3dDdi::FOURCC_INTZ == format || D3dDdi::FOURCC_DF16 == format)
+		if (0 == desc.ddpfPixelFormat.dwFlags || (caps & DDSCAPS_ZBUFFER))
 		{
 			desc.ddpfPixelFormat = getPixelFormat((caps & DDSCAPS_ZBUFFER) ? D3DDDIFMT_D16 : D3DDDIFMT_X8R8G8B8);
 			D3dDdi::Resource::setFormatOverride(format);
@@ -389,8 +389,16 @@ namespace D3dDdi
 
 	const SurfaceRepository::Surface& SurfaceRepository::getTempTexture(DWORD width, DWORD height, D3DDDIFORMAT format)
 	{
-		return getTempSurface(m_textures[format], width, height, format,
-			(D3DDDIFMT_P8 == format ? 0 : DDSCAPS_TEXTURE) | DDSCAPS_VIDEOMEMORY);
+		DWORD caps = DDSCAPS_VIDEOMEMORY;
+		if (D3DDDIFMT_P8 != format)
+		{
+			caps |= DDSCAPS_TEXTURE;
+			if (getFormatInfo(format).green.bitCount >= 6)
+			{
+				caps |= DDSCAPS_3DDEVICE;
+			}
+		}
+		return getTempSurface(m_textures[format], width, height, format, caps);
 	}
 
 	CompatPtr<IDirectDrawSurface7> SurfaceRepository::getWindowedBackBuffer(DWORD width, DWORD height)

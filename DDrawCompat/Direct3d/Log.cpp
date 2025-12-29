@@ -230,6 +230,15 @@ std::ostream& operator<<(std::ostream& os, const D3DMATERIAL7& data)
 	return os << material;
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DMATRIX& data)
+{
+	return Compat::LogStruct(os)
+		<< Compat::array(&data._11, 4)
+		<< Compat::array(&data._21, 4)
+		<< Compat::array(&data._31, 4)
+		<< Compat::array(&data._41, 4);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DMATRIXLOAD& data)
 {
 	return Compat::LogStruct(os)

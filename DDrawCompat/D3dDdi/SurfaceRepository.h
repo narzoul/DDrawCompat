@@ -4,7 +4,6 @@
 #include <functional>
 #include <list>
 #include <map>
-#include <vector>
 
 typedef long NTSTATUS;
 

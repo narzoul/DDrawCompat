@@ -44,8 +44,15 @@ namespace D3dDdi
 			const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey);
 		void cursorBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			HCURSOR cursor, POINT pt);
-		void depthBlt(const Resource& dstResource, const RECT& dstRect,
-			const Resource& srcResource, const RECT& srcRect);
+		void depthCopy(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
+		void depthLockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
+			const Resource& lockRefResource);
+		void depthRead(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
+		void depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void displayBlt(Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect);
 		void lanczosBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -108,6 +115,8 @@ namespace D3dDdi
 		void convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
 			Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams = {});
+		void depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
@@ -129,7 +138,17 @@ namespace D3dDdi
 		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
 		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
 		std::unique_ptr<void, ResourceDeleter> m_psCubicConvolution[3];
-		std::unique_ptr<void, ResourceDeleter> m_psDepthBlt;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthCopy;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthCopyPcf16;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthCopyPcf24;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthLockRef16;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthLockRef24;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthRead16;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthRead24;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthReadPcf16;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthReadPcf24;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthWrite16;
+		std::unique_ptr<void, ResourceDeleter> m_psDepthWrite24;
 		std::unique_ptr<void, ResourceDeleter> m_psDitheredGammaControl;
 		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
 		std::unique_ptr<void, ResourceDeleter> m_psLanczos;

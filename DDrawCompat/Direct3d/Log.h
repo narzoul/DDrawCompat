@@ -19,6 +19,7 @@ std::ostream& operator<<(std::ostream& os, const D3DLINE& data);
 std::ostream& operator<<(std::ostream& os, const D3DLVERTEX& data);
 std::ostream& operator<<(std::ostream& os, const D3DMATERIAL& data);
 std::ostream& operator<<(std::ostream& os, const D3DMATERIAL7& data);
+std::ostream& operator<<(std::ostream& os, const D3DMATRIX& data);
 std::ostream& operator<<(std::ostream& os, const D3DMATRIXLOAD& data);
 std::ostream& operator<<(std::ostream& os, const D3DMATRIXMULTIPLY& data);
 std::ostream& operator<<(std::ostream& os, D3DOPCODE data);

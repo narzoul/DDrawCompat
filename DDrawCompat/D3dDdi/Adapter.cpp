@@ -21,7 +21,6 @@
 #include <D3dDdi/DeviceFuncs.h>
 #include <D3dDdi/FormatInfo.h>
 #include <D3dDdi/KernelModeThunks.h>
-#include <D3dDdi/SurfaceRepository.h>
 #include <Win32/DisplayMode.h>
 
 namespace
@@ -156,11 +155,6 @@ namespace D3dDdi
 		const auto driverFilename(Compat::getModulePath(driverModule).stem().string());
 		info.isD3D9On12 = 0 == _stricmp(driverFilename.c_str(), "d3d9on12");
 
-		info.isMsaaDepthResolveSupported =
-			!info.isD3D9On12 &&
-			0 != _stricmp(driverFilename.c_str(), "amdxn32") &&
-			info.formatOps.find(FOURCC_RESZ) != info.formatOps.end() &&
-			info.formatOps.find(FOURCC_NULL) != info.formatOps.end();
 		info.fixedFormatOps = getFixedFormatOps(info);
 		info.supportedZBufferBitDepths = getSupportedZBufferBitDepths(info.fixedFormatOps);
 
@@ -204,34 +198,26 @@ namespace D3dDdi
 			}
 
 			auto fixedFormatOp = formatOp.second;
-			if (isEmulatedRenderTargetFormat(formatOp.first, info.formatOps))
-			{
-				fixedFormatOp.Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
-			}
 
-			if (D3DDDIFMT_L8 == formatOp.first)
+			switch (formatOp.first)
+			{
+			case D3DDDIFMT_L8:
 			{
 				auto p8FormatOp = formatOp.second;
 				p8FormatOp.Format = D3DDDIFMT_P8;
 				p8FormatOp.Operations |= FORMATOP_OFFSCREENPLAIN;
 				fixedFormatOps[D3DDDIFMT_P8] = p8FormatOp;
+				break;
 			}
-
-			if (D3DDDIFMT_D24X4S4 == formatOp.first || D3DDDIFMT_X4S4D24 == formatOp.first)
-			{
-				// If these formats are reported as depth buffers, then EnumZBufferFormats returns only D16
-				fixedFormatOp.Operations &= ~(FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH);
-			}
-
-			if (info.isD3D9On12)
-			{
-				if (D3DDDIFMT_D24X8 == formatOp.first)
+			case D3DDDIFMT_D24X4S4:
+			case D3DDDIFMT_X4S4D24:
+			case D3DDDIFMT_D15S1:
+			case D3DDDIFMT_S1D15:
+				continue;
+			default:
+				if (isEmulatedRenderTargetFormat(formatOp.first, info.formatOps))
 				{
-					fixedFormatOp.Format = D3DDDIFMT_X8D24;
-				}
-				else if (D3DDDIFMT_D24S8 == formatOp.first)
-				{
-					fixedFormatOp.Format = D3DDDIFMT_S8D24;
+					fixedFormatOp.Operations |= FORMATOP_OFFSCREEN_RENDERTARGET;
 				}
 			}
 
@@ -295,7 +281,7 @@ namespace D3dDdi
 		}
 
 		auto msTypes = it->second.BltMsTypes;
-		if (0 == msTypes && (FOURCC_DF16 == it->first || FOURCC_INTZ == it->first))
+		if (0 == msTypes && (it->second.Operations & (FORMATOP_ZSTENCIL | FORMATOP_ZSTENCIL_WITH_ARBITRARY_COLOR_DEPTH)))
 		{
 			auto replacement = info.formatOps.find(D3DDDIFMT_D16);
 			if (replacement != info.formatOps.end())

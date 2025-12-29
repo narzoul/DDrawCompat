@@ -1197,6 +1197,24 @@
     <None Include="Shaders\CubicConvolution.hlsli">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="Shaders\DepthReadPcf.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthRead.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthConvert.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthWrite.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthCopyPcf.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
+    <None Include="Shaders\DepthLockRef.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Shaders\PaletteLookup.hlsl">
@@ -1215,9 +1233,6 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\ColorKey.hlsl">
-      <Filter>Shaders</Filter>
-    </FxCompile>
-    <FxCompile Include="Shaders\DepthBlt.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\ColorKeyBlend.hlsl">
@@ -1245,6 +1260,39 @@
       <Filter>Shaders</Filter>
     </FxCompile>
     <FxCompile Include="Shaders\AlphaBlend.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthReadPcf16.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthReadPcf24.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthRead16.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthRead24.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthWrite16.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthWrite24.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthCopy.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthCopyPcf16.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthCopyPcf24.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthLockRef16.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Shaders\DepthLockRef24.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
   </ItemGroup>
