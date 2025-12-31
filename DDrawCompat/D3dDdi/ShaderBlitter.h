@@ -6,6 +6,7 @@
 #include <Windows.h>
 
 #include <Common/Vector.h>
+#include <D3dDdi/DeviceState.h>
 #include <D3dDdi/MetaShader.h>
 #include <D3dDdi/ResourceDeleter.h>
 #include <Gdi/Region.h>
@@ -15,7 +16,6 @@ struct RectF;
 namespace D3dDdi
 {
 	class Device;
-	class MetaShader;
 	class Resource;
 
 	class ShaderBlitter
@@ -107,24 +107,24 @@ namespace D3dDdi
 		};
 
 		void blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader,
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, const DeviceState::TempShader& ps,
 			UINT filter, UINT flags = 0, const BYTE* alpha = nullptr, const Gdi::Region& srcRgn = nullptr);
 		void convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams, DWORD flags);
+			Float2 support, const DeviceState::TempShader& ps, const std::function<void(bool)> setExtraParams, DWORD flags);
 		void convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-			Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams = {});
+			Float2 support, const DeviceState::TempShader& ps, const std::function<void(bool)> setExtraParams = {});
 		void depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader);
+			const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, const DeviceState::TempShader& ps);
 
 		template <int N>
-		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE(&code)[N])
+		DeviceState::TempShader createPixelShader(const BYTE(&code)[N])
 		{
 			return createPixelShader(code, N);
 		}
 
-		std::unique_ptr<void, ResourceDeleter> createPixelShader(const BYTE* code, UINT size);
+		DeviceState::TempShader createPixelShader(const BYTE* code, UINT size);
 		std::unique_ptr<void, ResourceDeleter> createVertexShaderDecl();
 		void drawRect(const RectF& rect);
 		void setTempTextureStage(UINT stage, const Resource& texture, UINT subResourceIndex,
@@ -133,30 +133,30 @@ namespace D3dDdi
 
 		Device& m_device;
 		MetaShader m_metaShader;
-		std::unique_ptr<void, ResourceDeleter> m_psAlphaBlend;
-		std::unique_ptr<void, ResourceDeleter> m_psBilinear;
-		std::unique_ptr<void, ResourceDeleter> m_psColorKey;
-		std::unique_ptr<void, ResourceDeleter> m_psColorKeyBlend;
-		std::unique_ptr<void, ResourceDeleter> m_psCubicConvolution[3];
-		std::unique_ptr<void, ResourceDeleter> m_psDepthCopy;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthCopyPcf16;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthCopyPcf24;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthLockRef16;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthLockRef24;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthRead16;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthRead24;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthReadPcf16;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthReadPcf24;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthWrite16;
-		std::unique_ptr<void, ResourceDeleter> m_psDepthWrite24;
-		std::unique_ptr<void, ResourceDeleter> m_psDitheredGammaControl;
-		std::unique_ptr<void, ResourceDeleter> m_psDrawCursor;
-		std::unique_ptr<void, ResourceDeleter> m_psLanczos;
-		std::unique_ptr<void, ResourceDeleter> m_psLockRef;
-		std::unique_ptr<void, ResourceDeleter> m_psPaletteLookup;
-		std::unique_ptr<void, ResourceDeleter> m_psPoint;
-		std::unique_ptr<void, ResourceDeleter> m_psPointNoFilter;
-		std::unique_ptr<void, ResourceDeleter> m_psTextureSampler;
+		DeviceState::TempShader m_psAlphaBlend;
+		DeviceState::TempShader m_psBilinear;
+		DeviceState::TempShader m_psColorKey;
+		DeviceState::TempShader m_psColorKeyBlend;
+		DeviceState::TempShader m_psCubicConvolution[3];
+		DeviceState::TempShader m_psDepthCopy;
+		DeviceState::TempShader m_psDepthCopyPcf16;
+		DeviceState::TempShader m_psDepthCopyPcf24;
+		DeviceState::TempShader m_psDepthLockRef16;
+		DeviceState::TempShader m_psDepthLockRef24;
+		DeviceState::TempShader m_psDepthRead16;
+		DeviceState::TempShader m_psDepthRead24;
+		DeviceState::TempShader m_psDepthReadPcf16;
+		DeviceState::TempShader m_psDepthReadPcf24;
+		DeviceState::TempShader m_psDepthWrite16;
+		DeviceState::TempShader m_psDepthWrite24;
+		DeviceState::TempShader m_psDitheredGammaControl;
+		DeviceState::TempShader m_psDrawCursor;
+		DeviceState::TempShader m_psLanczos;
+		DeviceState::TempShader m_psLockRef;
+		DeviceState::TempShader m_psPaletteLookup;
+		DeviceState::TempShader m_psPoint;
+		DeviceState::TempShader m_psPointNoFilter;
+		DeviceState::TempShader m_psTextureSampler;
 		std::unique_ptr<void, ResourceDeleter> m_vertexShaderDecl;
 		ConvolutionParams m_convolutionParams;
 		std::array<Vertex, 4> m_vertices;

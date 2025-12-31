@@ -50,48 +50,12 @@ namespace D3dDdi
 			D3DDDIARG_ZRANGE zRange;
 		};
 
-		class TempPixelShaderConst
+		struct TempShader
 		{
-		public:
-			TempPixelShaderConst(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONST& data, const ShaderConstF* registers);
-			~TempPixelShaderConst();
-
-		private:
-			DeviceState& m_state;
-			D3DDDIARG_SETPIXELSHADERCONST m_data;
-		};
-
-		class TempPixelShaderConstB
-		{
-		public:
-			TempPixelShaderConstB(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers);
-			~TempPixelShaderConstB();
-
-		private:
-			DeviceState& m_state;
-			D3DDDIARG_SETPIXELSHADERCONSTB m_data;
-		};
-
-		class TempPixelShaderConstI
-		{
-		public:
-			TempPixelShaderConstI(DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTI& data, const ShaderConstI* registers);
-			~TempPixelShaderConstI();
-
-		private:
-			DeviceState& m_state;
-			D3DDDIARG_SETPIXELSHADERCONSTI m_data;
-		};
-
-		class TempVertexShaderConst
-		{
-		public:
-			TempVertexShaderConst(DeviceState& state, const D3DDDIARG_SETVERTEXSHADERCONST& data, const ShaderConstF* registers);
-			~TempVertexShaderConst();
-
-		private:
-			DeviceState& m_state;
-			D3DDDIARG_SETVERTEXSHADERCONST m_data;
+			std::unique_ptr<void, ResourceDeleter> shader;
+			UINT floatConstCount;
+			UINT boolConstCount;
+			UINT intConstCount;
 		};
 
 		struct VertexDecl
@@ -139,17 +103,21 @@ namespace D3dDdi
 
 		void setSpriteMode(bool spriteMode);
 		void setTempDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
-		void setTempPixelShader(HANDLE shader);
+		void setTempPixelShader(const TempShader& shader);
+		void setTempPixelShaderConstB(const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers);
+		void setTempPixelShaderConstI(const D3DDDIARG_SETPIXELSHADERCONSTI& data, const INT* registers);
 		void setTempRenderState(const D3DDDIARG_RENDERSTATE& renderState);
 		void setTempRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
 		void setTempStreamSourceUm(const D3DDDIARG_SETSTREAMSOURCEUM& streamSourceUm, const void* umBuffer);
 		void setTempTexture(UINT stage, HANDLE texture);
 		void setTempTextureStageState(const D3DDDIARG_TEXTURESTAGESTATE& tss);
 		void setTempVertexShaderDecl(HANDLE decl);
-		void setTempVertexShaderFunc(HANDLE shader);
+		void setTempVertexShaderFunc(const TempShader& shader);
 		void setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport);
 		void setTempZRange(const D3DDDIARG_ZRANGE& zRange);
 
+		TempShader createTempPixelShader(const UINT* code, UINT size);
+		TempShader createTempVertexShader(const UINT* code, UINT size);
 		void disableTextureClamp(UINT stage);
 		void flush();
 		const State& getAppState() const { return m_app; }
@@ -170,9 +138,17 @@ namespace D3dDdi
 			CS_RENDER_STATE  = 1 << 0,
 			CS_RENDER_TARGET = 1 << 1,
 			CS_SHADER        = 1 << 2,
-			CS_STREAM_SOURCE = 1 << 3,
-			CS_TEXTURE_STAGE = 1 << 4,
-			CS_VERTEX_FIXUP  = 1 << 5
+			CS_SHADER_CONST  = 1 << 3,
+			CS_STREAM_SOURCE = 1 << 4,
+			CS_TEXTURE_STAGE = 1 << 5,
+			CS_VERTEX_FIXUP  = 1 << 6
+		};
+
+		struct InvalidatedShaderConstCount
+		{
+			UINT floatCount;
+			UINT boolCount;
+			UINT intCount;
 		};
 
 		struct PixelShader
@@ -182,6 +158,9 @@ namespace D3dDdi
 			UINT textureStageCount;
 			bool isModified;
 		};
+
+		std::unique_ptr<void, ResourceDeleter> createPixelShader(const UINT* code, UINT size);
+		TempShader createTempShader(std::unique_ptr<void, ResourceDeleter> shader, const UINT* code, UINT size);
 
 		template <int N>
 		std::unique_ptr<void, ResourceDeleter> createVertexShader(const BYTE(&code)[N])
@@ -214,6 +193,7 @@ namespace D3dDdi
 			HRESULT(APIENTRY* origSetShaderConstFunc)(HANDLE, const SetShaderConstData*, const Register*));
 
 		void setDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
+		void setInvalidatedShaderConstCount(InvalidatedShaderConstCount& count, const TempShader& shader);
 		void setPixelShader(HANDLE shader);
 		void setRenderState(const D3DDDIARG_RENDERSTATE& renderState);
 		void setRenderTarget(const D3DDDIARG_SETRENDERTARGET& renderTarget);
@@ -230,6 +210,8 @@ namespace D3dDdi
 
 		void updateRenderStates();
 		void updateRenderTarget();
+		void updateShaderConstsPs();
+		void updateShaderConstsVs();
 		void updateShaders();
 		void updateTextureColorKey(UINT stage);
 		void updateTextureStages();
@@ -258,6 +240,8 @@ namespace D3dDdi
 		std::array<Resource*, 8> m_textureResource;
 		std::map<HANDLE, PixelShader> m_pixelShaders;
 		PixelShader* m_pixelShader;
+		InvalidatedShaderConstCount m_invalidatedPsConstCount;
+		InvalidatedShaderConstCount m_invalidatedVsConstCount;
 		bool m_spriteMode;
 	};
 }

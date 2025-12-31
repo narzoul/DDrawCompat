@@ -143,10 +143,12 @@ namespace D3dDdi
 
 		auto ck = convertToShaderConst(srcColorKey);
 		ck[0][3] = alpha / 255.0f;
-		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
+		const D3DDDIARG_SETPIXELSHADERCONST psConst = { 200, 2 };
+		m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &psConst, &ck[0][0]);
+
 		blt(dstResource, dstSubResourceIndex, dstRect,
 			srcResource, srcSubResourceIndex, srcRect,
-			m_psAlphaBlend.get(), D3DTEXF_LINEAR, BLT_SRCALPHA | BLT_PREMULTIPLIED, nullptr, srcRgn);
+			m_psAlphaBlend, D3DTEXF_LINEAR, BLT_SRCALPHA | BLT_PREMULTIPLIED, nullptr, srcRgn);
 	}
 
 	void ShaderBlitter::bicubicBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -162,7 +164,7 @@ namespace D3dDdi
 		m_convolutionParams.extra[1] = { (-B - 6 * C) / 6, (6 * B + 30 * C) / 6, (-12 * B - 48 * C) / 6, (8 * B + 24 * C) / 6 };
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			2, m_psCubicConvolution[0].get());
+			2, m_psCubicConvolution[0]);
 	}
 
 	void ShaderBlitter::bilinearBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -182,7 +184,7 @@ namespace D3dDdi
 		const Float2 support = 0.5f + 0.5f / adjustedScale;
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			support, m_psBilinear.get(), [&](bool isHorizontal) {
+			support, m_psBilinear, [&](bool isHorizontal) {
 				if (isHorizontal)
 				{
 					m_convolutionParams.extra[0] = { multiplier.x, multiplier.y, offset.x, offset.y };
@@ -196,13 +198,13 @@ namespace D3dDdi
 
 	void ShaderBlitter::blt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		HANDLE pixelShader, UINT filter, UINT flags, const BYTE* alpha, const Gdi::Region& srcRgn)
+		const DeviceState::TempShader& ps, UINT filter, UINT flags, const BYTE* alpha, const Gdi::Region& srcRgn)
 	{
 		LOG_FUNC("ShaderBlitter::blt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader, Compat::hex(filter),
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, ps.shader.get(), Compat::hex(filter),
 			Compat::hex(flags), alpha, static_cast<HRGN>(srcRgn));
 
-		if (!m_vertexShaderDecl || !pixelShader)
+		if (!m_vertexShaderDecl || !ps.shader)
 		{
 			return;
 		}
@@ -223,7 +225,7 @@ namespace D3dDdi
 		state.setTempDepthStencil({ nullptr });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
-		state.setTempPixelShader(pixelShader);
+		state.setTempPixelShader(ps);
 		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
 
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -287,19 +289,21 @@ namespace D3dDdi
 		const Resource& srcResource, UINT srcSubResourceIndex, ColorKeyInfo srcColorKey)
 	{
 		const auto ck = convertToShaderConst(srcColorKey);
-		DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
+		const D3DDDIARG_SETPIXELSHADERCONST psConst = { 200, 2 };
+		m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &psConst, &ck[0][0]);
+
 		blt(dstResource, dstSubResourceIndex, dstResource.getRect(dstSubResourceIndex),
 			srcResource, srcSubResourceIndex, srcResource.getRect(srcSubResourceIndex),
-			m_psColorKeyBlend.get(), D3DTEXF_POINT);
+			m_psColorKeyBlend, D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::convolution(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams, DWORD flags)
+		Float2 support, const DeviceState::TempShader& ps, const std::function<void(bool)> setExtraParams, DWORD flags)
 	{
 		LOG_FUNC("ShaderBlitter::convolution", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect,
-			support, pixelShader, static_cast<bool>(setExtraParams), flags);
+			support, ps.shader.get(), static_cast<bool>(setExtraParams), flags);
 
 		const auto& srcDesc = srcResource.getFixedDesc().pSurfList[0];
 		const Float2 dstSize(dstRect.right - dstRect.left, dstRect.bottom - dstRect.top);
@@ -357,14 +361,14 @@ namespace D3dDdi
 		boolParams.useGammaRamp = flags & CF_GAMMARAMP;
 		boolParams.useDithering = flags & CF_DITHERING;
 
-		DeviceState::TempPixelShaderConstB tempPsConstB(m_device.getState(), { 0, 5 }, &boolParams.useSrgbRead);
+		m_device.getState().setTempPixelShaderConstB({ 0, 5 }, &boolParams.useSrgbRead);
 
 		const DeviceState::ShaderConstI reg = { dot(sampleCountHalf - 1, Int2(compMaskPri)) };
-		DeviceState::TempPixelShaderConstI tempPsConstI(m_device.getState(), { 0, 1 }, &reg);
+		m_device.getState().setTempPixelShaderConstI({ 0, 1 }, &reg[0]);
 
-		DeviceState::TempPixelShaderConst tempPsConst(m_device.getState(),
-			{ 0, sizeof(m_convolutionParams) / sizeof(DeviceState::ShaderConstF) },
-			reinterpret_cast<DeviceState::ShaderConstF*>(&m_convolutionParams));
+		const D3DDDIARG_SETPIXELSHADERCONST psConst = {
+			200, sizeof(m_convolutionParams) / sizeof(DeviceState::ShaderConstF) };
+		m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &psConst, reinterpret_cast<float*>(&m_convolutionParams));
 
 		UINT filter = (p.support > 0 && p.support <= 1 && !boolParams.useSrgbRead) ? D3DTEXF_LINEAR : D3DTEXF_POINT;
 		if (!boolParams.useSrgbRead && 0 != support.x)
@@ -376,15 +380,15 @@ namespace D3dDdi
 			filter |= D3DTEXF_SRGBWRITE;
 		}
 
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, pixelShader, filter);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, ps, filter);
 	}
 
 	void ShaderBlitter::convolutionBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
 		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect,
-		Float2 support, HANDLE pixelShader, const std::function<void(bool)> setExtraParams)
+		Float2 support, const DeviceState::TempShader& ps, const std::function<void(bool)> setExtraParams)
 	{
 		LOG_FUNC("ShaderBlitter::convolutionBlt", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, support, pixelShader,
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, support, ps.shader.get(),
 			static_cast<bool>(setExtraParams));
 
 		const Int2 dstSize(dstRect.right - dstRect.left, dstRect.bottom - dstRect.top);
@@ -442,13 +446,13 @@ namespace D3dDdi
 			sampleCountHalf.y <= 1 && (srcResource.getFormatOp().Operations & FORMATOP_SRGBREAD))
 		{
 			return convolution(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				support, pixelShader, setExtraParams, flags | CF_HORIZONTAL);
+				support, ps, setExtraParams, flags | CF_HORIZONTAL);
 		}
 		if (srcSize.x == dstSize.x ||
 			sampleCountHalf.x <= 1 && (srcResource.getFormatOp().Operations & FORMATOP_SRGBREAD))
 		{
 			return convolution(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				support, pixelShader, setExtraParams, flags);
+				support, ps, setExtraParams, flags);
 		}
 
 		const bool isHorizontalFirst = dstSize.x * srcSize.y <= srcSize.x * dstSize.y;
@@ -470,20 +474,14 @@ namespace D3dDdi
 		}
 
 		convolution(*rt, 0, rect, srcResource, srcSubResourceIndex, srcRect,
-			support, pixelShader, setExtraParams, isHorizontalFirst ? CF_HORIZONTAL : 0);
+			support, ps, setExtraParams, isHorizontalFirst ? CF_HORIZONTAL : 0);
 		convolution(dstResource, dstSubResourceIndex, dstRect, *rt, 0, rect,
-			support, pixelShader, setExtraParams, flags | (isHorizontalFirst ? 0 : CF_HORIZONTAL));
+			support, ps, setExtraParams, flags | (isHorizontalFirst ? 0 : CF_HORIZONTAL));
 	}
 
-	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
+	DeviceState::TempShader ShaderBlitter::createPixelShader(const BYTE* code, UINT size)
 	{
-		D3DDDIARG_CREATEPIXELSHADER data = {};
-		data.CodeSize = size;
-		if (FAILED(m_device.getOrigVtable().pfnCreatePixelShader(m_device, &data, reinterpret_cast<const UINT*>(code))))
-		{
-			return nullptr;
-		}
-		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader) };
+		return m_device.getState().createTempPixelShader(reinterpret_cast<const UINT*>(code), size);
 	}
 
 	std::unique_ptr<void, ResourceDeleter> ShaderBlitter::createVertexShaderDecl()
@@ -558,12 +556,12 @@ namespace D3dDdi
 			setTempTextureStage(2, *cur.colorTexture, 0, clippedSrcRect, D3DTEXF_POINT);
 			setTempTextureStage(3, *xorTexture, 0, clippedSrcRect, D3DTEXF_POINT);
 			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.tempTexture, 0, clippedSrcRect,
-				m_psDrawCursor.get(), D3DTEXF_POINT);
+				m_psDrawCursor, D3DTEXF_POINT);
 		}
 		else
 		{
 			blt(dstResource, dstSubResourceIndex, clippedDstRect, *cur.colorTexture, 0, clippedSrcRect,
-				m_psTextureSampler.get(), D3DTEXF_POINT, BLT_SRCALPHA);
+				m_psTextureSampler, D3DTEXF_POINT, BLT_SRCALPHA);
 		}
 	}
 
@@ -573,20 +571,20 @@ namespace D3dDdi
 		LOG_FUNC("ShaderBlitter::depthCopy", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
 
-		HANDLE pixelShader = nullptr;
+		const DeviceState::TempShader* ps = nullptr;
 		const auto srcFormat = srcResource.getFixedDesc().Format;
 		const bool is16BitSrc = D3DDDIFMT_D16 == srcFormat || FOURCC_DF16 == srcFormat;
 		if (&dstResource != &srcResource)
 		{
 			if (srcFormat > 0xFF)
 			{
-				pixelShader = m_psDepthCopy.get();
+				ps = &m_psDepthCopy;
 			}
 			else
 			{
-				pixelShader = is16BitSrc ? m_psDepthCopyPcf16.get() : m_psDepthCopyPcf24.get();
+				ps = is16BitSrc ? &m_psDepthCopyPcf16 : &m_psDepthCopyPcf24;
 			}
-			depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, pixelShader);
+			depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, *ps);
 			return;
 		}
 
@@ -610,7 +608,7 @@ namespace D3dDdi
 
 		setTempTextureStage(1, lockRefResource, srcSubResourceIndex, srcRect, D3DTEXF_POINT);
 		depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthLockRef16.get() : m_psDepthLockRef24.get());
+			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthLockRef16 : m_psDepthLockRef24);
 	}
 
 	void ShaderBlitter::depthRead(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -623,14 +621,14 @@ namespace D3dDdi
 			? (D3DDDIFMT_R5G6B5 == dstResource.getFixedDesc().Format ? m_psDepthRead16 : m_psDepthRead24)
 			: (D3DDDIFMT_R5G6B5 == dstResource.getFixedDesc().Format ? m_psDepthReadPcf16 : m_psDepthReadPcf24);
 
-		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, ps.get(), D3DTEXF_POINT);
+		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect, ps, D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::depthWrite(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
-		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, HANDLE pixelShader)
+		const Resource& srcResource, UINT srcSubResourceIndex, const RECT& srcRect, const DeviceState::TempShader& ps)
 	{
 		LOG_FUNC("ShaderBlitter::depthWrite", static_cast<HANDLE>(dstResource), dstSubResourceIndex, dstRect,
-			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, pixelShader);
+			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, ps.shader.get());
 
 		const auto& dstSurface = dstResource.getFixedDesc().pSurfList[dstSubResourceIndex];
 
@@ -639,7 +637,7 @@ namespace D3dDdi
 		state.setTempDepthStencil({ dstResource });
 		state.setTempViewport({ 0, 0, dstSurface.Width, dstSurface.Height });
 		state.setTempZRange({ 0, 1 });
-		state.setTempPixelShader(pixelShader);
+		state.setTempPixelShader(ps);
 		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
 
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
@@ -673,7 +671,7 @@ namespace D3dDdi
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect);
 
 		depthWrite(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthWrite16.get() : m_psDepthWrite24.get());
+			D3DDDIFMT_R5G6B5 == srcResource.getFixedDesc().Format ? m_psDepthWrite16 : m_psDepthWrite24);
 	}
 
 	void ShaderBlitter::displayBlt(Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -741,7 +739,7 @@ namespace D3dDdi
 			static_cast<HANDLE>(srcResource), srcSubResourceIndex, srcRect, lobes);
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			lobes, m_psLanczos.get());
+			lobes, m_psLanczos);
 	}
 
 	void ShaderBlitter::lockRefBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -754,7 +752,7 @@ namespace D3dDdi
 
 		setTempTextureStage(1, lockRefResource, dstSubResourceIndex, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			m_psLockRef.get(), D3DTEXF_POINT);
+			m_psLockRef, D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::palettizedBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -787,7 +785,7 @@ namespace D3dDdi
 
 		setTempTextureStage(1, *paletteTexture, 0, srcRect, D3DTEXF_POINT);
 		blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			m_psPaletteLookup.get(), D3DTEXF_POINT);
+			m_psPaletteLookup, D3DTEXF_POINT);
 	}
 
 	void ShaderBlitter::pointBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -801,12 +799,12 @@ namespace D3dDdi
 		if (dstSize.cx >= srcSize.cx && dstSize.cy >= srcSize.cy)
 		{
 			convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				0.0f, m_psPointNoFilter.get());
+				0.0f, m_psPointNoFilter);
 		}
 		else
 		{
 			convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				0.5f, m_psPoint.get());
+				0.5f, m_psPoint);
 		}
 	}
 
@@ -883,7 +881,7 @@ namespace D3dDdi
 		}
 
 		convolutionBlt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-			lobes, m_psCubicConvolution[lobes - 2].get());
+			lobes, m_psCubicConvolution[lobes - 2]);
 	}
 
 	void ShaderBlitter::textureBlt(const Resource& dstResource, UINT dstSubResourceIndex, const RECT& dstRect,
@@ -893,14 +891,15 @@ namespace D3dDdi
 		if (D3DDDIFMT_UNKNOWN != srcColorKey.format)
 		{
 			const auto ck = convertToShaderConst(srcColorKey);
-			DeviceState::TempPixelShaderConst psConst(m_device.getState(), { 30, 2 }, ck.data());
+			const D3DDDIARG_SETPIXELSHADERCONST psConst = { 200, 2 };
+			m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &psConst, &ck[0][0]);
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				m_psColorKey.get(), filter, 0, alpha, srcRgn);
+				m_psColorKey, filter, 0, alpha, srcRgn);
 		}
 		else
 		{
 			blt(dstResource, dstSubResourceIndex, dstRect, srcResource, srcSubResourceIndex, srcRect,
-				m_psTextureSampler.get(), filter, 0, alpha, srcRgn);
+				m_psTextureSampler, filter, 0, alpha, srcRgn);
 		}
 	}
 }

@@ -115,8 +115,8 @@ namespace D3dDdi
 		struct Pass
 		{
 			std::map<std::filesystem::path, Shader>::iterator shader = s_shaders.end();
-			std::unique_ptr<void, ResourceDeleter> vs;
-			std::unique_ptr<void, ResourceDeleter> ps;
+			DeviceState::TempShader vs;
+			DeviceState::TempShader ps;
 			ShaderConsts vsConsts;
 			ShaderConsts psConsts;
 			std::vector<Sampler> vsSamplers;

@@ -39,88 +39,6 @@ namespace
 
 namespace D3dDdi
 {
-	DeviceState::TempPixelShaderConst::TempPixelShaderConst(
-		DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONST& data, const ShaderConstF* registers)
-		: m_state(state)
-		, m_data(data)
-	{
-		if (0 != data.Count)
-		{
-			state.m_device.getOrigVtable().pfnSetPixelShaderConst(state.m_device, &data,
-				reinterpret_cast<const float*>(registers));
-		}
-	}
-
-	DeviceState::TempPixelShaderConst::~TempPixelShaderConst()
-	{
-		if (0 != m_data.Count)
-		{
-			m_state.m_device.getOrigVtable().pfnSetPixelShaderConst(
-				m_state.m_device, &m_data, &m_state.m_pixelShaderConst[m_data.Register][0]);
-		}
-	}
-
-	DeviceState::TempPixelShaderConstB::TempPixelShaderConstB(
-		DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers)
-		: m_state(state)
-		, m_data(data)
-	{
-		if (0 != data.Count)
-		{
-			state.m_device.getOrigVtable().pfnSetPixelShaderConstB(state.m_device, &data, registers);
-		}
-	}
-
-	DeviceState::TempPixelShaderConstB::~TempPixelShaderConstB()
-	{
-		if (0 != m_data.Count)
-		{
-			m_state.m_device.getOrigVtable().pfnSetPixelShaderConstB(
-				m_state.m_device, &m_data, &m_state.m_pixelShaderConstB[m_data.Register][0]);
-		}
-	}
-
-	DeviceState::TempPixelShaderConstI::TempPixelShaderConstI(
-		DeviceState& state, const D3DDDIARG_SETPIXELSHADERCONSTI& data, const ShaderConstI* registers)
-		: m_state(state)
-		, m_data(data)
-	{
-		if (0 != data.Count)
-		{
-			state.m_device.getOrigVtable().pfnSetPixelShaderConstI(state.m_device, &data,
-				reinterpret_cast<const int*>(registers));
-		}
-	}
-
-	DeviceState::TempPixelShaderConstI::~TempPixelShaderConstI()
-	{
-		if (0 != m_data.Count)
-		{
-			m_state.m_device.getOrigVtable().pfnSetPixelShaderConstI(
-				m_state.m_device, &m_data, &m_state.m_pixelShaderConstI[m_data.Register][0]);
-		}
-	}
-
-	DeviceState::TempVertexShaderConst::TempVertexShaderConst(
-		DeviceState& state, const D3DDDIARG_SETVERTEXSHADERCONST& data, const ShaderConstF* registers)
-		: m_state(state)
-		, m_data(data)
-	{
-		if (0 != data.Count)
-		{
-			state.m_device.getOrigVtable().pfnSetVertexShaderConst(state.m_device, &data, registers);
-		}
-	}
-
-	DeviceState::TempVertexShaderConst::~TempVertexShaderConst()
-	{
-		if (0 != m_data.Count)
-		{
-			m_state.m_device.getOrigVtable().pfnSetVertexShaderConst(
-				m_state.m_device, &m_data, &m_state.m_vertexShaderConst[m_data.Register][0]);
-		}
-	}
-
 	DeviceState::DeviceState(Device& device)
 		: m_device(device)
 		, m_app{}
@@ -140,6 +58,8 @@ namespace D3dDdi
 		, m_changedTextureStageStates{}
 		, m_textureResource{}
 		, m_pixelShader(nullptr)
+		, m_invalidatedPsConstCount{}
+		, m_invalidatedVsConstCount{}
 		, m_spriteMode(false)
 	{
 		const UINT D3DBLENDOP_ADD = 1;
@@ -272,6 +192,42 @@ namespace D3dDdi
 		updateConfig();
 	}
 
+	std::unique_ptr<void, ResourceDeleter> DeviceState::createPixelShader(const UINT* code, UINT size)
+	{
+		D3DDDIARG_CREATEPIXELSHADER data = {};
+		data.CodeSize = size;
+		if (FAILED(m_device.getOrigVtable().pfnCreatePixelShader(m_device, &data, reinterpret_cast<const UINT*>(code))))
+		{
+			return nullptr;
+		}
+		return { data.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader) };
+	}
+
+	DeviceState::TempShader DeviceState::createTempPixelShader(const UINT* code, UINT size)
+	{
+		return createTempShader(createPixelShader(code, size), code, size);
+	}
+
+	DeviceState::TempShader DeviceState::createTempShader(
+		std::unique_ptr<void, ResourceDeleter> shader, const UINT* code, UINT size)
+	{
+		if (!shader)
+		{
+			return {};
+		}
+
+		UINT floats = 0;
+		UINT bools = 0;
+		UINT ints = 0;
+		ShaderAssembler(code, size / 4).getDefCounts(floats, bools, ints);
+		return { std::move(shader), floats, bools, ints };
+	}
+
+	DeviceState::TempShader DeviceState::createTempVertexShader(const UINT* code, UINT size)
+	{
+		return createTempShader(createVertexShader(code, size), code, size);
+	}
+
 	std::unique_ptr<void, ResourceDeleter> DeviceState::createVertexShader(const UINT* code, UINT size)
 	{
 		D3DDDIARG_CREATEVERTEXSHADERFUNC data = {};
@@ -392,7 +348,7 @@ namespace D3dDdi
 			texCoordIndexes[i] = m_app.textureStageState[i][D3DDDITSS_TEXCOORDINDEX];
 		}
 
-		D3dDdi::ShaderAssembler shaderAssembler(reinterpret_cast<const UINT*>(g_vsVertexFixup), sizeof(g_vsVertexFixup));
+		D3dDdi::ShaderAssembler shaderAssembler(reinterpret_cast<const UINT*>(g_vsVertexFixup), sizeof(g_vsVertexFixup) / 4);
 		shaderAssembler.applyTexCoordIndexes(texCoordIndexes);
 		return m_vsVertexFixups.emplace(m_texCoordIndexes,
 			createVertexShader(shaderAssembler.getTokens().data(), shaderAssembler.getTokens().size() * 4)).first->second.get();
@@ -530,7 +486,7 @@ namespace D3dDdi
 
 	HRESULT DeviceState::pfnCreatePixelShader(D3DDDIARG_CREATEPIXELSHADER* data, const UINT* code)
 	{
-		ShaderAssembler shaderAssembler(code, data->CodeSize);
+		ShaderAssembler shaderAssembler(code, data->CodeSize / 4);
 		LOG_DEBUG << "Pixel shader bytecode: " << Compat::hexDump(code, data->CodeSize);
 		LOG_DEBUG << shaderAssembler.disassemble();
 		HRESULT result = m_device.getOrigVtable().pfnCreatePixelShader(m_device, data, code);
@@ -866,6 +822,13 @@ namespace D3dDdi
 		}
 	}
 
+	void DeviceState::setInvalidatedShaderConstCount(InvalidatedShaderConstCount& count, const TempShader& shader)
+	{
+		count.floatCount = std::max(count.floatCount, shader.floatConstCount);
+		count.boolCount = std::max(count.boolCount, shader.boolConstCount);
+		count.intCount = std::max(count.intCount, shader.intConstCount);
+	}
+
 	void DeviceState::setPixelShader(HANDLE shader)
 	{
 		if (setShader(shader, m_current.pixelShader, m_device.getOrigVtable().pfnSetPixelShader))
@@ -992,10 +955,23 @@ namespace D3dDdi
 		m_changedStates |= CS_RENDER_TARGET;
 	}
 
-	void DeviceState::setTempPixelShader(HANDLE shader)
+	void DeviceState::setTempPixelShader(const TempShader& shader)
 	{
-		setPixelShader(shader);
-		m_changedStates |= CS_SHADER;
+		setPixelShader(shader.shader.get());
+		setInvalidatedShaderConstCount(m_invalidatedPsConstCount, shader);
+		m_changedStates |= CS_SHADER | CS_SHADER_CONST;
+	}
+
+	void DeviceState::setTempPixelShaderConstB(const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers)
+	{
+		m_device.getOrigVtable().pfnSetPixelShaderConstB(m_device, &data, registers);
+		m_invalidatedPsConstCount.boolCount = std::max(m_invalidatedPsConstCount.boolCount, data.Register + data.Count);
+	}
+
+	void DeviceState::setTempPixelShaderConstI(const D3DDDIARG_SETPIXELSHADERCONSTI& data, const INT* registers)
+	{
+		m_device.getOrigVtable().pfnSetPixelShaderConstI(m_device, &data, registers);
+		m_invalidatedPsConstCount.intCount = std::max(m_invalidatedPsConstCount.intCount, data.Register + data.Count);
 	}
 
 	void DeviceState::setTempRenderState(const D3DDDIARG_RENDERSTATE& renderState)
@@ -1038,10 +1014,11 @@ namespace D3dDdi
 		m_changedStates |= CS_SHADER;
 	}
 
-	void DeviceState::setTempVertexShaderFunc(HANDLE shader)
+	void DeviceState::setTempVertexShaderFunc(const TempShader& shader)
 	{
-		setVertexShaderFunc(shader);
-		m_changedStates |= CS_SHADER;
+		setVertexShaderFunc(shader.shader.get());
+		setInvalidatedShaderConstCount(m_invalidatedVsConstCount, shader);
+		m_changedStates |= CS_SHADER | CS_SHADER_CONST;
 	}
 
 	void DeviceState::setTempViewport(const D3DDDIARG_VIEWPORTINFO& viewport)
@@ -1293,6 +1270,46 @@ namespace D3dDdi
 		}
 	}
 
+	void DeviceState::updateShaderConstsPs()
+	{
+		if (0 != m_invalidatedPsConstCount.floatCount)
+		{
+			const D3DDDIARG_SETPIXELSHADERCONST data = { 0, m_invalidatedPsConstCount.floatCount };
+			m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &data, &m_pixelShaderConst[0][0]);
+		}
+		if (0 != m_invalidatedPsConstCount.boolCount)
+		{
+			const D3DDDIARG_SETPIXELSHADERCONSTB data = { 0, m_invalidatedPsConstCount.boolCount };
+			m_device.getOrigVtable().pfnSetPixelShaderConstB(m_device, &data, &m_pixelShaderConstB[0][0]);
+		}
+		if (0 != m_invalidatedPsConstCount.intCount)
+		{
+			const D3DDDIARG_SETPIXELSHADERCONSTI data = { 0, m_invalidatedPsConstCount.intCount };
+			m_device.getOrigVtable().pfnSetPixelShaderConstI(m_device, &data, &m_pixelShaderConstI[0][0]);
+		}
+		m_invalidatedPsConstCount = {};
+	}
+
+	void DeviceState::updateShaderConstsVs()
+	{
+		if (0 != m_invalidatedVsConstCount.floatCount)
+		{
+			const D3DDDIARG_SETVERTEXSHADERCONST data = { 0, m_invalidatedVsConstCount.floatCount };
+			m_device.getOrigVtable().pfnSetVertexShaderConst(m_device, &data, &m_vertexShaderConst[0][0]);
+		}
+		if (0 != m_invalidatedVsConstCount.boolCount)
+		{
+			const D3DDDIARG_SETVERTEXSHADERCONSTB data = { 0, m_invalidatedVsConstCount.boolCount };
+			m_device.getOrigVtable().pfnSetVertexShaderConstB(m_device, &data, &m_vertexShaderConstB[0][0]);
+		}
+		if (0 != m_invalidatedVsConstCount.intCount)
+		{
+			const D3DDDIARG_SETVERTEXSHADERCONSTI data = { 0, m_invalidatedVsConstCount.intCount };
+			m_device.getOrigVtable().pfnSetVertexShaderConstI(m_device, &data, &m_vertexShaderConstI[0][0]);
+		}
+		m_invalidatedVsConstCount = {};
+	}
+
 	void DeviceState::updateShaders()
 	{
 		setPixelShader(mapPixelShader(m_app.pixelShader));
@@ -1308,6 +1325,13 @@ namespace D3dDdi
 		{
 			setVertexShaderDecl(m_app.vertexShaderDecl);
 			setVertexShaderFunc(m_app.vertexShaderFunc);
+		}
+
+		if (m_changedStates & CS_SHADER_CONST)
+		{
+			m_device.flushPrimitives();
+			updateShaderConstsPs();
+			updateShaderConstsVs();
 		}
 	}
 

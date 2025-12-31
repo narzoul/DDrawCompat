@@ -1,6 +1,6 @@
 sampler2D s_texture : register(s0);
-float4 g_colorKey : register(c30);
-float4 g_threshold : register(c31);
+float4 g_colorKey : register(c200);
+float4 g_threshold : register(c201);
 
 float4 main(float2 texCoord : TEXCOORD0) : COLOR0
 {

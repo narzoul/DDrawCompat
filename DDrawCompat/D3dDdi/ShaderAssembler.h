@@ -18,6 +18,7 @@ namespace D3dDdi
 		bool addAlphaTest(UINT alphaRef);
 		void applyTexCoordIndexes(const std::array<UINT, 8>& texCoordIndexes);
 		std::string disassemble();
+		void getDefCounts(UINT& floats, UINT& bools, UINT& ints);
 		UINT getTextureStageCount();
 		const std::vector<UINT>& getTokens() const { return m_tokens; }
 
@@ -39,8 +40,8 @@ namespace D3dDdi
 		void disassembleSourceSwizzle(std::ostream& os, UINT token);
 		void disassembleVersion(std::ostream& os);
 		UINT getRemainingTokenCount() const;
-		std::set<UINT> getUsedRegisterNumbers(int registerType);
 		ShaderType getShaderType() const;
+		std::set<UINT> getUsedRegisterNumbers(int registerType);
 		void insertToken(UINT32 token);
 		bool nextInstruction();
 		UINT readToken();

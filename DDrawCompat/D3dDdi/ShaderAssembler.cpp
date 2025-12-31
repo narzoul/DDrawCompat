@@ -748,6 +748,47 @@ namespace D3dDdi
 		}
 	}
 
+	void ShaderAssembler::getDefCounts(UINT& floats, UINT& bools, UINT& ints)
+	{
+		LOG_FUNC("ShaderAssembler::getDefCounts", floats, bools, ints);
+
+		RestorePos restorePos(m_pos);
+		m_pos = 0;
+		floats = 0;
+		bools = 0;
+		ints = 0;
+
+		while (nextInstruction())
+		{
+			const auto instruction = getToken<InstructionToken>();
+			if (D3DSIO_DEF == instruction.opcode ||
+				D3DSIO_DEFB == instruction.opcode ||
+				D3DSIO_DEFI == instruction.opcode)
+			{
+				const auto dst = getToken<UINT32>(1);
+				const auto regType = getRegisterType(dst);
+				const auto regNum = dst & D3DSP_REGNUM_MASK;
+
+				if (D3DSPR_CONST == regType)
+				{
+					floats = std::max(floats, regNum + 1);
+				}
+				else if (D3DSPR_CONSTBOOL == regType)
+				{
+					bools = std::max(bools, regNum + 1);
+				}
+				else if (D3DSPR_CONSTINT == regType)
+				{
+					ints = std::max(ints, regNum + 1);
+				}
+			}
+			else
+			{
+				return;
+			}
+		}
+	}
+
 	UINT ShaderAssembler::getRemainingTokenCount() const
 	{
 		return m_tokens.size() - m_pos;

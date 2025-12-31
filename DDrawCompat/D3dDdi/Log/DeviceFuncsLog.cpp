@@ -66,6 +66,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_COLORFILL& val)
 		<< Compat::hex(val.Flags.Value);
 }
 
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEPIXELSHADER& val)
+{
+	return Compat::LogStruct(os)
+		<< val.CodeSize
+		<< Compat::out(val.ShaderHandle);
+}
+
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATERESOURCE& val)
 {
 	return Compat::LogStruct(os)
@@ -108,6 +115,13 @@ std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEVERTEXSHADERDEC
 	return Compat::LogStruct(os)
 		<< val.NumVertexElements
 		<< val.ShaderHandle;
+}
+
+std::ostream& operator<<(std::ostream& os, const D3DDDIARG_CREATEVERTEXSHADERFUNC& val)
+{
+	return Compat::LogStruct(os)
+		<< val.Size
+		<< Compat::out(val.ShaderHandle);
 }
 
 std::ostream& operator<<(std::ostream& os, const D3DDDIARG_DEPTHFILL& val)

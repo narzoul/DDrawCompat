@@ -339,7 +339,7 @@ namespace D3dDdi
 	HRESULT Device::pfnCreateVertexShaderFunc(D3DDDIARG_CREATEVERTEXSHADERFUNC* data, const UINT* code)
 	{
 		LOG_DEBUG << "Vertex shader bytecode: " << Compat::hexDump(code, data->Size);
-		LOG_DEBUG << ShaderAssembler(code, data->Size).disassemble();
+		LOG_DEBUG << ShaderAssembler(code, data->Size / 4).disassemble();
 		return m_origVtable.pfnCreateVertexShaderFunc(m_device, data, code);
 	}
 

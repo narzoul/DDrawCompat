@@ -1,4 +1,3 @@
-bool g_usePerspective : register(b14);
 bool g_useTexCoordAdj : register(b15);
 float4 g_texCoordAdj : register(c253);
 float4 g_offset : register(c254);

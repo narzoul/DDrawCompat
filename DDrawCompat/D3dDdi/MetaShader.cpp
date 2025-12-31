@@ -357,25 +357,24 @@ namespace D3dDdi
 
 	void MetaShader::createShaders(Pass& pass)
 	{
-		D3DDDIARG_CREATEVERTEXSHADERFUNC vs = {};
-		vs.Size = pass.shader->second.vs.code.size();
-		if (FAILED(m_device.getOrigVtable().pfnCreateVertexShaderFunc(
-			m_device, &vs, reinterpret_cast<UINT*>(pass.shader->second.vs.code.data()))))
+		pass.vs = m_device.getState().createTempVertexShader(
+			reinterpret_cast<UINT*>(pass.shader->second.vs.code.data()), pass.shader->second.vs.code.size());
+		if (!pass.vs.shader)
 		{
 			LOG_DEBUG << "Failed to create vertex shader: " << pass.shader->first.string();
 			throw ShaderStatus::SetupError;
 		}
-		pass.vs = { vs.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeleteVertexShaderFunc) };
 
-		D3DDDIARG_CREATEPIXELSHADER ps = {};
-		ps.CodeSize = pass.shader->second.ps.code.size();
-		if (FAILED(m_device.getOrigVtable().pfnCreatePixelShader(
-			m_device, &ps, reinterpret_cast<UINT*>(pass.shader->second.ps.code.data()))))
+		pass.ps = m_device.getState().createTempPixelShader(
+			reinterpret_cast<UINT*>(pass.shader->second.ps.code.data()), pass.shader->second.ps.code.size());
+		if (!pass.ps.shader)
 		{
 			LOG_DEBUG << "Failed to create pixel shader: " << pass.shader->first.string();
 			throw ShaderStatus::SetupError;
 		}
-		pass.ps = { ps.ShaderHandle, ResourceDeleter(m_device, m_device.getOrigVtable().pfnDeletePixelShader) };
+
+		pass.vs.floatConstCount = std::max(pass.vs.floatConstCount, pass.vsConsts.firstConst + pass.vsConsts.consts.size());
+		pass.ps.floatConstCount = std::max(pass.ps.floatConstCount, pass.psConsts.firstConst + pass.psConsts.consts.size());
 	}
 
 	void CALLBACK MetaShader::frameTimerCallback(
@@ -1008,8 +1007,8 @@ namespace D3dDdi
 
 		state.setTempZRange({ 0, 1 });
 		state.setTempVertexShaderDecl(m_vertexShaderDecl.get());
-		state.setTempVertexShaderFunc(pass.vs.get());
-		state.setTempPixelShader(pass.ps.get());
+		state.setTempVertexShaderFunc(pass.vs);
+		state.setTempPixelShader(pass.ps);
 
 		state.setTempRenderState({ D3DDDIRS_SCENECAPTURE, TRUE });
 		state.setTempRenderState({ D3DDDIRS_ZENABLE, D3DZB_FALSE });
@@ -1035,10 +1034,17 @@ namespace D3dDdi
 
 		state.setTempStreamSourceUm({ 0, m_vertexSize }, m_vertices.data() + 4 * passIndex * m_vertexSize);
 
-		DeviceState::TempVertexShaderConst vsConsts(
-			state, { pass.vsConsts.firstConst, pass.vsConsts.consts.size() }, pass.vsConsts.consts.data());
-		DeviceState::TempPixelShaderConst psConsts(
-			state, { pass.psConsts.firstConst, pass.psConsts.consts.size() }, pass.psConsts.consts.data());
+		if (!pass.vsConsts.consts.empty())
+		{
+			const D3DDDIARG_SETVERTEXSHADERCONST vsConst = { pass.vsConsts.firstConst, pass.vsConsts.consts.size() };
+			m_device.getOrigVtable().pfnSetVertexShaderConst(m_device, &vsConst, &pass.vsConsts.consts[0][0]);
+		}
+
+		if (!pass.psConsts.consts.empty())
+		{
+			const D3DDDIARG_SETPIXELSHADERCONST psConst = { pass.psConsts.firstConst, pass.psConsts.consts.size() };
+			m_device.getOrigVtable().pfnSetPixelShaderConst(m_device, &psConst, &pass.psConsts.consts[0][0]);
+		}
 
 		D3DDDIARG_DRAWPRIMITIVE dp = {};
 		dp.PrimitiveType = D3DPT_TRIANGLESTRIP;

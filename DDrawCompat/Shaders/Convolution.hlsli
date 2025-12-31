@@ -3,8 +3,8 @@ sampler2D s_gammaRamp : register(s1);
 sampler2D s_dither : register(s2);
 int g_sampleCountHalfMinusOne : register(i0);
 
-float4 c[32] : register(c0);
-float4 g_extraParams[4] : register(c9);
+float4 c[9] : register(c200);
+float4 g_extraParams[4] : register(c209);
 
 bool g_useSrgbRead : register(b0);
 bool g_useSrgbReadNeg : register(b1);
