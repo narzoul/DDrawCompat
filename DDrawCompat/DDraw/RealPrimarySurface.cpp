@@ -1,11 +1,8 @@
-#include <atomic>
 #include <memory>
-#include <vector>
 
 #include <Windows.h>
 #include <VersionHelpers.h>
 
-#include <Common/Comparison.h>
 #include <Common/CompatPtr.h>
 #include <Common/Hook.h>
 #include <Common/ScopedCriticalSection.h>
@@ -25,22 +22,16 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/IReleaseNotifier.h>
-#include <DDraw/LogUsedResourceFormat.h>
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
-#include <DDraw/Types.h>
 #include <Gdi/Caret.h>
 #include <Gdi/Cursor.h>
 #include <Gdi/DcFunctions.h>
-#include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
-#include <Gdi/Palette.h>
-#include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
-#include <Gdi/WinProc.h>
 #include <Input/Input.h>
 #include <Overlay/ConfigWindow.h>
 #include <Overlay/StatsWindow.h>
@@ -735,8 +726,14 @@ namespace DDraw
 		HRESULT result = g_frontBuffer->Restore(g_frontBuffer);
 		if (SUCCEEDED(result))
 		{
+			DDGAMMARAMP ramp = {};
+			const HRESULT gammaResult = getGammaRamp(&ramp);
 			release();
-			return create(*CompatPtr<IDirectDraw>::from(dd.get()));
+			result = create(*CompatPtr<IDirectDraw>::from(dd.get()));
+			if (SUCCEEDED(result) && SUCCEEDED(gammaResult))
+			{
+				setGammaRamp(&ramp);
+			}
 		}
 		return LOG_RESULT(result);
 	}
