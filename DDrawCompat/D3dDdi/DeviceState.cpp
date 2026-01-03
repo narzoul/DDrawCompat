@@ -60,7 +60,7 @@ namespace D3dDdi
 		, m_pixelShader(nullptr)
 		, m_invalidatedPsConstCount{}
 		, m_invalidatedVsConstCount{}
-		, m_spriteMode(false)
+		, m_spriteMode(NON_SPRITE)
 	{
 		const UINT D3DBLENDOP_ADD = 1;
 		const UINT UNINITIALIZED_STATE = 0xBAADBAAD;
@@ -409,9 +409,9 @@ namespace D3dDdi
 			return value && Config::Settings::ColorKeyMethod::NATIVE == Config::colorKeyMethod.get();
 		}
 
-			if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
+		if (D3DDDIRS_MULTISAMPLEANTIALIAS == state)
 		{
-			return 0 != value && !m_spriteMode;
+			return 0 != value && SPRITE != m_spriteMode;
 		}
 
 		return value;
@@ -423,7 +423,7 @@ namespace D3dDdi
 		{
 		case D3DDDITSS_ADDRESSU:
 		case D3DDDITSS_ADDRESSV:
-			if (m_spriteMode && D3DTADDRESS_CLAMP != value)
+			if (SPRITE == m_spriteMode && D3DTADDRESS_CLAMP != value)
 			{
 				if (Config::Settings::SpriteTexCoord::CLAMP == Config::spriteTexCoord.get())
 				{
@@ -443,12 +443,12 @@ namespace D3dDdi
 		case D3DDDITSS_MAGFILTER:
 		case D3DDDITSS_MINFILTER:
 		{
-			auto filter = m_spriteMode ? Config::spriteFilter.get() : Config::textureFilter.getFilter();
+			auto filter = SPRITE == m_spriteMode ? Config::spriteFilter.get() : Config::textureFilter.getFilter();
 			return D3DTEXF_NONE == filter ? value : filter;
 		}
 
 		case D3DDDITSS_MIPFILTER:
-			return (m_spriteMode || D3DTEXF_NONE == value || D3DTEXF_NONE == Config::textureFilter.getMipFilter())
+			return (SPRITE == m_spriteMode || D3DTEXF_NONE == value || D3DTEXF_NONE == Config::textureFilter.getMipFilter())
 				? value : Config::textureFilter.getMipFilter();
 
 		case D3DDDITSS_MAXANISOTROPY:
@@ -893,25 +893,24 @@ namespace D3dDdi
 		return true;
 	}
 
-	void DeviceState::setSpriteMode(bool spriteMode)
+	void DeviceState::setSpriteMode(SpriteMode spriteMode)
 	{
 		if (spriteMode != m_spriteMode)
 		{
+			m_device.flushPrimitives();
 			m_spriteMode = spriteMode;
 			m_changedStates |= CS_RENDER_STATE | CS_RENDER_TARGET | CS_TEXTURE_STAGE;
 			m_changedRenderStates.set(D3DDDIRS_MULTISAMPLEANTIALIAS);
-			if (Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get())
-			{
-				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
-				m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
-			}
+			m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSU);
+			m_changedTextureStageStates[0].set(D3DDDITSS_ADDRESSV);
 			m_changedTextureStageStates[0].set(D3DDDITSS_MAGFILTER);
 			m_changedTextureStageStates[0].set(D3DDDITSS_MINFILTER);
+			m_changedTextureStageStates[0].set(D3DDDITSS_MIPFILTER);
 
 			D3DDDIARG_SETVERTEXSHADERCONSTB data = {};
 			data.Register = 15;
 			data.Count = 1;
-			BOOL value = spriteMode && Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get();
+			BOOL value = SPRITE == spriteMode && Config::Settings::SpriteTexCoord::ROUND == Config::spriteTexCoord.get();
 			pfnSetVertexShaderConstB(&data, &value);
 			LOG_DS << spriteMode;
 		}
@@ -1429,17 +1428,25 @@ namespace D3dDdi
 	void DeviceState::updateVertexFixupData(UINT width, UINT height, float sx, float sy)
 	{
 		const float stc = static_cast<float>(Config::spriteTexCoord.getParam()) / 100;
-		const float apc = m_spriteMode ? Config::spriteAltPixelCenter.get() : Config::alternatePixelCenter.get();
+		const float apc = SPRITE == m_spriteMode
+			? Config::spriteAltPixelCenter.get()
+			: (POINT_OR_LINE == m_spriteMode ? 0 : Config::alternatePixelCenter.get());
 		const auto& zr = m_current.zRange;
 
-		const float viewportEdgeGap = m_spriteMode ? 0 : (Config::viewportEdgeFix.getParam() / 100.0f);
+		const float viewportEdgeGap = NON_SPRITE == m_spriteMode ? Config::viewportEdgeFix.getParam() / 100.0f : 0;
 		const float w = width - viewportEdgeGap;
 		const float h = height - viewportEdgeGap;
+		if (0 != viewportEdgeGap)
+		{
+			sx = sx * width / w;
+			sy = sy * height / h;
+		}
 
+		m_vertexFixupData.isGpu = Config::Settings::VertexFixup::GPU == m_vertexFixupConfig;
 		m_vertexFixupData.texCoordAdj[2] = stc;
 		m_vertexFixupData.texCoordAdj[3] = stc;
 
-		if (Config::Settings::VertexFixup::GPU == m_vertexFixupConfig)
+		if (m_vertexFixupData.isGpu)
 		{
 			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx - w / 2;
 			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy - h / 2;
@@ -1447,15 +1454,15 @@ namespace D3dDdi
 
 			m_vertexFixupData.multiplier[0] = 2.0f / w;
 			m_vertexFixupData.multiplier[1] = -2.0f / h;
-			m_vertexFixupData.multiplier[2] = 1.0f / (zr.MaxZ - zr.MinZ);
+			m_vertexFixupData.multiplier[2] = (zr.MaxZ <= zr.MinZ) ? 0 : (1.0f / (zr.MaxZ - zr.MinZ));
 		}
 		else
 		{
 			m_vertexFixupData.offset[0] = 0.5f + apc - 0.5f / sx;
 			m_vertexFixupData.offset[1] = 0.5f + apc - 0.5f / sy;
 
-			m_vertexFixupData.multiplier[0] = sx * width / w;
-			m_vertexFixupData.multiplier[1] = sy * height / h;
+			m_vertexFixupData.multiplier[0] = sx;
+			m_vertexFixupData.multiplier[1] = sy;
 		}
 
 		m_changedStates |= CS_VERTEX_FIXUP;

@@ -31,6 +31,13 @@ namespace D3dDdi
 		typedef std::array<FLOAT, 4> ShaderConstF;
 		typedef std::array<INT, 4> ShaderConstI;
 
+		enum SpriteMode
+		{
+			NON_SPRITE,
+			SPRITE,
+			POINT_OR_LINE
+		};
+
 		struct State
 		{
 			D3DDDIARG_SETDEPTHSTENCIL depthStencil;
@@ -72,6 +79,7 @@ namespace D3dDdi
 			ShaderConstF texCoordAdj;
 			ShaderConstF offset;
 			ShaderConstF multiplier;
+			bool isGpu;
 		};
 
 		DeviceState(Device& device);
@@ -101,7 +109,7 @@ namespace D3dDdi
 		HRESULT pfnSetZRange(const D3DDDIARG_ZRANGE* data);
 		HRESULT pfnUpdateWInfo(const D3DDDIARG_WINFO* data);
 
-		void setSpriteMode(bool spriteMode);
+		void setSpriteMode(SpriteMode spriteMode);
 		void setTempDepthStencil(const D3DDDIARG_SETDEPTHSTENCIL& depthStencil);
 		void setTempPixelShader(const TempShader& shader);
 		void setTempPixelShaderConstB(const D3DDDIARG_SETPIXELSHADERCONSTB& data, const BOOL* registers);
@@ -122,7 +130,7 @@ namespace D3dDdi
 		void flush();
 		const State& getAppState() const { return m_app; }
 		const State& getCurrentState() const { return m_current; }
-		bool getSpriteMode() const { return m_spriteMode; }
+		SpriteMode getSpriteMode() const { return m_spriteMode; }
 		Resource* getTextureResource(UINT stage);
 		UINT getTextureStageCount() const;
 		const VertexDecl& getVertexDecl() const;
@@ -242,6 +250,6 @@ namespace D3dDdi
 		PixelShader* m_pixelShader;
 		InvalidatedShaderConstCount m_invalidatedPsConstCount;
 		InvalidatedShaderConstCount m_invalidatedVsConstCount;
-		bool m_spriteMode;
+		SpriteMode m_spriteMode;
 	};
 }

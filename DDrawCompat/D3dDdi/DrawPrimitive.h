@@ -75,9 +75,11 @@ namespace D3dDdi
 		UINT getBatchedVertexCount() const;
 		void rebaseIndices();
 		void repeatLastBatchedVertex();
-
 		HRESULT setSysMemStreamSource(const BYTE* vertices, UINT stride);
 		void setTextureClampMode(INT baseVertexIndex, const UINT16* indices, UINT count);
+		void setupDraw(D3DPRIMITIVETYPE primitiveType, INT baseVertexIndex, UINT count, const UINT16* indices);
+		void transformLines();
+		void transformPointList();
 
 		Device& m_device;
 		const D3DDDI_DEVICEFUNCS& m_origVtable;
