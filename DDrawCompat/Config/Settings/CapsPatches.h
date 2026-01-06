@@ -1,10 +1,9 @@
 #pragma once
 
+#include <vector>
+
 #include <ddraw.h>
 #include <d3d.h>
-
-#include <map>
-#include <vector>
 
 #include <Config/ListSetting.h>
 
@@ -16,7 +15,7 @@ namespace Config
 		{
 		public:
 			enum class Caps { DD, D3D, D3D7 };
-			enum class Operation { SET, AND, OR };
+			enum class Operation { SET, AND, ANDNOT, OR };
 
 			CapsPatches();
 

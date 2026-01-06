@@ -2,6 +2,7 @@
 #include <map>
 #include <sstream>
 #include <type_traits>
+#include <vector>
 
 #include <Config/Parser.h>
 #include <Config/Settings/CapsPatches.h>
@@ -88,10 +89,11 @@ namespace
 		{Config::Settings::CapsPatches::Caps::D3D7, g_fields<D3DDEVICEDESC7>}
 	};
 
-	const std::map<std::string, Config::Settings::CapsPatches::Operation> g_operations = {
-		{"=", Config::Settings::CapsPatches::Operation::SET},
+	const std::vector<std::pair<std::string, Config::Settings::CapsPatches::Operation>> g_operations = {
+		{"&=~", Config::Settings::CapsPatches::Operation::ANDNOT},
 		{"&=", Config::Settings::CapsPatches::Operation::AND},
-		{"|=", Config::Settings::CapsPatches::Operation::OR}
+		{"|=", Config::Settings::CapsPatches::Operation::OR},
+		{"=", Config::Settings::CapsPatches::Operation::SET}
 	};
 
 	void applyPatch(BYTE* field, UINT size, Config::Settings::CapsPatches::Operation op, UINT value)
@@ -107,6 +109,10 @@ namespace
 		if (Config::Settings::CapsPatches::Operation::AND == op)
 		{
 			v &= value;
+		}
+		else if (Config::Settings::CapsPatches::Operation::ANDNOT == op)
+		{
+			v &= ~value;
 		}
 		else
 		{
@@ -243,26 +249,23 @@ namespace Config
 				throw ParsingError("whitespace is not allowed in value: '" + value + "'");
 			}
 
-			Operation operation = {};
+			auto operation = g_operations.end();
 			std::size_t pos = std::string::npos;
 			std::string fieldId;
 			std::string valueStr;
-			for (const auto& op : g_operations)
+			for (auto it = g_operations.begin(); it != g_operations.end(); ++it)
 			{
-				pos = value.find(op.first);
+				pos = value.find(it->first);
 				if (std::string::npos != pos)
 				{
-					operation = op.second;
+					operation = it;
 					fieldId = value.substr(0, pos);
-					valueStr = value.substr(pos + op.first.length());
-					if (2 == op.first.length())
-					{
-						break;
-					}
+					valueStr = value.substr(pos + it->first.length());
+					break;
 				}
 			}
 
-			if (std::string::npos == pos)
+			if (operation == g_operations.end())
 			{
 				throw ParsingError("operator not found in value: '" + value + "'");
 			}
@@ -292,11 +295,10 @@ namespace Config
 				throw ParsingError("invalid value: '" + valueStr + "'");
 			}
 
-			m_patches.push_back({ capsIt->second, o, s, operation, static_cast<UINT>(v) });
+			m_patches.push_back({ capsIt->second, o, s, operation->second, static_cast<UINT>(v) });
 
 			return Parser::toupper(value.substr(0, pos)) + '.' +
-				getFieldIdFromOffset(g_fieldMaps.at(capsIt->second), o) +
-				std::find_if(g_operations.begin(), g_operations.end(), [=](const auto& v) { return v.second == operation; })->first +
+				getFieldIdFromOffset(g_fieldMaps.at(capsIt->second), o) + operation->first +
 				(valueStr.substr(0, 2) == "0x" ? ("0x" + Parser::toupper(valueStr.substr(2))) : valueStr);
 		}
 
