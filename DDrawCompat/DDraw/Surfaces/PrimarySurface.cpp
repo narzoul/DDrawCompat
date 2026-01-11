@@ -282,12 +282,6 @@ namespace DDraw
 		HRESULT result = S_OK;
 		do
 		{
-			auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*surface));
-			if (resource)
-			{
-				resource->setAsPrimary();
-			}
-
 			auto surf = DDraw::Surface::getSurface(*surface);
 			if (surf)
 			{
@@ -305,10 +299,11 @@ namespace DDraw
 	void PrimarySurface::setAsRenderTarget()
 	{
 		g_origCaps |= DDSCAPS_3DDEVICE;
+		D3dDdi::ScopedCriticalSection lock;
 		auto resource = D3dDdi::Device::findResource(DDraw::DirectDrawSurface::getDriverResourceHandle(*g_primarySurface));
 		if (resource)
 		{
-			resource->setAsPrimary();
+			resource->setAsRenderTarget();
 		}
 	}
 

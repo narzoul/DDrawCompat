@@ -104,8 +104,8 @@ namespace D3dDdi
 		, m_isOversized(false)
 		, m_isSurfaceRepoResource(SurfaceRepository::inCreateSurface() || !g_enableConfig)
 		, m_isClampable(true)
-		, m_isPrimary(false)
-		, m_isPrimaryScalingNeeded(false)
+		, m_isEnhancementNeeded(D3DDDIPOOL_SYSTEMMEM != m_origData.Pool &&
+			(m_origData.Flags.RenderTarget || m_origData.Flags.ZBuffer))
 	{
 		if (m_origData.Flags.VertexBuffer &&
 			m_origData.Flags.MightDrawFromLocked &&
@@ -345,9 +345,9 @@ namespace D3dDdi
 
 	HRESULT Resource::bltViaGpu(D3DDDIARG_BLT data, Resource& srcResource)
 	{
-		if (m_isPrimary && !m_isPrimaryScalingNeeded && srcResource.isScaled(data.SrcSubResourceIndex))
+		if (!m_isEnhancementNeeded && srcResource.m_isEnhancementNeeded && D3DDDIPOOL_SYSTEMMEM != m_origData.Pool)
 		{
-			m_isPrimaryScalingNeeded = true;
+			m_isEnhancementNeeded = true;
 			updateConfig();
 		}
 
@@ -383,7 +383,7 @@ namespace D3dDdi
 		}
 
 		Resource& dstRes = prepareForBltDst(data);
-		return shaderBlt(data, dstRes, *srcRes,
+		return shaderBlt(data, dstRes, *srcRes, srcResource,
 			Config::Settings::BltFilter::BILINEAR == Config::bltFilter.get() ? D3DTEXF_LINEAR : D3DTEXF_POINT);
 	}
 
@@ -849,7 +849,7 @@ namespace D3dDdi
 
 	std::pair<D3DDDIMULTISAMPLE_TYPE, UINT> Resource::getMultisampleConfig(D3DDDIFORMAT format)
 	{
-		if (!m_isPrimary || m_origData.Flags.RenderTarget)
+		if (m_origData.Flags.RenderTarget || m_origData.Flags.ZBuffer)
 		{
 			return m_device.getAdapter().getMultisampleConfig(format);
 		}
@@ -865,7 +865,7 @@ namespace D3dDdi
 	SIZE Resource::getScaledSize()
 	{
 		SIZE size = { static_cast<LONG>(m_fixedData.pSurfList[0].Width), static_cast<LONG>(m_fixedData.pSurfList[0].Height) };
-		if (m_isPrimary && m_isPrimaryScalingNeeded || m_origData.Flags.RenderTarget || m_origData.Flags.ZBuffer)
+		if (m_isEnhancementNeeded || m_origData.Flags.ZBuffer)
 		{
 			return m_device.getAdapter().getScaledSize(size);
 		}
@@ -960,7 +960,7 @@ namespace D3dDdi
 				blt.hDstResource = *m_msaaSurface.resource;
 				blt.DstSubResourceIndex = subResourceIndex;
 				blt.DstRect = m_msaaSurface.resource->getRect(subResourceIndex);
-				shaderBlt(blt, *m_msaaSurface.resource, *this, D3DTEXF_POINT);
+				shaderBlt(blt, *m_msaaSurface.resource, *this, *this, D3DTEXF_POINT);
 			}
 		}
 		else
@@ -1002,7 +1002,7 @@ namespace D3dDdi
 			blt.hDstResource = *m_msaaResolvedSurface.resource;
 			blt.DstSubResourceIndex = subResourceIndex;
 			blt.DstRect = m_msaaResolvedSurface.resource->getRect(subResourceIndex);
-			shaderBlt(blt, *m_msaaResolvedSurface.resource, *this, D3DTEXF_POINT);
+			shaderBlt(blt, *m_msaaResolvedSurface.resource, *this, *this, D3DTEXF_POINT);
 		}
 		m_lockData[subResourceIndex].isMsaaResolvedUpToDate = true;
 	}
@@ -1037,7 +1037,7 @@ namespace D3dDdi
 			blt.hDstResource = *this;
 			blt.DstSubResourceIndex = subResourceIndex;
 			blt.DstRect = getRect(subResourceIndex);
-			shaderBlt(blt, *this, *m_msaaResolvedSurface.resource,
+			shaderBlt(blt, *this, *m_msaaResolvedSurface.resource, *this,
 				Config::Settings::ResolutionScaleFilter::BILINEAR == Config::resolutionScaleFilter.get()
 				? D3DTEXF_LINEAR | D3DTEXF_SRGB
 				: D3DTEXF_POINT);
@@ -1539,11 +1539,13 @@ namespace D3dDdi
 		}
 	}
 
-	void Resource::setAsPrimary()
+	void Resource::setAsRenderTarget()
 	{
-		D3dDdi::ScopedCriticalSection lock;
-		m_isPrimary = true;
-		m_origData.Flags.RenderTarget = (DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_3DDEVICE) ? 1 : 0;
+		m_origData.Flags.RenderTarget = 1;
+		if (D3DDDIPOOL_SYSTEMMEM != m_origData.Pool)
+		{
+			m_isEnhancementNeeded = true;
+		}
 		updateConfig();
 	}
 
@@ -1566,9 +1568,10 @@ namespace D3dDdi
 		g_readOnlyLock = readOnly;
 	}
 
-	HRESULT Resource::shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter)
+	HRESULT Resource::shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource,
+		Resource& origSrcResource, UINT filter)
 	{
-		LOG_FUNC("Resource::shaderBlt", data, dstResource, srcResource);
+		LOG_FUNC("Resource::shaderBlt", data, dstResource, srcResource, origSrcResource, Compat::hex(filter));
 
 		if (D3DDDIPOOL_SYSTEMMEM == dstResource.m_fixedData.Pool ||
 			dstResource.canCopySubResource(data, srcResource))
@@ -1704,7 +1707,7 @@ namespace D3dDdi
 		else
 		{
 			const ShaderBlitter::ColorKeyInfo ck = { data.ColorKey,
-				data.Flags.SrcColorKey ? srcResource.m_origData.Format : D3DDDIFMT_UNKNOWN };
+				data.Flags.SrcColorKey ? origSrcResource.m_origData.Format : D3DDDIFMT_UNKNOWN };
 			m_device.getShaderBlitter().textureBlt(*dstRes, dstIndex, dstRect, *srcRes, srcIndex, srcRect, filter, ck);
 		}
 
@@ -1737,13 +1740,20 @@ namespace D3dDdi
 			return true;
 		}
 
-		if (m_isPrimary)
+		if (m_handle == DDraw::PrimarySurface::getFrontResource())
 		{
 			auto origCaps = DDraw::PrimarySurface::getOrigCaps();
 			if ((origCaps & DDSCAPS_SYSTEMMEMORY) && !(origCaps & DDSCAPS_FLIP))
 			{
 				return true;
 			}
+		}
+
+		if (srcResource.m_lockResource && (srcResource.m_lockData[data.SrcSubResourceIndex].isMsaaUpToDate ||
+			srcResource.m_lockData[data.SrcSubResourceIndex].isMsaaResolvedUpToDate ||
+			srcResource.m_lockData[data.SrcSubResourceIndex].isRefLocked))
+		{
+			return false;
 		}
 
 		if (m_lockData.empty() ||
@@ -1769,7 +1779,7 @@ namespace D3dDdi
 	{
 		if (m_isSurfaceRepoResource || D3DDDIPOOL_SYSTEMMEM == m_fixedData.Pool || D3DDDIFMT_P8 == m_fixedData.Format ||
 			m_fixedData.Flags.MatchGdiPrimary ||
-			!m_isPrimary && !m_origData.Flags.RenderTarget && !m_origData.Flags.ZBuffer ||
+			!m_isEnhancementNeeded && !m_origData.Flags.ZBuffer ||
 			!m_lockResource ||
 			m_fixedData.MipLevels > 1)
 		{

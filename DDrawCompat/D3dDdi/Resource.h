@@ -60,7 +60,7 @@ namespace D3dDdi
 		HRESULT presentationBlt(D3DDDIARG_BLT data, Resource* srcResource);
 		void scaleRect(RECT& rect);
 		void setAsGdiResource(bool isGdiResource);
-		void setAsPrimary();
+		void setAsRenderTarget();
 		void setPaletteHandle(UINT paletteHandle);
 		HRESULT unlock(const D3DDDIARG_UNLOCK& data);
 		void updateConfig();
@@ -129,7 +129,8 @@ namespace D3dDdi
 		void notifyLock(UINT subResourceIndex);
 		void presentLayeredWindows(Resource& dst, UINT dstSubResourceIndex, const RECT& dstRect,
 			std::vector<Gdi::Window::LayeredWindow> layeredWindows, const RECT& monitorRect);
-		HRESULT shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource, UINT filter);
+		HRESULT shaderBlt(const D3DDDIARG_BLT& data, Resource& dstResource, Resource& srcResource,
+			Resource& origSrcResource, UINT filter);
 		bool shouldBltViaCpu(const D3DDDIARG_BLT &data, Resource& srcResource);
 
 		Device& m_device;
@@ -157,7 +158,6 @@ namespace D3dDdi
 		bool m_isOversized;
 		bool m_isSurfaceRepoResource;
 		bool m_isClampable;
-		bool m_isPrimary;
-		bool m_isPrimaryScalingNeeded;
+		bool m_isEnhancementNeeded;
 	};
 }
