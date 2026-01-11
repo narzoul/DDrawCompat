@@ -17,6 +17,7 @@ namespace DDraw
 		static TagSurface* get(DDRAWI_DIRECTDRAW_LCL* ddLcl);
 		static TagSurface* get(CompatRef<IDirectDraw> dd);
 		static TagSurface* findFullscreenWindow(HWND hwnd = nullptr);
+		static bool inCreateSurface() { return s_inCreateSurface; }
 
 		CompatPtr<IDirectDraw7> getDD();
 		DWORD getExclusiveOwnerThreadId() { return m_exclusiveOwnerThreadId; }
@@ -33,5 +34,7 @@ namespace DDraw
 		HWND m_fullscreenWindow;
 		LONG m_fullscreenWindowStyle;
 		LONG m_fullscreenWindowExStyle;
+
+		static bool s_inCreateSurface;
 	};
 }

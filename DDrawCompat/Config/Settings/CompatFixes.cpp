@@ -20,6 +20,7 @@ namespace Config
 				return value; \
 			}
 
+			ADD_FIX(forcevidmem);
 			ADD_FIX(nodepthblt);
 			ADD_FIX(nodepthlock);
 			ADD_FIX(nodwmflush);

@@ -5,9 +5,11 @@
 #include <Common/CompatPtr.h>
 #include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/SurfacePatches.h>
+#include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/DirectDrawSurface.h>
 #include <DDraw/Surfaces/Surface.h>
 #include <DDraw/Surfaces/SurfaceImpl.h>
+#include <DDraw/Surfaces/TagSurface.h>
 #include <Win32/DisplayMode.h>
 
 // {C62D8849-DFAC-4454-A1E8-DA67446426BA}
@@ -110,6 +112,14 @@ namespace DDraw
 		{
 			desc.dwFlags &= ~DDSD_MIPMAPCOUNT;
 			desc.ddsCaps.dwCaps &= ~(DDSCAPS_COMPLEX | DDSCAPS_MIPMAP);
+		}
+
+		if (Config::compatFixes.get().forcevidmem &&
+			(desc.dwFlags & DDSD_HEIGHT) &&
+			!D3dDdi::SurfaceRepository::inCreateSurface() &&
+			!TagSurface::inCreateSurface())
+		{
+			desc.ddsCaps.dwCaps &= ~DDSCAPS_SYSTEMMEMORY;
 		}
 
 		memcpy(&g_currentSurfaceCaps, &desc.ddsCaps, sizeof(desc.ddsCaps));

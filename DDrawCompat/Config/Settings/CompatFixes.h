@@ -11,6 +11,7 @@ namespace Config
 		public:
 			struct Fixes
 			{
+				bool forcevidmem;
 				bool nodepthblt;
 				bool nodepthlock;
 				bool nodwmflush;

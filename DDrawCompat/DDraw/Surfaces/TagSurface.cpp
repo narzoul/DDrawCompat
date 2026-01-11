@@ -46,7 +46,10 @@ namespace DDraw
 		g_ddObjects[ddLcl] = privateData.get();
 
 		IDirectDrawSurface* surface = nullptr;
-		return Surface::create(dd, desc, surface, std::move(privateData));
+		s_inCreateSurface = true;
+		const HRESULT result = Surface::create(dd, desc, surface, std::move(privateData));
+		s_inCreateSurface = false;
+		return result;
 	}
 
 	TagSurface* TagSurface::findFullscreenWindow(HWND hwnd)
@@ -149,4 +152,6 @@ namespace DDraw
 		}
 		return prevExStyle;
 	}
+
+	bool TagSurface::s_inCreateSurface = false;
 }
