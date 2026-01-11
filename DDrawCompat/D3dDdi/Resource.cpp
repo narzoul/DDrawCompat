@@ -1532,7 +1532,7 @@ namespace D3dDdi
 	{
 		D3dDdi::ScopedCriticalSection lock;
 		m_isPrimary = true;
-		m_origData.Flags.RenderTarget = DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_3DDEVICE ? 1 : 0;
+		m_origData.Flags.RenderTarget = (DDraw::PrimarySurface::getOrigCaps() & DDSCAPS_3DDEVICE) ? 1 : 0;
 		updateConfig();
 	}
 
@@ -1826,7 +1826,7 @@ namespace D3dDdi
 				repo.getSurface(m_lockRefSurface, m_fixedData.pSurfList[0].Width, m_fixedData.pSurfList[0].Height,
 					m_fixedData.Format, DDSCAPS_TEXTURE | DDSCAPS_VIDEOMEMORY, m_fixedData.SurfCount);
 				
-				if (isScaled && m_device.getGdiResource() == this)
+				if (m_origData.Flags.RenderTarget)
 				{
 					auto lockData = m_lockData[0];
 					loadMsaaResolvedResource(0);
