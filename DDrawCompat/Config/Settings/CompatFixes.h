@@ -11,6 +11,8 @@ namespace Config
 		public:
 			struct Fixes
 			{
+				bool nodepthblt;
+				bool nodepthlock;
 				bool nodwmflush;
 				bool nohalftone;
 				bool nosyslock;

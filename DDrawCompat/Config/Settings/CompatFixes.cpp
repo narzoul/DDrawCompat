@@ -20,6 +20,8 @@ namespace Config
 				return value; \
 			}
 
+			ADD_FIX(nodepthblt);
+			ADD_FIX(nodepthlock);
 			ADD_FIX(nodwmflush);
 			ADD_FIX(nohalftone);
 			ADD_FIX(nosyslock);

@@ -5,6 +5,7 @@
 #include <Common/Time.h>
 #include <Config/Settings/BltFilter.h>
 #include <Config/Settings/ColorKeyMethod.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/DepthFormat.h>
 #include <Config/Settings/GdiInterops.h>
 #include <Config/Settings/ResolutionScaleFilter.h>
@@ -183,6 +184,11 @@ namespace D3dDdi
 
 	HRESULT Resource::blt(D3DDDIARG_BLT data)
 	{
+		if (m_origData.Flags.ZBuffer && Config::compatFixes.get().nodepthblt)
+		{
+			return E_NOTIMPL;
+		}
+
 		if (!isValidRect(data.DstSubResourceIndex, data.DstRect))
 		{
 			return S_OK;
@@ -1049,6 +1055,11 @@ namespace D3dDdi
 		if (D3DDDIMULTISAMPLE_NONE != m_fixedData.MultisampleType || FOURCC_NULL == m_fixedData.Format)
 		{
 			return E_FAIL;
+		}
+
+		if (m_origData.Flags.ZBuffer && Config::compatFixes.get().nodepthlock)
+		{
+			return E_NOTIMPL;
 		}
 
 		if (g_readOnlyLock)
