@@ -1,5 +1,4 @@
 #include <map>
-#include <set>
 
 #include <Windows.h>
 #include <Windowsx.h>
@@ -15,16 +14,11 @@
 #include <Dll/Dll.h>
 #include <DDraw/DirectDraw.h>
 #include <DDraw/RealPrimarySurface.h>
-#include <DDraw/Surfaces/PrimarySurface.h>
 #include <DDraw/Surfaces/TagSurface.h>
-#include <Gdi/CompatDc.h>
 #include <Gdi/Cursor.h>
-#include <Gdi/Dc.h>
 #include <Gdi/Gdi.h>
 #include <Gdi/GuiThread.h>
-#include <Gdi/PresentationWindow.h>
 #include <Gdi/ScrollBar.h>
-#include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
@@ -1004,7 +998,7 @@ namespace Gdi
 
 			MONITORINFO mi = {};
 			mi.cbSize = sizeof(mi);
-			GetMonitorInfoA(MonitorFromWindow(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
+			GetMonitorInfoA(CALL_ORIG_FUNC(MonitorFromWindow)(hwnd, MONITOR_DEFAULTTOPRIMARY), &mi);
 
 			RECT cbRect = {};
 			CALL_ORIG_FUNC(GetWindowRect)(g_droppedDownComboBox, &cbRect);

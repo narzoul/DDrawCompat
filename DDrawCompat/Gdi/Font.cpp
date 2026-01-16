@@ -2,7 +2,6 @@
 #include <Common/Log.h>
 #include <Config/Settings/FontAntialiasing.h>
 #include <Gdi/Font.h>
-#include <Win32/DisplayMode.h>
 
 namespace
 {
@@ -26,7 +25,7 @@ namespace
 			{
 				MONITORINFO mi = {};
 				mi.cbSize = sizeof(mi);
-				GetMonitorInfoA(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+				GetMonitorInfoA(CALL_ORIG_FUNC(MonitorFromPoint)({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 				*static_cast<RECT*>(pvParam) = mi.rcWork;
 				return TRUE;
 			}

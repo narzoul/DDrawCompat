@@ -18,6 +18,7 @@ namespace Config
 				bool nohalftone;
 				bool nosyslock;
 				bool nowindowborders;
+				bool singlemonitor;
 				bool unalignedsurfaces;
 			};
 

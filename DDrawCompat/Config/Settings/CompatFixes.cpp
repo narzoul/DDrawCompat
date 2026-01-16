@@ -27,6 +27,7 @@ namespace Config
 			ADD_FIX(nohalftone);
 			ADD_FIX(nosyslock);
 			ADD_FIX(nowindowborders);
+			ADD_FIX(singlemonitor);
 			ADD_FIX(unalignedsurfaces);
 
 			throw ParsingError("invalid value: '" + value + "'");

@@ -2,7 +2,6 @@
 
 #include <Windows.h>
 #include <DbgHelp.h>
-#include <ShellScalingApi.h>
 #include <Uxtheme.h>
 
 #include <Common/Hook.h>
@@ -11,9 +10,9 @@
 #include <Common/ScopedCriticalSection.h>
 #include <Common/Time.h>
 #include <Config/Parser.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/CrashDump.h>
 #include <Config/Settings/DesktopResolution.h>
-#include <Config/Settings/DpiAwareness.h>
 #include <Config/Settings/EnableDDrawCompat.h>
 #include <Config/Settings/FullscreenMode.h>
 #include <Config/Settings/GdiInterops.h>
@@ -26,8 +25,6 @@
 #include <Direct3d/Hooks.h>
 #include <Dll/Dll.h>
 #include <Gdi/Gdi.h>
-#include <Gdi/GuiThread.h>
-#include <Gdi/PresentationWindow.h>
 #include <Gdi/VirtualScreen.h>
 #include <Input/Input.h>
 #include <Overlay/Steam.h>
@@ -66,6 +63,7 @@ namespace
 	void installHooks();
 	void onDirectDrawCreate(GUID* lpGUID, LPDIRECTDRAW* lplpDD, IUnknown* pUnkOuter);
 	void onDirectDrawCreate(GUID* lpGUID, LPVOID* lplpDD, REFIID iid, IUnknown* pUnkOuter);
+	void onDirectDrawEnumerateEx(LPVOID lpContext, DWORD& dwFlags);
 
 	template <FARPROC(Dll::Procs::* origFunc), typename OrigFuncPtrType, typename FirstParam, typename... Params>
 	HRESULT WINAPI directDrawFunc(FirstParam firstParam, Params... params)
@@ -75,6 +73,10 @@ namespace
 		if constexpr (&Dll::Procs::DirectDrawCreate == origFunc || &Dll::Procs::DirectDrawCreateEx == origFunc)
 		{
 			DDraw::DirectDraw::suppressEmulatedDirectDraw(firstParam);
+		}
+		if constexpr (&Dll::Procs::DirectDrawEnumerateExA == origFunc || &Dll::Procs::DirectDrawEnumerateExW == origFunc)
+		{
+			onDirectDrawEnumerateEx(params...);
 		}
 		HRESULT result = reinterpret_cast<OrigFuncPtrType>(Dll::g_origProcs.*origFunc)(firstParam, params...);
 		if constexpr (&Dll::Procs::DirectDrawCreate == origFunc || &Dll::Procs::DirectDrawCreateEx == origFunc)
@@ -186,6 +188,14 @@ namespace
 	void onDirectDrawCreate(GUID* lpGUID, LPVOID* lplpDD, REFIID /*iid*/, IUnknown* /*pUnkOuter*/)
 	{
 		return DDraw::DirectDraw::onCreate(lpGUID, *CompatPtr<IDirectDraw7>::from(static_cast<IDirectDraw7*>(*lplpDD)));
+	}
+
+	void onDirectDrawEnumerateEx(LPVOID /*lpContext*/, DWORD& dwFlags)
+	{
+		if (Config::compatFixes.get().singlemonitor)
+		{
+			dwFlags = 0;
+		}
 	}
 
 	HRESULT WINAPI setAppCompatData(DWORD param1, DWORD param2)

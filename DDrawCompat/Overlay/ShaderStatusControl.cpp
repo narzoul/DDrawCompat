@@ -5,7 +5,6 @@
 #include <Gdi/GuiThread.h>
 #include <Overlay/ComboBoxControl.h>
 #include <Overlay/ConfigWindow.h>
-#include <Overlay/SettingControl.h>
 #include <Overlay/ShaderStatusControl.h>
 
 namespace
@@ -18,7 +17,7 @@ namespace
 			MONITORINFOEXW mi = {};
 			mi.cbSize = sizeof(mi);
 			CALL_ORIG_FUNC(GetMonitorInfoW)(
-				MonitorFromWindow(Gdi::GuiThread::getConfigWindow()->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
+				CALL_ORIG_FUNC(MonitorFromWindow)(Gdi::GuiThread::getConfigWindow()->getWindow(), MONITOR_DEFAULTTOPRIMARY), &mi);
 			if (device.second.getAdapter().getDeviceName() == mi.szDevice)
 			{
 				return device.second.getShaderBlitter().getMetaShader().getStatus();

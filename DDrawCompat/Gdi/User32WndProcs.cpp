@@ -2,13 +2,10 @@
 #include <DDraw/RealPrimarySurface.h>
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/CompatDc.h>
-#include <Gdi/Cursor.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/ScrollBar.h>
-#include <Gdi/ScrollFunctions.h>
 #include <Gdi/TitleBar.h>
 #include <Gdi/User32WndProcs.h>
-#include <Gdi/VirtualScreen.h>
 #include <Gdi/Window.h>
 #include <Gdi/WinProc.h>
 
@@ -379,7 +376,7 @@ namespace
 
 	void fixPopupMenuPosition(WINDOWPOS& wp)
 	{
-		RECT mr = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(wp.hwnd, MONITOR_DEFAULTTOPRIMARY)).rcEmulated;
+		RECT mr = Win32::DisplayMode::getMonitorInfo(CALL_ORIG_FUNC(MonitorFromWindow)(wp.hwnd, MONITOR_DEFAULTTOPRIMARY)).rcEmulated;
 		if (wp.flags & SWP_NOSIZE)
 		{
 			RECT r = {};

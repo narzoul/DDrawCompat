@@ -23,7 +23,6 @@
 #include <DDraw/Surfaces/PrimarySurface.h>
 #include <Gdi/GuiThread.h>
 #include <Gdi/Palette.h>
-#include <Gdi/Window.h>
 #include <Overlay/StatsWindow.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
@@ -145,8 +144,12 @@ namespace
 		{
 			MONITORINFOEXA mi = {};
 			mi.cbSize = sizeof(mi);
-			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(CALL_ORIG_FUNC(MonitorFromPoint)({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 			g_lastDDrawDeviceName = mi.szDevice;
+			if (Config::compatFixes.get().singlemonitor)
+			{
+				return LOG_RESULT(CreateDCA(nullptr, mi.szDevice, pszPort, pdm));
+			}
 		}
 		return LOG_RESULT(CreateDCA(pwszDriver, pwszDevice, pszPort, pdm));
 	}
@@ -374,7 +377,7 @@ namespace
 
 			MONITORINFOEX mi = {};
 			mi.cbSize = sizeof(mi);
-			CALL_ORIG_FUNC(GetMonitorInfoA)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(CALL_ORIG_FUNC(MonitorFromPoint)({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 
 			D3DKMT_OPENADAPTERFROMHDC data = {};
 			data.hDc = CreateDC(mi.szDevice, mi.szDevice, nullptr, nullptr);

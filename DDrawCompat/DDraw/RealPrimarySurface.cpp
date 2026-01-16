@@ -244,7 +244,7 @@ namespace
 		}
 		else
 		{
-			mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(presentationWindow, MONITOR_DEFAULTTOPRIMARY));
+			mi = Win32::DisplayMode::getMonitorInfo(CALL_ORIG_FUNC(MonitorFromWindow)(presentationWindow, MONITOR_DEFAULTTOPRIMARY));
 			if (!DDraw::TagSurface::findFullscreenWindow())
 			{
 				frontBuffer = D3dDdi::SurfaceRepository::getPrimaryRepo().getWindowedPrimary();
@@ -419,7 +419,7 @@ namespace
 
 		if (g_presentationWindow)
 		{
-			auto& mi = Win32::DisplayMode::getMonitorInfo(MonitorFromWindow(fullscreenWindow, MONITOR_DEFAULTTOPRIMARY));
+			auto& mi = Win32::DisplayMode::getMonitorInfo(CALL_ORIG_FUNC(MonitorFromWindow)(fullscreenWindow, MONITOR_DEFAULTTOPRIMARY));
 			auto& mr = mi.rcDpiAware;
 
 			Gdi::GuiThread::execute([&]()

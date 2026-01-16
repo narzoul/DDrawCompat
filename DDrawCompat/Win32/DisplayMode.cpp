@@ -12,6 +12,7 @@
 #include <Common/Log.h>
 #include <Common/Rect.h>
 #include <Common/ScopedCriticalSection.h>
+#include <Config/Settings/CompatFixes.h>
 #include <Config/Settings/DesktopColorDepth.h>
 #include <Config/Settings/DesktopResolution.h>
 #include <Config/Settings/DisplayRefreshRate.h>
@@ -22,7 +23,6 @@
 #include <DDraw/DirectDraw.h>
 #include <DDraw/ScopedThreadLock.h>
 #include <Gdi/Gdi.h>
-#include <Gdi/GuiThread.h>
 #include <Gdi/VirtualScreen.h>
 #include <Win32/DisplayMode.h>
 #include <Win32/DpiAwareness.h>
@@ -41,6 +41,11 @@ namespace
 	template <> struct DevModeType<WCHAR> { typedef DEVMODEW Type; };
 	template <typename Char> using DevMode = typename DevModeType<Char>::Type;
 
+	template <typename Char> struct DisplayDeviceType;
+	template <> struct DisplayDeviceType<CHAR> { typedef DISPLAY_DEVICEA Type; };
+	template <> struct DisplayDeviceType<WCHAR> { typedef DISPLAY_DEVICEW Type; };
+	template <typename Char> using DisplayDevice = typename DisplayDeviceType<Char>::Type;
+
 	template <typename Char>
 	struct EnumParams
 	{
@@ -56,6 +61,12 @@ namespace
 		{
 			return !(*this == other);
 		}
+	};
+
+	struct EnumDisplayMonitorsArgs
+	{
+		MONITORENUMPROC lpfnEnum;
+		LPARAM dwData;
 	};
 
 	struct GetMonitorFromDcEnumArgs
@@ -120,8 +131,6 @@ namespace
 
 	template <typename Char>
 	std::wstring getDeviceName(const Char* deviceName);
-
-	HMONITOR getMonitorFromDc(HDC dc);
 
 	template <typename Char>
 	std::map<SIZE, std::set<DWORD>> getSupportedDisplayModeMap(const Char* deviceName, DWORD flags);
@@ -362,6 +371,59 @@ namespace
 		return LOG_RESULT(FALSE);
 	}
 
+	template <auto origFunc, typename Char>
+	BOOL WINAPI enumDisplayDevices(const Char* lpDevice, DWORD iDevNum, DisplayDevice<Char>* lpDisplayDevice, DWORD dwFlags)
+	{
+		LOG_FUNC(Compat::g_origFuncName<origFunc>.c_str(), lpDevice, iDevNum, lpDisplayDevice, Compat::hex(dwFlags));
+		if (!Config::compatFixes.get().singlemonitor || !lpDisplayDevice)
+		{
+			return LOG_RESULT(Compat::g_origFuncPtr<origFunc>(lpDevice, iDevNum, lpDisplayDevice, dwFlags));
+		}
+
+		if (0 != iDevNum)
+		{
+			return LOG_RESULT(FALSE);
+		}
+
+		DWORD devNum = 0;
+		DisplayDevice<Char> dd = *lpDisplayDevice;
+		while (Compat::g_origFuncPtr<origFunc>(lpDevice, devNum, &dd, dwFlags))
+		{
+			if (dd.StateFlags & DISPLAY_DEVICE_PRIMARY_DEVICE)
+			{
+				*lpDisplayDevice = dd;
+				return LOG_RESULT(TRUE);
+			}
+			++devNum;
+		}
+		return LOG_RESULT(FALSE);
+	}
+
+	BOOL CALLBACK monitorEnumProc(HMONITOR hMonitor, HDC hdcMonitor, LPRECT lprcMonitor, LPARAM dwData)
+	{
+		auto& args = *reinterpret_cast<EnumDisplayMonitorsArgs*>(dwData);
+		LOG_FUNC("MonitorEnumProc", hMonitor, hdcMonitor, lprcMonitor, args.dwData);
+		if (Config::compatFixes.get().singlemonitor)
+		{
+			MONITORINFO mi = {};
+			mi.cbSize = sizeof(mi);
+			CALL_ORIG_FUNC(GetMonitorInfoA)(hMonitor, &mi);
+			if (0 != mi.rcMonitor.left || 0 != mi.rcMonitor.top)
+			{
+				return LOG_RESULT(TRUE);
+			}
+		}
+		return LOG_RESULT(args.lpfnEnum(hMonitor, hdcMonitor, lprcMonitor, args.dwData));
+	}
+
+	BOOL WINAPI enumDisplayMonitors(HDC hdc, LPCRECT lprcClip, MONITORENUMPROC lpfnEnum, LPARAM dwData)
+	{
+		LOG_FUNC("EnumDisplayMonitors", hdc, lprcClip, lpfnEnum, dwData);
+		EnumDisplayMonitorsArgs args = { lpfnEnum, dwData };
+		return LOG_RESULT(CALL_ORIG_FUNC(EnumDisplayMonitors)(
+			hdc, lprcClip, monitorEnumProc, reinterpret_cast<LPARAM>(&args)));
+	}
+
 	template <typename Char>
 	BOOL enumDisplaySettingsEx(const Char* lpszDeviceName, DWORD iModeNum, DevMode<Char>* lpDevMode, DWORD dwFlags)
 	{
@@ -569,7 +631,7 @@ namespace
 
 		MONITORINFOEXW mi = {};
 		mi.cbSize = sizeof(mi);
-		CALL_ORIG_FUNC(GetMonitorInfoW)(MonitorFromPoint({}, MONITOR_DEFAULTTOPRIMARY), &mi);
+		CALL_ORIG_FUNC(GetMonitorInfoW)(CALL_ORIG_FUNC(MonitorFromPoint)({}, MONITOR_DEFAULTTOPRIMARY), &mi);
 		return mi.szDevice;
 	}
 
@@ -679,26 +741,35 @@ namespace
 
 		switch (nIndex)
 		{
+		case SM_CXVIRTUALSCREEN:
+		case SM_CYVIRTUALSCREEN:
+			if (!Config::compatFixes.get().singlemonitor)
+			{
+				break;
+			}
+			nIndex = nIndex - SM_CXVIRTUALSCREEN + SM_CXSCREEN;
+			[[fallthrough]];
 		case SM_CXSCREEN:
 		case SM_CYSCREEN:
-		{
 			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXSCREEN));
-		}
 
 		case SM_CXFULLSCREEN:
 		case SM_CYFULLSCREEN:
-		{
 			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXFULLSCREEN));
-		}
 
 		case SM_CXMAXIMIZED:
 		case SM_CYMAXIMIZED:
-		{
 			return LOG_RESULT(getAdjustedDisplayMetrics(nIndex, SM_CXMAXIMIZED));
-		}
 
 		case SM_CXSIZE:
 			nIndex = SM_CYSIZE;
+			break;
+
+		case SM_CMONITORS:
+			if (Config::compatFixes.get().singlemonitor)
+			{
+				return LOG_RESULT(1);
+			}
 			break;
 		}
 
@@ -741,6 +812,18 @@ namespace
 	SIZE makeSize(DWORD width, DWORD height)
 	{
 		return { static_cast<LONG>(width), static_cast<LONG>(height) };
+	}
+
+	template <auto origFunc, typename From>
+	HMONITOR WINAPI monitorFrom(From from, DWORD dwFlags)
+	{
+		LOG_FUNC(Compat::g_origFuncName<origFunc>.c_str(), from, dwFlags);
+		HMONITOR result = Compat::g_origFuncPtr<origFunc>(from, dwFlags);
+		if (result && Config::compatFixes.get().singlemonitor)
+		{
+			return LOG_RESULT(CALL_ORIG_FUNC(MonitorFromPoint)({}, MONITOR_DEFAULTTOPRIMARY));
+		}
+		return LOG_RESULT(result);
 	}
 
 	LONG origChangeDisplaySettingsEx(LPCSTR lpszDeviceName, DEVMODEA* lpDevMode, HWND hwnd, DWORD dwflags, LPVOID lParam)
@@ -858,7 +941,7 @@ namespace
 			g_monitorInfo.clear();
 			g_monitorInfoUniqueness = uniqueness;
 			g_realBounds = {};
-			EnumDisplayMonitors(nullptr, nullptr, &updateMonitorInfoEnum, 0);
+			CALL_ORIG_FUNC(EnumDisplayMonitors)(nullptr, nullptr, &updateMonitorInfoEnum, 0);
 		}
 	}
 }
@@ -919,12 +1002,12 @@ namespace Win32
 
 		const MonitorInfo& getMonitorInfo(HWND hwnd)
 		{
-			return getMonitorInfo(hwnd ? MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) : nullptr);
+			return getMonitorInfo(hwnd ? CALL_ORIG_FUNC(MonitorFromWindow)(hwnd, MONITOR_DEFAULTTONEAREST) : nullptr);
 		}
 
 		const MonitorInfo& getMonitorInfo(POINT pt)
 		{
-			return getMonitorInfo(MonitorFromPoint(pt, MONITOR_DEFAULTTONEAREST));
+			return getMonitorInfo(CALL_ORIG_FUNC(MonitorFromPoint)(pt, MONITOR_DEFAULTTONEAREST));
 		}
 
 		const MonitorInfo& getMonitorInfo(const std::wstring& deviceName)
@@ -1001,6 +1084,9 @@ namespace Win32
 
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExA, changeDisplaySettingsExA);
 			HOOK_FUNCTION(user32, ChangeDisplaySettingsExW, changeDisplaySettingsExW);
+			HOOK_FUNCTION(user32, EnumDisplayMonitors, enumDisplayMonitors);
+			HOOK_FUNCTION(user32, EnumDisplayDevicesA, enumDisplayDevices<EnumDisplayDevicesA>);
+			HOOK_FUNCTION(user32, EnumDisplayDevicesW, enumDisplayDevices<EnumDisplayDevicesW>);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExA, enumDisplaySettingsExA);
 			HOOK_FUNCTION(user32, EnumDisplaySettingsExW, enumDisplaySettingsExW);
 			HOOK_FUNCTION(gdi32, GdiEntry13, gdiEntry13);
@@ -1008,6 +1094,9 @@ namespace Win32
 			HOOK_FUNCTION(user32, GetMonitorInfoA, ::getMonitorInfo<GetMonitorInfoA>);
 			HOOK_FUNCTION(user32, GetMonitorInfoW, ::getMonitorInfo<GetMonitorInfoW>);
 			HOOK_FUNCTION(user32, GetSystemMetrics, getSystemMetrics);
+			HOOK_FUNCTION(user32, MonitorFromPoint, monitorFrom<MonitorFromPoint>);
+			HOOK_FUNCTION(user32, MonitorFromRect, monitorFrom<MonitorFromRect>);
+			HOOK_FUNCTION(user32, MonitorFromWindow, monitorFrom<MonitorFromWindow>);
 
 			Compat::hookFunction("user32", "GetSystemMetricsForDpi",
 				reinterpret_cast<void*&>(g_origGetSystemMetricsForDpi), getSystemMetricsForDpi);
