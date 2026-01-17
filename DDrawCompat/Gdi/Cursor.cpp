@@ -33,6 +33,12 @@ namespace
 
 		g_clipRect = lpRect ? *lpRect : Win32::DisplayMode::getRealBounds();
 		const RECT rect = intersectRect(g_clipRect, g_monitorClipRect);
+		RECT prevRect = {};
+		if (CALL_ORIG_FUNC(GetClipCursor)(&prevRect) && prevRect == rect)
+		{
+			return LOG_RESULT(TRUE);
+		}
+
 		CALL_ORIG_FUNC(ClipCursor)(&rect);
 		return LOG_RESULT(TRUE);
 	}
