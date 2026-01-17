@@ -1,11 +1,14 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
+#include <string>
 
 #include <Windows.h>
 
 namespace Compat
 {
+	void forEachFile(const std::wstring& path, std::function<void(const WIN32_FIND_DATAW&)> callback);
 	std::filesystem::path getEnvPath(const char* envVar);
 	std::filesystem::path getModulePath(HMODULE module);
 	std::filesystem::path getSystemPath();

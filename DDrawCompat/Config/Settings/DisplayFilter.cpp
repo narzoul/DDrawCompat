@@ -1,8 +1,43 @@
 #include <regex>
+#include <set>
 #include <sstream>
 
+#include <Windows.h>
+
+#include <Common/Path.h>
 #include <Config/Settings/DisplayFilter.h>
 #include <D3dDdi/MetaShader.h>
+
+namespace
+{
+	void enumPath(std::set<std::string>& paths, std::vector<std::wstring>& tmpFiles,
+		const std::filesystem::path& baseDir, const std::filesystem::path& dir)
+	{
+		Compat::forEachFile((dir / "*").native(), [&](const WIN32_FIND_DATAW& fd)
+			{
+				const std::filesystem::path p(dir / fd.cFileName);
+				if (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+				{
+					enumPath(paths, tmpFiles, baseDir, p);
+					return;
+				}
+
+				if (p.extension() == ".cgp")
+				{
+					paths.insert(p.lexically_relative(baseDir).string());
+				}
+				else if (p.extension() == ".tmp")
+				{
+					auto fn(p.filename());
+					fn.replace_extension();
+					if (fn.extension() == ".dcc")
+					{
+						tmpFiles.push_back(p);
+					}
+				}
+			});
+	}
+}
 
 namespace Config
 {
@@ -19,37 +54,18 @@ namespace Config
 			{
 				EnumSetting::getDefaultValueStrings();
 				std::set<std::string> paths;
+				std::vector<std::wstring> tmpFiles;
 				const auto& baseDirs = D3dDdi::MetaShader::getBaseDirs();
 				for (const auto& baseDir : baseDirs)
 				{
-					std::error_code ec;
-					auto iter = std::filesystem::recursive_directory_iterator(baseDir, ec);
-					if (ec)
-					{
-						continue;
-					}
-
-					for (auto p = std::filesystem::begin(iter); p != std::filesystem::end(iter); p.increment(ec))
-					{
-						if (p->is_directory(ec))
-						{
-							continue;
-						}
-						if (p->path().extension() == ".cgp")
-						{
-							paths.insert(p->path().lexically_relative(baseDir).string());
-						}
-						else if (p->path().extension() == ".tmp")
-						{
-							auto fn(p->path().filename());
-							fn.replace_extension();
-							if (fn.extension() == ".dcc")
-							{
-								DeleteFileW(p->path().c_str());
-							}
-						}
-					}
+					enumPath(paths, tmpFiles, baseDir, baseDir);
 				}
+
+				for (const auto& tmpFile : tmpFiles)
+				{
+					DeleteFileW(tmpFile.c_str());
+				}
+
 				m_defaultValueStrings.insert(m_defaultValueStrings.end(), paths.begin(), paths.end());
 			}
 

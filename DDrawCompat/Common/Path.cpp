@@ -3,6 +3,27 @@
 
 namespace Compat
 {
+	void forEachFile(const std::wstring& path, std::function<void(const WIN32_FIND_DATAW&)> callback)
+	{
+		WIN32_FIND_DATAW fd = {};
+		HANDLE find = FindFirstFileW((path).c_str(), &fd);
+		if (INVALID_HANDLE_VALUE == find)
+		{
+			return;
+		}
+
+		do
+		{
+			if (0 != wcscmp(fd.cFileName, L".") &&
+				0 != wcscmp(fd.cFileName, L".."))
+			{
+				callback(fd);
+			}
+		} while (FindNextFileW(find, &fd));
+
+		FindClose(find);
+	}
+
 	std::filesystem::path getEnvPath(const char* envVar)
 	{
 		return Dll::getEnvVar(envVar);

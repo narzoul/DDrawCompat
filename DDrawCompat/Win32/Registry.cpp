@@ -123,31 +123,23 @@ namespace
 			{ L"ir50_32.dll", L"ir50_32original.dll", sxsPath / "x86_microsoft-windows-indeo5-codecs_" }
 		} };
 
-		std::error_code ec;
-		auto iter = std::filesystem::directory_iterator(sxsPath, ec);
-		if (ec)
-		{
-			return {};
-		}
-
 		std::map<const wchar_t*, std::wstring> codecs;
-		for (auto p = std::filesystem::begin(iter); p != std::filesystem::end(iter); p.increment(ec))
+		for (const auto& codec : sxsCodecs)
 		{
-			if (!p->is_directory(ec))
-			{
-				continue;
-			}
-
-			for (const auto& codec : sxsCodecs)
-			{
-				if (Compat::isPrefix(codec.pathPrefix, p->path()) &&
-					std::filesystem::is_regular_file(p->path() / codec.replacementModuleName, ec))
+			Compat::forEachFile(codec.pathPrefix.native() + L'*', [&](const WIN32_FIND_DATAW& fd)
 				{
-					const auto replacement(p->path() / codec.replacementModuleName);
-					codecs[codec.origModuleName] = replacement;
-					LOG_DEBUG << codec.origModuleName << " -> " << replacement.string();
-				}
-			}
+					if (!(fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY))
+					{
+						return;
+					}
+
+					const std::filesystem::path p(sxsPath / fd.cFileName / codec.replacementModuleName);
+					if (INVALID_FILE_ATTRIBUTES != GetFileAttributesW(p.native().c_str()))
+					{
+						codecs[codec.origModuleName] = p;
+						LOG_DEBUG << codec.origModuleName << " -> " << p.string();
+					}
+				});
 		}
 		return codecs;
 	}
@@ -177,8 +169,7 @@ namespace
 			return it->second.c_str();
 		}
 
-		std::error_code ec;
-		if (!std::filesystem::is_regular_file(Compat::getSystemPath() / codec, ec))
+		if (INVALID_FILE_ATTRIBUTES == GetFileAttributesW((Compat::getSystemPath() / codec).native().c_str()))
 		{
 			static std::map<const wchar_t*, std::wstring> sxsCodecs = enumCodecs();
 			it = sxsCodecs.find(codec);
