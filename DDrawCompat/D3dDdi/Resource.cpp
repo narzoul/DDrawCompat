@@ -14,7 +14,6 @@
 #include <D3dDdi/Device.h>
 #include <D3dDdi/Log/DeviceFuncsLog.h>
 #include <D3dDdi/Resource.h>
-#include <D3dDdi/ScopedCriticalSection.h>
 #include <D3dDdi/SurfaceRepository.h>
 #include <DDraw/Blitter.h>
 #include <DDraw/RealPrimarySurface.h>
@@ -194,11 +193,8 @@ namespace D3dDdi
 			return S_OK;
 		}
 
-		if (m_lockResource)
-		{
-			m_isPaletteResolvedSurfaceUpToDate[data.DstSubResourceIndex] = false;
-			m_isColorKeyedSurfaceUpToDate[data.DstSubResourceIndex] = false;
-		}
+		m_isPaletteResolvedSurfaceUpToDate[data.DstSubResourceIndex] = false;
+		m_isColorKeyedSurfaceUpToDate[data.DstSubResourceIndex] = false;
 
 		auto srcResource = m_device.getResource(data.hSrcResource);
 		if (!srcResource)
@@ -466,11 +462,11 @@ namespace D3dDdi
 			return S_OK;
 		}
 
+		m_isPaletteResolvedSurfaceUpToDate[data.SubResourceIndex] = false;
+		m_isColorKeyedSurfaceUpToDate[data.SubResourceIndex] = false;
+
 		if (m_lockResource)
 		{
-			m_isPaletteResolvedSurfaceUpToDate[data.SubResourceIndex] = false;
-			m_isColorKeyedSurfaceUpToDate[data.SubResourceIndex] = false;
-
 			auto& lockData = m_lockData[data.SubResourceIndex];
 			if (lockData.isSysMemUpToDate && !lockData.isVidMemUpToDate)
 			{
@@ -1239,12 +1235,9 @@ namespace D3dDdi
 
 	void Resource::prepareForGpuWriteAll()
 	{
-		if (m_lockResource)
+		for (UINT i = 0; i < m_fixedData.SurfCount; ++i)
 		{
-			for (UINT i = 0; i < m_lockData.size(); ++i)
-			{
-				prepareForGpuWrite(i);
-			}
+			prepareForGpuWrite(i);
 		}
 	}
 
