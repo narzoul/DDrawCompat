@@ -103,7 +103,7 @@ namespace DDraw
 
 		if (g_primarySurface)
 		{
-			LOG_INFO << "WARNING: Multiple primary surfaces are not supported";
+			LOG_ONCE("WARNING: Multiple primary surfaces are not supported");
 		}
 
 		g_deviceName = deviceName;
