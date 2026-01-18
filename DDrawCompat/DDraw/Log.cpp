@@ -11,9 +11,6 @@ std::ostream& operator<<(std::ostream& os, const DDBLTFX& fx)
 		<< Compat::hex(fx.dwDDROP)
 		<< fx.dwRotationAngle
 		<< Compat::hex(fx.dwFillColor)
-		<< fx.dwFillDepth
-		<< Compat::hex(fx.dwFillPixel)
-		<< fx.lpDDSPattern
 		<< fx.ddckDestColorkey
 		<< fx.ddckSrcColorkey;
 }

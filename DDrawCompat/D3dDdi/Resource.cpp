@@ -457,7 +457,8 @@ namespace D3dDdi
 	{
 		LOG_FUNC("Resource::colorFill", data);
 		clipRect(data.SubResourceIndex, data.DstRect);
-		if (data.DstRect.left >= data.DstRect.right || data.DstRect.top >= data.DstRect.bottom)
+		if (data.DstRect.left >= data.DstRect.right || data.DstRect.top >= data.DstRect.bottom ||
+			MAKEFOURCC('Y', 'U', 'Y', '2') == m_fixedData.Format || MAKEFOURCC('U', 'Y', 'V', 'Y') == m_fixedData.Format)
 		{
 			return S_OK;
 		}
