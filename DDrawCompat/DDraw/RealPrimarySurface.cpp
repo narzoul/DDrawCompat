@@ -52,6 +52,7 @@ namespace
 
 	bool g_isFullscreen = false;
 	bool g_isExclusiveFullscreen = false;
+	bool g_suppressLost = false;
 	DDraw::Surface* g_lastFlipSurface = nullptr;
 	DDraw::TagSurface* g_tagSurface = nullptr;
 
@@ -692,7 +693,7 @@ namespace DDraw
 	bool RealPrimarySurface::isLost()
 	{
 		DDraw::ScopedThreadLock lock;
-		return g_frontBuffer && DDERR_SURFACELOST == g_frontBuffer->IsLost(g_frontBuffer);
+		return g_frontBuffer && !g_suppressLost && DDERR_SURFACELOST == g_frontBuffer->IsLost(g_frontBuffer);
 	}
 
 	bool RealPrimarySurface::isProcessActive()
@@ -801,6 +802,11 @@ namespace DDraw
 		{
 			g_isUpdateReady = true;
 		}
+	}
+
+	void RealPrimarySurface::suppressLost(bool suppress)
+	{
+		g_suppressLost = suppress;
 	}
 
 	void RealPrimarySurface::updateFpsLimiter()

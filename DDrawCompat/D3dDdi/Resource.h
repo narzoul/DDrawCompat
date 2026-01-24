@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 
+#include <ddraw.h>
 #include <d3d.h>
 #include <d3dumddi.h>
 
@@ -111,7 +112,7 @@ namespace D3dDdi
 		HRESULT copySubResource(HANDLE dstResource, HANDLE srcResource, UINT subResourceIndex);
 		HRESULT copySubResourceRegion(HANDLE dst, UINT dstIndex, const RECT& dstRect,
 			HANDLE src, UINT srcIndex, const RECT& srcRect);
-		void createGdiLockResource();
+		void createGdiLockResource(const DDSURFACEDESC2& gdiSurfaceDesc);
 		void createLockResource();
 		void createSysMemResource(const std::vector<D3DDDI_SURFACEINFO>& surfaceInfo);
 		void fixResourceData();

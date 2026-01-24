@@ -33,6 +33,7 @@ namespace DDraw
 		static HRESULT setGammaRamp(DDGAMMARAMP* rampData);
 		static void setPresentationWindowTopmost();
 		static void setUpdateReady();
+		static void suppressLost(bool suppress);
 		static void updateFpsLimiter();
 		static void waitForFlip(CompatWeakPtr<IDirectDrawSurface7> surface);
 		static void waitForFlipFpsLimit(unsigned fpsLimit, bool doFlush = true);

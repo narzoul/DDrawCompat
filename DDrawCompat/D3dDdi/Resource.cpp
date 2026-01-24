@@ -530,14 +530,9 @@ namespace D3dDdi
 		return result;
 	}
 
-	void Resource::createGdiLockResource()
+	void Resource::createGdiLockResource(const DDSURFACEDESC2& gdiSurfaceDesc)
 	{
-		LOG_FUNC("Resource::createGdiLockResource");
-		auto gdiSurfaceDesc(Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorInfo().rcEmulated));
-		if (!gdiSurfaceDesc.lpSurface)
-		{
-			return;
-		}
+		LOG_FUNC("Resource::createGdiLockResource", gdiSurfaceDesc);
 
 		D3DDDI_SURFACEINFO surfaceInfo = {};
 		surfaceInfo.Width = gdiSurfaceDesc.dwWidth;
@@ -547,12 +542,7 @@ namespace D3dDdi
 
 		m_lockData.resize(m_fixedData.SurfCount);
 		createSysMemResource({ surfaceInfo });
-		if (m_lockResource)
-		{
-			clearUpToDateFlags(0);
-			m_lockData[0].isSysMemUpToDate = true;
-		}
-		else
+		if (!m_lockResource)
 		{
 			m_lockData.clear();
 		}
@@ -1514,22 +1504,43 @@ namespace D3dDdi
 
 	void Resource::setAsGdiResource(bool isGdiResource)
 	{
-		if (!Config::gdiInterops.anyRedirects())
+		DDSURFACEDESC2 gdiSurfaceDesc = {};
+		if (isGdiResource)
 		{
-			return;
+			gdiSurfaceDesc = Gdi::VirtualScreen::getSurfaceDesc(DDraw::PrimarySurface::getMonitorInfo().rcEmulated);
+			if (!gdiSurfaceDesc.lpSurface)
+			{
+				return;
+			}
 		}
 
 		m_device.flushPrimitives();
+
+		const auto lockData = m_lockData;
+		if (m_lockResource && m_lockData[0].isSysMemUpToDate)
+		{
+			loadVidMemResource(0);
+		}
+
 		m_lockResource.reset();
 		m_lockData.clear();
 		m_lockBuffer.reset();
 		if (isGdiResource)
 		{
-			createGdiLockResource();
+			createGdiLockResource(gdiSurfaceDesc);
 		}
 		else
 		{
 			createLockResource();
+		}
+
+		if (m_lockResource && !lockData.empty())
+		{
+			m_lockData[0].isMsaaUpToDate = lockData[0].isMsaaUpToDate;
+			m_lockData[0].isMsaaResolvedUpToDate = lockData[0].isMsaaResolvedUpToDate;
+			m_lockData[0].isVidMemUpToDate = lockData[0].isVidMemUpToDate;
+			m_lockData[0].isSysMemUpToDate = false;
+			m_lockData[0].isRefLocked = lockData[0].isRefLocked;
 		}
 	}
 

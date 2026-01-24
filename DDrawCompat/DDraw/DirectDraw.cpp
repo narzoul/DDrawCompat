@@ -258,7 +258,7 @@ namespace
 		DDraw::Surface::enumSurfaces([&](const DDraw::Surface& surface)
 			{
 				auto lcl = DDraw::DirectDrawSurface::getInt(*surface.getDDS()).lpLcl;
-				if (!(lcl->dwFlags & DDRAWISURF_INVALID) &&
+				if (!(lcl->dwFlags & DDRAWISURF_INVALID) && !(lcl->ddsCaps.dwCaps & DDSCAPS_SYSTEMMEMORY) &&
 					(keepPrimary || !surface.isPrimary()))
 				{
 					lcl->dwFlags |= DDRAWISURF_INVALID;
@@ -266,9 +266,15 @@ namespace
 				}
 			});
 
+		if (!wParam && keepPrimary)
+		{
+			DDraw::RealPrimarySurface::suppressLost(true);
+		}
+
 		LRESULT result = 0;
 		if (ignoreDdWndProc)
 		{
+			if (!wParam)
 			{
 				Win32::DisplayMode::incDisplaySettingsUniqueness();
 				DDraw::ScopedThreadLock invalidateRealPrimary;
@@ -329,6 +335,7 @@ namespace
 					D3dDdi::Device::setGdiResourceHandle(gdiResource);
 				}
 			}
+			DDraw::RealPrimarySurface::suppressLost(false);
 		}
 
 		return LOG_RESULT(result);
